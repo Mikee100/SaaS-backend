@@ -9,45 +9,44 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserService = void 0;
+exports.InventoryService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
-const bcrypt = require("bcrypt");
-let UserService = class UserService {
+let InventoryService = class InventoryService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async createUser(data) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-        return this.prisma.user.create({
+    async findAllByTenant(tenantId) {
+        return this.prisma.inventory.findMany({
+            where: { tenantId },
+            include: { product: true },
+            orderBy: { updatedAt: 'desc' },
+        });
+    }
+    async createInventory(dto, tenantId) {
+        return this.prisma.inventory.create({
             data: {
-                ...data,
-                password: hashedPassword,
+                ...dto,
+                tenantId,
             },
         });
     }
-    async findByEmail(email) {
-        return this.prisma.user.findUnique({ where: { email } });
-    }
-    async findAllByTenant(tenantId) {
-        return this.prisma.user.findMany({ where: { tenantId } });
-    }
-    async updateUser(id, data, tenantId) {
-        return this.prisma.user.updateMany({
+    async updateInventory(id, dto, tenantId) {
+        return this.prisma.inventory.updateMany({
             where: { id, tenantId },
-            data,
+            data: dto,
         });
     }
-    async deleteUser(id, tenantId) {
-        return this.prisma.user.deleteMany({
+    async deleteInventory(id, tenantId) {
+        return this.prisma.inventory.deleteMany({
             where: { id, tenantId },
         });
     }
 };
-exports.UserService = UserService;
-exports.UserService = UserService = __decorate([
+exports.InventoryService = InventoryService;
+exports.InventoryService = InventoryService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
-], UserService);
-//# sourceMappingURL=user.service.js.map
+], InventoryService);
+//# sourceMappingURL=inventory.service.js.map

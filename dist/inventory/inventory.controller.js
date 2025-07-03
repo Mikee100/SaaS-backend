@@ -12,55 +12,54 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserController = void 0;
+exports.InventoryController = void 0;
 const common_1 = require("@nestjs/common");
-const user_service_1 = require("./user.service");
+const inventory_service_1 = require("./inventory.service");
+const create_inventory_dto_1 = require("./create-inventory.dto");
+const update_inventory_dto_1 = require("./update-inventory.dto");
 const roles_decorator_1 = require("../auth/roles.decorator");
-let UserController = class UserController {
-    userService;
-    constructor(userService) {
-        this.userService = userService;
+let InventoryController = class InventoryController {
+    inventoryService;
+    constructor(inventoryService) {
+        this.inventoryService = inventoryService;
     }
-    async createUser(body) {
-        return this.userService.createUser(body);
-    }
-    async getUsers(tenantId) {
-        return this.userService.findAllByTenant(tenantId);
-    }
-    getProtected(req) {
-        return { message: 'You are authenticated!', user: req.user };
-    }
-    async updateUser(req, id, body) {
+    async findAll(req) {
         const tenantId = req.user.tenantId;
-        return this.userService.updateUser(id, body, tenantId);
+        return this.inventoryService.findAllByTenant(tenantId);
     }
-    async deleteUser(req, id) {
+    async create(req, dto) {
+        console.log('req.user (POST /inventory):', req.user);
         const tenantId = req.user.tenantId;
-        return this.userService.deleteUser(id, tenantId);
+        return this.inventoryService.createInventory(dto, tenantId);
+    }
+    async update(req, id, dto) {
+        console.log('req.user (PUT /inventory/:id):', req.user);
+        const tenantId = req.user.tenantId;
+        return this.inventoryService.updateInventory(id, dto, tenantId);
+    }
+    async remove(req, id) {
+        console.log('req.user (DELETE /inventory/:id):', req.user);
+        const tenantId = req.user.tenantId;
+        return this.inventoryService.deleteInventory(id, tenantId);
     }
 };
-exports.UserController = UserController;
-__decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "createUser", null);
+exports.InventoryController = InventoryController;
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('tenantId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getUsers", null);
-__decorate([
-    (0, common_1.Get)('protected'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], UserController.prototype, "getProtected", null);
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Post)(),
+    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, create_inventory_dto_1.CreateInventoryDto]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, roles_decorator_1.Roles)('owner', 'manager'),
@@ -68,9 +67,9 @@ __decorate([
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:paramtypes", [Object, String, update_inventory_dto_1.UpdateInventoryDto]),
     __metadata("design:returntype", Promise)
-], UserController.prototype, "updateUser", null);
+], InventoryController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('owner', 'manager'),
@@ -79,9 +78,9 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
-], UserController.prototype, "deleteUser", null);
-exports.UserController = UserController = __decorate([
-    (0, common_1.Controller)('user'),
-    __metadata("design:paramtypes", [user_service_1.UserService])
-], UserController);
-//# sourceMappingURL=user.controller.js.map
+], InventoryController.prototype, "remove", null);
+exports.InventoryController = InventoryController = __decorate([
+    (0, common_1.Controller)('inventory'),
+    __metadata("design:paramtypes", [inventory_service_1.InventoryService])
+], InventoryController);
+//# sourceMappingURL=inventory.controller.js.map

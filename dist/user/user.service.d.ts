@@ -38,4 +38,9 @@ export declare class UserService {
         role: string;
         tenantId: string;
     }[]>;
+    updateUser(id: string, data: {
+        name?: string;
+        role?: string;
+    }, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    deleteUser(id: string, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

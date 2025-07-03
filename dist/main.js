@@ -6,7 +6,12 @@ const roles_guard_1 = require("./auth/roles.guard");
 const core_2 = require("@nestjs/core");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
-    app.useGlobalGuards(new roles_guard_1.RolesGuard(new core_2.Reflector()));
+    const reflector = app.get(core_2.Reflector);
+    app.useGlobalGuards(new roles_guard_1.RolesGuard(reflector));
+    app.enableCors({
+        origin: 'http://localhost:3000',
+        credentials: true,
+    });
     await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

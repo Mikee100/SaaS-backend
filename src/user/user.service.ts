@@ -23,4 +23,17 @@ export class UserService {
   async findAllByTenant(tenantId: string) {
     return this.prisma.user.findMany({ where: { tenantId } });
   }
+
+  async updateUser(id: string, data: { name?: string; role?: string }, tenantId: string) {
+    return this.prisma.user.updateMany({
+      where: { id, tenantId },
+      data,
+    });
+  }
+
+  async deleteUser(id: string, tenantId: string) {
+    return this.prisma.user.deleteMany({
+      where: { id, tenantId },
+    });
+  }
 }

@@ -48,6 +48,7 @@ model Product {
   sku         String   @unique
   price       Float
   description String?
+  stock       Int      @default(0)
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   inventory   Inventory[]

@@ -9,45 +9,38 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserService = void 0;
+exports.ProductService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
-const bcrypt = require("bcrypt");
-let UserService = class UserService {
+let ProductService = class ProductService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async createUser(data) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-        return this.prisma.user.create({
-            data: {
-                ...data,
-                password: hashedPassword,
-            },
+    async findAllByTenant(tenantId) {
+        return this.prisma.product.findMany({
+            where: { tenantId },
+            orderBy: { createdAt: 'desc' },
         });
     }
-    async findByEmail(email) {
-        return this.prisma.user.findUnique({ where: { email } });
+    async createProduct(data) {
+        return this.prisma.product.create({ data });
     }
-    async findAllByTenant(tenantId) {
-        return this.prisma.user.findMany({ where: { tenantId } });
-    }
-    async updateUser(id, data, tenantId) {
-        return this.prisma.user.updateMany({
+    async updateProduct(id, data, tenantId) {
+        return this.prisma.product.updateMany({
             where: { id, tenantId },
             data,
         });
     }
-    async deleteUser(id, tenantId) {
-        return this.prisma.user.deleteMany({
+    async deleteProduct(id, tenantId) {
+        return this.prisma.product.deleteMany({
             where: { id, tenantId },
         });
     }
 };
-exports.UserService = UserService;
-exports.UserService = UserService = __decorate([
+exports.ProductService = ProductService;
+exports.ProductService = ProductService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
-], UserService);
-//# sourceMappingURL=user.service.js.map
+], ProductService);
+//# sourceMappingURL=product.service.js.map
