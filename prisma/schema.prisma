@@ -40,21 +40,23 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   sales      Sale[]
+  mpesaTransactions MpesaTransaction[]
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  name        String
-  sku         String   @unique
-  price       Float
-  description String?
-  stock       Int      @default(0)
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  inventory   Inventory[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  saleItems   SaleItem[]
+  id           String   @id @default(uuid())
+  name         String
+  sku          String
+  price        Float
+  description  String?
+  stock        Int      @default(0)
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  inventory    Inventory[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  saleItems    SaleItem[]
+  customFields Json?
 }
 
 model Inventory {
@@ -69,15 +71,19 @@ model Inventory {
 }
 
 model Sale {
-  id        String     @id @default(uuid())
-  tenantId  String
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  total     Float
-  paymentType String
-  items     SaleItem[]
-  createdAt DateTime   @default(now())
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  total        Float
+  paymentType  String
+  items        SaleItem[]
+  createdAt    DateTime   @default(now())
+  customerName String?
+  customerPhone String?
+  mpesaTransactionId String? @unique
+  mpesaTransaction   MpesaTransaction? @relation(fields: [mpesaTransactionId], references: [id])
 }
 
 model SaleItem {
@@ -104,4 +110,22 @@ model TenantModule {
   enabled   Boolean  @default(true)
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   module    Module   @relation(fields: [moduleId], references: [id])
+}
+
+model MpesaTransaction {
+  id             String   @id @default(uuid())
+  userId         String?  // Optional: link to User if available
+  user           User?    @relation(fields: [userId], references: [id])
+  phoneNumber    String
+  amount         Float
+  status         String   // e.g., 'pending', 'success', 'failed'
+  mpesaReceipt   String?  // M-Pesa transaction ID (MpesaReceiptNumber)
+  merchantRequestId String?
+  checkoutRequestId String?
+  responseCode   String?
+  responseDesc   String?
+  message        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  sale Sale? @relation
 }

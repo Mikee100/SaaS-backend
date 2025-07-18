@@ -10,23 +10,23 @@ export declare class UserController {
         tenantId: string;
     }): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
-        role: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        tenantId: string;
     }>;
     getUsers(tenantId: string): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
-        role: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        tenantId: string;
     }[]>;
     getProtected(req: any): {
         message: string;

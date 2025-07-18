@@ -6,10 +6,12 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ProductModule } from './product/product.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { SalesModule } from './sales/sales.module';
+import { MpesaModule } from './mpesa.module';
 
 
 @Module({
-  imports: [TenantModule, UserModule, AuthModule, ProductModule, InventoryModule],
+  imports: [TenantModule, UserModule, AuthModule, ProductModule, InventoryModule, SalesModule, MpesaModule],
   controllers: [AppController],
   providers: [AppService],
 })

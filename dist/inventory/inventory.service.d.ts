@@ -15,6 +15,7 @@ export declare class InventoryService {
             price: number;
             description: string | null;
             stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;

@@ -16,6 +16,8 @@ exports.ProductController = void 0;
 const common_1 = require("@nestjs/common");
 const product_service_1 = require("./product.service");
 const passport_1 = require("@nestjs/passport");
+const platform_express_1 = require("@nestjs/platform-express");
+const roles_decorator_1 = require("../auth/roles.decorator");
 let ProductController = class ProductController {
     productService;
     constructor(productService) {
@@ -29,6 +31,18 @@ let ProductController = class ProductController {
             ...body,
             tenantId: req.user.tenantId,
         });
+    }
+    async bulkUpload(file, req) {
+        return this.productService.bulkUpload(file, req.user);
+    }
+    async getBulkUploadProgress(uploadId) {
+        return product_service_1.ProductService.getBulkUploadProgress(uploadId);
+    }
+    async randomizeStocks(req) {
+        return this.productService.randomizeAllStocks(req.user.tenantId);
+    }
+    async clearAll(req) {
+        return this.productService.clearAll(req.user.tenantId);
     }
     async update(id, body, req) {
         return this.productService.updateProduct(id, body, req.user.tenantId);
@@ -53,6 +67,37 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('bulk-upload'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "bulkUpload", null);
+__decorate([
+    (0, common_1.Get)('bulk-upload-progress/:uploadId'),
+    __param(0, (0, common_1.Param)('uploadId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getBulkUploadProgress", null);
+__decorate([
+    (0, common_1.Post)('randomize-stocks'),
+    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "randomizeStocks", null);
+__decorate([
+    (0, common_1.Delete)('clear-all'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "clearAll", null);
 __decorate([
     (0, common_1.Put)(':id'),
     __param(0, (0, common_1.Param)('id')),
