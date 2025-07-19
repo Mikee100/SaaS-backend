@@ -20,6 +20,11 @@ model Tenant {
   businessType  String
   contactEmail  String
   contactPhone  String?
+  address       String?      // NEW
+  currency      String?      // NEW
+  timezone      String?      // NEW
+  invoiceFooter String?      // NEW
+  logoUrl       String?      // NEW
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   users         User[]
@@ -30,17 +35,36 @@ model Tenant {
 }
 
 model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  password   String
-  name       String
-  role       String   // e.g., 'owner', 'manager', 'cashier'
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  sales      Sale[]
+  id           String           @id @default(uuid())
+  email        String           @unique
+  password     String
+  name         String
+  role         String           // e.g., 'owner', 'manager', 'cashier'
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  sales        Sale[]
   mpesaTransactions MpesaTransaction[]
+  permissions  UserPermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  description String?
+  users       UserPermission[]
+}
+
+model UserPermission {
+  id           String   @id @default(uuid())
+  userId       String
+  permissionId String
+  grantedBy    String?    // NEW: who granted this permission
+  grantedAt    DateTime?  // NEW: when was it granted
+  note         String?    // NEW: optional note
+  user         User     @relation(fields: [userId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
 }
 
 model Product {
@@ -127,5 +151,6 @@ model MpesaTransaction {
   message        String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  sale Sale? @relation
+  sale           Sale?    @relation
+  saleData        Json?    // Store pending sale/cart data for later use
 }

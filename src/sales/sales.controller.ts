@@ -18,4 +18,10 @@ export class SalesController {
   async listSales(@Req() req) {
     return this.salesService.listSales(req.user.tenantId);
   }
+
+  @Get('analytics')
+  async getAnalytics(@Req() req) {
+    // Call a new service method to get analytics for the tenant
+    return this.salesService.getAnalytics(req.user.tenantId);
+  }
 } 

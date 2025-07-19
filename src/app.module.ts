@@ -8,11 +8,13 @@ import { ProductModule } from './product/product.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { SalesModule } from './sales/sales.module';
 import { MpesaModule } from './mpesa.module';
+import { PermissionController } from './permission/permission.controller';
+import { PrismaModule } from './prisma.module';
 
 
 @Module({
-  imports: [TenantModule, UserModule, AuthModule, ProductModule, InventoryModule, SalesModule, MpesaModule],
-  controllers: [AppController],
+  imports: [PrismaModule, TenantModule, UserModule, AuthModule, ProductModule, InventoryModule, SalesModule, MpesaModule],
+  controllers: [AppController, PermissionController],
   providers: [AppService],
 })
 export class AppModule {}

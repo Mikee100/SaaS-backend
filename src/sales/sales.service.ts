@@ -101,4 +101,52 @@ export class SalesService {
       })),
     }));
   }
+
+  async getAnalytics(tenantId: string) {
+    // Total sales and revenue
+    const sales = await this.prisma.sale.findMany({
+      where: { tenantId },
+      include: { items: true },
+    });
+    const totalSales = sales.length;
+    const totalRevenue = sales.reduce((sum, s) => sum + s.total, 0);
+
+    // Top products
+    const productStats: Record<string, { name: string; unitsSold: number; revenue: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
+        if (!product) continue;
+        if (!productStats[product.id]) {
+          productStats[product.id] = { name: product.name, unitsSold: 0, revenue: 0 };
+        }
+        productStats[product.id].unitsSold += item.quantity;
+        productStats[product.id].revenue += item.price * item.quantity;
+      }
+    }
+    const topProducts = Object.entries(productStats)
+      .map(([id, stat]) => ({ id, ...stat }))
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, 5);
+
+    // Low stock products
+    const lowStock = await this.prisma.product.findMany({
+      where: { tenantId, stock: { lt: 5 } },
+      select: { id: true, name: true, stock: true },
+    });
+
+    // Payment method breakdown
+    const paymentBreakdown: Record<string, number> = {};
+    for (const sale of sales) {
+      paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+    }
+
+    return {
+      totalSales,
+      totalRevenue,
+      topProducts,
+      lowStock,
+      paymentBreakdown,
+    };
+  }
 } 

@@ -2,14 +2,20 @@ import { Controller, Post, Body, Res, Req, Get, Param } from '@nestjs/common';
 import axios from 'axios';
 import { Response, Request } from 'express';
 import { MpesaService } from './mpesa.service';
+import { SalesService } from './sales/sales.service';
+import { PrismaService } from './prisma.service';
 
 @Controller('mpesa')
 export class MpesaController {
-  constructor(private mpesaService: MpesaService) {}
+  constructor(
+    private mpesaService: MpesaService,
+    private salesService: SalesService,
+    private prisma: PrismaService,
+  ) {}
 
   @Post()
   async initiateMpesa(@Body() body: any, @Req() req: Request, @Res() res: Response) {
-    let { phoneNumber, amount } = body;
+    let { phoneNumber, amount, saleData } = body;
     amount = parseFloat(amount);
     if (isNaN(amount) || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount. Must be a positive number.' });
@@ -83,6 +89,7 @@ export class MpesaController {
         merchantRequestId: stkResponse.data.MerchantRequestID,
         checkoutRequestId: stkResponse.data.CheckoutRequestID,
         message: stkResponse.data.ResponseDescription,
+        saleData: saleData || null, // Store sale/cart data if provided
       });
       return res.status(200).json({
         success: true,
@@ -132,20 +139,30 @@ export class MpesaController {
       });
       // Create Sale if payment is successful and no Sale exists
       if (status === 'success') {
-        const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findUnique({ where: { checkoutRequestId }, include: { sale: true } });
-        if (mpesaTx && !mpesaTx.sale) {
-          // TODO: Replace these placeholder values with real sale data from your business logic or frontend
-          await this.mpesaService.prisma.sale.create({
-            data: {
-              tenantId: 'REPLACE_WITH_TENANT_ID', // TODO
-              userId: mpesaTx.userId || 'REPLACE_WITH_USER_ID', // TODO
-              total: mpesaTx.amount,
-              paymentType: 'mpesa',
-              createdAt: new Date(),
+        const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
+          where: { checkoutRequestId },
+          include: { sale: true }
+        }) as any;
+        if (mpesaTx && !mpesaTx.sale && mpesaTx.saleData) {
+          const saleData = mpesaTx.saleData;
+          // Use SalesService to handle inventory and sale creation
+          try {
+            await this.salesService.createSale({
+              items: saleData.items,
+              paymentMethod: 'mpesa',
+              amountReceived: mpesaTx.amount,
+              customerName: saleData.customerName,
+              customerPhone: saleData.customerPhone,
               mpesaTransactionId: mpesaTx.id,
-              items: { create: [] }, // TODO: Add real sale items
-            }
-          });
+            }, saleData.tenantId, saleData.userId);
+          } catch (err) {
+            // If inventory is insufficient, mark transaction as failed
+            await this.mpesaService.updateTransaction(checkoutRequestId, {
+              status: 'stock_unavailable',
+              message: 'Stock unavailable for one or more items',
+            });
+            return res.status(409).json({ error: 'Stock unavailable for one or more items' });
+          }
         }
       }
       return res.status(200).json({ received: true });
@@ -156,6 +173,6 @@ export class MpesaController {
 
   @Get('by-checkout-id/:checkoutRequestId')
   async getByCheckoutId(@Param('checkoutRequestId') checkoutRequestId: string) {
-    return this.mpesaService.prisma.mpesaTransaction.findUnique({ where: { checkoutRequestId } });
+    return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestId } });
   }
 } 

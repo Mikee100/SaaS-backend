@@ -13,6 +13,7 @@ export class MpesaService {
     merchantRequestId?: string;
     checkoutRequestId?: string;
     message?: string;
+    saleData?: any;
   }) {
     return this.prisma.mpesaTransaction.create({ data });
   }

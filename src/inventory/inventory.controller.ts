@@ -4,7 +4,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { CreateInventoryDto } from './create-inventory.dto';
 import { UpdateInventoryDto } from './update-inventory.dto';
 import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Controller('inventory')
 
 export class InventoryController {
