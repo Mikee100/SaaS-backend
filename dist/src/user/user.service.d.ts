@@ -13,38 +13,47 @@ export declare class UserService {
     }, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     }>;
     findByEmail(email: string): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     } | null>;
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     }[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -71,14 +80,17 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     }) | null>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     getUserPermissions(userId: string): Promise<({
@@ -98,25 +110,50 @@ export declare class UserService {
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
+    }>;
+    updateUserPreferences(userId: string, data: {
+        notificationPreferences?: any;
+        language?: string;
+        region?: string;
+    }): Promise<{
+        id: string;
+        name: string;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         password: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     }>;
 }

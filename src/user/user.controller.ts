@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
@@ -24,6 +24,17 @@ export class UserController {
     return { message: 'You are authenticated!', user: req.user };
   }
 
+  @Get('me')
+  async getMe(@Req() req) {
+    const user = await this.userService.findByEmail(req.user.email);
+    if (!user) throw new NotFoundException('User not found');
+    const permissions = await this.userService.getUserPermissions(user.id);
+    return {
+      ...user,
+      permissions: permissions.map(p => ({ key: p.permission.key }))
+    };
+  }
+
   @Put(':id')
   @Roles('owner', 'manager')
   async updateUser(@Req() req, @Param('id') id: string, @Body() body: { name?: string; role?: string }) {
@@ -45,6 +56,11 @@ export class UserController {
       throw new ForbiddenException('Not allowed');
     }
     return this.userService.getUserPermissions(id);
+  }
+
+  @Put('me/preferences')
+  async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {
+    return this.userService.updateUserPreferences(req.user.userId, body);
   }
 
   @Delete(':id')

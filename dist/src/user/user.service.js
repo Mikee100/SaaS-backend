@@ -97,6 +97,12 @@ let UserService = class UserService {
             data,
         });
     }
+    async updateUserPreferences(userId, data) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data,
+        });
+    }
     async resetPassword(token, newPassword) {
         const user = await this.prisma.user.findFirst({
             where: {

@@ -12,10 +12,24 @@ import { PermissionController } from './permission/permission.controller';
 import { PrismaModule } from './prisma.module';
 import { AuditLogService } from './audit-log.service';
 import { AuditLogController } from './audit-log.controller';
+import { RealtimeGateway } from './realtime.gateway';
+import { RealtimeModule } from './realtime.module';
+// Import BullMQ queue/worker setup (starts background workers)
+import './queue';
 
 
 @Module({
-  imports: [PrismaModule, TenantModule, UserModule, AuthModule, ProductModule, InventoryModule, SalesModule, MpesaModule],
+  imports: [
+    PrismaModule,
+    TenantModule,
+    UserModule,
+    AuthModule,
+    ProductModule,
+    InventoryModule,
+    SalesModule,
+    MpesaModule,
+    RealtimeModule,
+  ],
   controllers: [AppController, PermissionController, AuditLogController],
   providers: [AppService, AuditLogService],
 })

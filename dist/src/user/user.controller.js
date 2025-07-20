@@ -33,6 +33,16 @@ let UserController = class UserController {
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
     }
+    async getMe(req) {
+        const user = await this.userService.findByEmail(req.user.email);
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const permissions = await this.userService.getUserPermissions(user.id);
+        return {
+            ...user,
+            permissions: permissions.map(p => ({ key: p.permission.key }))
+        };
+    }
     async updateUser(req, id, body) {
         if (!['owner', 'manager'].includes(req.user.role))
             throw new common_1.ForbiddenException('Not allowed');
@@ -49,6 +59,9 @@ let UserController = class UserController {
             throw new common_1.ForbiddenException('Not allowed');
         }
         return this.userService.getUserPermissions(id);
+    }
+    async updatePreferences(req, body) {
+        return this.userService.updateUserPreferences(req.user.userId, body);
     }
     async deleteUser(req, id) {
         if (!['owner', 'manager'].includes(req.user.role))
@@ -81,6 +94,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "getProtected", null);
 __decorate([
+    (0, common_1.Get)('me'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getMe", null);
+__decorate([
     (0, common_1.Put)(':id'),
     (0, roles_decorator_1.Roles)('owner', 'manager'),
     __param(0, (0, common_1.Req)()),
@@ -107,6 +127,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUserPermissions", null);
+__decorate([
+    (0, common_1.Put)('me/preferences'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "updatePreferences", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('owner', 'manager'),

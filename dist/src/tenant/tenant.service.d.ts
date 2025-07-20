@@ -12,6 +12,8 @@ export declare class TenantService {
     getTenantById(tenantId: string): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -23,12 +25,12 @@ export declare class TenantService {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
     updateTenant(tenantId: string, dto: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -40,7 +42,5 @@ export declare class TenantService {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
 }

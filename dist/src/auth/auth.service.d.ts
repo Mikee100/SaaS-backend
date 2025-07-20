@@ -9,13 +9,16 @@ export declare class AuthService {
     validateUser(email: string, password: string): Promise<{
         id: string;
         name: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         role: string;
-        tenantId: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
     } | null>;
     login(email: string, password: string, ip?: string): Promise<{
         access_token: string;

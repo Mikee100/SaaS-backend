@@ -14,12 +14,16 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
+const realtime_gateway_1 = require("../realtime.gateway");
+const axios_1 = require("axios");
 let SalesService = class SalesService {
     prisma;
     auditLogService;
-    constructor(prisma, auditLogService) {
+    realtimeGateway;
+    constructor(prisma, auditLogService, realtimeGateway) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
+        this.realtimeGateway = realtimeGateway;
     }
     async createSale(dto, tenantId, userId) {
         if (!dto.idempotencyKey)
@@ -94,6 +98,10 @@ let SalesService = class SalesService {
         });
         if (this.auditLogService) {
             await this.auditLogService.log(userId, 'sale_created', { saleId, items: dto.items, total }, undefined);
+        }
+        this.realtimeGateway.emitSalesUpdate({ saleId, items: dto.items, total });
+        for (const item of dto.items) {
+            this.realtimeGateway.emitInventoryUpdate({ productId: item.productId });
         }
         return {
             saleId,
@@ -183,44 +191,90 @@ let SalesService = class SalesService {
             include: { items: true },
         });
         const totalSales = sales.length;
-        const totalRevenue = sales.reduce((sum, s) => sum + s.total, 0);
-        const productStats = {};
+        const totalRevenue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+        const avgSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+        const salesByProduct = {};
         for (const sale of sales) {
             for (const item of sale.items) {
-                const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
-                if (!product)
-                    continue;
-                if (!productStats[product.id]) {
-                    productStats[product.id] = { name: product.name, unitsSold: 0, revenue: 0 };
+                if (!salesByProduct[item.productId]) {
+                    salesByProduct[item.productId] = { name: item.productId, quantity: 0, revenue: 0 };
                 }
-                productStats[product.id].unitsSold += item.quantity;
-                productStats[product.id].revenue += item.price * item.quantity;
+                salesByProduct[item.productId].quantity += item.quantity;
+                salesByProduct[item.productId].revenue += item.price * item.quantity;
             }
         }
-        const topProducts = Object.entries(productStats)
-            .map(([id, stat]) => ({ id, ...stat }))
-            .sort((a, b) => b.unitsSold - a.unitsSold)
-            .slice(0, 5);
-        const lowStock = await this.prisma.product.findMany({
-            where: { tenantId, stock: { lt: 5 } },
-            select: { id: true, name: true, stock: true },
-        });
-        const paymentBreakdown = {};
+        const salesByMonth = {};
         for (const sale of sales) {
-            paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+            const month = sale.createdAt.toISOString().slice(0, 7);
+            salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+        }
+        const customerMap = {};
+        for (const sale of sales) {
+            const key = (sale.customerName || '-') + (sale.customerPhone || '-');
+            if (!customerMap[key]) {
+                customerMap[key] = {
+                    name: sale.customerName || '-',
+                    phone: sale.customerPhone || '-',
+                    total: 0,
+                    count: 0,
+                };
+            }
+            customerMap[key].total += sale.total || 0;
+            customerMap[key].count += 1;
+            if (!customerMap[key].lastPurchase || new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)) {
+                customerMap[key].lastPurchase = sale.createdAt;
+            }
+        }
+        const topCustomers = Object.values(customerMap)
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 10);
+        const customerInput = Object.values(customerMap).map(c => ({
+            name: c.name,
+            total: c.total,
+            count: c.count,
+            last_purchase: c.lastPurchase || new Date().toISOString(),
+        }));
+        let customerSegments = [];
+        try {
+            if (customerInput.length > 0) {
+                const res = await axios_1.default.post('http://localhost:5001/customer_segments', {
+                    customers: customerInput,
+                });
+                customerSegments = res.data;
+            }
+        }
+        catch (e) {
+        }
+        const months = Object.keys(salesByMonth);
+        const salesValues = Object.values(salesByMonth);
+        let forecast = { forecast_months: [], forecast_sales: [] };
+        try {
+            const res = await axios_1.default.post('http://localhost:5001/forecast', {
+                months,
+                sales: salesValues,
+                periods: 4,
+            });
+            forecast = res.data;
+        }
+        catch (e) {
         }
         return {
             totalSales,
             totalRevenue,
-            topProducts,
-            lowStock,
-            paymentBreakdown,
+            avgSaleValue,
+            salesByProduct,
+            salesByMonth,
+            topCustomers,
+            forecast,
+            customerSegments,
         };
     }
 };
 exports.SalesService = SalesService;
 exports.SalesService = SalesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        audit_log_service_1.AuditLogService,
+        realtime_gateway_1.RealtimeGateway])
 ], SalesService);
 //# sourceMappingURL=sales.service.js.map

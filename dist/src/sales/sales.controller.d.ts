@@ -31,18 +31,25 @@ export declare class SalesController {
     getAnalytics(req: any): Promise<{
         totalSales: number;
         totalRevenue: number;
-        topProducts: {
+        avgSaleValue: number;
+        salesByProduct: Record<string, {
             name: string;
-            unitsSold: number;
+            quantity: number;
             revenue: number;
-            id: string;
-        }[];
-        lowStock: {
-            id: string;
+        }>;
+        salesByMonth: Record<string, number>;
+        topCustomers: {
             name: string;
-            stock: number;
+            phone: string;
+            total: number;
+            count: number;
+            lastPurchase?: Date;
         }[];
-        paymentBreakdown: Record<string, number>;
+        forecast: {
+            forecast_months: never[];
+            forecast_sales: never[];
+        };
+        customerSegments: never[];
     }>;
     getSaleById(id: string, req: any): Promise<{
         saleId: string;

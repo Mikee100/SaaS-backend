@@ -9,27 +9,27 @@ export declare class InventoryController {
             id: string;
             description: string | null;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
             sku: string;
             price: number;
             stock: number;
+            tenantId: string;
+            createdAt: Date;
+            updatedAt: Date;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         productId: string;
         quantity: number;
     })[]>;
     create(req: any, dto: CreateInventoryDto): Promise<{
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         productId: string;
         quantity: number;
     }>;

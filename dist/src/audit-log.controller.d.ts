@@ -6,14 +6,17 @@ export declare class AuditLogController {
         user: {
             id: string;
             name: string;
+            tenantId: string;
             createdAt: Date;
             updatedAt: Date;
             email: string;
             password: string;
             role: string;
-            tenantId: string;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
+            notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+            language: string | null;
+            region: string | null;
         } | null;
     } & {
         id: string;

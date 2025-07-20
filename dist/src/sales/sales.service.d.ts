@@ -2,10 +2,12 @@ import { PrismaService } from '../prisma.service';
 import { CreateSaleDto } from './create-sale.dto';
 import { SaleReceiptDto } from './sale-receipt.dto';
 import { AuditLogService } from '../audit-log.service';
+import { RealtimeGateway } from '../realtime.gateway';
 export declare class SalesService {
     private prisma;
     private auditLogService;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService);
+    private realtimeGateway;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway);
     createSale(dto: CreateSaleDto & {
         mpesaTransactionId?: string;
         idempotencyKey: string;
@@ -57,17 +59,24 @@ export declare class SalesService {
     getAnalytics(tenantId: string): Promise<{
         totalSales: number;
         totalRevenue: number;
-        topProducts: {
+        avgSaleValue: number;
+        salesByProduct: Record<string, {
             name: string;
-            unitsSold: number;
+            quantity: number;
             revenue: number;
-            id: string;
-        }[];
-        lowStock: {
-            id: string;
+        }>;
+        salesByMonth: Record<string, number>;
+        topCustomers: {
             name: string;
-            stock: number;
+            phone: string;
+            total: number;
+            count: number;
+            lastPurchase?: Date;
         }[];
-        paymentBreakdown: Record<string, number>;
+        forecast: {
+            forecast_months: never[];
+            forecast_sales: never[];
+        };
+        customerSegments: never[];
     }>;
 }

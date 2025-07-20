@@ -97,6 +97,13 @@ export class UserService {
     });
   }
 
+  async updateUserPreferences(userId: string, data: { notificationPreferences?: any, language?: string, region?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
   async resetPassword(token: string, newPassword: string) {
     const user = await this.prisma.user.findFirst({
       where: {

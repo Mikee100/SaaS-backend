@@ -3,10 +3,15 @@ import { PrismaService } from '../prisma.service';
 import { CreateInventoryDto } from './create-inventory.dto';
 import { UpdateInventoryDto } from './update-inventory.dto';
 import { AuditLogService } from '../audit-log.service';
+import { RealtimeGateway } from '../realtime.gateway';
 
 @Injectable()
 export class InventoryService {
-  constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogService: AuditLogService,
+    private realtimeGateway: RealtimeGateway // Inject gateway
+  ) {}
 
   async findAllByTenant(tenantId: string) {
     return this.prisma.inventory.findMany({
@@ -26,6 +31,8 @@ export class InventoryService {
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: inventory.id, ...dto }, ip);
     }
+    // Emit real-time event
+    this.realtimeGateway.emitInventoryUpdate({ productId: dto.productId, quantity: dto.quantity });
     return inventory;
   }
 
@@ -37,6 +44,8 @@ export class InventoryService {
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'inventory_updated', { inventoryId: id, updatedFields: dto }, ip);
     }
+    // Emit real-time event
+    this.realtimeGateway.emitInventoryUpdate({ inventoryId: id, ...dto });
     return result;
   }
 

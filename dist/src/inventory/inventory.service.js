@@ -13,12 +13,15 @@ exports.InventoryService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const audit_log_service_1 = require("../audit-log.service");
+const realtime_gateway_1 = require("../realtime.gateway");
 let InventoryService = class InventoryService {
     prisma;
     auditLogService;
-    constructor(prisma, auditLogService) {
+    realtimeGateway;
+    constructor(prisma, auditLogService, realtimeGateway) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
+        this.realtimeGateway = realtimeGateway;
     }
     async findAllByTenant(tenantId) {
         return this.prisma.inventory.findMany({
@@ -37,6 +40,7 @@ let InventoryService = class InventoryService {
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: inventory.id, ...dto }, ip);
         }
+        this.realtimeGateway.emitInventoryUpdate({ productId: dto.productId, quantity: dto.quantity });
         return inventory;
     }
     async updateInventory(id, dto, tenantId, actorUserId, ip) {
@@ -47,6 +51,7 @@ let InventoryService = class InventoryService {
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'inventory_updated', { inventoryId: id, updatedFields: dto }, ip);
         }
+        this.realtimeGateway.emitInventoryUpdate({ inventoryId: id, ...dto });
         return result;
     }
     async deleteInventory(id, tenantId, actorUserId, ip) {
@@ -62,6 +67,8 @@ let InventoryService = class InventoryService {
 exports.InventoryService = InventoryService;
 exports.InventoryService = InventoryService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        audit_log_service_1.AuditLogService,
+        realtime_gateway_1.RealtimeGateway])
 ], InventoryService);
 //# sourceMappingURL=inventory.service.js.map

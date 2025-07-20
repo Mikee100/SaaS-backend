@@ -4,10 +4,16 @@ import { CreateSaleDto } from './create-sale.dto';
 import { SaleReceiptDto } from './sale-receipt.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
+import { RealtimeGateway } from '../realtime.gateway';
+import axios from 'axios';
 
 @Injectable()
 export class SalesService {
-  constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogService: AuditLogService,
+    private realtimeGateway: RealtimeGateway // Inject gateway
+  ) {}
 
   async createSale(
     dto: CreateSaleDto & { mpesaTransactionId?: string; idempotencyKey: string },
@@ -89,6 +95,11 @@ export class SalesService {
     // Audit log
     if (this.auditLogService) {
       await this.auditLogService.log(userId, 'sale_created', { saleId, items: dto.items, total }, undefined);
+    }
+    // Emit real-time events
+    this.realtimeGateway.emitSalesUpdate({ saleId, items: dto.items, total });
+    for (const item of dto.items) {
+      this.realtimeGateway.emitInventoryUpdate({ productId: item.productId });
     }
     return {
       saleId,
@@ -178,50 +189,98 @@ export class SalesService {
   }
 
   async getAnalytics(tenantId: string) {
-    // Total sales and revenue
+    // Fetch all sales for the tenant
     const sales = await this.prisma.sale.findMany({
       where: { tenantId },
       include: { items: true },
     });
+    // Total sales count
     const totalSales = sales.length;
-    const totalRevenue = sales.reduce((sum, s) => sum + s.total, 0);
-
-    // Top products
-    const productStats: Record<string, { name: string; unitsSold: number; revenue: number }> = {};
+    // Total revenue
+    const totalRevenue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
+    // Average sale value
+    const avgSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+    // Sales by product
+    const salesByProduct: Record<string, { name: string; quantity: number; revenue: number }> = {};
     for (const sale of sales) {
       for (const item of sale.items) {
-        const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
-        if (!product) continue;
-        if (!productStats[product.id]) {
-          productStats[product.id] = { name: product.name, unitsSold: 0, revenue: 0 };
+        if (!salesByProduct[item.productId]) {
+          // Optionally fetch product name if needed
+          salesByProduct[item.productId] = { name: item.productId, quantity: 0, revenue: 0 };
         }
-        productStats[product.id].unitsSold += item.quantity;
-        productStats[product.id].revenue += item.price * item.quantity;
+        salesByProduct[item.productId].quantity += item.quantity;
+        salesByProduct[item.productId].revenue += item.price * item.quantity;
       }
     }
-    const topProducts = Object.entries(productStats)
-      .map(([id, stat]) => ({ id, ...stat }))
-      .sort((a, b) => b.unitsSold - a.unitsSold)
-      .slice(0, 5);
-
-    // Low stock products
-    const lowStock = await this.prisma.product.findMany({
-      where: { tenantId, stock: { lt: 5 } },
-      select: { id: true, name: true, stock: true },
-    });
-
-    // Payment method breakdown
-    const paymentBreakdown: Record<string, number> = {};
+    // Sales by month
+    const salesByMonth: Record<string, number> = {};
     for (const sale of sales) {
-      paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+      const month = sale.createdAt.toISOString().slice(0, 7); // YYYY-MM
+      salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
     }
-
+    // Top customers (by name/phone)
+    const customerMap: Record<string, { name: string; phone: string; total: number; count: number; lastPurchase?: Date }> = {};
+    for (const sale of sales) {
+      const key = (sale.customerName || '-') + (sale.customerPhone || '-');
+      if (!customerMap[key]) {
+        customerMap[key] = {
+          name: sale.customerName || '-',
+          phone: sale.customerPhone || '-',
+          total: 0,
+          count: 0,
+        };
+      }
+      customerMap[key].total += sale.total || 0;
+      customerMap[key].count += 1;
+      // Track last purchase date for each customer
+      if (!customerMap[key].lastPurchase || new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)) {
+        customerMap[key].lastPurchase = sale.createdAt;
+      }
+    }
+    const topCustomers = Object.values(customerMap)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    // Prepare customer data for segmentation
+    const customerInput = Object.values(customerMap).map(c => ({
+      name: c.name,
+      total: c.total,
+      count: c.count,
+      last_purchase: c.lastPurchase || new Date().toISOString(),
+    }));
+    let customerSegments = [];
+    try {
+      if (customerInput.length > 0) {
+        const res = await axios.post('http://localhost:5001/customer_segments', {
+          customers: customerInput,
+        });
+        customerSegments = res.data;
+      }
+    } catch (e) {
+      // Segmentation service not available or error
+    }
+    // After calculating salesByMonth
+    const months = Object.keys(salesByMonth);
+    const salesValues = Object.values(salesByMonth);
+    let forecast = { forecast_months: [], forecast_sales: [] };
+    try {
+      const res = await axios.post('http://localhost:5001/forecast', {
+        months,
+        sales: salesValues,
+        periods: 4, // predict next 4 months
+      });
+      forecast = res.data;
+    } catch (e) {
+      // Forecasting service not available or error
+    }
     return {
       totalSales,
       totalRevenue,
-      topProducts,
-      lowStock,
-      paymentBreakdown,
+      avgSaleValue,
+      salesByProduct,
+      salesByMonth,
+      topCustomers,
+      forecast,
+      customerSegments,
     };
   }
 } 
