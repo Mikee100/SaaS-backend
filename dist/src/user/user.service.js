@@ -13,19 +13,26 @@ exports.UserService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const bcrypt = require("bcrypt");
+const audit_log_service_1 = require("../audit-log.service");
 let UserService = class UserService {
     prisma;
-    constructor(prisma) {
+    auditLogService;
+    constructor(prisma, auditLogService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
     }
-    async createUser(data) {
+    async createUser(data, actorUserId, ip) {
         const hashedPassword = await bcrypt.hash(data.password, 10);
-        return this.prisma.user.create({
+        const user = await this.prisma.user.create({
             data: {
                 ...data,
                 password: hashedPassword,
             },
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: user.role }, ip);
+        }
+        return user;
     }
     async findByEmail(email) {
         return this.prisma.user.findUnique({ where: { email } });
@@ -33,13 +40,17 @@ let UserService = class UserService {
     async findAllByTenant(tenantId) {
         return this.prisma.user.findMany({ where: { tenantId } });
     }
-    async updateUser(id, data, tenantId) {
-        return this.prisma.user.updateMany({
+    async updateUser(id, data, tenantId, actorUserId, ip) {
+        const result = await this.prisma.user.updateMany({
             where: { id, tenantId },
             data,
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'user_updated', { userId: id, updatedFields: data }, ip);
+        }
+        return result;
     }
-    async updateUserPermissions(userId, permissions, grantedBy) {
+    async updateUserPermissions(userId, permissions, grantedBy, ip) {
         const keys = permissions.map(p => p.key);
         const allPerms = await this.prisma.permission.findMany({ where: { key: { in: keys } } });
         await this.prisma.userPermission.deleteMany({ where: { userId } });
@@ -57,15 +68,22 @@ let UserService = class UserService {
                 });
             }
         }));
+        if (this.auditLogService) {
+            await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions }, ip);
+        }
         return this.prisma.user.findUnique({
             where: { id: userId },
             include: { permissions: { include: { permission: true } } },
         });
     }
-    async deleteUser(id, tenantId) {
-        return this.prisma.user.deleteMany({
+    async deleteUser(id, tenantId, actorUserId, ip) {
+        const result = await this.prisma.user.deleteMany({
             where: { id, tenantId },
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'user_deleted', { userId: id }, ip);
+        }
+        return result;
     }
     async getUserPermissions(userId) {
         return this.prisma.userPermission.findMany({
@@ -73,10 +91,39 @@ let UserService = class UserService {
             include: { permission: true },
         });
     }
+    async updateUserByEmail(email, data) {
+        return this.prisma.user.update({
+            where: { email },
+            data,
+        });
+    }
+    async resetPassword(token, newPassword) {
+        const user = await this.prisma.user.findFirst({
+            where: {
+                resetPasswordToken: token,
+                resetPasswordExpires: {
+                    gt: new Date(),
+                },
+            },
+        });
+        if (!user) {
+            throw new Error('Invalid or expired reset token');
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                resetPasswordToken: null,
+                resetPasswordExpires: null,
+            },
+        });
+        return user;
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
 ], UserService);
 //# sourceMappingURL=user.service.js.map

@@ -4,23 +4,27 @@ export declare class UserController {
     constructor(userService: UserService);
     createUser(body: any, req: any): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
-        role: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        tenantId: string;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
     }>;
     getUsers(tenantId: string): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
-        role: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        tenantId: string;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
     }[]>;
     getProtected(req: any): {
         message: string;
@@ -52,13 +56,15 @@ export declare class UserController {
         })[];
     } & {
         id: string;
-        email: string;
-        password: string;
         name: string;
-        role: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
+        role: string;
+        tenantId: string;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         permission: {

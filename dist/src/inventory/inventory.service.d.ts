@@ -1,9 +1,11 @@
 import { PrismaService } from '../prisma.service';
 import { CreateInventoryDto } from './create-inventory.dto';
 import { UpdateInventoryDto } from './update-inventory.dto';
+import { AuditLogService } from '../audit-log.service';
 export declare class InventoryService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private auditLogService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService);
     findAllByTenant(tenantId: string): Promise<({
         product: {
             id: string;
@@ -25,7 +27,7 @@ export declare class InventoryService {
         productId: string;
         quantity: number;
     })[]>;
-    createInventory(dto: CreateInventoryDto, tenantId: string): Promise<{
+    createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -33,6 +35,6 @@ export declare class InventoryService {
         productId: string;
         quantity: number;
     }>;
-    updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
-    deleteInventory(id: string, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    deleteInventory(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

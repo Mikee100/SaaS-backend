@@ -7,7 +7,9 @@ export declare class SaleReceiptDto {
         price: number;
         quantity: number;
     }[];
+    subtotal: number;
     total: number;
+    vatAmount: number;
     paymentMethod: string;
     amountReceived: number;
     change: number;

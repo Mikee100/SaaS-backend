@@ -154,6 +154,7 @@ export class MpesaController {
               customerName: saleData.customerName,
               customerPhone: saleData.customerPhone,
               mpesaTransactionId: mpesaTx.id,
+              idempotencyKey: `mpesa_${mpesaTx.id}`,
             }, saleData.tenantId, saleData.userId);
           } catch (err) {
             // If inventory is insufficient, mark transaction as failed

@@ -25,7 +25,7 @@ let UserController = class UserController {
     async createUser(body, req) {
         if (!['owner', 'manager'].includes(req.user.role))
             throw new common_1.ForbiddenException('Not allowed');
-        return this.userService.createUser({ ...body, tenantId: req.user.tenantId });
+        return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
     async getUsers(tenantId) {
         return this.userService.findAllByTenant(tenantId);
@@ -37,12 +37,12 @@ let UserController = class UserController {
         if (!['owner', 'manager'].includes(req.user.role))
             throw new common_1.ForbiddenException('Not allowed');
         const tenantId = req.user.tenantId;
-        return this.userService.updateUser(id, body, tenantId);
+        return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
     }
     async updatePermissions(id, body, req) {
         if (!['owner', 'manager'].includes(req.user.role))
             throw new common_1.ForbiddenException('Not allowed');
-        return this.userService.updateUserPermissions(id, body.permissions, req.user.userId);
+        return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
     }
     async getUserPermissions(id, req) {
         if (!['owner', 'manager'].includes(req.user.role) && req.user.userId !== id) {
@@ -54,7 +54,7 @@ let UserController = class UserController {
         if (!['owner', 'manager'].includes(req.user.role))
             throw new common_1.ForbiddenException('Not allowed');
         const tenantId = req.user.tenantId;
-        return this.userService.deleteUser(id, tenantId);
+        return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
     }
 };
 exports.UserController = UserController;

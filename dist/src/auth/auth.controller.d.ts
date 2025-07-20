@@ -5,14 +5,25 @@ export declare class AuthController {
     login(body: {
         email: string;
         password: string;
-    }): Promise<{
+    }, req: any): Promise<{
         access_token: string;
         user: {
             id: string;
             email: string;
             name: string;
-            tenantId: string;
             role: string;
+            tenantId: string;
         };
+    }>;
+    forgotPassword(body: {
+        email: string;
+    }): Promise<{
+        message: string;
+    }>;
+    resetPassword(body: {
+        token: string;
+        newPassword: string;
+    }): Promise<{
+        message: string;
     }>;
 }

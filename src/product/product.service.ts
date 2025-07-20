@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import * as XLSX from 'xlsx';
 import { Express } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { AuditLogService } from '../audit-log.service';
 
 // In-memory progress store (for demo; use Redis for production)
 const bulkUploadProgress: Record<string, { processed: number; total: number }> = {};
@@ -22,7 +23,7 @@ function findColumnMatch(headers: string[], candidates: string[]): string | unde
 
 @Injectable()
 export class ProductService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
 
   async findAllByTenant(tenantId: string) {
     return this.prisma.product.findMany({
@@ -31,11 +32,15 @@ export class ProductService {
     });
   }
 
-  async createProduct(data: { name: string; sku: string; price: number; description?: string; tenantId: string }) {
-    return this.prisma.product.create({ data });
+  async createProduct(data: { name: string; sku: string; price: number; description?: string; tenantId: string }, actorUserId?: string, ip?: string) {
+    const product = await this.prisma.product.create({ data });
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
+    }
+    return product;
   }
 
-  async updateProduct(id: string, data: any, tenantId: string) {
+  async updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string) {
     // Separate standard and custom fields
     const { name, sku, price, description, stock, ...customFields } = data;
     const updateData: any = {};
@@ -47,16 +52,24 @@ export class ProductService {
     if (Object.keys(customFields).length > 0) {
       updateData.customFields = customFields;
     }
-    return this.prisma.product.updateMany({
+    const result = await this.prisma.product.updateMany({
       where: { id, tenantId },
       data: updateData,
     });
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'product_updated', { productId: id, updatedFields: data }, ip);
+    }
+    return result;
   }
 
-  async deleteProduct(id: string, tenantId: string) {
-    return this.prisma.product.deleteMany({
+  async deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+    const result = await this.prisma.product.deleteMany({
       where: { id, tenantId },
     });
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'product_deleted', { productId: id }, ip);
+    }
+    return result;
   }
 
   async bulkUpload(file: Express.Multer.File, user: any, uploadId?: string) {

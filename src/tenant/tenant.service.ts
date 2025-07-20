@@ -27,6 +27,7 @@ export class TenantService {
     const allowedFields = [
       'name', 'businessType', 'contactEmail', 'contactPhone',
       'address', 'currency', 'timezone', 'invoiceFooter', 'logoUrl',
+      'kraPin', 'vatNumber', 'etimsQrUrl',
     ];
     const data: any = {};
     for (const key of allowedFields) {

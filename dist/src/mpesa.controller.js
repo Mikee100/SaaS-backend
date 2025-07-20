@@ -156,6 +156,7 @@ let MpesaController = class MpesaController {
                             customerName: saleData.customerName,
                             customerPhone: saleData.customerPhone,
                             mpesaTransactionId: mpesaTx.id,
+                            idempotencyKey: `mpesa_${mpesaTx.id}`,
                         }, saleData.tenantId, saleData.userId);
                     }
                     catch (err) {

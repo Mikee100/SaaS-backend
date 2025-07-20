@@ -19,14 +19,16 @@ const sales_module_1 = require("./sales/sales.module");
 const mpesa_module_1 = require("./mpesa.module");
 const permission_controller_1 = require("./permission/permission.controller");
 const prisma_module_1 = require("./prisma.module");
+const audit_log_service_1 = require("./audit-log.service");
+const audit_log_controller_1 = require("./audit-log.controller");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, tenant_module_1.TenantModule, user_module_1.UserModule, auth_module_1.AuthModule, product_module_1.ProductModule, inventory_module_1.InventoryModule, sales_module_1.SalesModule, mpesa_module_1.MpesaModule],
-        controllers: [app_controller_1.AppController, permission_controller_1.PermissionController],
-        providers: [app_service_1.AppService],
+        controllers: [app_controller_1.AppController, permission_controller_1.PermissionController, audit_log_controller_1.AuditLogController],
+        providers: [app_service_1.AppService, audit_log_service_1.AuditLogService],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

@@ -15,7 +15,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalesController = void 0;
 const common_1 = require("@nestjs/common");
 const sales_service_1 = require("./sales.service");
-const create_sale_dto_1 = require("./create-sale.dto");
 const passport_1 = require("@nestjs/passport");
 let SalesController = class SalesController {
     salesService;
@@ -23,6 +22,8 @@ let SalesController = class SalesController {
         this.salesService = salesService;
     }
     async createSale(dto, req) {
+        if (!dto.idempotencyKey)
+            throw new Error('Missing idempotency key');
         return this.salesService.createSale(dto, req.user.tenantId, req.user.userId);
     }
     async listSales(req) {
@@ -31,6 +32,9 @@ let SalesController = class SalesController {
     async getAnalytics(req) {
         return this.salesService.getAnalytics(req.user.tenantId);
     }
+    async getSaleById(id, req) {
+        return this.salesService.getSaleById(id, req.user?.tenantId);
+    }
 };
 exports.SalesController = SalesController;
 __decorate([
@@ -38,7 +42,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_sale_dto_1.CreateSaleDto, Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "createSale", null);
 __decorate([
@@ -55,6 +59,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getAnalytics", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getSaleById", null);
 exports.SalesController = SalesController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Controller)('sales'),

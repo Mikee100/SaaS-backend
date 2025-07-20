@@ -11,13 +11,14 @@ const common_1 = require("@nestjs/common");
 const inventory_service_1 = require("./inventory.service");
 const inventory_controller_1 = require("./inventory.controller");
 const prisma_service_1 = require("../prisma.service");
+const audit_log_service_1 = require("../audit-log.service");
 let InventoryModule = class InventoryModule {
 };
 exports.InventoryModule = InventoryModule;
 exports.InventoryModule = InventoryModule = __decorate([
     (0, common_1.Module)({
         controllers: [inventory_controller_1.InventoryController],
-        providers: [inventory_service_1.InventoryService, prisma_service_1.PrismaService],
+        providers: [inventory_service_1.InventoryService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
     })
 ], InventoryModule);
 //# sourceMappingURL=inventory.module.js.map

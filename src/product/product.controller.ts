@@ -22,7 +22,7 @@ export class ProductController {
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
-    });
+    }, req.user.userId, req.ip);
   }
 
   @Post('bulk-upload')
@@ -54,11 +54,11 @@ export class ProductController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Body() body, @Req() req) {
-    return this.productService.updateProduct(id, body, req.user.tenantId);
+    return this.productService.updateProduct(id, body, req.user.tenantId, req.user.userId, req.ip);
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req) {
-    return this.productService.deleteProduct(id, req.user.tenantId);
+    return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
   }
 }

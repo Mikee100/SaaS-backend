@@ -30,7 +30,7 @@ let ProductController = class ProductController {
         return this.productService.createProduct({
             ...body,
             tenantId: req.user.tenantId,
-        });
+        }, req.user.userId, req.ip);
     }
     async bulkUpload(file, req) {
         return this.productService.bulkUpload(file, req.user);
@@ -45,10 +45,10 @@ let ProductController = class ProductController {
         return this.productService.clearAll(req.user.tenantId);
     }
     async update(id, body, req) {
-        return this.productService.updateProduct(id, body, req.user.tenantId);
+        return this.productService.updateProduct(id, body, req.user.tenantId, req.user.userId, req.ip);
     }
     async remove(id, req) {
-        return this.productService.deleteProduct(id, req.user.tenantId);
+        return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
     }
 };
 exports.ProductController = ProductController;

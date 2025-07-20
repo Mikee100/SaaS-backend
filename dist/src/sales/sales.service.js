@@ -13,15 +13,38 @@ exports.SalesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const uuid_1 = require("uuid");
+const audit_log_service_1 = require("../audit-log.service");
 let SalesService = class SalesService {
     prisma;
-    constructor(prisma) {
+    auditLogService;
+    constructor(prisma, auditLogService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
     }
     async createSale(dto, tenantId, userId) {
+        if (!dto.idempotencyKey)
+            throw new common_1.BadRequestException('Missing idempotency key');
+        const existing = await this.prisma.sale.findFirst({
+            where: { idempotencyKey: dto.idempotencyKey, userId },
+        });
+        if (existing) {
+            return {
+                saleId: existing.id,
+                date: existing.createdAt,
+                items: [],
+                subtotal: (existing.total ?? 0) - (existing.vatAmount ?? 0),
+                total: existing.total,
+                vatAmount: existing.vatAmount ?? 0,
+                paymentMethod: existing.paymentType,
+                amountReceived: dto.amountReceived,
+                change: dto.amountReceived - existing.total,
+                customerName: existing.customerName || undefined,
+                customerPhone: existing.customerPhone || undefined,
+            };
+        }
         const saleId = (0, uuid_1.v4)();
         const now = new Date();
-        let total = 0;
+        let subtotal = 0;
         const receiptItems = [];
         for (const item of dto.items) {
             const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
@@ -29,7 +52,7 @@ let SalesService = class SalesService {
                 throw new common_1.BadRequestException('Invalid product');
             if (product.stock < item.quantity)
                 throw new common_1.BadRequestException(`Insufficient stock for ${product.name}`);
-            total += product.price * item.quantity;
+            subtotal += product.price * item.quantity;
             receiptItems.push({
                 productId: product.id,
                 name: product.name,
@@ -37,6 +60,8 @@ let SalesService = class SalesService {
                 quantity: item.quantity,
             });
         }
+        const vatAmount = Math.round(subtotal * 0.16 * 100) / 100;
+        const total = subtotal + vatAmount;
         await this.prisma.$transaction(async (prisma) => {
             for (const item of dto.items) {
                 await prisma.product.update({
@@ -50,11 +75,13 @@ let SalesService = class SalesService {
                     tenantId,
                     userId,
                     total,
+                    vatAmount,
                     paymentType: dto.paymentMethod,
                     createdAt: now,
                     mpesaTransactionId: dto.mpesaTransactionId,
                     customerName: dto.customerName,
                     customerPhone: dto.customerPhone,
+                    idempotencyKey: dto.idempotencyKey,
                     items: {
                         create: dto.items.map(item => ({
                             productId: item.productId,
@@ -65,16 +92,56 @@ let SalesService = class SalesService {
                 },
             });
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(userId, 'sale_created', { saleId, items: dto.items, total }, undefined);
+        }
         return {
             saleId,
             date: now,
             items: receiptItems,
+            subtotal,
             total,
+            vatAmount,
             paymentMethod: dto.paymentMethod,
             amountReceived: dto.amountReceived,
             change: dto.amountReceived - total,
             customerName: dto.customerName,
             customerPhone: dto.customerPhone,
+        };
+    }
+    async getSaleById(id, tenantId) {
+        const sale = await this.prisma.sale.findFirst({
+            where: { id, tenantId },
+            include: {
+                user: true,
+                items: { include: { product: true } },
+                mpesaTransaction: true,
+            },
+        });
+        if (!sale) {
+            throw new common_1.NotFoundException('Sale not found');
+        }
+        return {
+            saleId: sale.id,
+            date: sale.createdAt,
+            total: sale.total,
+            paymentType: sale.paymentType,
+            customerName: sale.customerName,
+            customerPhone: sale.customerPhone,
+            cashier: sale.user ? sale.user.name : null,
+            mpesaTransaction: sale.mpesaTransaction ? {
+                phoneNumber: sale.mpesaTransaction.phoneNumber,
+                amount: sale.mpesaTransaction.amount,
+                status: sale.mpesaTransaction.status,
+                mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
+                message: sale.mpesaTransaction.message,
+            } : null,
+            items: sale.items.map(item => ({
+                productId: item.productId,
+                name: item.product?.name || '',
+                price: item.price,
+                quantity: item.quantity,
+            })),
         };
     }
     async listSales(tenantId) {
@@ -154,6 +221,6 @@ let SalesService = class SalesService {
 exports.SalesService = SalesService;
 exports.SalesService = SalesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
 ], SalesService);
 //# sourceMappingURL=sales.service.js.map

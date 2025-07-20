@@ -13,6 +13,9 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
+        kraPin: string | null;
+        vatNumber: string | null;
+        etimsQrUrl: string | null;
         createdAt: Date;
         updatedAt: Date;
     } | null>;
@@ -27,6 +30,9 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
+        kraPin: string | null;
+        vatNumber: string | null;
+        etimsQrUrl: string | null;
         createdAt: Date;
         updatedAt: Date;
     }>;

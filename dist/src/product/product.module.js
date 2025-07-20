@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const product_service_1 = require("./product.service");
 const product_controller_1 = require("./product.controller");
 const prisma_service_1 = require("../prisma.service");
+const audit_log_service_1 = require("../audit-log.service");
 let ProductModule = class ProductModule {
 };
 exports.ProductModule = ProductModule;
 exports.ProductModule = ProductModule = __decorate([
     (0, common_1.Module)({
-        providers: [product_service_1.ProductService, prisma_service_1.PrismaService],
+        providers: [product_service_1.ProductService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
         controllers: [product_controller_1.ProductController]
     })
 ], ProductModule);

@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const XLSX = require("xlsx");
 const uuid_1 = require("uuid");
+const audit_log_service_1 = require("../audit-log.service");
 const bulkUploadProgress = {};
 function findColumnMatch(headers, candidates) {
     for (const candidate of candidates) {
@@ -28,8 +29,10 @@ function findColumnMatch(headers, candidates) {
 }
 let ProductService = class ProductService {
     prisma;
-    constructor(prisma) {
+    auditLogService;
+    constructor(prisma, auditLogService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
     }
     async findAllByTenant(tenantId) {
         return this.prisma.product.findMany({
@@ -37,10 +40,14 @@ let ProductService = class ProductService {
             orderBy: { createdAt: 'desc' },
         });
     }
-    async createProduct(data) {
-        return this.prisma.product.create({ data });
+    async createProduct(data, actorUserId, ip) {
+        const product = await this.prisma.product.create({ data });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
+        }
+        return product;
     }
-    async updateProduct(id, data, tenantId) {
+    async updateProduct(id, data, tenantId, actorUserId, ip) {
         const { name, sku, price, description, stock, ...customFields } = data;
         const updateData = {};
         if (name !== undefined)
@@ -56,15 +63,23 @@ let ProductService = class ProductService {
         if (Object.keys(customFields).length > 0) {
             updateData.customFields = customFields;
         }
-        return this.prisma.product.updateMany({
+        const result = await this.prisma.product.updateMany({
             where: { id, tenantId },
             data: updateData,
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'product_updated', { productId: id, updatedFields: data }, ip);
+        }
+        return result;
     }
-    async deleteProduct(id, tenantId) {
-        return this.prisma.product.deleteMany({
+    async deleteProduct(id, tenantId, actorUserId, ip) {
+        const result = await this.prisma.product.deleteMany({
             where: { id, tenantId },
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'product_deleted', { productId: id }, ip);
+        }
+        return result;
     }
     async bulkUpload(file, user, uploadId) {
         const workbook = XLSX.read(file.buffer, { type: 'buffer' });
@@ -144,6 +159,6 @@ let ProductService = class ProductService {
 exports.ProductService = ProductService;
 exports.ProductService = ProductService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
 ], ProductService);
 //# sourceMappingURL=product.service.js.map

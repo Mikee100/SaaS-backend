@@ -1,7 +1,9 @@
 import { PrismaService } from '../prisma.service';
+import { AuditLogService } from '../audit-log.service';
 export declare class ProductService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private auditLogService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService);
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         description: string | null;
@@ -20,7 +22,7 @@ export declare class ProductService {
         price: number;
         description?: string;
         tenantId: string;
-    }): Promise<{
+    }, actorUserId?: string, ip?: string): Promise<{
         id: string;
         description: string | null;
         name: string;
@@ -32,8 +34,8 @@ export declare class ProductService {
         stock: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
-    updateProduct(id: string, data: any, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
-    deleteProduct(id: string, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     bulkUpload(file: Express.Multer.File, user: any, uploadId?: string): Promise<{
         summary: {
             status: string;

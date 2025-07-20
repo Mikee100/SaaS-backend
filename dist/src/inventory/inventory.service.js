@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InventoryService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
+const audit_log_service_1 = require("../audit-log.service");
 let InventoryService = class InventoryService {
     prisma;
-    constructor(prisma) {
+    auditLogService;
+    constructor(prisma, auditLogService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
     }
     async findAllByTenant(tenantId) {
         return this.prisma.inventory.findMany({
@@ -24,29 +27,41 @@ let InventoryService = class InventoryService {
             orderBy: { updatedAt: 'desc' },
         });
     }
-    async createInventory(dto, tenantId) {
-        return this.prisma.inventory.create({
+    async createInventory(dto, tenantId, actorUserId, ip) {
+        const inventory = await this.prisma.inventory.create({
             data: {
                 ...dto,
                 tenantId,
             },
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: inventory.id, ...dto }, ip);
+        }
+        return inventory;
     }
-    async updateInventory(id, dto, tenantId) {
-        return this.prisma.inventory.updateMany({
+    async updateInventory(id, dto, tenantId, actorUserId, ip) {
+        const result = await this.prisma.inventory.updateMany({
             where: { id, tenantId },
             data: dto,
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'inventory_updated', { inventoryId: id, updatedFields: dto }, ip);
+        }
+        return result;
     }
-    async deleteInventory(id, tenantId) {
-        return this.prisma.inventory.deleteMany({
+    async deleteInventory(id, tenantId, actorUserId, ip) {
+        const result = await this.prisma.inventory.deleteMany({
             where: { id, tenantId },
         });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'inventory_deleted', { inventoryId: id }, ip);
+        }
+        return result;
     }
 };
 exports.InventoryService = InventoryService;
 exports.InventoryService = InventoryService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
 ], InventoryService);
 //# sourceMappingURL=inventory.service.js.map

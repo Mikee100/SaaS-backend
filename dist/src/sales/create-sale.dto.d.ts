@@ -1,10 +1,13 @@
+declare class SaleItemDto {
+    productId: string;
+    quantity: number;
+}
 export declare class CreateSaleDto {
-    items: {
-        productId: string;
-        quantity: number;
-    }[];
+    items: SaleItemDto[];
     paymentMethod: string;
     amountReceived: number;
     customerName?: string;
     customerPhone?: string;
+    idempotencyKey: string;
 }
+export {};

@@ -14,12 +14,16 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const user_service_1 = require("../user/user.service");
 const bcrypt = require("bcrypt");
+const audit_log_service_1 = require("../audit-log.service");
+const uuid_1 = require("uuid");
 let AuthService = class AuthService {
     userService;
     jwtService;
-    constructor(userService, jwtService) {
+    auditLogService;
+    constructor(userService, jwtService, auditLogService) {
         this.userService = userService;
         this.jwtService = jwtService;
+        this.auditLogService = auditLogService;
     }
     async validateUser(email, password) {
         const user = await this.userService.findByEmail(email);
@@ -29,22 +33,59 @@ let AuthService = class AuthService {
         }
         return null;
     }
-    async login(email, password) {
+    async login(email, password, ip) {
         const user = await this.userService.findByEmail(email);
         if (!user || !(await bcrypt.compare(password, user.password))) {
+            if (this.auditLogService) {
+                await this.auditLogService.log(null, 'login_failed', { email }, ip);
+            }
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const payload = { sub: user.id, email: user.email, tenantId: user.tenantId, role: user.role };
+        if (this.auditLogService) {
+            await this.auditLogService.log(user.id, 'login_success', { email }, ip);
+        }
+        const payload = { email: user.email, sub: user.id, tenantId: user.tenantId, role: user.role };
         return {
             access_token: this.jwtService.sign(payload),
-            user: { id: user.id, email: user.email, name: user.name, tenantId: user.tenantId, role: user.role },
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                tenantId: user.tenantId,
+            },
         };
+    }
+    async forgotPassword(email) {
+        const user = await this.userService.findByEmail(email);
+        if (!user) {
+            return { message: 'If an account with that email exists, a password reset link has been sent.' };
+        }
+        const resetToken = (0, uuid_1.v4)();
+        const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+        await this.userService.updateUserByEmail(email, {
+            resetPasswordToken: resetToken,
+            resetPasswordExpires: resetExpires,
+        });
+        console.log(`Password reset token for ${email}: ${resetToken}`);
+        console.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+        return { message: 'If an account with that email exists, a password reset link has been sent.' };
+    }
+    async resetPassword(token, newPassword) {
+        try {
+            await this.userService.resetPassword(token, newPassword);
+            return { message: 'Password has been reset successfully.' };
+        }
+        catch (error) {
+            throw new common_1.UnauthorizedException('Invalid or expired reset token');
+        }
     }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [user_service_1.UserService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        audit_log_service_1.AuditLogService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

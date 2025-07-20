@@ -23,7 +23,7 @@ export class InventoryController {
   async create(@Req() req, @Body() dto: CreateInventoryDto) {
     console.log('req.user (POST /inventory):', req.user);
     const tenantId = req.user.tenantId;
-    return this.inventoryService.createInventory(dto, tenantId);
+    return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
   }
 
   @Put(':id')
@@ -31,7 +31,7 @@ export class InventoryController {
   async update(@Req() req, @Param('id') id: string, @Body() dto: UpdateInventoryDto) {
     console.log('req.user (PUT /inventory/:id):', req.user);
     const tenantId = req.user.tenantId;
-    return this.inventoryService.updateInventory(id, dto, tenantId);
+    return this.inventoryService.updateInventory(id, dto, tenantId, req.user.userId, req.ip);
   }
 
   @Delete(':id')
@@ -39,6 +39,6 @@ export class InventoryController {
   async remove(@Req() req, @Param('id') id: string) {
     console.log('req.user (DELETE /inventory/:id):', req.user);
     const tenantId = req.user.tenantId;
-    return this.inventoryService.deleteInventory(id, tenantId);
+    return this.inventoryService.deleteInventory(id, tenantId, req.user.userId, req.ip);
   }
 } 

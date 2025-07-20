@@ -5,7 +5,9 @@ class SaleReceiptDto {
     saleId;
     date;
     items;
+    subtotal;
     total;
+    vatAmount;
     paymentMethod;
     amountReceived;
     change;

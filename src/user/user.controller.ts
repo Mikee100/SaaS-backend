@@ -11,7 +11,7 @@ export class UserController {
   @Post()
   async createUser(@Body() body: any, @Req() req) {
     if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
-    return this.userService.createUser({ ...body, tenantId: req.user.tenantId });
+    return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
   }
 
   @Get()
@@ -29,13 +29,13 @@ export class UserController {
   async updateUser(@Req() req, @Param('id') id: string, @Body() body: { name?: string; role?: string }) {
     if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
     const tenantId = req.user.tenantId;
-    return this.userService.updateUser(id, body, tenantId);
+    return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
   }
 
   @Put(':id/permissions')
   async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
     if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
-    return this.userService.updateUserPermissions(id, body.permissions, req.user.userId);
+    return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
   }
 
   @Get(':id/permissions')
@@ -52,6 +52,6 @@ export class UserController {
   async deleteUser(@Req() req, @Param('id') id: string) {
     if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
     const tenantId = req.user.tenantId;
-    return this.userService.deleteUser(id, tenantId);
+    return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
   }
 } 
