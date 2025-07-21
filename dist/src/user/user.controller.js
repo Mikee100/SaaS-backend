@@ -16,15 +16,14 @@ exports.UserController = void 0;
 const common_1 = require("@nestjs/common");
 const user_service_1 = require("./user.service");
 const passport_1 = require("@nestjs/passport");
-const roles_decorator_1 = require("../auth/roles.decorator");
+const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let UserController = class UserController {
     userService;
     constructor(userService) {
         this.userService = userService;
     }
     async createUser(body, req) {
-        if (!['owner', 'manager'].includes(req.user.role))
-            throw new common_1.ForbiddenException('Not allowed');
         return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
     async getUsers(tenantId) {
@@ -44,28 +43,19 @@ let UserController = class UserController {
         };
     }
     async updateUser(req, id, body) {
-        if (!['owner', 'manager'].includes(req.user.role))
-            throw new common_1.ForbiddenException('Not allowed');
         const tenantId = req.user.tenantId;
         return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
     }
     async updatePermissions(id, body, req) {
-        if (!['owner', 'manager'].includes(req.user.role))
-            throw new common_1.ForbiddenException('Not allowed');
         return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
     }
     async getUserPermissions(id, req) {
-        if (!['owner', 'manager'].includes(req.user.role) && req.user.userId !== id) {
-            throw new common_1.ForbiddenException('Not allowed');
-        }
         return this.userService.getUserPermissions(id);
     }
     async updatePreferences(req, body) {
         return this.userService.updateUserPreferences(req.user.userId, body);
     }
     async deleteUser(req, id) {
-        if (!['owner', 'manager'].includes(req.user.role))
-            throw new common_1.ForbiddenException('Not allowed');
         const tenantId = req.user.tenantId;
         return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
     }
@@ -73,6 +63,7 @@ let UserController = class UserController {
 exports.UserController = UserController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -81,6 +72,7 @@ __decorate([
 ], UserController.prototype, "createUser", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.Permissions)('view_users'),
     __param(0, (0, common_1.Query)('tenantId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -102,7 +94,7 @@ __decorate([
 ], UserController.prototype, "getMe", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -112,6 +104,7 @@ __decorate([
 ], UserController.prototype, "updateUser", null);
 __decorate([
     (0, common_1.Put)(':id/permissions'),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -121,6 +114,7 @@ __decorate([
 ], UserController.prototype, "updatePermissions", null);
 __decorate([
     (0, common_1.Get)(':id/permissions'),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -137,7 +131,7 @@ __decorate([
 ], UserController.prototype, "updatePreferences", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -145,7 +139,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
 exports.UserController = UserController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

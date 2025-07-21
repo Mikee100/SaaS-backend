@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as XLSX from 'xlsx';
-import { Express } from 'express';
+import { Express, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
+import * as qrcode from 'qrcode';
 
 // In-memory progress store (for demo; use Redis for production)
 const bulkUploadProgress: Record<string, { processed: number; total: number }> = {};
@@ -32,8 +33,24 @@ export class ProductService {
     });
   }
 
-  async createProduct(data: { name: string; sku: string; price: number; description?: string; tenantId: string }, actorUserId?: string, ip?: string) {
-    const product = await this.prisma.product.create({ data });
+  async createProduct(data: any, actorUserId?: string, ip?: string) {
+    const productData = { ...data };
+
+    // Ensure stock is an integer
+    if (productData.stock !== undefined) {
+      productData.stock = parseInt(String(productData.stock), 10);
+      if (isNaN(productData.stock)) {
+        productData.stock = 0; // Default to 0 if parsing fails
+      }
+    }
+
+    // Ensure price is a float
+    if (productData.price !== undefined) {
+      productData.price = parseFloat(String(productData.price));
+    }
+
+    const product = await this.prisma.product.create({ data: productData });
+
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
     }
@@ -159,5 +176,24 @@ export class ProductService {
       });
     }
     return { updated: products.length };
+  }
+
+  async generateQrCode(id: string, tenantId: string, res: Response) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // The QR code will simply contain the product ID
+    const qrCodeDataUrl = await qrcode.toDataURL(product.id);
+
+    // Send the QR code back as an image
+    res.setHeader('Content-Type', 'image/png');
+    const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+    const img = Buffer.from(base64Data, 'base64');
+    res.send(img);
   }
 }

@@ -12,13 +12,11 @@ export declare class UserService {
         tenantId: string;
     }, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -27,34 +25,55 @@ export declare class UserService {
     }>;
     findByEmail(email: string): Promise<{
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
     } | null>;
-    findAllByTenant(tenantId: string): Promise<{
+    getUserRoles(userId: string): Promise<({
+        role: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
+    } & {
         id: string;
-        name: string;
+        userId: string;
+        roleId: string;
         tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
+    })[]>;
+    findAllByTenant(tenantId: string): Promise<({
+        userRoles: ({
+            role: {
+                id: string;
+                name: string;
+                description: string | null;
+            };
+        } & {
+            id: string;
+            userId: string;
+            roleId: string;
+            tenantId: string;
+        })[];
+    } & {
+        id: string;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-    }[]>;
+    })[]>;
     updateUser(id: string, data: {
         name?: string;
         role?: string;
@@ -66,8 +85,8 @@ export declare class UserService {
         permissions: ({
             permission: {
                 id: string;
-                key: string;
                 description: string | null;
+                key: string;
             };
         } & {
             id: string;
@@ -79,13 +98,11 @@ export declare class UserService {
         })[];
     } & {
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -96,8 +113,8 @@ export declare class UserService {
     getUserPermissions(userId: string): Promise<({
         permission: {
             id: string;
-            key: string;
             description: string | null;
+            key: string;
         };
     } & {
         id: string;
@@ -109,13 +126,11 @@ export declare class UserService {
     })[]>;
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -128,13 +143,11 @@ export declare class UserService {
         region?: string;
     }): Promise<{
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -143,17 +156,16 @@ export declare class UserService {
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
-        name: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
-        role: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
     }>;
+    getEffectivePermissions(userId: string, tenantId: string): Promise<string[]>;
 }

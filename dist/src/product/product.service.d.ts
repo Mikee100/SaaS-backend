@@ -1,4 +1,5 @@
 import { PrismaService } from '../prisma.service';
+import { Response } from 'express';
 import { AuditLogService } from '../audit-log.service';
 export declare class ProductService {
     private prisma;
@@ -16,13 +17,7 @@ export declare class ProductService {
         updatedAt: Date;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
-    createProduct(data: {
-        name: string;
-        sku: string;
-        price: number;
-        description?: string;
-        tenantId: string;
-    }, actorUserId?: string, ip?: string): Promise<{
+    createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
         description: string | null;
         name: string;
@@ -56,4 +51,5 @@ export declare class ProductService {
     randomizeAllStocks(tenantId: string): Promise<{
         updated: number;
     }>;
+    generateQrCode(id: string, tenantId: string, res: Response): Promise<void>;
 }

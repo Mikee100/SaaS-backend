@@ -1,10 +1,15 @@
-import { PrismaService } from '../prisma.service';
+import { PermissionService } from './permission.service';
 export declare class PermissionController {
-    private readonly prisma;
-    constructor(prisma: PrismaService);
-    getAll(): Promise<{
+    private readonly permissionService;
+    constructor(permissionService: PermissionService);
+    getPermissions(): Promise<{
         id: string;
         key: string;
         description: string | null;
     }[]>;
+    createPermission(body: any): Promise<{
+        id: string;
+        key: string;
+        description: string | null;
+    }>;
 }

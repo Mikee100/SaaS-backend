@@ -8,12 +8,10 @@ export declare class AuthService {
     constructor(userService: UserService, jwtService: JwtService, auditLogService: AuditLogService);
     validateUser(email: string, password: string): Promise<{
         id: string;
+        email: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
-        role: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -26,8 +24,6 @@ export declare class AuthService {
             id: string;
             email: string;
             name: string;
-            role: string;
-            tenantId: string;
         };
     }>;
     forgotPassword(email: string): Promise<{

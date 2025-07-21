@@ -1,14 +1,14 @@
 import { ProductService } from './product.service';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 export declare class ProductController {
     private readonly productService;
     constructor(productService: ProductService);
     findAll(req: any): Promise<{
         id: string;
-        description: string | null;
         name: string;
         sku: string;
         price: number;
+        description: string | null;
         stock: number;
         tenantId: string;
         createdAt: Date;
@@ -17,10 +17,10 @@ export declare class ProductController {
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
-        description: string | null;
         name: string;
         sku: string;
         price: number;
+        description: string | null;
         stock: number;
         tenantId: string;
         createdAt: Date;
@@ -47,6 +47,7 @@ export declare class ProductController {
     clearAll(req: Request): Promise<{
         deletedCount: number;
     }>;
+    getQrCode(id: string, req: any, res: Response): Promise<void>;
     update(id: string, body: any, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
     remove(id: string, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

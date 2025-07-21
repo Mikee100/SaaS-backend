@@ -16,6 +16,8 @@ exports.SalesController = void 0;
 const common_1 = require("@nestjs/common");
 const sales_service_1 = require("./sales.service");
 const passport_1 = require("@nestjs/passport");
+const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let SalesController = class SalesController {
     salesService;
     constructor(salesService) {
@@ -39,6 +41,7 @@ let SalesController = class SalesController {
 exports.SalesController = SalesController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.Permissions)('edit_sales'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -47,6 +50,7 @@ __decorate([
 ], SalesController.prototype, "createSale", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -54,6 +58,7 @@ __decorate([
 ], SalesController.prototype, "listSales", null);
 __decorate([
     (0, common_1.Get)('analytics'),
+    (0, permissions_decorator_1.Permissions)('view_reports'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -61,6 +66,7 @@ __decorate([
 ], SalesController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -68,7 +74,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getSaleById", null);
 exports.SalesController = SalesController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('sales'),
     __metadata("design:paramtypes", [sales_service_1.SalesService])
 ], SalesController);

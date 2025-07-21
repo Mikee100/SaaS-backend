@@ -1,20 +1,23 @@
 import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
-import { Roles } from '../auth/roles.decorator';
+import { Permissions } from '../auth/permissions.decorator';
+import { PermissionsGuard } from '../auth/permissions.guard';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
+  @Permissions('edit_users')
   async createUser(@Body() body: any, @Req() req) {
-    if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
+    // Use the current tenant from JWT
     return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
   }
 
   @Get()
+  @Permissions('view_users')
   async getUsers(@Query('tenantId') tenantId: string) {
     return this.userService.findAllByTenant(tenantId);
   }
@@ -36,25 +39,21 @@ export class UserController {
   }
 
   @Put(':id')
-  @Roles('owner', 'manager')
+  @Permissions('edit_users')
   async updateUser(@Req() req, @Param('id') id: string, @Body() body: { name?: string; role?: string }) {
-    if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
     const tenantId = req.user.tenantId;
     return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
   }
 
   @Put(':id/permissions')
+  @Permissions('edit_users')
   async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
-    if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
     return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
   }
 
   @Get(':id/permissions')
+  @Permissions('edit_users')
   async getUserPermissions(@Param('id') id: string, @Req() req) {
-    // Only allow if the requester is owner/manager or the user themselves
-    if (!['owner', 'manager'].includes(req.user.role) && req.user.userId !== id) {
-      throw new ForbiddenException('Not allowed');
-    }
     return this.userService.getUserPermissions(id);
   }
 
@@ -64,9 +63,8 @@ export class UserController {
   }
 
   @Delete(':id')
-  @Roles('owner', 'manager')
+  @Permissions('edit_users')
   async deleteUser(@Req() req, @Param('id') id: string) {
-    if (!['owner', 'manager'].includes(req.user.role)) throw new ForbiddenException('Not allowed');
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
   }

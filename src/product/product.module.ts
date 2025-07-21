@@ -3,9 +3,11 @@ import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
+import { UserModule } from '../user/user.module';
 
 @Module({
   providers: [ProductService, PrismaService, AuditLogService],
-  controllers: [ProductController]
+  controllers: [ProductController],
+  imports: [UserModule],
 })
 export class ProductModule {}

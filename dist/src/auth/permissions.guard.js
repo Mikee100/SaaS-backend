@@ -12,35 +12,47 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionsGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
+const user_service_1 = require("../user/user.service");
 let PermissionsGuard = class PermissionsGuard {
     reflector;
-    constructor(reflector) {
+    userService;
+    constructor(reflector, userService) {
         this.reflector = reflector;
+        this.userService = userService;
     }
-    canActivate(context) {
-        const requiredPermissions = this.reflector.getAllAndOverride('permissions', [
-            context.getHandler(),
-            context.getClass(),
-        ]);
-        if (!requiredPermissions || requiredPermissions.length === 0) {
+    async canActivate(context) {
+        const req = context.switchToHttp().getRequest();
+        const user = req.user;
+        if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
+            console.log('Owner/admin bypass: all permissions granted');
             return true;
         }
-        const request = context.switchToHttp().getRequest();
-        const user = request.user;
-        if (!user || !user.permissions) {
-            throw new common_1.ForbiddenException('No permissions found');
+        const requiredPermissions = this.reflector.get('permissions', context.getHandler());
+        console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
+        if (!user)
+            throw new common_1.ForbiddenException('User not authenticated');
+        const tenantId = user?.tenantId;
+        const userId = user?.userId || user?.sub;
+        let userPermissions = [];
+        if (tenantId) {
+            userPermissions = await this.userService.getEffectivePermissions(userId, tenantId);
         }
-        const userPerms = user.permissions.map((p) => p.key);
-        const hasAll = requiredPermissions.every(perm => userPerms.includes(perm));
-        if (!hasAll) {
-            throw new common_1.ForbiddenException('Insufficient permissions');
+        else {
+            const direct = await this.userService.getUserPermissions(userId);
+            userPermissions = direct.map((p) => p.permission.key);
+            if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
+                return true;
+            }
         }
+        const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
+        if (!hasPermission)
+            throw new common_1.ForbiddenException('Not allowed');
         return true;
     }
 };
 exports.PermissionsGuard = PermissionsGuard;
 exports.PermissionsGuard = PermissionsGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [core_1.Reflector])
+    __metadata("design:paramtypes", [core_1.Reflector, user_service_1.UserService])
 ], PermissionsGuard);
 //# sourceMappingURL=permissions.guard.js.map

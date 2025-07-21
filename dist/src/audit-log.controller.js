@@ -15,8 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditLogController = void 0;
 const common_1 = require("@nestjs/common");
 const audit_log_service_1 = require("./audit-log.service");
-const roles_decorator_1 = require("./auth/roles.decorator");
 const passport_1 = require("@nestjs/passport");
+const permissions_decorator_1 = require("./auth/permissions.decorator");
+const permissions_guard_1 = require("./auth/permissions.guard");
 let AuditLogController = class AuditLogController {
     auditLogService;
     constructor(auditLogService) {
@@ -29,14 +30,14 @@ let AuditLogController = class AuditLogController {
 exports.AuditLogController = AuditLogController;
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('view_audit_logs'),
     __param(0, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuditLogController.prototype, "getLogs", null);
 exports.AuditLogController = AuditLogController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('audit-logs'),
     __metadata("design:paramtypes", [audit_log_service_1.AuditLogService])
 ], AuditLogController);

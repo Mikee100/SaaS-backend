@@ -1,28 +1,41 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector, private userService: UserService) {}
 
-  canActivate(context: ExecutionContext): boolean {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>('permissions', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (!requiredPermissions || requiredPermissions.length === 0) {
-      return true; // No permissions required
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest();
+    const user = req.user;
+    // Owner/admin bypass: always allow
+    if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
+      console.log('Owner/admin bypass: all permissions granted');
+      return true;
     }
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
-    if (!user || !user.permissions) {
-      throw new ForbiddenException('No permissions found');
+    const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
+    console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
+    if (!user) throw new ForbiddenException('User not authenticated');
+    const tenantId = user?.tenantId;
+    const userId = user?.userId || user?.sub;
+    let userPermissions: string[] = [];
+
+    if (tenantId) {
+      // Normal case: tenant-specific permissions
+      userPermissions = await this.userService.getEffectivePermissions(userId, tenantId);
+    } else {
+      // Global endpoints: check direct user permissions (not via roles)
+      const direct = await this.userService.getUserPermissions(userId);
+      userPermissions = direct.map((p: any) => p.permission.key);
+      // Allow all permissions for owners/admins
+      if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
+        return true;
+      }
     }
-    const userPerms = user.permissions.map((p: any) => p.key);
-    const hasAll = requiredPermissions.every(perm => userPerms.includes(perm));
-    if (!hasAll) {
-      throw new ForbiddenException('Insufficient permissions');
-    }
+
+    const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
+    if (!hasPermission) throw new ForbiddenException('Not allowed');
     return true;
   }
 } 

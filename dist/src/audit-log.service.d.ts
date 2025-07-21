@@ -14,12 +14,10 @@ export declare class AuditLogService {
         user: {
             id: string;
             name: string;
-            tenantId: string;
             createdAt: Date;
             updatedAt: Date;
             email: string;
             password: string;
-            role: string;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;

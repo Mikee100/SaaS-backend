@@ -30,18 +30,28 @@ export class AuthService {
       }
       throw new UnauthorizedException('Invalid credentials');
     }
-    if (this.auditLogService) {
-      await this.auditLogService.log(user.id, 'login_success', { email }, ip);
+
+    const userRoles = await this.userService.getUserRoles(user.id);
+    if (userRoles.length === 0) {
+      throw new UnauthorizedException('User has no assigned roles or tenant.');
     }
-    const payload = { email: user.email, sub: user.id, tenantId: user.tenantId, role: user.role };
+
+    const payload = {
+      email: user.email,
+      sub: user.id,
+      roles: userRoles.map(ur => ur.role.name),
+      tenantId: userRoles[0].tenantId, // Assuming user belongs to one tenant for now
+    };
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(user.id, 'login_success', { email: user.email }, ip);
+    }
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
       },
     };
   }

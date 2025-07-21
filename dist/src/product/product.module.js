@@ -12,13 +12,15 @@ const product_service_1 = require("./product.service");
 const product_controller_1 = require("./product.controller");
 const prisma_service_1 = require("../prisma.service");
 const audit_log_service_1 = require("../audit-log.service");
+const user_module_1 = require("../user/user.module");
 let ProductModule = class ProductModule {
 };
 exports.ProductModule = ProductModule;
 exports.ProductModule = ProductModule = __decorate([
     (0, common_1.Module)({
         providers: [product_service_1.ProductService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
-        controllers: [product_controller_1.ProductController]
+        controllers: [product_controller_1.ProductController],
+        imports: [user_module_1.UserModule],
     })
 ], ProductModule);
 //# sourceMappingURL=product.module.js.map

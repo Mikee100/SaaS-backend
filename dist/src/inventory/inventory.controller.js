@@ -18,8 +18,8 @@ const inventory_service_1 = require("./inventory.service");
 const passport_1 = require("@nestjs/passport");
 const create_inventory_dto_1 = require("./create-inventory.dto");
 const update_inventory_dto_1 = require("./update-inventory.dto");
-const roles_decorator_1 = require("../auth/roles.decorator");
-const roles_guard_1 = require("../auth/roles.guard");
+const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let InventoryController = class InventoryController {
     inventoryService;
     constructor(inventoryService) {
@@ -30,17 +30,14 @@ let InventoryController = class InventoryController {
         return this.inventoryService.findAllByTenant(tenantId);
     }
     async create(req, dto) {
-        console.log('req.user (POST /inventory):', req.user);
         const tenantId = req.user.tenantId;
         return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
     }
     async update(req, id, dto) {
-        console.log('req.user (PUT /inventory/:id):', req.user);
         const tenantId = req.user.tenantId;
         return this.inventoryService.updateInventory(id, dto, tenantId, req.user.userId, req.ip);
     }
     async remove(req, id) {
-        console.log('req.user (DELETE /inventory/:id):', req.user);
         const tenantId = req.user.tenantId;
         return this.inventoryService.deleteInventory(id, tenantId, req.user.userId, req.ip);
     }
@@ -48,6 +45,7 @@ let InventoryController = class InventoryController {
 exports.InventoryController = InventoryController;
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -55,7 +53,7 @@ __decorate([
 ], InventoryController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_inventory'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -64,7 +62,7 @@ __decorate([
 ], InventoryController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_inventory'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -74,7 +72,7 @@ __decorate([
 ], InventoryController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_inventory'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -82,7 +80,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "remove", null);
 exports.InventoryController = InventoryController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('inventory'),
     __metadata("design:paramtypes", [inventory_service_1.InventoryService])
 ], InventoryController);

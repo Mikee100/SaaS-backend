@@ -11,8 +11,6 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
-            role: string;
-            tenantId: string;
         };
     }>;
     forgotPassword(body: {

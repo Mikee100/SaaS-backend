@@ -15,6 +15,7 @@ const prisma_service_1 = require("../prisma.service");
 const XLSX = require("xlsx");
 const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
+const qrcode = require("qrcode");
 const bulkUploadProgress = {};
 function findColumnMatch(headers, candidates) {
     for (const candidate of candidates) {
@@ -41,7 +42,17 @@ let ProductService = class ProductService {
         });
     }
     async createProduct(data, actorUserId, ip) {
-        const product = await this.prisma.product.create({ data });
+        const productData = { ...data };
+        if (productData.stock !== undefined) {
+            productData.stock = parseInt(String(productData.stock), 10);
+            if (isNaN(productData.stock)) {
+                productData.stock = 0;
+            }
+        }
+        if (productData.price !== undefined) {
+            productData.price = parseFloat(String(productData.price));
+        }
+        const product = await this.prisma.product.create({ data: productData });
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
         }
@@ -154,6 +165,19 @@ let ProductService = class ProductService {
             });
         }
         return { updated: products.length };
+    }
+    async generateQrCode(id, tenantId, res) {
+        const product = await this.prisma.product.findFirst({
+            where: { id, tenantId },
+        });
+        if (!product) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        const qrCodeDataUrl = await qrcode.toDataURL(product.id);
+        res.setHeader('Content-Type', 'image/png');
+        const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+        const img = Buffer.from(base64Data, 'base64');
+        res.send(img);
     }
 };
 exports.ProductService = ProductService;

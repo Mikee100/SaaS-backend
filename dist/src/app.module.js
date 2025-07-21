@@ -17,11 +17,11 @@ const product_module_1 = require("./product/product.module");
 const inventory_module_1 = require("./inventory/inventory.module");
 const sales_module_1 = require("./sales/sales.module");
 const mpesa_module_1 = require("./mpesa.module");
-const permission_controller_1 = require("./permission/permission.controller");
 const prisma_module_1 = require("./prisma.module");
 const audit_log_service_1 = require("./audit-log.service");
 const audit_log_controller_1 = require("./audit-log.controller");
 const realtime_module_1 = require("./realtime.module");
+const permission_module_1 = require("./permission/permission.module");
 require("./queue");
 let AppModule = class AppModule {
 };
@@ -38,8 +38,9 @@ exports.AppModule = AppModule = __decorate([
             sales_module_1.SalesModule,
             mpesa_module_1.MpesaModule,
             realtime_module_1.RealtimeModule,
+            permission_module_1.PermissionModule,
         ],
-        controllers: [app_controller_1.AppController, permission_controller_1.PermissionController, audit_log_controller_1.AuditLogController],
+        controllers: [app_controller_1.AppController, audit_log_controller_1.AuditLogController],
         providers: [app_service_1.AppService, audit_log_service_1.AuditLogService],
     })
 ], AppModule);

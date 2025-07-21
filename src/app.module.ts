@@ -14,6 +14,7 @@ import { AuditLogService } from './audit-log.service';
 import { AuditLogController } from './audit-log.controller';
 import { RealtimeGateway } from './realtime.gateway';
 import { RealtimeModule } from './realtime.module';
+import { PermissionModule } from './permission/permission.module';
 // Import BullMQ queue/worker setup (starts background workers)
 import './queue';
 
@@ -29,8 +30,9 @@ import './queue';
     SalesModule,
     MpesaModule,
     RealtimeModule,
+    PermissionModule,
   ],
-  controllers: [AppController, PermissionController, AuditLogController],
+  controllers: [AppController, AuditLogController],
   providers: [AppService, AuditLogService],
 })
 export class AppModule {}

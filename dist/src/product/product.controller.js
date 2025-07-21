@@ -17,7 +17,8 @@ const common_1 = require("@nestjs/common");
 const product_service_1 = require("./product.service");
 const passport_1 = require("@nestjs/passport");
 const platform_express_1 = require("@nestjs/platform-express");
-const roles_decorator_1 = require("../auth/roles.decorator");
+const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let ProductController = class ProductController {
     productService;
     constructor(productService) {
@@ -44,6 +45,9 @@ let ProductController = class ProductController {
     async clearAll(req) {
         return this.productService.clearAll(req.user.tenantId);
     }
+    async getQrCode(id, req, res) {
+        return this.productService.generateQrCode(id, req.user.tenantId, res);
+    }
     async update(id, body, req) {
         return this.productService.updateProduct(id, body, req.user.tenantId, req.user.userId, req.ip);
     }
@@ -54,6 +58,7 @@ let ProductController = class ProductController {
 exports.ProductController = ProductController;
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.Permissions)('view_products'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -61,6 +66,7 @@ __decorate([
 ], ProductController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -69,6 +75,7 @@ __decorate([
 ], ProductController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)('bulk-upload'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, common_1.Req)()),
@@ -85,7 +92,7 @@ __decorate([
 ], ProductController.prototype, "getBulkUploadProgress", null);
 __decorate([
     (0, common_1.Post)('randomize-stocks'),
-    (0, roles_decorator_1.Roles)('owner', 'manager'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -93,13 +100,24 @@ __decorate([
 ], ProductController.prototype, "randomizeStocks", null);
 __decorate([
     (0, common_1.Delete)('clear-all'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "clearAll", null);
 __decorate([
+    (0, common_1.Get)(':id/qr'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getQrCode", null);
+__decorate([
     (0, common_1.Put)(':id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -109,6 +127,7 @@ __decorate([
 ], ProductController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -116,7 +135,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "remove", null);
 exports.ProductController = ProductController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('products'),
     __metadata("design:paramtypes", [product_service_1.ProductService])
 ], ProductController);

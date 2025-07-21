@@ -11,11 +11,11 @@ export declare class MpesaController {
     mpesaWebhook(body: any, res: Response): Promise<Response<any, Record<string, any>>>;
     getByCheckoutId(checkoutRequestId: string): Promise<{
         id: string;
-        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        phoneNumber: string;
+        userId: string | null;
         amount: number;
+        phoneNumber: string;
         status: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;

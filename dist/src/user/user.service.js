@@ -25,24 +25,57 @@ let UserService = class UserService {
         const hashedPassword = await bcrypt.hash(data.password, 10);
         const user = await this.prisma.user.create({
             data: {
-                ...data,
+                name: data.name,
+                email: data.email,
                 password: hashedPassword,
             },
         });
         if (this.auditLogService) {
-            await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: user.role }, ip);
+            await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: data.role }, ip);
+        }
+        const role = await this.prisma.role.findUnique({ where: { name: data.role } });
+        if (role) {
+            await this.prisma.userRole.create({
+                data: {
+                    userId: user.id,
+                    roleId: role.id,
+                    tenantId: data.tenantId,
+                },
+            });
         }
         return user;
     }
     async findByEmail(email) {
         return this.prisma.user.findUnique({ where: { email } });
     }
+    async getUserRoles(userId) {
+        return this.prisma.userRole.findMany({
+            where: { userId },
+            include: { role: true },
+        });
+    }
     async findAllByTenant(tenantId) {
-        return this.prisma.user.findMany({ where: { tenantId } });
+        return this.prisma.user.findMany({
+            where: {
+                userRoles: {
+                    some: { tenantId }
+                }
+            },
+            include: {
+                userRoles: {
+                    include: { role: true }
+                }
+            }
+        });
     }
     async updateUser(id, data, tenantId, actorUserId, ip) {
         const result = await this.prisma.user.updateMany({
-            where: { id, tenantId },
+            where: {
+                id,
+                userRoles: {
+                    some: { tenantId }
+                }
+            },
             data,
         });
         if (this.auditLogService) {
@@ -78,7 +111,12 @@ let UserService = class UserService {
     }
     async deleteUser(id, tenantId, actorUserId, ip) {
         const result = await this.prisma.user.deleteMany({
-            where: { id, tenantId },
+            where: {
+                id,
+                userRoles: {
+                    some: { tenantId }
+                }
+            },
         });
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'user_deleted', { userId: id }, ip);
@@ -125,6 +163,25 @@ let UserService = class UserService {
             },
         });
         return user;
+    }
+    async getEffectivePermissions(userId, tenantId) {
+        const direct = await this.prisma.userPermission.findMany({
+            where: { userId },
+            include: { permission: true }
+        });
+        const directPerms = direct.map((p) => p.permission.key);
+        const roles = await this.prisma.userRole.findMany({
+            where: { userId, tenantId },
+            include: {
+                role: {
+                    include: {
+                        rolePermissions: { include: { permission: true } }
+                    }
+                }
+            }
+        });
+        const rolePerms = roles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
+        return Array.from(new Set([...directPerms, ...rolePerms]));
     }
 };
 exports.UserService = UserService;
