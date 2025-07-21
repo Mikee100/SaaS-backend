@@ -60,11 +60,12 @@ export declare class SalesService {
         totalSales: number;
         totalRevenue: number;
         avgSaleValue: number;
-        salesByProduct: Record<string, {
+        topProducts: {
+            id: string;
             name: string;
-            quantity: number;
+            unitsSold: number;
             revenue: number;
-        }>;
+        }[];
         salesByMonth: Record<string, number>;
         topCustomers: {
             name: string;
@@ -78,5 +79,18 @@ export declare class SalesService {
             forecast_sales: never[];
         };
         customerSegments: never[];
+        paymentBreakdown: Record<string, number>;
+        lowStock: {
+            id: string;
+            tenantId: string;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            price: number;
+            sku: string;
+            description: string | null;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        }[];
     }>;
 }

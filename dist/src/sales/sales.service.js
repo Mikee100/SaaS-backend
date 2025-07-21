@@ -188,7 +188,7 @@ let SalesService = class SalesService {
     async getAnalytics(tenantId) {
         const sales = await this.prisma.sale.findMany({
             where: { tenantId },
-            include: { items: true },
+            include: { items: { include: { product: true } } },
         });
         const totalSales = sales.length;
         const totalRevenue = sales.reduce((sum, s) => sum + (s.total || 0), 0);
@@ -197,16 +197,31 @@ let SalesService = class SalesService {
         for (const sale of sales) {
             for (const item of sale.items) {
                 if (!salesByProduct[item.productId]) {
-                    salesByProduct[item.productId] = { name: item.productId, quantity: 0, revenue: 0 };
+                    salesByProduct[item.productId] = { name: item.product?.name || 'N/A', quantity: 0, revenue: 0 };
                 }
                 salesByProduct[item.productId].quantity += item.quantity;
                 salesByProduct[item.productId].revenue += item.price * item.quantity;
             }
         }
+        const topProducts = Object.entries(salesByProduct)
+            .map(([id, data]) => ({
+            id,
+            name: data.name,
+            unitsSold: data.quantity,
+            revenue: data.revenue,
+        }))
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 10);
         const salesByMonth = {};
         for (const sale of sales) {
             const month = sale.createdAt.toISOString().slice(0, 7);
             salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+        }
+        const paymentBreakdown = {};
+        for (const sale of sales) {
+            if (sale.paymentType) {
+                paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+            }
         }
         const customerMap = {};
         for (const sale of sales) {
@@ -228,6 +243,12 @@ let SalesService = class SalesService {
         const topCustomers = Object.values(customerMap)
             .sort((a, b) => b.total - a.total)
             .slice(0, 10);
+        const lowStock = await this.prisma.product.findMany({
+            where: {
+                tenantId,
+                stock: { lt: 10 },
+            },
+        });
         const customerInput = Object.values(customerMap).map(c => ({
             name: c.name,
             total: c.total,
@@ -237,7 +258,7 @@ let SalesService = class SalesService {
         let customerSegments = [];
         try {
             if (customerInput.length > 0) {
-                const res = await axios_1.default.post('http://localhost:5001/customer_segments', {
+                const res = await axios_1.default.post('http://localhost:5000/customer_segments', {
                     customers: customerInput,
                 });
                 customerSegments = res.data;
@@ -249,7 +270,7 @@ let SalesService = class SalesService {
         const salesValues = Object.values(salesByMonth);
         let forecast = { forecast_months: [], forecast_sales: [] };
         try {
-            const res = await axios_1.default.post('http://localhost:5001/forecast', {
+            const res = await axios_1.default.post('http://localhost:5000/forecast', {
                 months,
                 sales: salesValues,
                 periods: 4,
@@ -262,11 +283,13 @@ let SalesService = class SalesService {
             totalSales,
             totalRevenue,
             avgSaleValue,
-            salesByProduct,
+            topProducts,
             salesByMonth,
             topCustomers,
             forecast,
             customerSegments,
+            paymentBreakdown,
+            lowStock,
         };
     }
 };

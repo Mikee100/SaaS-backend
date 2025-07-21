@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans
 import numpy as np
 from datetime import datetime
 from flask_cors import CORS
+from sklearn.linear_model import LogisticRegression
 
 # Combined Flask app for sales anomaly detection, forecasting, and customer segmentation
 app = Flask(__name__)
@@ -82,6 +83,36 @@ def customer_segments():
         df['clv'] = df['total']
     df['churn_risk'] = (df['recency'] > df['recency'].median()).astype(int)
     result = df[['name', 'total', 'count', 'last_purchase', 'segment_label', 'clv', 'churn_risk']].to_dict(orient='records')
+    return jsonify(result)
+
+@app.route('/churn_prediction', methods=['POST'])
+def churn_prediction():
+    # Expect JSON: { "customers": [{ "name": ..., "total": ..., "count": ..., "last_purchase": ... }, ...] }
+    data = request.json
+    customers = data.get('customers', [])
+    if not customers or len(customers) < 2:
+        return jsonify([])
+    df = pd.DataFrame(customers)
+    # Feature engineering
+    df['recency'] = (pd.Timestamp.now(tz='UTC') - pd.to_datetime(df['last_purchase'], utc=True)).dt.days
+    df['frequency'] = df['count']
+    df['monetary'] = df['total']
+    # Generate churn label: churned if recency > 60 days
+    df['churned'] = (df['recency'] > 60).astype(int)
+    # Train/test split (here, train on all, predict on all for demo)
+    X = df[['recency', 'frequency', 'monetary']].fillna(0)
+    y = df['churned']
+    # If all y are the same, fallback to rule-based
+    if y.nunique() == 1:
+        df['churn_risk'] = df['churned']
+        df['churn_probability'] = y.astype(float)
+    else:
+        model = LogisticRegression()
+        model.fit(X, y)
+        df['churn_probability'] = model.predict_proba(X)[:, 1]
+        df['churn_risk'] = (df['churn_probability'] > 0.5).astype(int)
+    # Output
+    result = df[['name', 'total', 'count', 'last_purchase', 'churn_probability', 'churn_risk']].to_dict(orient='records')
     return jsonify(result)
 
 if __name__ == '__main__':
