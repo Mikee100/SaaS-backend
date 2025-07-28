@@ -12,13 +12,13 @@ export declare class TenantService {
     getTenantById(tenantId: string): Promise<{
         id: string;
         name: string;
+        currency: string | null;
         createdAt: Date;
         updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
         address: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -29,13 +29,13 @@ export declare class TenantService {
     updateTenant(tenantId: string, dto: any): Promise<{
         id: string;
         name: string;
+        currency: string | null;
         createdAt: Date;
         updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
         address: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;

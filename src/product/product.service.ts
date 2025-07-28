@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as XLSX from 'xlsx';
 import { Express, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
 import * as qrcode from 'qrcode';
+import { BillingService } from '../billing/billing.service';
 
 // In-memory progress store (for demo; use Redis for production)
 const bulkUploadProgress: Record<string, { processed: number; total: number }> = {};
@@ -24,7 +25,11 @@ function findColumnMatch(headers: string[], candidates: string[]): string | unde
 
 @Injectable()
 export class ProductService {
-  constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditLogService: AuditLogService,
+    private billingService: BillingService,
+  ) {}
 
   async findAllByTenant(tenantId: string) {
     return this.prisma.product.findMany({
@@ -34,6 +39,14 @@ export class ProductService {
   }
 
   async createProduct(data: any, actorUserId?: string, ip?: string) {
+    // Check product limit
+    const productLimit = await this.billingService.checkLimit(data.tenantId, 'products');
+    if (!productLimit.allowed) {
+      throw new BadRequestException(
+        `Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`
+      );
+    }
+
     const productData = { ...data };
 
     // Ensure stock is an integer

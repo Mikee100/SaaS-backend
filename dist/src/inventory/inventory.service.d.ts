@@ -11,29 +11,29 @@ export declare class InventoryService {
     findAllByTenant(tenantId: string): Promise<({
         product: {
             id: string;
-            description: string | null;
             name: string;
-            sku: string;
+            description: string | null;
             price: number;
-            stock: number;
-            tenantId: string;
             createdAt: Date;
             updatedAt: Date;
+            sku: string;
+            stock: number;
+            tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         productId: string;
         quantity: number;
     })[]>;
     createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         productId: string;
         quantity: number;
     }>;

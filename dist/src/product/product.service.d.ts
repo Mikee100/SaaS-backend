@@ -1,32 +1,34 @@
 import { PrismaService } from '../prisma.service';
 import { Response } from 'express';
 import { AuditLogService } from '../audit-log.service';
+import { BillingService } from '../billing/billing.service';
 export declare class ProductService {
     private prisma;
     private auditLogService;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService);
+    private billingService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
     findAllByTenant(tenantId: string): Promise<{
         id: string;
-        description: string | null;
         name: string;
-        sku: string;
+        description: string | null;
         price: number;
-        stock: number;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        sku: string;
+        stock: number;
+        tenantId: string;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        description: string | null;
         name: string;
-        sku: string;
+        description: string | null;
         price: number;
-        stock: number;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        sku: string;
+        stock: number;
+        tenantId: string;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

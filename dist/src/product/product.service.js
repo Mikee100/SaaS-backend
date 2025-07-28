@@ -16,6 +16,7 @@ const XLSX = require("xlsx");
 const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
 const qrcode = require("qrcode");
+const billing_service_1 = require("../billing/billing.service");
 const bulkUploadProgress = {};
 function findColumnMatch(headers, candidates) {
     for (const candidate of candidates) {
@@ -31,9 +32,11 @@ function findColumnMatch(headers, candidates) {
 let ProductService = class ProductService {
     prisma;
     auditLogService;
-    constructor(prisma, auditLogService) {
+    billingService;
+    constructor(prisma, auditLogService, billingService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
+        this.billingService = billingService;
     }
     async findAllByTenant(tenantId) {
         return this.prisma.product.findMany({
@@ -42,6 +45,10 @@ let ProductService = class ProductService {
         });
     }
     async createProduct(data, actorUserId, ip) {
+        const productLimit = await this.billingService.checkLimit(data.tenantId, 'products');
+        if (!productLimit.allowed) {
+            throw new common_1.BadRequestException(`Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`);
+        }
         const productData = { ...data };
         if (productData.stock !== undefined) {
             productData.stock = parseInt(String(productData.stock), 10);
@@ -183,6 +190,8 @@ let ProductService = class ProductService {
 exports.ProductService = ProductService;
 exports.ProductService = ProductService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, audit_log_service_1.AuditLogService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        audit_log_service_1.AuditLogService,
+        billing_service_1.BillingService])
 ], ProductService);
 //# sourceMappingURL=product.service.js.map

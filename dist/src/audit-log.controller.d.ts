@@ -5,11 +5,11 @@ export declare class AuditLogController {
     getLogs(limit: string): Promise<({
         user: {
             id: string;
-            createdAt: Date;
             name: string;
+            createdAt: Date;
+            updatedAt: Date;
             email: string;
             password: string;
-            updatedAt: Date;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -18,10 +18,10 @@ export declare class AuditLogController {
         } | null;
     } & {
         id: string;
+        createdAt: Date;
         userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;
-        createdAt: Date;
     })[]>;
 }

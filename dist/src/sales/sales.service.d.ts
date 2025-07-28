@@ -82,14 +82,14 @@ export declare class SalesService {
         paymentBreakdown: Record<string, number>;
         lowStock: {
             id: string;
-            description: string | null;
             name: string;
-            sku: string;
+            description: string | null;
             price: number;
-            stock: number;
-            tenantId: string;
             createdAt: Date;
             updatedAt: Date;
+            sku: string;
+            stock: number;
+            tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
     }>;

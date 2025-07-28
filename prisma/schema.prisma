@@ -35,6 +35,9 @@ model Tenant {
   inventories   Inventory[]
   sales         Sale[]
   tenantModules TenantModule[]
+  subscriptions Subscription[]
+  paymentMethods PaymentMethod[]
+
   
 }
 
@@ -211,4 +214,81 @@ model UserRole {
   roleId    String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   tenantId  String
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  planId            String
+  plan              Plan     @relation(fields: [planId], references: [id])
+  status            String   // active, cancelled, past_due, unpaid
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd Boolean  @default(false)
+  cancelledAt       DateTime?
+  trialEnd          DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  invoices          Invoice[]
+
+  @@index([tenantId])
+  @@index([planId])
+}
+
+model Plan {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  description       String?
+  price             Float
+  currency          String   @default("USD")
+  interval          String   // monthly, yearly
+  features          Json?    // Array of feature strings
+  maxUsers          Int?
+  maxProducts       Int?
+  maxSalesPerMonth  Int?
+  analyticsEnabled  Boolean  @default(false)
+  advancedReports   Boolean  @default(false)
+  prioritySupport   Boolean  @default(false)
+  customBranding    Boolean  @default(false)
+  apiAccess         Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  subscriptions     Subscription[]
+}
+
+model Invoice {
+  id                String   @id @default(uuid())
+  subscriptionId    String
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id])
+  amount            Float
+  currency          String   @default("USD")
+  status            String   // paid, pending, failed, cancelled
+  dueDate           DateTime
+  paidAt            DateTime?
+  invoiceNumber     String   @unique
+  description       String?
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([subscriptionId])
+}
+
+model PaymentMethod {
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  type              String   // card, bank_account, mpesa
+  last4             String?
+  brand             String?  // visa, mastercard, etc.
+  expMonth          Int?
+  expYear           Int?
+  isDefault         Boolean  @default(false)
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
 }

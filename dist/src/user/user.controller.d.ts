@@ -4,11 +4,11 @@ export declare class UserController {
     constructor(userService: UserService);
     createUser(body: any, req: any): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -30,11 +30,11 @@ export declare class UserController {
         })[];
     } & {
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -50,11 +50,11 @@ export declare class UserController {
             key: string;
         }[];
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -87,11 +87,11 @@ export declare class UserController {
         })[];
     } & {
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -118,11 +118,11 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;

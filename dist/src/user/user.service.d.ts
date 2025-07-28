@@ -12,11 +12,11 @@ export declare class UserService {
         tenantId: string;
     }, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -25,11 +25,11 @@ export declare class UserService {
     }>;
     findByEmail(email: string): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -44,9 +44,9 @@ export declare class UserService {
         };
     } & {
         id: string;
+        tenantId: string;
         userId: string;
         roleId: string;
-        tenantId: string;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         userRoles: ({
@@ -57,17 +57,17 @@ export declare class UserService {
             };
         } & {
             id: string;
+            tenantId: string;
             userId: string;
             roleId: string;
-            tenantId: string;
         })[];
     } & {
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -98,11 +98,11 @@ export declare class UserService {
         })[];
     } & {
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -126,11 +126,11 @@ export declare class UserService {
     })[]>;
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -143,11 +143,11 @@ export declare class UserService {
         region?: string;
     }): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -156,11 +156,11 @@ export declare class UserService {
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
-        email: string;
-        password: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        email: string;
+        password: string;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;

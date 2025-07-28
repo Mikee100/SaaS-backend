@@ -4,29 +4,29 @@ export declare class PermissionService {
     constructor(prisma: PrismaService);
     getAllPermissions(): Promise<{
         id: string;
-        key: string;
         description: string | null;
+        key: string;
     }[]>;
     createPermission(key: string, description?: string): Promise<{
         id: string;
-        key: string;
         description: string | null;
+        key: string;
     }>;
     getAllRoles(): Promise<{
         id: string;
-        description: string | null;
         name: string;
+        description: string | null;
     }[]>;
     createRole(name: string, description?: string): Promise<{
         id: string;
-        description: string | null;
         name: string;
+        description: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
         permission: {
             id: string;
-            key: string;
             description: string | null;
+            key: string;
         };
     } & {
         id: string;
@@ -38,8 +38,8 @@ export declare class PermissionService {
     }[]): Promise<({
         permission: {
             id: string;
-            key: string;
             description: string | null;
+            key: string;
         };
     } & {
         id: string;
