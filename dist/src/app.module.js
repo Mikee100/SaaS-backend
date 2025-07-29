@@ -22,6 +22,7 @@ const realtime_module_1 = require("./realtime.module");
 const permission_module_1 = require("./permission/permission.module");
 const billing_module_1 = require("./billing/billing.module");
 const analytics_module_1 = require("./analytics/analytics.module");
+const admin_module_1 = require("./admin/admin.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -40,6 +41,7 @@ exports.AppModule = AppModule = __decorate([
             permission_module_1.PermissionModule,
             billing_module_1.BillingModule,
             analytics_module_1.AnalyticsModule,
+            admin_module_1.AdminModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

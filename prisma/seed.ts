@@ -83,6 +83,24 @@ async function main() {
     },
   });
   console.log('Seeded plans: Basic, Pro, Enterprise');
+
+  // Create a superadmin user if not exists
+  const superadminEmail = 'superadmin@gmail.com';
+  const superadminPassword = '$2b$10$8QwQn1QwQn1QwQn1QwQn1uQwQn1QwQn1QwQn1QwQn1QwQn1QwQn1u'; // bcrypt hash for '10028Mike.'
+  const existingSuperadmin = await prisma.user.findUnique({ where: { email: superadminEmail } });
+  if (!existingSuperadmin) {
+    await prisma.user.create({
+      data: {
+        email: superadminEmail,
+        password: superadminPassword,
+        name: 'Platform Superadmin',
+        isSuperadmin: true,
+      },
+    });
+    console.log('Superadmin user created:', superadminEmail);
+  } else {
+    console.log('Superadmin user already exists:', superadminEmail);
+  }
 }
 
 main()

@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
+const user_service_1 = require("../user/user.service");
 let TenantService = class TenantService {
     prisma;
-    constructor(prisma) {
+    userService;
+    constructor(prisma, userService) {
         this.prisma = prisma;
+        this.userService = userService;
     }
     async createTenant(data) {
         return this.prisma.tenant.create({ data });
@@ -39,10 +42,19 @@ let TenantService = class TenantService {
         }
         return this.prisma.tenant.update({ where: { id: tenantId }, data });
     }
+    async createOwnerUser(data) {
+        return this.userService.createUser({
+            name: data.name,
+            email: data.email,
+            password: data.password,
+            role: 'owner',
+            tenantId: data.tenantId,
+        });
+    }
 };
 exports.TenantService = TenantService;
 exports.TenantService = TenantService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, user_service_1.UserService])
 ], TenantService);
 //# sourceMappingURL=tenant.service.js.map

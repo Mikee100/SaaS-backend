@@ -5,23 +5,25 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 
-@UseGuards(AuthGuard('jwt'))
 @Controller('tenant')
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 
+  @UseGuards(AuthGuard('jwt'))
   @Get('me')
   async getMyTenant(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.tenantService.getTenantById(tenantId);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Put('me')
   async updateMyTenant(@Req() req, @Body() dto: any) {
     const tenantId = req.user.tenantId;
     return this.tenantService.updateTenant(tenantId, dto);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post('logo')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
@@ -46,5 +48,25 @@ export class TenantController {
     const logoUrl = `/uploads/logos/${file.filename}`;
     await this.tenantService.updateTenant(req.user.tenantId, { logoUrl });
     return { logoUrl };
+  }
+
+  // Public endpoint for business registration
+  @Post()
+  async registerTenant(@Body() body: any) {
+    // Expect: { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword }
+    const { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword } = body;
+    if (!name || !businessType || !contactEmail || !ownerName || !ownerEmail || !ownerPassword) {
+      throw new Error('Missing required fields');
+    }
+    // Create tenant
+    const tenant = await this.tenantService.createTenant({ name, businessType, contactEmail, contactPhone });
+    // Create owner user (role: owner)
+    await this.tenantService.createOwnerUser({
+      name: ownerName,
+      email: ownerEmail,
+      password: ownerPassword,
+      tenantId: tenant.id,
+    });
+    return { tenant };
   }
 }

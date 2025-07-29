@@ -39,9 +39,24 @@ let TenantController = class TenantController {
         await this.tenantService.updateTenant(req.user.tenantId, { logoUrl });
         return { logoUrl };
     }
+    async registerTenant(body) {
+        const { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword } = body;
+        if (!name || !businessType || !contactEmail || !ownerName || !ownerEmail || !ownerPassword) {
+            throw new Error('Missing required fields');
+        }
+        const tenant = await this.tenantService.createTenant({ name, businessType, contactEmail, contactPhone });
+        await this.tenantService.createOwnerUser({
+            name: ownerName,
+            email: ownerEmail,
+            password: ownerPassword,
+            tenantId: tenant.id,
+        });
+        return { tenant };
+    }
 };
 exports.TenantController = TenantController;
 __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('me'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -49,6 +64,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "getMyTenant", null);
 __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Put)('me'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -57,6 +73,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updateMyTenant", null);
 __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Post)('logo'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
         storage: (0, multer_1.diskStorage)({
@@ -82,8 +99,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "uploadLogo", null);
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "registerTenant", null);
 exports.TenantController = TenantController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Controller)('tenant'),
     __metadata("design:paramtypes", [tenant_service_1.TenantService])
 ], TenantController);

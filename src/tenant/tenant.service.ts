@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class TenantService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private userService: UserService) {}
 
   async createTenant(data: {
     name: string;
@@ -34,5 +35,16 @@ export class TenantService {
       if (dto[key] !== undefined) data[key] = dto[key];
     }
     return this.prisma.tenant.update({ where: { id: tenantId }, data });
+  }
+
+  async createOwnerUser(data: { name: string; email: string; password: string; tenantId: string }) {
+    // Use UserService to create user with role 'owner'
+    return this.userService.createUser({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      role: 'owner',
+      tenantId: data.tenantId,
+    });
   }
 }

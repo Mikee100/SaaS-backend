@@ -57,6 +57,7 @@ model User {
   language                String?
   region                  String?
   userBranchRoles         UserBranchRole[]
+  isSuperadmin            Boolean            @default(false)
 }
 
 model Permission {

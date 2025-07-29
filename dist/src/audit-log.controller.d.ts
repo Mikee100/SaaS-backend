@@ -15,6 +15,7 @@ export declare class AuditLogController {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
+            isSuperadmin: boolean;
         } | null;
     } & {
         id: string;

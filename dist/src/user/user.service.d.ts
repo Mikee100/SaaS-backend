@@ -22,6 +22,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     findByEmail(email: string): Promise<{
         id: string;
@@ -35,6 +36,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     } | null>;
     getUserRoles(userId: string): Promise<({
         role: {
@@ -73,6 +75,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -108,6 +111,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }) | null>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     getUserPermissions(userId: string): Promise<({
@@ -136,6 +140,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -153,6 +158,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
@@ -166,6 +172,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     getEffectivePermissions(userId: string, tenantId: string): Promise<string[]>;
 }

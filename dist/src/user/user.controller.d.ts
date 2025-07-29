@@ -14,6 +14,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     getUsers(tenantId: string): Promise<({
         userRoles: ({
@@ -40,6 +41,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     })[]>;
     getProtected(req: any): {
         message: string;
@@ -60,6 +62,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     updateUser(req: any, id: string, body: {
         name?: string;
@@ -97,6 +100,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         permission: {
@@ -128,6 +132,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        isSuperadmin: boolean;
     }>;
     deleteUser(req: any, id: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }
