@@ -16,8 +16,6 @@ export declare class SubscriptionService {
     createSubscription(data: CreateSubscriptionDto): Promise<{
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -33,9 +31,13 @@ export declare class SubscriptionService {
             customBranding: boolean;
             apiAccess: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -44,15 +46,11 @@ export declare class SubscriptionService {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
             plan: {
                 id: string;
-                createdAt: Date;
-                updatedAt: Date;
                 name: string;
                 description: string | null;
                 price: number;
@@ -68,9 +66,13 @@ export declare class SubscriptionService {
                 customBranding: boolean;
                 apiAccess: boolean;
                 isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             planId: string;
             status: string;
@@ -79,8 +81,6 @@ export declare class SubscriptionService {
             cancelAtPeriodEnd: boolean;
             cancelledAt: Date | null;
             trialEnd: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         proration: {
             credit: number;
@@ -95,6 +95,8 @@ export declare class SubscriptionService {
     }>;
     cancelSubscription(tenantId: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -103,14 +105,10 @@ export declare class SubscriptionService {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -126,14 +124,16 @@ export declare class SubscriptionService {
             customBranding: boolean;
             apiAccess: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
         invoices: {
             id: string;
-            status: string;
-            createdAt: Date;
-            updatedAt: Date;
             description: string | null;
             currency: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: string;
             subscriptionId: string;
             amount: number;
             dueDate: Date;
@@ -143,6 +143,8 @@ export declare class SubscriptionService {
         }[];
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -151,16 +153,14 @@ export declare class SubscriptionService {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     createInvoice(subscriptionId: string, amount: number): Promise<{
         id: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
         description: string | null;
         currency: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: string;
         subscriptionId: string;
         amount: number;
         dueDate: Date;

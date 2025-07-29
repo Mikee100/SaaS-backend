@@ -91,6 +91,7 @@ export declare class SalesService {
             stock: number;
             tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         }[];
     }>;
 }

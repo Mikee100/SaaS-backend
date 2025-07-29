@@ -63,6 +63,7 @@ export declare class SalesController {
             stock: number;
             tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         }[];
     }>;
     getSaleById(id: string, req: any): Promise<{

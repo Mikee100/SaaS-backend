@@ -16,6 +16,7 @@ export declare class InventoryController {
             stock: number;
             tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         };
     } & {
         id: string;

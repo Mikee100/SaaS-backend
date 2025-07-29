@@ -18,6 +18,7 @@ export declare class ProductService {
         stock: number;
         tenantId: string;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
@@ -30,6 +31,7 @@ export declare class ProductService {
         stock: number;
         tenantId: string;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

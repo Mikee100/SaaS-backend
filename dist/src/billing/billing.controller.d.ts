@@ -9,8 +9,6 @@ export declare class BillingController {
     }>;
     getPlans(): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
         price: number;
@@ -26,6 +24,8 @@ export declare class BillingController {
         customBranding: boolean;
         apiAccess: boolean;
         isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
     }[] | {
         id: string;
         name: string;
@@ -57,8 +57,6 @@ export declare class BillingController {
         status: string;
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -74,6 +72,8 @@ export declare class BillingController {
             customBranding: boolean;
             apiAccess: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
         startDate: Date;
         endDate: Date;
@@ -97,8 +97,6 @@ export declare class BillingController {
     }): Promise<{
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -114,9 +112,13 @@ export declare class BillingController {
             customBranding: boolean;
             apiAccess: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -125,8 +127,6 @@ export declare class BillingController {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     updateSubscription(req: any, data: {
         planId: string;
@@ -135,8 +135,6 @@ export declare class BillingController {
         subscription: {
             plan: {
                 id: string;
-                createdAt: Date;
-                updatedAt: Date;
                 name: string;
                 description: string | null;
                 price: number;
@@ -152,9 +150,13 @@ export declare class BillingController {
                 customBranding: boolean;
                 apiAccess: boolean;
                 isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             planId: string;
             status: string;
@@ -163,8 +165,6 @@ export declare class BillingController {
             cancelAtPeriodEnd: boolean;
             cancelledAt: Date | null;
             trialEnd: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         proration: {
             credit: number;
@@ -179,6 +179,8 @@ export declare class BillingController {
     }>;
     cancelSubscription(req: any): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -187,14 +189,10 @@ export declare class BillingController {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getSubscriptionHistory(req: any): Promise<({
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -210,14 +208,16 @@ export declare class BillingController {
             customBranding: boolean;
             apiAccess: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
         invoices: {
             id: string;
-            status: string;
-            createdAt: Date;
-            updatedAt: Date;
             description: string | null;
             currency: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: string;
             subscriptionId: string;
             amount: number;
             dueDate: Date;
@@ -227,6 +227,8 @@ export declare class BillingController {
         }[];
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
         planId: string;
         status: string;
@@ -235,16 +237,14 @@ export declare class BillingController {
         cancelAtPeriodEnd: boolean;
         cancelledAt: Date | null;
         trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     getInvoices(req: any): Promise<{
         id: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
         description: string | null;
         currency: string;
+        createdAt: Date;
+        updatedAt: Date;
+        status: string;
         subscriptionId: string;
         amount: number;
         dueDate: Date;

@@ -20,6 +20,7 @@ export declare class InventoryService {
             stock: number;
             tenantId: string;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         };
     } & {
         id: string;
