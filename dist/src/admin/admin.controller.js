@@ -25,6 +25,30 @@ let AdminController = class AdminController {
     async testEndpoint() {
         return { message: 'Admin endpoint is working' };
     }
+    async testAnalytics() {
+        console.log('testAnalytics called');
+        const result = await this.adminService.getTenantAnalytics();
+        console.log('testAnalytics result:', result);
+        return result;
+    }
+    async testComparison() {
+        console.log('testComparison called');
+        const result = await this.adminService.getTenantComparison();
+        console.log('testComparison result:', result);
+        return result;
+    }
+    async testBackups() {
+        console.log('testBackups called');
+        const result = await this.adminService.getTenantBackups();
+        console.log('testBackups result:', result);
+        return result;
+    }
+    async testMigrations() {
+        console.log('testMigrations called');
+        const result = await this.adminService.getTenantMigrations();
+        console.log('testMigrations result:', result);
+        return result;
+    }
     async getAllTenants() {
         return this.adminService.getAllTenants();
     }
@@ -42,6 +66,9 @@ let AdminController = class AdminController {
     }
     async getPerformanceMetrics() {
         return this.adminService.getPerformanceMetrics();
+    }
+    async getRealTimeMetrics() {
+        return this.adminService.getRealTimeMetrics();
     }
     async getSupportTickets(status, priority) {
         return this.adminService.getSupportTickets(status, priority);
@@ -73,6 +100,52 @@ let AdminController = class AdminController {
     async getTenantById(id) {
         return this.adminService.getTenantById(id);
     }
+    async getTenantAnalytics(timeRange) {
+        console.log('=== getTenantAnalytics called ===');
+        console.log('timeRange:', timeRange);
+        console.log('User authenticated as superadmin');
+        try {
+            const result = await this.adminService.getTenantAnalytics();
+            console.log('getTenantAnalytics result length:', result?.length);
+            console.log('getTenantAnalytics result type:', typeof result);
+            console.log('getTenantAnalytics result:', JSON.stringify(result, null, 2));
+            return result;
+        }
+        catch (error) {
+            console.error('Error in getTenantAnalytics:', error);
+            throw error;
+        }
+    }
+    async getTenantComparison() {
+        console.log('getTenantComparison called');
+        const result = await this.adminService.getTenantComparison();
+        console.log('getTenantComparison result:', result);
+        return result;
+    }
+    async getTenantBackups() {
+        return this.adminService.getTenantBackups();
+    }
+    async createTenantBackup(backupData) {
+        return this.adminService.createTenantBackup(backupData);
+    }
+    async restoreTenantBackup(restoreData) {
+        return this.adminService.restoreTenantBackup(restoreData);
+    }
+    async getTenantMigrations() {
+        return this.adminService.getTenantMigrations();
+    }
+    async migrateTenant(migrationData) {
+        return this.adminService.migrateTenant(migrationData);
+    }
+    async getTenantResources() {
+        return this.adminService.getTenantResources();
+    }
+    async getTenantPlans() {
+        return this.adminService.getTenantPlans();
+    }
+    async updateTenantPlan(id, planData) {
+        return this.adminService.updateTenantPlan(id, planData);
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -81,6 +154,30 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "testEndpoint", null);
+__decorate([
+    (0, common_1.Get)('test/analytics'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "testAnalytics", null);
+__decorate([
+    (0, common_1.Get)('test/comparison'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "testComparison", null);
+__decorate([
+    (0, common_1.Get)('test/backups'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "testBackups", null);
+__decorate([
+    (0, common_1.Get)('test/migrations'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "testMigrations", null);
 __decorate([
     (0, common_1.Get)('tenants'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
@@ -123,6 +220,13 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getPerformanceMetrics", null);
+__decorate([
+    (0, common_1.Get)('health/metrics/realtime'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getRealTimeMetrics", null);
 __decorate([
     (0, common_1.Get)('support/tickets'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
@@ -207,6 +311,82 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getTenantById", null);
+__decorate([
+    (0, common_1.Get)('tenants/analytics'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __param(0, (0, common_1.Query)('timeRange')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantAnalytics", null);
+__decorate([
+    (0, common_1.Get)('tenants/comparison'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantComparison", null);
+__decorate([
+    (0, common_1.Get)('tenants/backups'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantBackups", null);
+__decorate([
+    (0, common_1.Post)('tenants/backups'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "createTenantBackup", null);
+__decorate([
+    (0, common_1.Post)('tenants/restore'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "restoreTenantBackup", null);
+__decorate([
+    (0, common_1.Get)('tenants/migrations'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantMigrations", null);
+__decorate([
+    (0, common_1.Post)('tenants/migrate'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "migrateTenant", null);
+__decorate([
+    (0, common_1.Get)('tenants/resources'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantResources", null);
+__decorate([
+    (0, common_1.Get)('tenants/plans'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTenantPlans", null);
+__decorate([
+    (0, common_1.Put)('tenants/:id/plan'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "updateTenantPlan", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     __metadata("design:paramtypes", [admin_service_1.AdminService])

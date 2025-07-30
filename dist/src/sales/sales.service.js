@@ -118,6 +118,7 @@ let SalesService = class SalesService {
         };
     }
     async getSaleById(id, tenantId) {
+        console.log('getSaleById called with ID:', id, 'and tenantId:', tenantId);
         const sale = await this.prisma.sale.findFirst({
             where: { id, tenantId },
             include: {
@@ -126,9 +127,12 @@ let SalesService = class SalesService {
                 mpesaTransaction: true,
             },
         });
+        console.log('Database query result:', sale);
         if (!sale) {
+            console.log('Sale not found in database');
             throw new common_1.NotFoundException('Sale not found');
         }
+        console.log('Sale found, returning data');
         return {
             saleId: sale.id,
             date: sale.createdAt,
@@ -291,6 +295,18 @@ let SalesService = class SalesService {
             paymentBreakdown,
             lowStock,
         };
+    }
+    async getTenantInfo(tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                name: true,
+                address: true,
+                phone: true,
+                email: true,
+            },
+        });
+        return tenant;
     }
 };
 exports.SalesService = SalesService;

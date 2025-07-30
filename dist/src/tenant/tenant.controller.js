@@ -14,19 +14,18 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantController = void 0;
 const common_1 = require("@nestjs/common");
-const tenant_service_1 = require("./tenant.service");
 const passport_1 = require("@nestjs/passport");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path = require("path");
+const tenant_service_1 = require("./tenant.service");
 let TenantController = class TenantController {
     tenantService;
     constructor(tenantService) {
         this.tenantService = tenantService;
     }
     async getMyTenant(req) {
-        const tenantId = req.user.tenantId;
-        return this.tenantService.getTenantById(tenantId);
+        return this.tenantService.getTenant(req.user.tenantId);
     }
     async updateMyTenant(req, dto) {
         const tenantId = req.user.tenantId;
@@ -39,19 +38,50 @@ let TenantController = class TenantController {
         await this.tenantService.updateTenant(req.user.tenantId, { logoUrl });
         return { logoUrl };
     }
-    async registerTenant(body) {
-        const { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword } = body;
-        if (!name || !businessType || !contactEmail || !ownerName || !ownerEmail || !ownerPassword) {
-            throw new Error('Missing required fields');
-        }
-        const tenant = await this.tenantService.createTenant({ name, businessType, contactEmail, contactPhone });
-        await this.tenantService.createOwnerUser({
-            name: ownerName,
-            email: ownerEmail,
-            password: ownerPassword,
-            tenantId: tenant.id,
+    async getBrandingSettings(req) {
+        const tenant = await this.tenantService.getTenant(req.user.tenantId);
+        return {
+            logoUrl: tenant.logoUrl,
+            primaryColor: tenant.primaryColor || '#3B82F6',
+            secondaryColor: tenant.secondaryColor || '#1F2937',
+            customDomain: tenant.customDomain,
+            whiteLabel: tenant.whiteLabel || false,
+        };
+    }
+    async updateBrandingSettings(req, branding) {
+        const tenantId = req.user.tenantId;
+        return this.tenantService.updateTenant(tenantId, {
+            primaryColor: branding.primaryColor,
+            secondaryColor: branding.secondaryColor,
+            customDomain: branding.customDomain,
+            whiteLabel: branding.whiteLabel,
         });
-        return { tenant };
+    }
+    async getApiSettings(req) {
+        const tenant = await this.tenantService.getTenant(req.user.tenantId);
+        return {
+            apiKey: tenant.apiKey,
+            webhookUrl: tenant.webhookUrl,
+            rateLimit: tenant.rateLimit || 1000,
+            customIntegrations: tenant.customIntegrations || false,
+        };
+    }
+    async updateApiSettings(req, apiSettings) {
+        const tenantId = req.user.tenantId;
+        return this.tenantService.updateTenant(tenantId, {
+            webhookUrl: apiSettings.webhookUrl,
+            rateLimit: apiSettings.rateLimit,
+            customIntegrations: apiSettings.customIntegrations,
+        });
+    }
+    async generateApiKey(req) {
+        const tenantId = req.user.tenantId;
+        const apiKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        await this.tenantService.updateTenant(tenantId, { apiKey });
+        return { apiKey };
+    }
+    async createTenant(dto) {
+        return this.tenantService.createTenant(dto);
     }
 };
 exports.TenantController = TenantController;
@@ -100,12 +130,54 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "uploadLogo", null);
 __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('branding'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "getBrandingSettings", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Put)('branding'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "updateBrandingSettings", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('api-settings'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "getApiSettings", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Put)('api-settings'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "updateApiSettings", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Post)('generate-api-key'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "generateApiKey", null);
+__decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], TenantController.prototype, "registerTenant", null);
+], TenantController.prototype, "createTenant", null);
 exports.TenantController = TenantController = __decorate([
     (0, common_1.Controller)('tenant'),
     __metadata("design:paramtypes", [tenant_service_1.TenantService])

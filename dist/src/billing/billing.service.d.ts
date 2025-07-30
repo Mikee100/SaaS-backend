@@ -18,6 +18,16 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
@@ -34,6 +44,16 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }[]>;
     getCurrentSubscription(tenantId: string): Promise<{
         plan: {
@@ -66,6 +86,16 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
@@ -86,12 +116,40 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }>;
     checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{
         allowed: boolean;
         current: number;
         limit: number;
     }>;
+    getEnterpriseFeatures(tenantId: string): Promise<{
+        customBranding: {
+            enabled: boolean;
+            features: string[];
+        };
+        apiAccess: {
+            enabled: boolean;
+            features: string[];
+        };
+        security: {
+            enabled: boolean;
+            features: string[];
+        };
+        support: {
+            enabled: boolean;
+            features: string[];
+        };
+    } | null>;
     getInvoices(tenantId: string): Promise<{
         id: string;
         description: string | null;

@@ -27,6 +27,20 @@ model Tenant {
   kraPin         String? // KRA PIN
   vatNumber      String? // VAT Number
   etimsQrUrl     String? // KRA eTIMS QR code URL
+  // Enterprise branding fields
+  primaryColor   String? // Custom primary color
+  secondaryColor String? // Custom secondary color
+  customDomain   String? // Custom domain for white label
+  whiteLabel     Boolean @default(false) // White label mode
+  // Enterprise API fields
+  apiKey         String? // API key for integrations
+  webhookUrl     String? // Webhook URL for notifications
+  rateLimit      Int?    // API rate limit
+  customIntegrations Boolean @default(false) // Custom integrations enabled
+  // Enterprise security fields
+  ssoEnabled     Boolean @default(false) // Single sign-on enabled
+  auditLogs      Boolean @default(false) // Audit logging enabled
+  backupRestore  Boolean @default(false) // Backup and restore enabled
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   userRoles      UserRole[]
@@ -259,6 +273,17 @@ model Plan {
   prioritySupport  Boolean        @default(false)
   customBranding   Boolean        @default(false)
   apiAccess        Boolean        @default(false)
+  // New granular features
+  bulkOperations   Boolean        @default(false)
+  dataExport       Boolean        @default(false)
+  customFields     Boolean        @default(false)
+  advancedSecurity Boolean        @default(false)
+  whiteLabel       Boolean        @default(false)
+  dedicatedSupport Boolean        @default(false)
+  ssoEnabled       Boolean        @default(false)
+  auditLogs        Boolean        @default(false)
+  backupRestore    Boolean        @default(false)
+  customIntegrations Boolean      @default(false)
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt

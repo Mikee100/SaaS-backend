@@ -1,12 +1,7 @@
 import { BillingService } from './billing.service';
-import { SubscriptionService } from './subscription.service';
 export declare class BillingController {
-    private billingService;
-    private subscriptionService;
-    constructor(billingService: BillingService, subscriptionService: SubscriptionService);
-    test(): Promise<{
-        message: string;
-    }>;
+    private readonly billingService;
+    constructor(billingService: BillingService);
     getPlans(): Promise<{
         id: string;
         name: string;
@@ -23,6 +18,16 @@ export declare class BillingController {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
@@ -39,6 +44,16 @@ export declare class BillingController {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }[]>;
     getCurrentSubscription(req: any): Promise<{
         plan: {
@@ -71,6 +86,16 @@ export declare class BillingController {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
@@ -82,27 +107,8 @@ export declare class BillingController {
         currentPeriodEnd?: undefined;
     }>;
     getPlanLimits(req: any): Promise<{
-        maxUsers: number | null;
-        maxProducts: number | null;
-        maxSalesPerMonth: number | null;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
-    }>;
-    createSubscription(req: any, data: {
-        planId: string;
-        paymentMethodId?: string;
-    }): Promise<{
-        plan: {
-            id: string;
-            name: string;
-            description: string | null;
-            price: number;
-            currency: string;
-            interval: string;
-            features: import("@prisma/client/runtime/library").JsonValue | null;
+        currentPlan: string;
+        limits: {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
@@ -111,133 +117,71 @@ export declare class BillingController {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
         };
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
-        planId: string;
-        status: string;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
-        cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
+        features: {
+            analytics: boolean;
+            advanced_reports: boolean;
+            priority_support: boolean;
+            custom_branding: boolean;
+            api_access: boolean;
+            bulk_operations: boolean;
+            data_export: boolean;
+            custom_fields: boolean;
+            advanced_security: boolean;
+            white_label: boolean;
+            dedicated_support: boolean;
+            sso_enabled: boolean;
+            audit_logs: boolean;
+            backup_restore: boolean;
+            custom_integrations: boolean;
+        };
     }>;
-    updateSubscription(req: any, data: {
+    getEnterpriseFeatures(req: any): Promise<{
+        customBranding: {
+            enabled: boolean;
+            features: string[];
+        };
+        apiAccess: {
+            enabled: boolean;
+            features: string[];
+        };
+        security: {
+            enabled: boolean;
+            features: string[];
+        };
+        support: {
+            enabled: boolean;
+            features: string[];
+        };
+    } | null>;
+    createSubscription(req: any, body: {
         planId: string;
-        effectiveDate?: Date;
     }): Promise<{
-        subscription: {
-            plan: {
-                id: string;
-                name: string;
-                description: string | null;
-                price: number;
-                currency: string;
-                interval: string;
-                features: import("@prisma/client/runtime/library").JsonValue | null;
-                maxUsers: number | null;
-                maxProducts: number | null;
-                maxSalesPerMonth: number | null;
-                analyticsEnabled: boolean;
-                advancedReports: boolean;
-                prioritySupport: boolean;
-                customBranding: boolean;
-                apiAccess: boolean;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-            };
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            planId: string;
-            status: string;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            cancelledAt: Date | null;
-            trialEnd: Date | null;
-        };
-        proration: {
-            credit: number;
-            charge: number;
-            netCharge: number;
-        };
-    } | {
+        success: boolean;
         message: string;
-        effectiveDate: any;
-        currentPlan: any;
-        newPlan: any;
+        planId: string;
+    }>;
+    updateSubscription(req: any, body: {
+        planId: string;
+    }): Promise<{
+        success: boolean;
+        message: string;
+        planId: string;
     }>;
     cancelSubscription(req: any): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
-        planId: string;
-        status: string;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
-        cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
+        success: boolean;
+        message: string;
     }>;
-    getSubscriptionHistory(req: any): Promise<({
-        plan: {
-            id: string;
-            name: string;
-            description: string | null;
-            price: number;
-            currency: string;
-            interval: string;
-            features: import("@prisma/client/runtime/library").JsonValue | null;
-            maxUsers: number | null;
-            maxProducts: number | null;
-            maxSalesPerMonth: number | null;
-            analyticsEnabled: boolean;
-            advancedReports: boolean;
-            prioritySupport: boolean;
-            customBranding: boolean;
-            apiAccess: boolean;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-        invoices: {
-            id: string;
-            description: string | null;
-            currency: string;
-            createdAt: Date;
-            updatedAt: Date;
-            status: string;
-            subscriptionId: string;
-            amount: number;
-            dueDate: Date;
-            paidAt: Date | null;
-            invoiceNumber: string;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
-        planId: string;
-        status: string;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
-        cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
-    })[]>;
     getInvoices(req: any): Promise<{
         id: string;
         description: string | null;
@@ -252,8 +196,4 @@ export declare class BillingController {
         invoiceNumber: string;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
     }[]>;
-    addPaymentMethod(req: any, data: any): Promise<{
-        message: string;
-    }>;
-    getPaymentMethods(req: any): Promise<never[]>;
 }

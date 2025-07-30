@@ -40,6 +40,16 @@ let BillingService = class BillingService {
                     prioritySupport: false,
                     customBranding: false,
                     apiAccess: false,
+                    bulkOperations: false,
+                    dataExport: false,
+                    customFields: false,
+                    advancedSecurity: false,
+                    whiteLabel: false,
+                    dedicatedSupport: false,
+                    ssoEnabled: false,
+                    auditLogs: false,
+                    backupRestore: false,
+                    customIntegrations: false,
                 },
                 {
                     id: 'pro-plan',
@@ -54,6 +64,16 @@ let BillingService = class BillingService {
                     prioritySupport: false,
                     customBranding: false,
                     apiAccess: false,
+                    bulkOperations: true,
+                    dataExport: true,
+                    customFields: true,
+                    advancedSecurity: false,
+                    whiteLabel: false,
+                    dedicatedSupport: false,
+                    ssoEnabled: false,
+                    auditLogs: false,
+                    backupRestore: false,
+                    customIntegrations: false,
                 },
                 {
                     id: 'enterprise-plan',
@@ -68,6 +88,16 @@ let BillingService = class BillingService {
                     prioritySupport: true,
                     customBranding: true,
                     apiAccess: true,
+                    bulkOperations: true,
+                    dataExport: true,
+                    customFields: true,
+                    advancedSecurity: true,
+                    whiteLabel: true,
+                    dedicatedSupport: true,
+                    ssoEnabled: true,
+                    auditLogs: true,
+                    backupRestore: true,
+                    customIntegrations: true,
                 },
             ];
         }
@@ -131,6 +161,34 @@ let BillingService = class BillingService {
                 return plan.customBranding;
             case 'api_access':
                 return plan.apiAccess;
+            case 'bulk_operations':
+                return plan.bulkOperations || false;
+            case 'data_export':
+                return plan.dataExport || false;
+            case 'custom_fields':
+                return plan.customFields || false;
+            case 'advanced_security':
+                return plan.advancedSecurity || false;
+            case 'white_label':
+                return plan.whiteLabel || false;
+            case 'dedicated_support':
+                return plan.dedicatedSupport || false;
+            case 'sso_enabled':
+                return plan.ssoEnabled || false;
+            case 'audit_logs':
+                return plan.auditLogs || false;
+            case 'backup_restore':
+                return plan.backupRestore || false;
+            case 'custom_integrations':
+                return plan.customIntegrations || false;
+            case 'enterprise_branding':
+                return plan.customBranding && plan.whiteLabel;
+            case 'full_api_access':
+                return plan.apiAccess && plan.customIntegrations;
+            case 'advanced_analytics':
+                return plan.analyticsEnabled && plan.advancedReports;
+            case 'security_audit':
+                return plan.advancedSecurity && plan.auditLogs;
             default:
                 return false;
         }
@@ -151,6 +209,16 @@ let BillingService = class BillingService {
                 prioritySupport: false,
                 customBranding: false,
                 apiAccess: false,
+                bulkOperations: false,
+                dataExport: false,
+                customFields: false,
+                advancedSecurity: false,
+                whiteLabel: false,
+                dedicatedSupport: false,
+                ssoEnabled: false,
+                auditLogs: false,
+                backupRestore: false,
+                customIntegrations: false,
             };
         }
         const plan = subscription.plan;
@@ -163,6 +231,16 @@ let BillingService = class BillingService {
             prioritySupport: plan.prioritySupport,
             customBranding: plan.customBranding,
             apiAccess: plan.apiAccess,
+            bulkOperations: plan.bulkOperations || false,
+            dataExport: plan.dataExport || false,
+            customFields: plan.customFields || false,
+            advancedSecurity: plan.advancedSecurity || false,
+            whiteLabel: plan.whiteLabel || false,
+            dedicatedSupport: plan.dedicatedSupport || false,
+            ssoEnabled: plan.ssoEnabled || false,
+            auditLogs: plan.auditLogs || false,
+            backupRestore: plan.backupRestore || false,
+            customIntegrations: plan.customIntegrations || false,
         };
     }
     async checkLimit(tenantId, limitType) {
@@ -194,6 +272,34 @@ let BillingService = class BillingService {
             allowed: limit === null || current < limit,
             current,
             limit: limit === null ? Infinity : limit,
+        };
+    }
+    async getEnterpriseFeatures(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: { tenantId },
+            include: { plan: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        if (!subscription || subscription.plan.name !== 'Enterprise') {
+            return null;
+        }
+        return {
+            customBranding: {
+                enabled: subscription.plan.customBranding,
+                features: ['logo', 'colors', 'domain', 'white_label']
+            },
+            apiAccess: {
+                enabled: subscription.plan.apiAccess,
+                features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+            },
+            security: {
+                enabled: subscription.plan.advancedSecurity,
+                features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+            },
+            support: {
+                enabled: subscription.plan.dedicatedSupport,
+                features: ['24_7_support', 'dedicated_manager', 'priority_queue']
+            }
         };
     }
     async getInvoices(tenantId) {

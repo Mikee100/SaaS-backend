@@ -1,9 +1,9 @@
-import { Controller, Get, Put, Body, Req, UseGuards, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { TenantService } from './tenant.service';
+import { Controller, Get, Post, Put, Body, Req, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
+import { TenantService } from './tenant.service';
 
 @Controller('tenant')
 export class TenantController {
@@ -12,8 +12,7 @@ export class TenantController {
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   async getMyTenant(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.tenantService.getTenantById(tenantId);
+    return this.tenantService.getTenant(req.user.tenantId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -50,23 +49,68 @@ export class TenantController {
     return { logoUrl };
   }
 
+  // Enterprise branding endpoints
+  @UseGuards(AuthGuard('jwt'))
+  @Get('branding')
+  async getBrandingSettings(@Req() req) {
+    const tenant = await this.tenantService.getTenant(req.user.tenantId);
+    return {
+      logoUrl: tenant.logoUrl,
+      primaryColor: tenant.primaryColor || '#3B82F6',
+      secondaryColor: tenant.secondaryColor || '#1F2937',
+      customDomain: tenant.customDomain,
+      whiteLabel: tenant.whiteLabel || false,
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put('branding')
+  async updateBrandingSettings(@Req() req, @Body() branding: any) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.updateTenant(tenantId, {
+      primaryColor: branding.primaryColor,
+      secondaryColor: branding.secondaryColor,
+      customDomain: branding.customDomain,
+      whiteLabel: branding.whiteLabel,
+    });
+  }
+
+  // Enterprise API endpoints
+  @UseGuards(AuthGuard('jwt'))
+  @Get('api-settings')
+  async getApiSettings(@Req() req) {
+    const tenant = await this.tenantService.getTenant(req.user.tenantId);
+    return {
+      apiKey: tenant.apiKey,
+      webhookUrl: tenant.webhookUrl,
+      rateLimit: tenant.rateLimit || 1000,
+      customIntegrations: tenant.customIntegrations || false,
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put('api-settings')
+  async updateApiSettings(@Req() req, @Body() apiSettings: any) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.updateTenant(tenantId, {
+      webhookUrl: apiSettings.webhookUrl,
+      rateLimit: apiSettings.rateLimit,
+      customIntegrations: apiSettings.customIntegrations,
+    });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('generate-api-key')
+  async generateApiKey(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const apiKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+    await this.tenantService.updateTenant(tenantId, { apiKey });
+    return { apiKey };
+  }
+
   // Public endpoint for business registration
   @Post()
-  async registerTenant(@Body() body: any) {
-    // Expect: { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword }
-    const { name, businessType, contactEmail, contactPhone, ownerName, ownerEmail, ownerPassword } = body;
-    if (!name || !businessType || !contactEmail || !ownerName || !ownerEmail || !ownerPassword) {
-      throw new Error('Missing required fields');
-    }
-    // Create tenant
-    const tenant = await this.tenantService.createTenant({ name, businessType, contactEmail, contactPhone });
-    // Create owner user (role: owner)
-    await this.tenantService.createOwnerUser({
-      name: ownerName,
-      email: ownerEmail,
-      password: ownerPassword,
-      tenantId: tenant.id,
-    });
-    return { tenant };
+  async createTenant(@Body() dto: any) {
+    return this.tenantService.createTenant(dto);
   }
 }

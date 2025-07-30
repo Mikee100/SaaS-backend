@@ -28,6 +28,17 @@ export class BillingService {
           prioritySupport: false,
           customBranding: false,
           apiAccess: false,
+          // New granular features
+          bulkOperations: false,
+          dataExport: false,
+          customFields: false,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
         },
         {
           id: 'pro-plan',
@@ -42,6 +53,17 @@ export class BillingService {
           prioritySupport: false,
           customBranding: false,
           apiAccess: false,
+          // New granular features
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
         },
         {
           id: 'enterprise-plan',
@@ -56,6 +78,17 @@ export class BillingService {
           prioritySupport: true,
           customBranding: true,
           apiAccess: true,
+          // New granular features
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: true,
+          whiteLabel: true,
+          dedicatedSupport: true,
+          ssoEnabled: true,
+          auditLogs: true,
+          backupRestore: true,
+          customIntegrations: true,
         },
       ];
     }
@@ -115,6 +148,7 @@ export class BillingService {
     const plan = subscription.plan;
     
     switch (feature) {
+      // Core features
       case 'analytics':
         return plan.analyticsEnabled;
       case 'advanced_reports':
@@ -125,6 +159,39 @@ export class BillingService {
         return plan.customBranding;
       case 'api_access':
         return plan.apiAccess;
+      
+      // New granular features
+      case 'bulk_operations':
+        return plan.bulkOperations || false;
+      case 'data_export':
+        return plan.dataExport || false;
+      case 'custom_fields':
+        return plan.customFields || false;
+      case 'advanced_security':
+        return plan.advancedSecurity || false;
+      case 'white_label':
+        return plan.whiteLabel || false;
+      case 'dedicated_support':
+        return plan.dedicatedSupport || false;
+      case 'sso_enabled':
+        return plan.ssoEnabled || false;
+      case 'audit_logs':
+        return plan.auditLogs || false;
+      case 'backup_restore':
+        return plan.backupRestore || false;
+      case 'custom_integrations':
+        return plan.customIntegrations || false;
+      
+      // Enterprise-specific features
+      case 'enterprise_branding':
+        return plan.customBranding && plan.whiteLabel;
+      case 'full_api_access':
+        return plan.apiAccess && plan.customIntegrations;
+      case 'advanced_analytics':
+        return plan.analyticsEnabled && plan.advancedReports;
+      case 'security_audit':
+        return plan.advancedSecurity && plan.auditLogs;
+      
       default:
         return false;
     }
@@ -147,6 +214,17 @@ export class BillingService {
         prioritySupport: false,
         customBranding: false,
         apiAccess: false,
+        // New granular features
+        bulkOperations: false,
+        dataExport: false,
+        customFields: false,
+        advancedSecurity: false,
+        whiteLabel: false,
+        dedicatedSupport: false,
+        ssoEnabled: false,
+        auditLogs: false,
+        backupRestore: false,
+        customIntegrations: false,
       };
     }
 
@@ -160,6 +238,17 @@ export class BillingService {
       prioritySupport: plan.prioritySupport,
       customBranding: plan.customBranding,
       apiAccess: plan.apiAccess,
+      // New granular features
+      bulkOperations: plan.bulkOperations || false,
+      dataExport: plan.dataExport || false,
+      customFields: plan.customFields || false,
+      advancedSecurity: plan.advancedSecurity || false,
+      whiteLabel: plan.whiteLabel || false,
+      dedicatedSupport: plan.dedicatedSupport || false,
+      ssoEnabled: plan.ssoEnabled || false,
+      auditLogs: plan.auditLogs || false,
+      backupRestore: plan.backupRestore || false,
+      customIntegrations: plan.customIntegrations || false,
     };
   }
 
@@ -195,6 +284,37 @@ export class BillingService {
       allowed: limit === null || current < limit,
       current,
       limit: limit === null ? Infinity : limit,
+    };
+  }
+
+  async getEnterpriseFeatures(tenantId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!subscription || subscription.plan.name !== 'Enterprise') {
+      return null;
+    }
+
+    return {
+      customBranding: {
+        enabled: subscription.plan.customBranding,
+        features: ['logo', 'colors', 'domain', 'white_label']
+      },
+      apiAccess: {
+        enabled: subscription.plan.apiAccess,
+        features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+      },
+      security: {
+        enabled: subscription.plan.advancedSecurity,
+        features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+      },
+      support: {
+        enabled: subscription.plan.dedicatedSupport,
+        features: ['24_7_support', 'dedicated_manager', 'priority_queue']
+      }
     };
   }
 
