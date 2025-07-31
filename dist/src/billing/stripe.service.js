@@ -41,13 +41,16 @@ let StripeService = StripeService_1 = class StripeService {
     async getStripeForTenant(tenantId) {
         try {
             const secretKey = await this.tenantConfigurationService.getStripeSecretKey(tenantId);
-            if (!secretKey) {
-                return null;
+            if (secretKey) {
+                return new stripe_1.default(secretKey, {
+                    apiVersion: '2025-07-30.basil',
+                    typescript: true,
+                });
             }
-            return new stripe_1.default(secretKey, {
-                apiVersion: '2025-07-30.basil',
-                typescript: true,
-            });
+            if (this.stripe) {
+                return this.stripe;
+            }
+            return null;
         }
         catch (error) {
             this.logger.error(`Failed to get Stripe instance for tenant: ${tenantId}`, error);
@@ -55,12 +58,13 @@ let StripeService = StripeService_1 = class StripeService {
         }
     }
     async createCustomer(tenantId, email, name) {
-        if (!this.stripe) {
-            throw new Error('Stripe is not configured');
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
         }
         try {
             this.logger.log(`Creating Stripe customer for tenant: ${tenantId}, email: ${email}`);
-            const customer = await this.stripe.customers.create({
+            const customer = await stripe.customers.create({
                 email,
                 name,
                 metadata: {
@@ -85,8 +89,9 @@ let StripeService = StripeService_1 = class StripeService {
         }
     }
     async createCheckoutSession(tenantId, priceId, successUrl, cancelUrl, userId) {
-        if (!this.stripe) {
-            throw new Error('Stripe is not configured');
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
         }
         try {
             this.logger.log(`Creating checkout session for tenant: ${tenantId}, price: ${priceId}`);
@@ -102,7 +107,7 @@ let StripeService = StripeService_1 = class StripeService {
                 const customer = await this.createCustomer(tenantId, 'admin@example.com', tenant.name);
                 customerId = customer.id;
             }
-            const session = await this.stripe.checkout.sessions.create({
+            const session = await stripe.checkout.sessions.create({
                 customer: customerId,
                 payment_method_types: ['card'],
                 line_items: [
@@ -138,8 +143,9 @@ let StripeService = StripeService_1 = class StripeService {
         }
     }
     async createBillingPortalSession(tenantId, returnUrl, userId) {
-        if (!this.stripe) {
-            throw new Error('Stripe is not configured');
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
         }
         try {
             this.logger.log(`Creating billing portal session for tenant: ${tenantId}`);
@@ -150,7 +156,7 @@ let StripeService = StripeService_1 = class StripeService {
             if (!tenant?.stripeCustomerId) {
                 throw new common_1.BadRequestException('No Stripe customer found for tenant');
             }
-            const session = await this.stripe.billingPortal.sessions.create({
+            const session = await stripe.billingPortal.sessions.create({
                 customer: tenant.stripeCustomerId,
                 return_url: returnUrl,
             });
@@ -343,19 +349,47 @@ let StripeService = StripeService_1 = class StripeService {
         }
     }
     async cancelSubscription(tenantId, userId) {
-        if (!this.stripe) {
-            throw new Error('Stripe is not configured');
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
         }
         try {
             this.logger.log(`Canceling subscription for tenant: ${tenantId}`);
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: {
+                    tenantId,
+                    status: { in: ['active', 'past_due', 'trialing'] }
+                },
             });
-            if (!subscription?.stripeSubscriptionId) {
-                throw new common_1.BadRequestException('No active subscription found');
+            if (!subscription) {
+                throw new common_1.BadRequestException('No active subscription found for this tenant');
             }
-            await this.stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+            if (!subscription.stripeSubscriptionId) {
+                await this.prisma.subscription.update({
+                    where: { id: subscription.id },
+                    data: {
+                        status: 'canceled',
+                        cancelAtPeriodEnd: true,
+                        canceledAt: new Date()
+                    }
+                });
+                await this.auditLogService.log(userId, 'subscription_canceled_locally', {
+                    tenantId,
+                    subscriptionId: subscription.id,
+                    reason: 'No Stripe subscription ID associated'
+                });
+                this.logger.log(`Subscription canceled locally (no Stripe ID): ${subscription.id} for tenant: ${tenantId}`);
+                return;
+            }
+            if (subscription.cancelAtPeriodEnd) {
+                throw new common_1.BadRequestException('Subscription is already scheduled for cancellation');
+            }
+            await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
                 cancel_at_period_end: true,
+            });
+            await this.prisma.subscription.update({
+                where: { id: subscription.id },
+                data: { cancelAtPeriodEnd: true }
             });
             await this.auditLogService.log(userId, 'subscription_cancel_requested', {
                 tenantId,
@@ -365,25 +399,57 @@ let StripeService = StripeService_1 = class StripeService {
         }
         catch (error) {
             this.logger.error(`Failed to cancel subscription for tenant: ${tenantId}`, error);
+            if (error instanceof common_1.BadRequestException) {
+                throw error;
+            }
             throw new common_1.InternalServerErrorException('Failed to cancel subscription');
         }
     }
     async getSubscriptionDetails(tenantId) {
-        if (!this.stripe) {
-            throw new Error('Stripe is not configured');
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
         }
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: { tenantId },
+                where: {
+                    tenantId,
+                    status: { in: ['active', 'past_due', 'trialing', 'canceled'] }
+                },
             });
             if (!subscription?.stripeSubscriptionId) {
                 return null;
             }
-            return await this.stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+            return await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
         }
         catch (error) {
             this.logger.error(`Failed to get subscription details for tenant: ${tenantId}`, error);
             return null;
+        }
+    }
+    async cleanupOrphanedSubscriptions(tenantId) {
+        try {
+            const orphanedSubscriptions = await this.prisma.subscription.findMany({
+                where: {
+                    tenantId,
+                    stripeSubscriptionId: null,
+                    status: { in: ['active', 'past_due', 'trialing'] }
+                }
+            });
+            for (const subscription of orphanedSubscriptions) {
+                await this.prisma.subscription.update({
+                    where: { id: subscription.id },
+                    data: {
+                        status: 'canceled',
+                        cancelAtPeriodEnd: true,
+                        canceledAt: new Date()
+                    }
+                });
+                this.logger.log(`Cleaned up orphaned subscription: ${subscription.id} for tenant: ${tenantId}`);
+            }
+        }
+        catch (error) {
+            this.logger.error(`Failed to cleanup orphaned subscriptions for tenant: ${tenantId}`, error);
         }
     }
     async verifyWebhookSignature(payload, signature, secret) {
@@ -391,6 +457,171 @@ let StripeService = StripeService_1 = class StripeService {
             throw new Error('Stripe is not configured');
         }
         return this.stripe.webhooks.constructEvent(payload, signature, secret);
+    }
+    async createStripeProductsAndPrices(tenantId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Creating Stripe products and prices for tenant: ${tenantId}`);
+            const basicProduct = await stripe.products.create({
+                name: 'Basic Plan',
+                description: 'Basic plan for small businesses',
+                metadata: {
+                    tenantId,
+                    planType: 'basic',
+                },
+            });
+            const basicPrice = await stripe.prices.create({
+                product: basicProduct.id,
+                unit_amount: 0,
+                currency: 'usd',
+                recurring: {
+                    interval: 'month',
+                },
+                metadata: {
+                    tenantId,
+                    planType: 'basic',
+                },
+            });
+            const proProduct = await stripe.products.create({
+                name: 'Pro Plan',
+                description: 'Professional plan for growing businesses',
+                metadata: {
+                    tenantId,
+                    planType: 'pro',
+                },
+            });
+            const proPrice = await stripe.prices.create({
+                product: proProduct.id,
+                unit_amount: 2900,
+                currency: 'usd',
+                recurring: {
+                    interval: 'month',
+                },
+                metadata: {
+                    tenantId,
+                    planType: 'pro',
+                },
+            });
+            const enterpriseProduct = await stripe.products.create({
+                name: 'Enterprise Plan',
+                description: 'Enterprise plan for large organizations',
+                metadata: {
+                    tenantId,
+                    planType: 'enterprise',
+                },
+            });
+            const enterprisePrice = await stripe.prices.create({
+                product: enterpriseProduct.id,
+                unit_amount: 9900,
+                currency: 'usd',
+                recurring: {
+                    interval: 'month',
+                },
+                metadata: {
+                    tenantId,
+                    planType: 'enterprise',
+                },
+            });
+            await Promise.all([
+                this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', basicPrice.id),
+                this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', proPrice.id),
+                this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', enterprisePrice.id),
+            ]);
+            this.logger.log(`Successfully created Stripe products and prices for tenant: ${tenantId}`);
+            return {
+                basicPriceId: basicPrice.id,
+                proPriceId: proPrice.id,
+                enterprisePriceId: enterprisePrice.id,
+            };
+        }
+        catch (error) {
+            this.logger.error(`Failed to create Stripe products and prices for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to create Stripe products and prices');
+        }
+    }
+    async updateStripePrices(tenantId, prices) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Updating Stripe prices for tenant: ${tenantId}`);
+            const results = {};
+            if (prices.basicPrice !== undefined) {
+                const basicPriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'basic');
+                if (basicPriceId) {
+                    const basicPrice = await stripe.prices.create({
+                        product: (await stripe.prices.retrieve(basicPriceId)).product,
+                        unit_amount: prices.basicPrice * 100,
+                        currency: 'usd',
+                        recurring: {
+                            interval: 'month',
+                        },
+                        metadata: {
+                            tenantId,
+                            planType: 'basic',
+                        },
+                    });
+                    await this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', basicPrice.id);
+                    results.basicPriceId = basicPrice.id;
+                }
+            }
+            if (prices.proPrice !== undefined) {
+                const proPriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'pro');
+                if (proPriceId) {
+                    const proPrice = await stripe.prices.create({
+                        product: (await stripe.prices.retrieve(proPriceId)).product,
+                        unit_amount: prices.proPrice * 100,
+                        currency: 'usd',
+                        recurring: {
+                            interval: 'month',
+                        },
+                        metadata: {
+                            tenantId,
+                            planType: 'pro',
+                        },
+                    });
+                    await this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', proPrice.id);
+                    results.proPriceId = proPrice.id;
+                }
+            }
+            if (prices.enterprisePrice !== undefined) {
+                const enterprisePriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'enterprise');
+                if (enterprisePriceId) {
+                    const enterprisePrice = await stripe.prices.create({
+                        product: (await stripe.prices.retrieve(enterprisePriceId)).product,
+                        unit_amount: prices.enterprisePrice * 100,
+                        currency: 'usd',
+                        recurring: {
+                            interval: 'month',
+                        },
+                        metadata: {
+                            tenantId,
+                            planType: 'enterprise',
+                        },
+                    });
+                    await this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', enterprisePrice.id);
+                    results.enterprisePriceId = enterprisePrice.id;
+                }
+            }
+            const [currentBasicPriceId, currentProPriceId, currentEnterprisePriceId] = await Promise.all([
+                this.tenantConfigurationService.getStripePriceId(tenantId, 'basic'),
+                this.tenantConfigurationService.getStripePriceId(tenantId, 'pro'),
+                this.tenantConfigurationService.getStripePriceId(tenantId, 'enterprise'),
+            ]);
+            return {
+                basicPriceId: results.basicPriceId || currentBasicPriceId || '',
+                proPriceId: results.proPriceId || currentProPriceId || '',
+                enterprisePriceId: results.enterprisePriceId || currentEnterprisePriceId || '',
+            };
+        }
+        catch (error) {
+            this.logger.error(`Failed to update Stripe prices for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to update Stripe prices');
+        }
     }
 };
 exports.StripeService = StripeService;

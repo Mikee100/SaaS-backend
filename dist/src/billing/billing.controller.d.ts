@@ -168,6 +168,9 @@ export declare class BillingController {
         message: string;
     }>;
     getSubscriptionDetails(req: any): Promise<import("stripe").Stripe.Subscription | null>;
+    cleanupOrphanedSubscriptions(req: any): Promise<{
+        message: string;
+    }>;
     handleWebhook(req: RawBodyRequest<Request>): Promise<{
         received: boolean;
     }>;

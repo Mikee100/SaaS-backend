@@ -25,9 +25,12 @@ interface StripeConfigurationDto {
   secretKey: string;
   publishableKey: string;
   webhookSecret?: string;
-  basicPriceId?: string;
-  proPriceId?: string;
-  enterprisePriceId?: string;
+  autoCreateProducts?: boolean;
+  prices?: {
+    basicPrice?: number;
+    proPrice?: number;
+    enterprisePrice?: number;
+  };
 }
 
 @Controller('tenant/configurations')
@@ -137,10 +140,19 @@ export class TenantConfigurationController {
       this.tenantConfigurationService.setStripeSecretKey(tenantId, dto.secretKey),
       this.tenantConfigurationService.setStripePublishableKey(tenantId, dto.publishableKey),
       ...(dto.webhookSecret ? [this.tenantConfigurationService.setStripeWebhookSecret(tenantId, dto.webhookSecret)] : []),
-      ...(dto.basicPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', dto.basicPriceId)] : []),
-      ...(dto.proPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', dto.proPriceId)] : []),
-      ...(dto.enterprisePriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', dto.enterprisePriceId)] : []),
     ]);
+
+    // Auto-create products and prices if requested
+    if (dto.autoCreateProducts) {
+      const stripeService = req.app.get('StripeService');
+      await stripeService.createStripeProductsAndPrices(tenantId);
+    }
+
+    // Update prices if provided
+    if (dto.prices) {
+      const stripeService = req.app.get('StripeService');
+      await stripeService.updateStripePrices(tenantId, dto.prices);
+    }
 
     return { message: 'Stripe configuration updated successfully' };
   }
@@ -162,17 +174,31 @@ export class TenantConfigurationController {
     };
   }
 
-  @Post('stripe/price-ids')
+  @Post('stripe/create-products')
   @Permissions('edit_billing')
-  async setStripePriceIds(@Body() dto: { basicPriceId?: string; proPriceId?: string; enterprisePriceId?: string }, @Req() req) {
+  async createStripeProducts(@Req() req) {
     const tenantId = req.user.tenantId;
+    const stripeService = req.app.get('StripeService');
+    
+    const priceIds = await stripeService.createStripeProductsAndPrices(tenantId);
+    
+    return { 
+      message: 'Stripe products and prices created successfully',
+      priceIds 
+    };
+  }
 
-    await Promise.all([
-      ...(dto.basicPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', dto.basicPriceId)] : []),
-      ...(dto.proPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', dto.proPriceId)] : []),
-      ...(dto.enterprisePriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', dto.enterprisePriceId)] : []),
-    ]);
-
-    return { message: 'Stripe price IDs updated successfully' };
+  @Post('stripe/update-prices')
+  @Permissions('edit_billing')
+  async updateStripePrices(@Body() dto: { basicPrice?: number; proPrice?: number; enterprisePrice?: number }, @Req() req) {
+    const tenantId = req.user.tenantId;
+    const stripeService = req.app.get('StripeService');
+    
+    const priceIds = await stripeService.updateStripePrices(tenantId, dto);
+    
+    return { 
+      message: 'Stripe prices updated successfully',
+      priceIds 
+    };
   }
 } 

@@ -84,6 +84,24 @@ async function main() {
   });
   console.log('Seeded plans: Basic, Pro, Enterprise');
 
+  // Create basic roles
+  const roles = [
+    { name: 'owner', description: 'Business owner with full access' },
+    { name: 'manager', description: 'Manager with administrative access' },
+    { name: 'admin', description: 'Administrator with system access' },
+    { name: 'cashier', description: 'Cashier with sales access' },
+    { name: 'employee', description: 'Basic employee access' },
+  ];
+
+  for (const role of roles) {
+    await prisma.role.upsert({
+      where: { name: role.name },
+      update: {},
+      create: role,
+    });
+  }
+  console.log('Seeded roles: owner, manager, admin, cashier, employee');
+
   // Create a superadmin user if not exists
   const superadminEmail = 'superadmin@gmail.com';
   const superadminPassword = '$2b$10$8QwQn1QwQn1QwQn1QwQn1uQwQn1QwQn1QwQn1QwQn1QwQn1QwQn1u'; // bcrypt hash for '10028Mike.'

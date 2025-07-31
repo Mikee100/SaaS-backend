@@ -35,8 +35,14 @@ let TenantService = class TenantService {
     async updateTenant(tenantId, dto) {
         const allowedFields = [
             'name', 'businessType', 'contactEmail', 'contactPhone',
-            'address', 'currency', 'timezone', 'invoiceFooter', 'logoUrl',
-            'kraPin', 'vatNumber', 'etimsQrUrl',
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'logoUrl',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+            'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogs', 'backupRestore'
         ];
         const data = {};
         for (const key of allowedFields) {

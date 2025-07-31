@@ -116,6 +116,13 @@ export class BillingController {
     return subscription;
   }
 
+  @Post('cleanup-orphaned-subscriptions')
+  @Permissions('edit_billing')
+  async cleanupOrphanedSubscriptions(@Req() req) {
+    await this.stripeService.cleanupOrphanedSubscriptions(req.user.tenantId);
+    return { message: 'Orphaned subscriptions cleaned up successfully' };
+  }
+
   @Post('webhook')
   async handleWebhook(@Req() req: RawBodyRequest<Request>) {
     const sig = req.headers['stripe-signature'];

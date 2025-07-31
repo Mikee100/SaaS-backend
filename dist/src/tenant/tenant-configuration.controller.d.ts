@@ -18,9 +18,12 @@ interface StripeConfigurationDto {
     secretKey: string;
     publishableKey: string;
     webhookSecret?: string;
-    basicPriceId?: string;
-    proPriceId?: string;
-    enterprisePriceId?: string;
+    autoCreateProducts?: boolean;
+    prices?: {
+        basicPrice?: number;
+        proPrice?: number;
+        enterprisePrice?: number;
+    };
 }
 export declare class TenantConfigurationController {
     private readonly tenantConfigurationService;
@@ -56,12 +59,17 @@ export declare class TenantConfigurationController {
         proPriceId: string | null;
         enterprisePriceId: string | null;
     }>;
-    setStripePriceIds(dto: {
-        basicPriceId?: string;
-        proPriceId?: string;
-        enterprisePriceId?: string;
+    createStripeProducts(req: any): Promise<{
+        message: string;
+        priceIds: any;
+    }>;
+    updateStripePrices(dto: {
+        basicPrice?: number;
+        proPrice?: number;
+        enterprisePrice?: number;
     }, req: any): Promise<{
         message: string;
+        priceIds: any;
     }>;
 }
 export {};

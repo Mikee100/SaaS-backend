@@ -85,10 +85,15 @@ let TenantConfigurationController = class TenantConfigurationController {
             this.tenantConfigurationService.setStripeSecretKey(tenantId, dto.secretKey),
             this.tenantConfigurationService.setStripePublishableKey(tenantId, dto.publishableKey),
             ...(dto.webhookSecret ? [this.tenantConfigurationService.setStripeWebhookSecret(tenantId, dto.webhookSecret)] : []),
-            ...(dto.basicPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', dto.basicPriceId)] : []),
-            ...(dto.proPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', dto.proPriceId)] : []),
-            ...(dto.enterprisePriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', dto.enterprisePriceId)] : []),
         ]);
+        if (dto.autoCreateProducts) {
+            const stripeService = req.app.get('StripeService');
+            await stripeService.createStripeProductsAndPrices(tenantId);
+        }
+        if (dto.prices) {
+            const stripeService = req.app.get('StripeService');
+            await stripeService.updateStripePrices(tenantId, dto.prices);
+        }
         return { message: 'Stripe configuration updated successfully' };
     }
     async getStripePriceIds(req) {
@@ -104,14 +109,23 @@ let TenantConfigurationController = class TenantConfigurationController {
             enterprisePriceId,
         };
     }
-    async setStripePriceIds(dto, req) {
+    async createStripeProducts(req) {
         const tenantId = req.user.tenantId;
-        await Promise.all([
-            ...(dto.basicPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'basic', dto.basicPriceId)] : []),
-            ...(dto.proPriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'pro', dto.proPriceId)] : []),
-            ...(dto.enterprisePriceId ? [this.tenantConfigurationService.setStripePriceId(tenantId, 'enterprise', dto.enterprisePriceId)] : []),
-        ]);
-        return { message: 'Stripe price IDs updated successfully' };
+        const stripeService = req.app.get('StripeService');
+        const priceIds = await stripeService.createStripeProductsAndPrices(tenantId);
+        return {
+            message: 'Stripe products and prices created successfully',
+            priceIds
+        };
+    }
+    async updateStripePrices(dto, req) {
+        const tenantId = req.user.tenantId;
+        const stripeService = req.app.get('StripeService');
+        const priceIds = await stripeService.updateStripePrices(tenantId, dto);
+        return {
+            message: 'Stripe prices updated successfully',
+            priceIds
+        };
     }
 };
 exports.TenantConfigurationController = TenantConfigurationController;
@@ -203,14 +217,22 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantConfigurationController.prototype, "getStripePriceIds", null);
 __decorate([
-    (0, common_1.Post)('stripe/price-ids'),
+    (0, common_1.Post)('stripe/create-products'),
+    (0, permissions_decorator_1.Permissions)('edit_billing'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantConfigurationController.prototype, "createStripeProducts", null);
+__decorate([
+    (0, common_1.Post)('stripe/update-prices'),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
-], TenantConfigurationController.prototype, "setStripePriceIds", null);
+], TenantConfigurationController.prototype, "updateStripePrices", null);
 exports.TenantConfigurationController = TenantConfigurationController = __decorate([
     (0, common_1.Controller)('tenant/configurations'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),

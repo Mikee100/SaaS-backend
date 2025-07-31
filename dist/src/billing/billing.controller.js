@@ -87,6 +87,10 @@ let BillingController = class BillingController {
         const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
         return subscription;
     }
+    async cleanupOrphanedSubscriptions(req) {
+        await this.stripeService.cleanupOrphanedSubscriptions(req.user.tenantId);
+        return { message: 'Orphaned subscriptions cleaned up successfully' };
+    }
     async handleWebhook(req) {
         const sig = req.headers['stripe-signature'];
         const rawBody = req.rawBody;
@@ -174,6 +178,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "getSubscriptionDetails", null);
+__decorate([
+    (0, common_1.Post)('cleanup-orphaned-subscriptions'),
+    (0, permissions_decorator_1.Permissions)('edit_billing'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "cleanupOrphanedSubscriptions", null);
 __decorate([
     (0, common_1.Post)('webhook'),
     __param(0, (0, common_1.Req)()),

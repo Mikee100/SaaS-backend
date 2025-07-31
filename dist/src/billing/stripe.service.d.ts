@@ -21,5 +21,20 @@ export declare class StripeService {
     private handlePaymentFailed;
     cancelSubscription(tenantId: string, userId: string): Promise<void>;
     getSubscriptionDetails(tenantId: string): Promise<Stripe.Subscription | null>;
+    cleanupOrphanedSubscriptions(tenantId: string): Promise<void>;
     verifyWebhookSignature(payload: Buffer, signature: string, secret: string): Promise<Stripe.Event>;
+    createStripeProductsAndPrices(tenantId: string): Promise<{
+        basicPriceId: string;
+        proPriceId: string;
+        enterprisePriceId: string;
+    }>;
+    updateStripePrices(tenantId: string, prices: {
+        basicPrice?: number;
+        proPrice?: number;
+        enterprisePrice?: number;
+    }): Promise<{
+        basicPriceId: string;
+        proPriceId: string;
+        enterprisePriceId: string;
+    }>;
 }

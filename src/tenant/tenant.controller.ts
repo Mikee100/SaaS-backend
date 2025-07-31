@@ -117,6 +117,28 @@ export class TenantController {
   // Public endpoint for business registration
   @Post()
   async createTenant(@Body() dto: any) {
-    return this.tenantService.createTenant(dto);
+    // Extract owner information from the request
+    const {
+      ownerName,
+      ownerEmail,
+      ownerPassword,
+      ownerRole = 'owner',
+      ...tenantData
+    } = dto;
+
+    // Create the tenant first
+    const tenant = await this.tenantService.createTenant(tenantData);
+
+    // Create the owner user if owner information is provided
+    if (ownerName && ownerEmail && ownerPassword) {
+      await this.tenantService.createOwnerUser({
+        name: ownerName,
+        email: ownerEmail,
+        password: ownerPassword,
+        tenantId: tenant.id,
+      });
+    }
+
+    return tenant;
   }
 }

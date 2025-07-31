@@ -87,7 +87,17 @@ let TenantController = class TenantController {
         return { apiKey };
     }
     async createTenant(dto) {
-        return this.tenantService.createTenant(dto);
+        const { ownerName, ownerEmail, ownerPassword, ownerRole = 'owner', ...tenantData } = dto;
+        const tenant = await this.tenantService.createTenant(tenantData);
+        if (ownerName && ownerEmail && ownerPassword) {
+            await this.tenantService.createOwnerUser({
+                name: ownerName,
+                email: ownerEmail,
+                password: ownerPassword,
+                tenantId: tenant.id,
+            });
+        }
+        return tenant;
     }
 };
 exports.TenantController = TenantController;

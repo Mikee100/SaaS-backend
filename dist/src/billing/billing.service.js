@@ -107,10 +107,13 @@ let BillingService = class BillingService {
             const subscription = await this.prisma.subscription.findFirst({
                 where: {
                     tenantId,
-                    status: 'active',
+                    status: { in: ['active', 'past_due', 'trialing'] },
                 },
                 include: {
                     plan: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
                 },
             });
             if (!subscription) {
@@ -121,6 +124,9 @@ let BillingService = class BillingService {
                     currentPeriodEnd: null,
                     cancelAtPeriodEnd: false,
                 };
+            }
+            if (!subscription.stripeSubscriptionId && subscription.status === 'active') {
+                console.warn(`Found subscription without Stripe ID: ${subscription.id} for tenant: ${tenantId}`);
             }
             return {
                 id: subscription.id,
@@ -133,6 +139,7 @@ let BillingService = class BillingService {
             };
         }
         catch (error) {
+            console.error('Error getting current subscription:', error);
             return {
                 plan: { name: 'Basic', price: 0 },
                 status: 'none',
