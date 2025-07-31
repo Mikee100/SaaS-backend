@@ -24,11 +24,9 @@ let PermissionsGuard = class PermissionsGuard {
         const req = context.switchToHttp().getRequest();
         const user = req.user;
         if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-            console.log('Owner/admin bypass: all permissions granted');
             return true;
         }
         const requiredPermissions = this.reflector.get('permissions', context.getHandler());
-        console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
         if (!user)
             throw new common_1.ForbiddenException('User not authenticated');
         const tenantId = user?.tenantId;

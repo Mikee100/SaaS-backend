@@ -23,6 +23,10 @@ export class TenantService {
     return this.prisma.tenant.findUnique({ where: { id: tenantId } });
   }
 
+  async getTenant(tenantId: string) {
+    return this.prisma.tenant.findUnique({ where: { id: tenantId } });
+  }
+
   async updateTenant(tenantId: string, dto: any) {
     // Only allow updating specific fields
     const allowedFields = [

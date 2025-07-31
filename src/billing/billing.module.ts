@@ -1,14 +1,24 @@
 import { Module } from '@nestjs/common';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
-import { SubscriptionService } from './subscription.service';
-import { PrismaModule } from '../prisma.module';
-import { PlanGuard } from './plan.guard';
+import { StripeService } from './stripe.service';
+import { BillingLoggerService } from './billing-logger.service';
+import { TenantConfigurationService } from '../config/tenant-configuration.service';
+import { PrismaService } from '../prisma.service';
+import { AuditLogService } from '../audit-log.service';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [UserModule],
   controllers: [BillingController],
-  providers: [BillingService, SubscriptionService, PlanGuard],
-  exports: [BillingService, SubscriptionService, PlanGuard],
+  providers: [
+    BillingService, 
+    StripeService, 
+    BillingLoggerService,
+    TenantConfigurationService,
+    PrismaService, 
+    AuditLogService
+  ],
+  exports: [BillingService, StripeService, BillingLoggerService],
 })
 export class BillingModule {} 

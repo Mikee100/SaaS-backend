@@ -1,93 +1,142 @@
-import { Controller, Get, Post, Put, Delete, Body, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Post, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
 import { BillingService } from './billing.service';
+import { StripeService } from './stripe.service';
+import { AuthGuard } from '@nestjs/passport';
+import { Permissions } from '../auth/permissions.decorator';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RawBodyRequest } from '@nestjs/common';
+import { Response } from 'express';
 
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('billing')
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly stripeService: StripeService,
+  ) {}
 
-  @UseGuards(AuthGuard('jwt'))
+  @Get('test')
+  async testEndpoint() {
+    try {
+      // Test database connection
+      const plans = await this.billingService.getPlans();
+      return {
+        message: 'Billing service is working',
+        plansCount: plans.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Test endpoint error:', error);
+      return {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
   @Get('plans')
+  @Permissions('view_billing')
   async getPlans() {
     return this.billingService.getPlans();
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Get()
+  @Get('subscription')
   async getCurrentSubscription(@Req() req) {
-    return this.billingService.getCurrentSubscription(req.user.tenantId);
+    try {
+      if (!req.user?.tenantId) {
+        throw new Error('No tenant ID found in user object');
+      }
+      
+      return this.billingService.getCurrentSubscription(req.user.tenantId);
+    } catch (error) {
+      throw error;
+    }
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Get('limits')
   async getPlanLimits(@Req() req) {
-    const limits = await this.billingService.getPlanLimits(req.user.tenantId);
-    const subscription = await this.billingService.getCurrentSubscription(req.user.tenantId);
-    
-    return {
-      currentPlan: subscription.plan?.name || 'Basic',
-      limits,
-      features: {
-        analytics: limits.analyticsEnabled,
-        advanced_reports: limits.advancedReports,
-        priority_support: limits.prioritySupport,
-        custom_branding: limits.customBranding,
-        api_access: limits.apiAccess,
-        bulk_operations: limits.bulkOperations,
-        data_export: limits.dataExport,
-        custom_fields: limits.customFields,
-        advanced_security: limits.advancedSecurity,
-        white_label: limits.whiteLabel,
-        dedicated_support: limits.dedicatedSupport,
-        sso_enabled: limits.ssoEnabled,
-        audit_logs: limits.auditLogs,
-        backup_restore: limits.backupRestore,
-        custom_integrations: limits.customIntegrations,
+    try {
+      if (!req.user?.tenantId) {
+        throw new Error('No tenant ID found in user object');
       }
-    };
+      
+      return this.billingService.getPlanLimits(req.user.tenantId);
+    } catch (error) {
+      throw error;
+    }
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Get('enterprise-features')
-  async getEnterpriseFeatures(@Req() req) {
-    return this.billingService.getEnterpriseFeatures(req.user.tenantId);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Post('subscribe')
-  async createSubscription(@Req() req, @Body() body: { planId: string }) {
-    // Mock implementation - in real app, this would integrate with payment processor
-    return {
-      success: true,
-      message: 'Subscription created successfully',
-      planId: body.planId
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Put('subscription')
-  async updateSubscription(@Req() req, @Body() body: { planId: string }) {
-    // Mock implementation - in real app, this would update subscription
-    return {
-      success: true,
-      message: 'Subscription updated successfully',
-      planId: body.planId
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Delete('subscription')
-  async cancelSubscription(@Req() req) {
-    // Mock implementation - in real app, this would cancel subscription
-    return {
-      success: true,
-      message: 'Subscription cancelled successfully'
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
   @Get('invoices')
+  @Permissions('view_billing')
   async getInvoices(@Req() req) {
     return this.billingService.getInvoices(req.user.tenantId);
+  }
+
+  @Post('create-checkout-session')
+  @Permissions('edit_billing')
+  async createCheckoutSession(
+    @Body() body: { priceId: string; successUrl: string; cancelUrl: string },
+    @Req() req,
+  ) {
+    const session = await this.stripeService.createCheckoutSession(
+      req.user.tenantId,
+      body.priceId,
+      body.successUrl,
+      body.cancelUrl,
+      req.user.id,
+    );
+    return { sessionId: session.id, url: session.url };
+  }
+
+  @Post('create-portal-session')
+  @Permissions('edit_billing')
+  async createPortalSession(
+    @Body() body: { returnUrl: string },
+    @Req() req,
+  ) {
+    const session = await this.stripeService.createBillingPortalSession(
+      req.user.tenantId,
+      body.returnUrl,
+      req.user.id,
+    );
+    return { url: session.url };
+  }
+
+  @Post('cancel-subscription')
+  @Permissions('edit_billing')
+  async cancelSubscription(@Req() req) {
+    await this.stripeService.cancelSubscription(req.user.tenantId, req.user.id);
+    return { message: 'Subscription will be canceled at the end of the current period' };
+  }
+
+  @Get('subscription-details')
+  @Permissions('view_billing')
+  async getSubscriptionDetails(@Req() req) {
+    const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
+    return subscription;
+  }
+
+  @Post('webhook')
+  async handleWebhook(@Req() req: RawBodyRequest<Request>) {
+    const sig = req.headers['stripe-signature'];
+    const rawBody = req.rawBody;
+
+    if (!sig || !rawBody) {
+      throw new Error('Missing stripe signature or body');
+    }
+
+    try {
+      const event = await this.stripeService.verifyWebhookSignature(
+        rawBody,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET!,
+      );
+
+      await this.stripeService.handleWebhook(event);
+      return { received: true };
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err);
+      throw new Error('Webhook signature verification failed');
+    }
   }
 } 

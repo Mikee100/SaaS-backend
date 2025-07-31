@@ -15,6 +15,7 @@ const user_module_1 = require("../user/user.module");
 const jwt_strategy_1 = require("./jwt.strategy");
 const audit_log_service_1 = require("../audit-log.service");
 const prisma_module_1 = require("../prisma.module");
+const configuration_service_1 = require("../config/configuration.service");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -28,7 +29,7 @@ exports.AuthModule = AuthModule = __decorate([
                 signOptions: { expiresIn: '1d' },
             }),
         ],
-        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, audit_log_service_1.AuditLogService],
+        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, audit_log_service_1.AuditLogService, configuration_service_1.ConfigurationService],
         controllers: [auth_controller_1.AuthController],
     })
 ], AuthModule);

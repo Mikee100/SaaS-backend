@@ -2,7 +2,35 @@ import { TenantService } from './tenant.service';
 export declare class TenantController {
     private readonly tenantService;
     constructor(tenantService: TenantService);
-    getMyTenant(req: any): Promise<any>;
+    getMyTenant(req: any): Promise<{
+        id: string;
+        name: string;
+        currency: string | null;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        businessType: string;
+        contactEmail: string;
+        contactPhone: string | null;
+        address: string | null;
+        timezone: string | null;
+        invoiceFooter: string | null;
+        logoUrl: string | null;
+        kraPin: string | null;
+        vatNumber: string | null;
+        etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
+        primaryColor: string | null;
+        secondaryColor: string | null;
+        customDomain: string | null;
+        apiKey: string | null;
+        webhookUrl: string | null;
+        rateLimit: number | null;
+    } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
         name: string;
@@ -24,6 +52,7 @@ export declare class TenantController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -35,11 +64,11 @@ export declare class TenantController {
         logoUrl: string;
     }>;
     getBrandingSettings(req: any): Promise<{
-        logoUrl: any;
-        primaryColor: any;
-        secondaryColor: any;
-        customDomain: any;
-        whiteLabel: any;
+        logoUrl: string | null;
+        primaryColor: string;
+        secondaryColor: string;
+        customDomain: string | null;
+        whiteLabel: boolean;
     }>;
     updateBrandingSettings(req: any, branding: any): Promise<{
         id: string;
@@ -62,6 +91,7 @@ export declare class TenantController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -70,10 +100,10 @@ export declare class TenantController {
         rateLimit: number | null;
     }>;
     getApiSettings(req: any): Promise<{
-        apiKey: any;
-        webhookUrl: any;
-        rateLimit: any;
-        customIntegrations: any;
+        apiKey: string | null;
+        webhookUrl: string | null;
+        rateLimit: number;
+        customIntegrations: boolean;
     }>;
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
@@ -96,6 +126,7 @@ export declare class TenantController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;

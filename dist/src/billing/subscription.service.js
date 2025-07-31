@@ -105,7 +105,7 @@ let SubscriptionService = class SubscriptionService {
             where: { id: subscription.id },
             data: {
                 status: 'cancelled',
-                cancelledAt: new Date(),
+                canceledAt: new Date(),
             },
         });
     }
@@ -122,15 +122,14 @@ let SubscriptionService = class SubscriptionService {
             orderBy: { createdAt: 'desc' },
         });
     }
-    async createInvoice(subscriptionId, amount) {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    async createInvoice(subscriptionId, amount, tenantId) {
         return await this.prisma.invoice.create({
             data: {
                 subscriptionId,
+                tenantId,
                 amount,
                 status: 'pending',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                invoiceNumber,
             },
         });
     }
@@ -171,7 +170,7 @@ let SubscriptionService = class SubscriptionService {
             },
         });
         if (netCharge > 0) {
-            await this.createInvoice(currentSubscription.id, netCharge);
+            await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
         }
         return {
             subscription: updatedSubscription,

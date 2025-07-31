@@ -13,16 +13,27 @@ exports.JwtStrategy = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
+const configuration_service_1 = require("../config/configuration.service");
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
-    constructor() {
+    configurationService;
+    constructor(configurationService) {
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
             secretOrKey: process.env.JWT_SECRET || 'your_jwt_secret',
         });
+        this.configurationService = configurationService;
+    }
+    async onModuleInit() {
+        try {
+            const secret = await this.configurationService.getJwtSecret();
+            this._strategy._secretOrKey = secret;
+        }
+        catch (error) {
+            console.warn('JWT_SECRET not configured, using fallback');
+        }
     }
     async validate(payload) {
-        console.log('JwtStrategy.validate payload:', payload);
         return {
             id: payload.sub,
             email: payload.email,
@@ -34,6 +45,6 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
 exports.JwtStrategy = JwtStrategy;
 exports.JwtStrategy = JwtStrategy = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [])
+    __metadata("design:paramtypes", [configuration_service_1.ConfigurationService])
 ], JwtStrategy);
 //# sourceMappingURL=jwt.strategy.js.map

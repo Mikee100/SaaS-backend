@@ -12,14 +12,16 @@ const admin_controller_1 = require("./admin.controller");
 const admin_service_1 = require("./admin.service");
 const prisma_service_1 = require("../prisma.service");
 const superadmin_guard_1 = require("./superadmin.guard");
+const configuration_controller_1 = require("./configuration.controller");
+const configuration_service_1 = require("../config/configuration.service");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
-        controllers: [admin_controller_1.AdminController],
-        providers: [admin_service_1.AdminService, prisma_service_1.PrismaService, superadmin_guard_1.SuperadminGuard],
-        exports: [admin_service_1.AdminService],
+        controllers: [admin_controller_1.AdminController, configuration_controller_1.ConfigurationController],
+        providers: [admin_service_1.AdminService, prisma_service_1.PrismaService, superadmin_guard_1.SuperadminGuard, configuration_service_1.ConfigurationService],
+        exports: [admin_service_1.AdminService, configuration_service_1.ConfigurationService],
     })
 ], AdminModule);
 //# sourceMappingURL=admin.module.js.map

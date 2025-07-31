@@ -88,6 +88,7 @@ export declare class AdminController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -334,6 +335,7 @@ export declare class AdminController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -362,6 +364,7 @@ export declare class AdminController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -413,6 +416,7 @@ export declare class AdminController {
         kraPin: string | null;
         vatNumber: string | null;
         etimsQrUrl: string | null;
+        stripeCustomerId: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;

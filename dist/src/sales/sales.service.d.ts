@@ -3,11 +3,13 @@ import { CreateSaleDto } from './create-sale.dto';
 import { SaleReceiptDto } from './sale-receipt.dto';
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
+import { ConfigurationService } from '../config/configuration.service';
 export declare class SalesService {
     private prisma;
     private auditLogService;
     private realtimeGateway;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway);
+    private configurationService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway, configurationService: ConfigurationService);
     createSale(dto: CreateSaleDto & {
         mpesaTransactionId?: string;
         idempotencyKey: string;
@@ -82,44 +84,22 @@ export declare class SalesService {
         paymentBreakdown: Record<string, number>;
         lowStock: {
             id: string;
-            tenantId: string;
-            createdAt: Date;
-            branchId: string | null;
             name: string;
-            updatedAt: Date;
-            price: number;
-            sku: string;
             description: string | null;
-            stock: number;
+            price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            sku: string;
+            stock: number;
+            tenantId: string;
+            branchId: string | null;
         }[];
     }>;
     getTenantInfo(tenantId: string): Promise<{
-        id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
-        auditLogs: boolean;
-        businessType: string;
         contactEmail: string;
         contactPhone: string | null;
         address: string | null;
-        currency: string | null;
-        timezone: string | null;
-        invoiceFooter: string | null;
-        logoUrl: string | null;
-        kraPin: string | null;
-        vatNumber: string | null;
-        etimsQrUrl: string | null;
-        primaryColor: string | null;
-        secondaryColor: string | null;
-        customDomain: string | null;
-        whiteLabel: boolean;
-        apiKey: string | null;
-        webhookUrl: string | null;
-        rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
     } | null>;
 }

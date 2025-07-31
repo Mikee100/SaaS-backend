@@ -29,6 +29,9 @@ let TenantService = class TenantService {
     async getTenantById(tenantId) {
         return this.prisma.tenant.findUnique({ where: { id: tenantId } });
     }
+    async getTenant(tenantId) {
+        return this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    }
     async updateTenant(tenantId, dto) {
         const allowedFields = [
             'name', 'businessType', 'contactEmail', 'contactPhone',

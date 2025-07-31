@@ -11,11 +11,9 @@ export class PermissionsGuard implements CanActivate {
     const user = req.user;
     // Owner/admin bypass: always allow
     if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-      console.log('Owner/admin bypass: all permissions granted');
       return true;
     }
     const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
-    console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
     if (!user) throw new ForbiddenException('User not authenticated');
     const tenantId = user?.tenantId;
     const userId = user?.userId || user?.sub;

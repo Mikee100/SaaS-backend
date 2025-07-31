@@ -17,6 +17,33 @@ export class SalesController {
     return { message: 'Sales controller is working' };
   }
 
+  @Get('test-sale/:id')
+  async testSale(@Param('id') id: string) {
+    console.log('Testing sale with ID:', id);
+    try {
+      const sale = await this.salesService.getSaleById(id, 'test-tenant-id');
+      return { message: 'Sale found', sale };
+    } catch (error) {
+      return { message: 'Sale not found', error: error.message };
+    }
+  }
+
+  @Get('test-db')
+  async testDb() {
+    console.log('Testing database connection');
+    try {
+      // Try to get all sales
+      const sales = await this.salesService.listSales('test-tenant-id');
+      return { 
+        message: 'Database connected', 
+        salesCount: sales.length,
+        sales: sales.slice(0, 5) // Return first 5 sales
+      };
+    } catch (error) {
+      return { message: 'Database error', error: error.message };
+    }
+  }
+
   @Get('analytics')
   @Permissions('view_reports')
   async getAnalytics(@Req() req) {
@@ -24,6 +51,7 @@ export class SalesController {
   }
 
   @Get(':id/receipt')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
   async getReceipt(@Param('id') id: string, @Req() req) {
     console.log('Receipt endpoint called with ID:', id);
@@ -38,26 +66,26 @@ export class SalesController {
       console.log('Tenant info:', tenant);
       
       return {
-        id: sale.id,
-        saleId: sale.id,
-        date: sale.createdAt,
+        id: sale.saleId,
+        saleId: sale.saleId,
+        date: sale.date,
         customerName: sale.customerName,
         customerPhone: sale.customerPhone,
         items: sale.items.map(item => ({
           productId: item.productId,
-          name: item.product?.name || 'Unknown Product',
+          name: item.name || 'Unknown Product',
           price: item.price,
           quantity: item.quantity
         })),
         total: sale.total,
         paymentMethod: sale.paymentType,
-        amountReceived: sale.amountReceived,
-        change: sale.change,
+        amountReceived: sale.total, // Use total as amountReceived for now
+        change: 0, // Set change to 0 for now
         businessInfo: {
           name: tenant?.name || 'Business Name',
           address: tenant?.address,
-          phone: tenant?.phone,
-          email: tenant?.email
+          phone: tenant?.contactPhone,
+          email: tenant?.contactEmail
         }
       };
     } catch (error) {

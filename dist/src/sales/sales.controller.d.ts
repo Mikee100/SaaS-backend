@@ -6,6 +6,68 @@ export declare class SalesController {
     test(): Promise<{
         message: string;
     }>;
+    testSale(id: string): Promise<{
+        message: string;
+        sale: {
+            saleId: string;
+            date: Date;
+            total: number;
+            paymentType: string;
+            customerName: string | null;
+            customerPhone: string | null;
+            cashier: string | null;
+            mpesaTransaction: {
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                mpesaReceipt: string | null;
+                message: string | null;
+            } | null;
+            items: {
+                productId: string;
+                name: string;
+                price: number;
+                quantity: number;
+            }[];
+        };
+        error?: undefined;
+    } | {
+        message: string;
+        error: any;
+        sale?: undefined;
+    }>;
+    testDb(): Promise<{
+        message: string;
+        salesCount: number;
+        sales: {
+            saleId: string;
+            date: Date;
+            total: number;
+            paymentType: string;
+            customerName: string | null;
+            customerPhone: string | null;
+            cashier: string | null;
+            mpesaTransaction: {
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                mpesaReceipt: string | null;
+                message: string | null;
+            } | null;
+            items: {
+                productId: string;
+                name: string;
+                price: number;
+                quantity: number;
+            }[];
+        }[];
+        error?: undefined;
+    } | {
+        message: string;
+        error: any;
+        salesCount?: undefined;
+        sales?: undefined;
+    }>;
     getAnalytics(req: any): Promise<{
         totalSales: number;
         totalRevenue: number;
@@ -32,39 +94,39 @@ export declare class SalesController {
         paymentBreakdown: Record<string, number>;
         lowStock: {
             id: string;
-            tenantId: string;
-            createdAt: Date;
-            branchId: string | null;
             name: string;
-            price: number;
-            sku: string;
             description: string | null;
-            stock: number;
-            updatedAt: Date;
+            price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            updatedAt: Date;
+            sku: string;
+            stock: number;
+            tenantId: string;
+            branchId: string | null;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
-        id: any;
-        saleId: any;
-        date: any;
+        id: string;
+        saleId: string;
+        date: Date;
         customerName: string | null;
         customerPhone: string | null;
         items: {
             productId: string;
-            name: any;
+            name: string;
             price: number;
             quantity: number;
         }[];
         total: number;
         paymentMethod: string;
-        amountReceived: any;
-        change: any;
+        amountReceived: number;
+        change: number;
         businessInfo: {
             name: string;
             address: string | null | undefined;
-            phone: any;
-            email: any;
+            phone: string | null | undefined;
+            email: string | undefined;
         };
     }>;
     createSale(dto: CreateSaleDto & {

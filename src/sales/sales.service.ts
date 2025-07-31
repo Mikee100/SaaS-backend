@@ -5,6 +5,7 @@ import { SaleReceiptDto } from './sale-receipt.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
+import { ConfigurationService } from '../config/configuration.service';
 import axios from 'axios';
 
 @Injectable()
@@ -12,7 +13,8 @@ export class SalesService {
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
-    private realtimeGateway: RealtimeGateway // Inject gateway
+    private realtimeGateway: RealtimeGateway, // Inject gateway
+    private configurationService: ConfigurationService
   ) {}
 
   async createSale(
@@ -278,7 +280,8 @@ export class SalesService {
     let customerSegments = [];
     try {
       if (customerInput.length > 0) {
-        const res = await axios.post('http://localhost:5000/customer_segments', {
+        const aiServiceUrl = await this.configurationService.getAiServiceUrl();
+        const res = await axios.post(`${aiServiceUrl}/customer_segments`, {
           customers: customerInput,
         });
         customerSegments = res.data;
@@ -291,7 +294,8 @@ export class SalesService {
     const salesValues = Object.values(salesByMonth);
     let forecast = { forecast_months: [], forecast_sales: [] };
     try {
-      const res = await axios.post('http://localhost:5000/forecast', {
+      const aiServiceUrl = await this.configurationService.getAiServiceUrl();
+      const res = await axios.post(`${aiServiceUrl}/forecast`, {
         months,
         sales: salesValues,
         periods: 4, // predict next 4 months
@@ -320,8 +324,8 @@ export class SalesService {
       select: {
         name: true,
         address: true,
-        phone: true,
-        email: true,
+        contactEmail: true,
+        contactPhone: true,
       },
     });
     return tenant;

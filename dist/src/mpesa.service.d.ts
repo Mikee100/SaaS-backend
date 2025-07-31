@@ -18,13 +18,13 @@ export declare class MpesaService {
         userId: string | null;
         status: string;
         amount: number;
+        message: string | null;
         phoneNumber: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         checkoutRequestId: string | null;
         responseCode: string | null;
         responseDesc: string | null;
-        message: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     updateTransaction(checkoutRequestId: string, update: Partial<{

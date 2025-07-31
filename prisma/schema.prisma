@@ -27,6 +27,8 @@ model Tenant {
   kraPin         String? // KRA PIN
   vatNumber      String? // VAT Number
   etimsQrUrl     String? // KRA eTIMS QR code URL
+  // Stripe fields
+  stripeCustomerId String? // Stripe customer ID
   // Enterprise branding fields
   primaryColor   String? // Custom primary color
   secondaryColor String? // Custom secondary color
@@ -51,6 +53,8 @@ model Tenant {
   subscriptions  Subscription[]
   paymentMethods PaymentMethod[]
   branches       Branch[]
+  invoices       Invoice[]
+  configurations TenantConfiguration[]
 }
 
 model User {
@@ -238,20 +242,22 @@ model UserRole {
 }
 
 model Subscription {
-  id                 String    @id @default(uuid())
-  tenantId           String
-  tenant             Tenant    @relation(fields: [tenantId], references: [id])
-  planId             String
-  plan               Plan      @relation(fields: [planId], references: [id])
-  status             String // active, cancelled, past_due, unpaid
-  currentPeriodStart DateTime
-  currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean   @default(false)
-  cancelledAt        DateTime?
-  trialEnd           DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  invoices           Invoice[]
+  id                    String    @id @default(uuid())
+  tenantId              String
+  tenant                Tenant    @relation(fields: [tenantId], references: [id])
+  planId                String
+  plan                  Plan      @relation(fields: [planId], references: [id])
+  status                String    @default("active") // active, canceled, past_due, etc.
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean   @default(false)
+  canceledAt            DateTime?
+  // Stripe fields
+  stripeSubscriptionId  String?   @unique
+  stripePriceId         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  invoices              Invoice[]
 
   @@index([tenantId])
   @@index([planId])
@@ -291,20 +297,22 @@ model Plan {
 }
 
 model Invoice {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  amount         Float
-  currency       String       @default("USD")
-  status         String // paid, pending, failed, cancelled
-  dueDate        DateTime
-  paidAt         DateTime?
-  invoiceNumber  String       @unique
-  description    String?
-  metadata       Json?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                String   @id @default(uuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  subscriptionId    String?
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  amount            Float
+  currency          String   @default("USD")
+  status            String   // paid, unpaid, void
+  dueDate           DateTime
+  paidAt            DateTime?
+  // Stripe fields
+  stripeInvoiceId   String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([subscriptionId])
 }
 
@@ -353,4 +361,38 @@ model UserBranchRole {
 
   @@index([userId])
   @@index([branchId])
+}
+
+model SystemConfiguration {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   // 'security', 'api', 'external_services', 'email', 'general'
+  isEncrypted Boolean  @default(false)
+  isPublic    Boolean  @default(false) // Whether this can be exposed to frontend
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([key])
+}
+
+model TenantConfiguration {
+  id          String   @id @default(uuid())
+  tenantId    String
+  key         String
+  value       String
+  description String?
+  category    String   // 'stripe', 'payment', 'billing', 'general'
+  isEncrypted Boolean  @default(false)
+  isPublic    Boolean  @default(false) // Whether this can be exposed to frontend
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([category])
+  @@index([key])
 }

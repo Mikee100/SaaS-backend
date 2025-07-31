@@ -1,7 +1,21 @@
 import { BillingService } from './billing.service';
+import { StripeService } from './stripe.service';
+import { RawBodyRequest } from '@nestjs/common';
 export declare class BillingController {
     private readonly billingService;
-    constructor(billingService: BillingService);
+    private readonly stripeService;
+    constructor(billingService: BillingService, stripeService: StripeService);
+    testEndpoint(): Promise<{
+        message: string;
+        plansCount: number;
+        timestamp: string;
+        error?: undefined;
+    } | {
+        error: any;
+        timestamp: string;
+        message?: undefined;
+        plansCount?: undefined;
+    }>;
     getPlans(): Promise<{
         id: string;
         name: string;
@@ -63,10 +77,9 @@ export declare class BillingController {
         status: string;
         currentPeriodStart: null;
         currentPeriodEnd: null;
+        cancelAtPeriodEnd: boolean;
         id?: undefined;
-        startDate?: undefined;
-        endDate?: undefined;
-        cancelledAt?: undefined;
+        canceledAt?: undefined;
     } | {
         id: string;
         status: string;
@@ -100,100 +113,62 @@ export declare class BillingController {
             createdAt: Date;
             updatedAt: Date;
         };
-        startDate: Date;
-        endDate: Date;
-        cancelledAt: Date | null;
-        currentPeriodStart?: undefined;
-        currentPeriodEnd?: undefined;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
+        cancelAtPeriodEnd: boolean;
+        canceledAt: Date | null;
     }>;
     getPlanLimits(req: any): Promise<{
-        currentPlan: string;
-        limits: {
-            maxUsers: number | null;
-            maxProducts: number | null;
-            maxSalesPerMonth: number | null;
-            analyticsEnabled: boolean;
-            advancedReports: boolean;
-            prioritySupport: boolean;
-            customBranding: boolean;
-            apiAccess: boolean;
-            bulkOperations: boolean;
-            dataExport: boolean;
-            customFields: boolean;
-            advancedSecurity: boolean;
-            whiteLabel: boolean;
-            dedicatedSupport: boolean;
-            ssoEnabled: boolean;
-            auditLogs: boolean;
-            backupRestore: boolean;
-            customIntegrations: boolean;
-        };
-        features: {
-            analytics: boolean;
-            advanced_reports: boolean;
-            priority_support: boolean;
-            custom_branding: boolean;
-            api_access: boolean;
-            bulk_operations: boolean;
-            data_export: boolean;
-            custom_fields: boolean;
-            advanced_security: boolean;
-            white_label: boolean;
-            dedicated_support: boolean;
-            sso_enabled: boolean;
-            audit_logs: boolean;
-            backup_restore: boolean;
-            custom_integrations: boolean;
-        };
-    }>;
-    getEnterpriseFeatures(req: any): Promise<{
-        customBranding: {
-            enabled: boolean;
-            features: string[];
-        };
-        apiAccess: {
-            enabled: boolean;
-            features: string[];
-        };
-        security: {
-            enabled: boolean;
-            features: string[];
-        };
-        support: {
-            enabled: boolean;
-            features: string[];
-        };
-    } | null>;
-    createSubscription(req: any, body: {
-        planId: string;
-    }): Promise<{
-        success: boolean;
-        message: string;
-        planId: string;
-    }>;
-    updateSubscription(req: any, body: {
-        planId: string;
-    }): Promise<{
-        success: boolean;
-        message: string;
-        planId: string;
-    }>;
-    cancelSubscription(req: any): Promise<{
-        success: boolean;
-        message: string;
+        maxUsers: number | null;
+        maxProducts: number | null;
+        maxSalesPerMonth: number | null;
+        analyticsEnabled: boolean;
+        advancedReports: boolean;
+        prioritySupport: boolean;
+        customBranding: boolean;
+        apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }>;
     getInvoices(req: any): Promise<{
         id: string;
-        description: string | null;
         currency: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         status: string;
-        subscriptionId: string;
+        subscriptionId: string | null;
         amount: number;
         dueDate: Date;
         paidAt: Date | null;
-        invoiceNumber: string;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        stripeInvoiceId: string | null;
     }[]>;
+    createCheckoutSession(body: {
+        priceId: string;
+        successUrl: string;
+        cancelUrl: string;
+    }, req: any): Promise<{
+        sessionId: string;
+        url: string | null;
+    }>;
+    createPortalSession(body: {
+        returnUrl: string;
+    }, req: any): Promise<{
+        url: string;
+    }>;
+    cancelSubscription(req: any): Promise<{
+        message: string;
+    }>;
+    getSubscriptionDetails(req: any): Promise<import("stripe").Stripe.Subscription | null>;
+    handleWebhook(req: RawBodyRequest<Request>): Promise<{
+        received: boolean;
+    }>;
 }

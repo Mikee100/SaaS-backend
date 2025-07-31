@@ -54,8 +54,9 @@ export declare class SubscriptionService {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     }>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
@@ -99,8 +100,9 @@ export declare class SubscriptionService {
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
-            cancelledAt: Date | null;
-            trialEnd: Date | null;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string | null;
+            stripePriceId: string | null;
         };
         proration: {
             credit: number;
@@ -123,8 +125,9 @@ export declare class SubscriptionService {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
         plan: {
@@ -159,17 +162,16 @@ export declare class SubscriptionService {
         };
         invoices: {
             id: string;
-            description: string | null;
             currency: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             status: string;
-            subscriptionId: string;
+            subscriptionId: string | null;
             amount: number;
             dueDate: Date;
             paidAt: Date | null;
-            invoiceNumber: string;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            stripeInvoiceId: string | null;
         }[];
     } & {
         id: string;
@@ -181,22 +183,22 @@ export declare class SubscriptionService {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     })[]>;
-    createInvoice(subscriptionId: string, amount: number): Promise<{
+    createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         id: string;
-        description: string | null;
         currency: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         status: string;
-        subscriptionId: string;
+        subscriptionId: string | null;
         amount: number;
         dueDate: Date;
         paidAt: Date | null;
-        invoiceNumber: string;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        stripeInvoiceId: string | null;
     }>;
     private calculateEndDate;
     private isPlanUpgrade;

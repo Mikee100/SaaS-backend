@@ -40,6 +40,9 @@ let TenantController = class TenantController {
     }
     async getBrandingSettings(req) {
         const tenant = await this.tenantService.getTenant(req.user.tenantId);
+        if (!tenant) {
+            throw new Error('Tenant not found');
+        }
         return {
             logoUrl: tenant.logoUrl,
             primaryColor: tenant.primaryColor || '#3B82F6',
@@ -59,6 +62,9 @@ let TenantController = class TenantController {
     }
     async getApiSettings(req) {
         const tenant = await this.tenantService.getTenant(req.user.tenantId);
+        if (!tenant) {
+            throw new Error('Tenant not found');
+        }
         return {
             apiKey: tenant.apiKey,
             webhookUrl: tenant.webhookUrl,
