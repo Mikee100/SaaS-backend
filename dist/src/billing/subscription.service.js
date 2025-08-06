@@ -36,10 +36,13 @@ let SubscriptionService = class SubscriptionService {
                     tenantId: data.tenantId,
                     status: 'active',
                 },
+                include: {
+                    plan: true,
+                },
             });
             if (existingSubscription) {
-                console.error('Tenant already has active subscription:', data.tenantId);
-                throw new common_1.BadRequestException('Tenant already has an active subscription');
+                console.log('Tenant has existing subscription, upgrading to new plan');
+                return await this.handleUpgrade(existingSubscription, plan);
             }
             const now = new Date();
             const endDate = this.calculateEndDate(plan.interval);

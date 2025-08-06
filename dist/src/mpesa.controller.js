@@ -31,21 +31,37 @@ let MpesaController = class MpesaController {
         let { phoneNumber, amount, saleData } = body;
         amount = parseFloat(amount);
         if (isNaN(amount) || amount <= 0) {
-            return res.status(400).json({ error: 'Invalid amount. Must be a positive number.' });
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid amount. Must be a positive number.'
+            });
         }
         if (amount < 10) {
-            return res.status(400).json({ error: 'Minimum amount is 10 KES' });
+            return res.status(400).json({
+                success: false,
+                error: 'Minimum amount is 10 KES'
+            });
         }
         amount = Math.floor(amount);
+        if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number format. Use format: 07XXXXXXXX, 2547XXXXXXXX, or +2547XXXXXXXX'
+            });
+        }
+        phoneNumber = phoneNumber.replace(/^0/, '254').replace(/^\+/, '');
         const consumerKey = process.env.MPESA_CONSUMER_KEY || 'JFvBXWMm0yPfiDwTWNPbc2TodFikv8VOBcIhDQ1xbRIBr7TE';
         const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'Q16rZBLRjCN1VXaBMmzInA3QpGX0MXidMYY0EUweif6PsvbsUQ8GLBLiqZHaebk9';
         const shortCode = process.env.MPESA_SHORTCODE || '174379';
         const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
-        const callbackURL = process.env.MPESA_CALLBACK_URL || 'https://mydomain.com/path';
-        if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
-            return res.status(400).json({ error: 'Invalid phone number format. Use format: 07XXXXXXXX, 2547XXXXXXXX, or +2547XXXXXXXX' });
+        let callbackURL = process.env.MPESA_CALLBACK_URL;
+        if (!callbackURL) {
+            callbackURL = 'https://webhook.site/your-unique-url';
+            console.warn('⚠️  M-Pesa Callback URL not set. Using default webhook.site URL.');
+            console.warn('   For production, set MPESA_CALLBACK_URL environment variable.');
+            console.warn('   For development, use ngrok: ngrok http 3001');
+            callbackURL = 'https://webhook.site/abc123def456';
         }
-        phoneNumber = phoneNumber.replace(/^0/, '254').replace(/^\+/, '');
         const now = new Date();
         const timestamp = [
             now.getFullYear(),
@@ -64,7 +80,8 @@ let MpesaController = class MpesaController {
                 },
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                timeout: 10000
             });
             const accessToken = tokenResponse.data.access_token;
             const stkResponse = await axios_1.default.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
@@ -83,10 +100,11 @@ let MpesaController = class MpesaController {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
-                }
+                },
+                timeout: 30000
             });
             const userId = req.user?.userId || undefined;
-            await this.mpesaService.createTransaction({
+            const transaction = await this.mpesaService.createTransaction({
                 userId,
                 phoneNumber,
                 amount,
@@ -99,31 +117,47 @@ let MpesaController = class MpesaController {
             return res.status(200).json({
                 success: true,
                 message: 'Payment request initiated successfully',
-                data: stkResponse.data
+                data: {
+                    ...stkResponse.data,
+                    transactionId: transaction.id,
+                    checkoutRequestId: transaction.checkoutRequestId
+                }
             });
         }
         catch (error) {
             console.error('M-Pesa API Error:', {
                 request: error.config?.data,
                 response: error.response?.data,
-                message: error.message
+                message: error.message,
+                status: error.response?.status
             });
             const errorMessage = error.response?.data?.errorMessage ||
                 error.response?.data?.message ||
+                error.message ||
                 'Failed to process payment';
+            if (error.response?.data?.errorCode === '400.002.02') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid Callback URL. Please set MPESA_CALLBACK_URL environment variable to a publicly accessible URL.',
+                    code: 'INVALID_CALLBACK_URL',
+                    suggestion: 'Use ngrok (ngrok http 3001) or set a public webhook URL'
+                });
+            }
             return res.status(error.response?.status || 500).json({
                 success: false,
                 error: errorMessage,
-                code: error.response?.data?.errorCode
+                code: error.response?.data?.errorCode || 'UNKNOWN_ERROR'
             });
         }
     }
-    async mpesaWebhook(body, res) {
+    async mpesaWebhook(body, req, res) {
         console.log('M-Pesa Webhook received:', JSON.stringify(body, null, 2));
         try {
             const result = body.Body?.stkCallback;
-            if (!result)
+            if (!result) {
+                console.error('Invalid webhook payload:', body);
                 return res.status(400).json({ error: 'Invalid webhook payload' });
+            }
             const checkoutRequestId = result.CheckoutRequestID;
             const status = result.ResultCode === 0 ? 'success' : 'failed';
             let mpesaReceipt = undefined;
@@ -142,13 +176,20 @@ let MpesaController = class MpesaController {
                 message,
             });
             if (status === 'success') {
-                const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-                    where: { checkoutRequestId },
-                    include: { sale: true }
-                });
+                const mpesaTx = await this.mpesaService.getTransactionByCheckoutId(checkoutRequestId);
                 if (mpesaTx && !mpesaTx.sale && mpesaTx.saleData) {
                     const saleData = mpesaTx.saleData;
                     try {
+                        const tenantId = req.user?.tenantId || saleData.tenantId;
+                        const userId = req.user?.id || saleData.userId;
+                        if (!tenantId || !userId) {
+                            console.error('Missing tenantId or userId for sale creation');
+                            await this.mpesaService.updateTransaction(checkoutRequestId, {
+                                status: 'failed',
+                                message: 'Missing tenant or user information',
+                            });
+                            return res.status(400).json({ error: 'Missing tenant or user information' });
+                        }
                         await this.salesService.createSale({
                             items: saleData.items,
                             paymentMethod: 'mpesa',
@@ -157,30 +198,94 @@ let MpesaController = class MpesaController {
                             customerPhone: saleData.customerPhone,
                             mpesaTransactionId: mpesaTx.id,
                             idempotencyKey: `mpesa_${mpesaTx.id}`,
-                        }, saleData.tenantId, saleData.userId);
+                        }, tenantId, userId);
+                        console.log('Sale created successfully for M-Pesa transaction:', mpesaTx.id);
                     }
                     catch (err) {
+                        console.error('Failed to create sale for M-Pesa transaction:', err);
                         await this.mpesaService.updateTransaction(checkoutRequestId, {
                             status: 'stock_unavailable',
                             message: 'Stock unavailable for one or more items',
                         });
-                        return res.status(409).json({ error: 'Stock unavailable for one or more items' });
+                        return res.status(409).json({
+                            error: 'Stock unavailable for one or more items'
+                        });
                     }
                 }
             }
             return res.status(200).json({ received: true });
         }
         catch (err) {
+            console.error('Webhook processing error:', err);
             return res.status(500).json({ error: 'Failed to process webhook' });
         }
     }
-    async getByCheckoutId(checkoutRequestId) {
-        return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestId } });
+    async getTransactionStatus(checkoutRequestId) {
+        const transaction = await this.mpesaService.getTransactionByCheckoutId(checkoutRequestId);
+        if (!transaction) {
+            return { error: 'Transaction not found' };
+        }
+        return {
+            success: true,
+            data: transaction
+        };
+    }
+    async getTransactionById(id) {
+        const transaction = await this.mpesaService.getTransactionById(id);
+        if (!transaction) {
+            return { error: 'Transaction not found' };
+        }
+        return {
+            success: true,
+            data: transaction
+        };
+    }
+    async getUserTransactions(userId, req) {
+        const transactions = await this.mpesaService.getTransactionsByUserId(userId);
+        return {
+            success: true,
+            data: transactions
+        };
+    }
+    async getTenantTransactions(tenantId) {
+        const transactions = await this.mpesaService.getTransactionsByTenant(tenantId);
+        return {
+            success: true,
+            data: transactions
+        };
+    }
+    async getTransactionStats(req) {
+        const stats = await this.mpesaService.getTransactionStats();
+        return {
+            success: true,
+            data: stats
+        };
+    }
+    async cancelTransaction(checkoutRequestId) {
+        await this.mpesaService.cancelTransaction(checkoutRequestId);
+        return {
+            success: true,
+            message: 'Transaction cancelled successfully'
+        };
+    }
+    async getPendingTransactions() {
+        const transactions = await this.mpesaService.getPendingTransactions();
+        return {
+            success: true,
+            data: transactions
+        };
+    }
+    async cleanupOldTransactions() {
+        const result = await this.mpesaService.cleanupOldPendingTransactions();
+        return {
+            success: true,
+            message: `Cleaned up ${result.count} old pending transactions`
+        };
     }
 };
 exports.MpesaController = MpesaController;
 __decorate([
-    (0, common_1.Post)(),
+    (0, common_1.Post)('initiate'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.Res)()),
@@ -191,18 +296,67 @@ __decorate([
 __decorate([
     (0, common_1.Post)('webhook'),
     __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Res)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], MpesaController.prototype, "mpesaWebhook", null);
 __decorate([
-    (0, common_1.Get)('by-checkout-id/:checkoutRequestId'),
+    (0, common_1.Get)('status/:checkoutRequestId'),
     __param(0, (0, common_1.Param)('checkoutRequestId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getByCheckoutId", null);
+], MpesaController.prototype, "getTransactionStatus", null);
+__decorate([
+    (0, common_1.Get)('transaction/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getTransactionById", null);
+__decorate([
+    (0, common_1.Get)('user/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getUserTransactions", null);
+__decorate([
+    (0, common_1.Get)('tenant/:tenantId'),
+    __param(0, (0, common_1.Param)('tenantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getTenantTransactions", null);
+__decorate([
+    (0, common_1.Get)('stats'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getTransactionStats", null);
+__decorate([
+    (0, common_1.Delete)('cancel/:checkoutRequestId'),
+    __param(0, (0, common_1.Param)('checkoutRequestId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "cancelTransaction", null);
+__decorate([
+    (0, common_1.Get)('pending'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getPendingTransactions", null);
+__decorate([
+    (0, common_1.Post)('cleanup'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "cleanupOldTransactions", null);
 exports.MpesaController = MpesaController = __decorate([
     (0, common_1.Controller)('mpesa'),
     __metadata("design:paramtypes", [mpesa_service_1.MpesaService,

@@ -19,46 +19,83 @@ const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path = require("path");
 const tenant_service_1 = require("./tenant.service");
+const logo_service_1 = require("./logo.service");
 let TenantController = class TenantController {
     tenantService;
-    constructor(tenantService) {
+    logoService;
+    constructor(tenantService, logoService) {
         this.tenantService = tenantService;
+        this.logoService = logoService;
     }
     async getMyTenant(req) {
-        return this.tenantService.getTenant(req.user.tenantId);
+        const tenantId = req.user.tenantId;
+        return this.tenantService.getTenant(tenantId);
     }
     async updateMyTenant(req, dto) {
         const tenantId = req.user.tenantId;
         return this.tenantService.updateTenant(tenantId, dto);
     }
-    async uploadLogo(req, file) {
+    async uploadLogo(req, file, body) {
         if (!file)
             throw new Error('No file uploaded');
+        const logoType = body.type || 'main';
         const logoUrl = `/uploads/logos/${file.filename}`;
-        await this.tenantService.updateTenant(req.user.tenantId, { logoUrl });
-        return { logoUrl };
-    }
-    async getBrandingSettings(req) {
-        const tenant = await this.tenantService.getTenant(req.user.tenantId);
-        if (!tenant) {
-            throw new Error('Tenant not found');
+        const validation = await this.logoService.validateLogoFile(file, logoType);
+        if (!validation.isValid) {
+            throw new Error(`Logo validation failed: ${validation.errors.join(', ')}`);
         }
-        return {
-            logoUrl: tenant.logoUrl,
-            primaryColor: tenant.primaryColor || '#3B82F6',
-            secondaryColor: tenant.secondaryColor || '#1F2937',
-            customDomain: tenant.customDomain,
-            whiteLabel: tenant.whiteLabel || false,
-        };
+        const updateData = {};
+        switch (logoType) {
+            case 'main':
+                updateData.logoUrl = logoUrl;
+                break;
+            case 'favicon':
+                updateData.favicon = logoUrl;
+                break;
+            case 'receiptLogo':
+                updateData.receiptLogo = logoUrl;
+                break;
+            case 'etimsQrCode':
+                updateData.etimsQrUrl = logoUrl;
+                break;
+            case 'watermark':
+                updateData.watermark = logoUrl;
+                break;
+            default:
+                updateData.logoUrl = logoUrl;
+        }
+        await this.tenantService.updateTenant(req.user.tenantId, updateData);
+        return { logoUrl, type: logoType, validation };
     }
-    async updateBrandingSettings(req, branding) {
+    async getLogoCompliance(req) {
         const tenantId = req.user.tenantId;
-        return this.tenantService.updateTenant(tenantId, {
-            primaryColor: branding.primaryColor,
-            secondaryColor: branding.secondaryColor,
-            customDomain: branding.customDomain,
-            whiteLabel: branding.whiteLabel,
-        });
+        return this.logoService.enforceLogoCompliance(tenantId);
+    }
+    async validateLogos(req) {
+        const tenantId = req.user.tenantId;
+        return this.logoService.validateTenantLogos(tenantId);
+    }
+    async getLogoUsage(req) {
+        const tenantId = req.user.tenantId;
+        return this.logoService.getLogoUsage(tenantId);
+    }
+    async getLogoStatistics(req) {
+        const tenantId = req.user.tenantId;
+        return this.logoService.getLogoStatistics(tenantId);
+    }
+    async updateBranding(req, dto) {
+        const tenantId = req.user.tenantId;
+        const allowedFields = [
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+            'logoUrl', 'favicon', 'receiptLogo', 'watermark'
+        ];
+        const data = {};
+        for (const key of allowedFields) {
+            if (dto[key] !== undefined) {
+                data[key] = dto[key];
+            }
+        }
+        return this.tenantService.updateTenant(tenantId, data);
     }
     async getApiSettings(req) {
         const tenant = await this.tenantService.getTenant(req.user.tenantId);
@@ -127,32 +164,62 @@ __decorate([
             filename: (req, file, cb) => {
                 const ext = path.extname(file.originalname);
                 const user = req.user;
-                const name = `${user.tenantId}${ext}`;
+                const logoType = req.body.type || 'main';
+                const name = `${user.tenantId}_${logoType}${ext}`;
                 cb(null, name);
             },
         }),
         fileFilter: (req, file, cb) => {
-            if (!file.mimetype.startsWith('image/')) {
-                return cb(new Error('Only image files are allowed!'), false);
+            const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/x-icon'];
+            if (!allowedMimes.includes(file.mimetype)) {
+                return cb(new Error('Only image files (JPEG, PNG, SVG, ICO) are allowed!'), false);
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                return cb(new Error('File size must be less than 5MB!'), false);
             }
             cb(null, true);
         },
-        limits: { fileSize: 2 * 1024 * 1024 },
+        limits: { fileSize: 5 * 1024 * 1024 },
     })),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "uploadLogo", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.Get)('branding'),
+    (0, common_1.Get)('logo/compliance'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], TenantController.prototype, "getBrandingSettings", null);
+], TenantController.prototype, "getLogoCompliance", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('logo/validation'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "validateLogos", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('logo/usage'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "getLogoUsage", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('logo/statistics'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "getLogoStatistics", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Put)('branding'),
@@ -161,7 +228,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
-], TenantController.prototype, "updateBrandingSettings", null);
+], TenantController.prototype, "updateBranding", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('api-settings'),
@@ -196,6 +263,7 @@ __decorate([
 ], TenantController.prototype, "createTenant", null);
 exports.TenantController = TenantController = __decorate([
     (0, common_1.Controller)('tenant'),
-    __metadata("design:paramtypes", [tenant_service_1.TenantService])
+    __metadata("design:paramtypes", [tenant_service_1.TenantService,
+        logo_service_1.LogoService])
 ], TenantController);
 //# sourceMappingURL=tenant.controller.js.map

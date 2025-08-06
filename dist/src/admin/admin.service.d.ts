@@ -58,14 +58,14 @@ export declare class AdminService {
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
-            tenant: {
-                id: string;
-                name: string;
-            };
             role: {
                 id: string;
                 name: string;
                 description: string | null;
+            };
+            tenant: {
+                id: string;
+                name: string;
             };
         } & {
             id: string;
@@ -105,7 +105,6 @@ export declare class AdminService {
         user: {
             id: string;
             name: string;
-            email: string;
             userRoles: ({
                 tenant: {
                     id: string;
@@ -117,6 +116,7 @@ export declare class AdminService {
                 userId: string;
                 roleId: string;
             })[];
+            email: string;
         } | null;
     } & {
         id: string;
@@ -229,15 +229,15 @@ export declare class AdminService {
             products: number;
         };
         userRoles: ({
-            user: {
-                id: string;
-                name: string;
-                email: string;
-            };
             role: {
                 id: string;
                 name: string;
                 description: string | null;
+            };
+            user: {
+                id: string;
+                name: string;
+                email: string;
             };
         } & {
             id: string;

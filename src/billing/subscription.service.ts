@@ -41,11 +41,15 @@ export class SubscriptionService {
           tenantId: data.tenantId,
           status: 'active',
         },
+        include: {
+          plan: true,
+        },
       });
 
       if (existingSubscription) {
-        console.error('Tenant already has active subscription:', data.tenantId);
-        throw new BadRequestException('Tenant already has an active subscription');
+        console.log('Tenant has existing subscription, upgrading to new plan');
+        // Handle upgrade by updating the existing subscription
+        return await this.handleUpgrade(existingSubscription, plan);
       }
 
       const now = new Date();

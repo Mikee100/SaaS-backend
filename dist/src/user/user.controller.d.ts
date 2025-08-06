@@ -16,7 +16,7 @@ export declare class UserController {
         region: string | null;
         isSuperadmin: boolean;
     }>;
-    getUsers(tenantId: string): Promise<({
+    getUsers(req: any): Promise<({
         userRoles: ({
             role: {
                 id: string;
@@ -28,6 +28,20 @@ export declare class UserController {
             tenantId: string;
             userId: string;
             roleId: string;
+        })[];
+        permissions: ({
+            permission: {
+                id: string;
+                description: string | null;
+                key: string;
+            };
+        } & {
+            id: string;
+            userId: string;
+            permissionId: string;
+            grantedBy: string | null;
+            grantedAt: Date | null;
+            note: string | null;
         })[];
     } & {
         id: string;

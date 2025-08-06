@@ -26,14 +26,7 @@ export declare class InventoryController {
         productId: string;
         quantity: number;
     })[]>;
-    create(req: any, dto: CreateInventoryDto): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
-        productId: string;
-        quantity: number;
-    }>;
+    create(req: any, dto: CreateInventoryDto): Promise<any>;
     update(req: any, id: string, dto: UpdateInventoryDto): Promise<import(".prisma/client").Prisma.BatchPayload>;
     remove(req: any, id: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

@@ -31,7 +31,7 @@ export declare class BillingService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-    }[] | {
+    }[] | ({
         id: string;
         name: string;
         price: number;
@@ -54,7 +54,30 @@ export declare class BillingService {
         auditLogs: boolean;
         backupRestore: boolean;
         customIntegrations: boolean;
-    }[]>;
+    } | {
+        id: string;
+        name: string;
+        price: number;
+        interval: string;
+        maxUsers: null;
+        maxProducts: null;
+        maxSalesPerMonth: null;
+        analyticsEnabled: boolean;
+        advancedReports: boolean;
+        prioritySupport: boolean;
+        customBranding: boolean;
+        apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+    })[]>;
     getCurrentSubscription(tenantId: string): Promise<{
         plan: {
             name: string;
@@ -150,6 +173,7 @@ export declare class BillingService {
     } | null>;
     getInvoices(tenantId: string): Promise<{
         id: string;
+        description: string | null;
         currency: string;
         createdAt: Date;
         updatedAt: Date;

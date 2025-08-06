@@ -16,15 +16,18 @@ exports.BillingController = void 0;
 const common_1 = require("@nestjs/common");
 const billing_service_1 = require("./billing.service");
 const stripe_service_1 = require("./stripe.service");
+const subscription_service_1 = require("./subscription.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
 let BillingController = class BillingController {
     billingService;
     stripeService;
-    constructor(billingService, stripeService) {
+    subscriptionService;
+    constructor(billingService, stripeService, subscriptionService) {
         this.billingService = billingService;
         this.stripeService = stripeService;
+        this.subscriptionService = subscriptionService;
     }
     async testEndpoint() {
         try {
@@ -43,10 +46,53 @@ let BillingController = class BillingController {
             };
         }
     }
+    async testSubscription(req) {
+        try {
+            if (!req.user?.tenantId) {
+                return {
+                    error: 'No tenant ID found in user object',
+                    user: req.user,
+                    timestamp: new Date().toISOString(),
+                };
+            }
+            const subscription = await this.billingService.getCurrentSubscription(req.user.tenantId);
+            return {
+                message: 'Subscription test successful',
+                tenantId: req.user.tenantId,
+                subscription,
+                timestamp: new Date().toISOString(),
+            };
+        }
+        catch (error) {
+            console.error('Subscription test error:', error);
+            return {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+            };
+        }
+    }
+    async healthCheck() {
+        return {
+            status: 'ok',
+            service: 'billing',
+            timestamp: new Date().toISOString(),
+        };
+    }
     async getPlans() {
         return this.billingService.getPlans();
     }
     async getCurrentSubscription(req) {
+        try {
+            if (!req.user?.tenantId) {
+                throw new Error('No tenant ID found in user object');
+            }
+            return this.billingService.getCurrentSubscription(req.user.tenantId);
+        }
+        catch (error) {
+            throw error;
+        }
+    }
+    async getCurrentSubscriptionWithPermissions(req) {
         try {
             if (!req.user?.tenantId) {
                 throw new Error('No tenant ID found in user object');
@@ -70,6 +116,24 @@ let BillingController = class BillingController {
     }
     async getInvoices(req) {
         return this.billingService.getInvoices(req.user.tenantId);
+    }
+    async createSubscription(body, req) {
+        try {
+            if (!req.user?.tenantId) {
+                throw new Error('No tenant ID found in user object');
+            }
+            const subscription = await this.subscriptionService.createSubscription({
+                tenantId: req.user.tenantId,
+                planId: body.planId,
+            });
+            return {
+                message: 'Subscription created successfully',
+                subscription,
+            };
+        }
+        catch (error) {
+            throw error;
+        }
     }
     async createCheckoutSession(body, req) {
         const session = await this.stripeService.createCheckoutSession(req.user.tenantId, body.priceId, body.successUrl, body.cancelUrl, req.user.id);
@@ -111,12 +175,29 @@ let BillingController = class BillingController {
 exports.BillingController = BillingController;
 __decorate([
     (0, common_1.Get)('test'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "testEndpoint", null);
 __decorate([
+    (0, common_1.Get)('test-subscription'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "testSubscription", null);
+__decorate([
+    (0, common_1.Get)('health'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "healthCheck", null);
+__decorate([
     (0, common_1.Get)('plans'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -124,13 +205,24 @@ __decorate([
 ], BillingController.prototype, "getPlans", null);
 __decorate([
     (0, common_1.Get)('subscription'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "getCurrentSubscription", null);
 __decorate([
+    (0, common_1.Get)('subscription-with-permissions'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('view_billing'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "getCurrentSubscriptionWithPermissions", null);
+__decorate([
     (0, common_1.Get)('limits'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -138,6 +230,7 @@ __decorate([
 ], BillingController.prototype, "getPlanLimits", null);
 __decorate([
     (0, common_1.Get)('invoices'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -145,7 +238,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "getInvoices", null);
 __decorate([
+    (0, common_1.Post)('create-subscription'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('edit_billing'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "createSubscription", null);
+__decorate([
     (0, common_1.Post)('create-checkout-session'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -155,6 +259,7 @@ __decorate([
 ], BillingController.prototype, "createCheckoutSession", null);
 __decorate([
     (0, common_1.Post)('create-portal-session'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -164,6 +269,7 @@ __decorate([
 ], BillingController.prototype, "createPortalSession", null);
 __decorate([
     (0, common_1.Post)('cancel-subscription'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -172,6 +278,7 @@ __decorate([
 ], BillingController.prototype, "cancelSubscription", null);
 __decorate([
     (0, common_1.Get)('subscription-details'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -180,6 +287,7 @@ __decorate([
 ], BillingController.prototype, "getSubscriptionDetails", null);
 __decorate([
     (0, common_1.Post)('cleanup-orphaned-subscriptions'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -194,9 +302,9 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "handleWebhook", null);
 exports.BillingController = BillingController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('billing'),
     __metadata("design:paramtypes", [billing_service_1.BillingService,
-        stripe_service_1.StripeService])
+        stripe_service_1.StripeService,
+        subscription_service_1.SubscriptionService])
 ], BillingController);
 //# sourceMappingURL=billing.controller.js.map

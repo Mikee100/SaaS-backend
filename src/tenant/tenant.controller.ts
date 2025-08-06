@@ -4,15 +4,20 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { TenantService } from './tenant.service';
+import { LogoService } from './logo.service';
 
 @Controller('tenant')
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+    private readonly logoService: LogoService
+  ) {}
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   async getMyTenant(@Req() req) {
-    return this.tenantService.getTenant(req.user.tenantId);
+    const tenantId = req.user.tenantId;
+    return this.tenantService.getTenant(tenantId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -29,53 +34,112 @@ export class TenantController {
       destination: './uploads/logos',
       filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
-        const user = req.user as any; // or as { tenantId: string }
-        const name = `${user.tenantId}${ext}`;
+        const user = req.user as any;
+        const logoType = req.body.type || 'main';
+        const name = `${user.tenantId}_${logoType}${ext}`;
         cb(null, name);
       },
     }),
     fileFilter: (req, file, cb) => {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Only image files are allowed!'), false);
+      // Validate file type
+      const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/x-icon'];
+      if (!allowedMimes.includes(file.mimetype)) {
+        return cb(new Error('Only image files (JPEG, PNG, SVG, ICO) are allowed!'), false);
       }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        return cb(new Error('File size must be less than 5MB!'), false);
+      }
+      
       cb(null, true);
     },
-    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   }))
-  async uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File) {
+  async uploadLogo(@Req() req, @UploadedFile() file: Express.Multer.File, @Body() body: any) {
     if (!file) throw new Error('No file uploaded');
+    
+    const logoType = body.type || 'main';
     const logoUrl = `/uploads/logos/${file.filename}`;
-    await this.tenantService.updateTenant(req.user.tenantId, { logoUrl });
-    return { logoUrl };
+    
+    // Validate logo file
+    const validation = await this.logoService.validateLogoFile(file, logoType);
+    if (!validation.isValid) {
+      throw new Error(`Logo validation failed: ${validation.errors.join(', ')}`);
+    }
+    
+    // Update the appropriate logo field based on type
+    const updateData: any = {};
+    switch (logoType) {
+      case 'main':
+        updateData.logoUrl = logoUrl;
+        break;
+      case 'favicon':
+        updateData.favicon = logoUrl;
+        break;
+      case 'receiptLogo':
+        updateData.receiptLogo = logoUrl;
+        break;
+      case 'etimsQrCode':
+        updateData.etimsQrUrl = logoUrl;
+        break;
+      case 'watermark':
+        updateData.watermark = logoUrl;
+        break;
+      default:
+        updateData.logoUrl = logoUrl; // Default to main logo
+    }
+    
+    await this.tenantService.updateTenant(req.user.tenantId, updateData);
+    return { logoUrl, type: logoType, validation };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('logo/compliance')
+  async getLogoCompliance(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.logoService.enforceLogoCompliance(tenantId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('logo/validation')
+  async validateLogos(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.logoService.validateTenantLogos(tenantId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('logo/usage')
+  async getLogoUsage(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.logoService.getLogoUsage(tenantId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('logo/statistics')
+  async getLogoStatistics(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.logoService.getLogoStatistics(tenantId);
   }
 
   // Enterprise branding endpoints
   @UseGuards(AuthGuard('jwt'))
-  @Get('branding')
-  async getBrandingSettings(@Req() req) {
-    const tenant = await this.tenantService.getTenant(req.user.tenantId);
-    if (!tenant) {
-      throw new Error('Tenant not found');
-    }
-    return {
-      logoUrl: tenant.logoUrl,
-      primaryColor: tenant.primaryColor || '#3B82F6',
-      secondaryColor: tenant.secondaryColor || '#1F2937',
-      customDomain: tenant.customDomain,
-      whiteLabel: tenant.whiteLabel || false,
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
   @Put('branding')
-  async updateBrandingSettings(@Req() req, @Body() branding: any) {
+  async updateBranding(@Req() req, @Body() dto: any) {
     const tenantId = req.user.tenantId;
-    return this.tenantService.updateTenant(tenantId, {
-      primaryColor: branding.primaryColor,
-      secondaryColor: branding.secondaryColor,
-      customDomain: branding.customDomain,
-      whiteLabel: branding.whiteLabel,
-    });
+    const allowedFields = [
+      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+      'logoUrl', 'favicon', 'receiptLogo', 'watermark'
+    ];
+    
+    const data: any = {};
+    for (const key of allowedFields) {
+      if (dto[key] !== undefined) {
+        data[key] = dto[key];
+      }
+    }
+    
+    return this.tenantService.updateTenant(tenantId, data);
   }
 
   // Enterprise API endpoints

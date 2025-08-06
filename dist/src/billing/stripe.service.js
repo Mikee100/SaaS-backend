@@ -623,6 +623,172 @@ let StripeService = StripeService_1 = class StripeService {
             throw new common_1.InternalServerErrorException('Failed to update Stripe prices');
         }
     }
+    async createPaymentIntent(tenantId, amount, currency, description, metadata = {}) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Creating payment intent for tenant: ${tenantId}, amount: ${amount}`);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(amount * 100),
+                currency,
+                description,
+                metadata: {
+                    tenantId,
+                    ...metadata,
+                },
+                automatic_payment_methods: {
+                    enabled: true,
+                },
+            });
+            await this.auditLogService.log('system', 'payment_intent_created', {
+                tenantId,
+                paymentIntentId: paymentIntent.id,
+                amount,
+                currency,
+            });
+            this.logger.log(`Successfully created payment intent: ${paymentIntent.id} for tenant: ${tenantId}`);
+            return paymentIntent;
+        }
+        catch (error) {
+            this.logger.error(`Failed to create payment intent for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to create payment intent');
+        }
+    }
+    async createInvoice(tenantId, subscriptionId, amount, currency) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Creating invoice for tenant: ${tenantId}, subscription: ${subscriptionId}`);
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { stripeCustomerId: true },
+            });
+            if (!tenant?.stripeCustomerId) {
+                throw new Error('No Stripe customer found for tenant');
+            }
+            const invoice = await stripe.invoices.create({
+                customer: tenant.stripeCustomerId,
+                subscription: subscriptionId,
+                collection_method: 'charge_automatically',
+                metadata: {
+                    tenantId,
+                },
+            });
+            await stripe.invoiceItems.create({
+                customer: tenant.stripeCustomerId,
+                invoice: invoice.id,
+                amount: Math.round(amount * 100),
+                currency,
+                description: 'Subscription payment',
+            });
+            await this.auditLogService.log('system', 'invoice_created', {
+                tenantId,
+                invoiceId: invoice.id,
+                amount,
+                currency,
+            });
+            this.logger.log(`Successfully created invoice: ${invoice.id} for tenant: ${tenantId}`);
+            return invoice;
+        }
+        catch (error) {
+            this.logger.error(`Failed to create invoice for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to create invoice');
+        }
+    }
+    async createRefund(tenantId, paymentIntentId, amount, reason) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Creating refund for tenant: ${tenantId}, payment: ${paymentIntentId}`);
+            const refund = await stripe.refunds.create({
+                payment_intent: paymentIntentId,
+                amount: amount ? Math.round(amount * 100) : undefined,
+                reason: reason,
+                metadata: {
+                    tenantId,
+                },
+            });
+            await this.auditLogService.log('system', 'refund_created', {
+                tenantId,
+                refundId: refund.id,
+                paymentIntentId,
+                amount,
+                reason,
+            });
+            this.logger.log(`Successfully created refund: ${refund.id} for tenant: ${tenantId}`);
+            return refund;
+        }
+        catch (error) {
+            this.logger.error(`Failed to create refund for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to create refund');
+        }
+    }
+    async getPaymentMethods(tenantId, customerId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Getting payment methods for tenant: ${tenantId}, customer: ${customerId}`);
+            const paymentMethods = await stripe.paymentMethods.list({
+                customer: customerId,
+                type: 'card',
+            });
+            this.logger.log(`Successfully retrieved ${paymentMethods.data.length} payment methods for tenant: ${tenantId}`);
+            return paymentMethods.data;
+        }
+        catch (error) {
+            this.logger.error(`Failed to get payment methods for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to get payment methods');
+        }
+    }
+    async attachPaymentMethod(tenantId, customerId, paymentMethodId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Attaching payment method ${paymentMethodId} to customer ${customerId} for tenant: ${tenantId}`);
+            await stripe.paymentMethods.attach(paymentMethodId, {
+                customer: customerId,
+            });
+            await this.auditLogService.log('system', 'payment_method_attached', {
+                tenantId,
+                customerId,
+                paymentMethodId,
+            });
+            this.logger.log(`Successfully attached payment method ${paymentMethodId} for tenant: ${tenantId}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to attach payment method for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to attach payment method');
+        }
+    }
+    async detachPaymentMethod(tenantId, paymentMethodId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Detaching payment method ${paymentMethodId} for tenant: ${tenantId}`);
+            await stripe.paymentMethods.detach(paymentMethodId);
+            await this.auditLogService.log('system', 'payment_method_detached', {
+                tenantId,
+                paymentMethodId,
+            });
+            this.logger.log(`Successfully detached payment method ${paymentMethodId} for tenant: ${tenantId}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to detach payment method for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to detach payment method');
+        }
+    }
 };
 exports.StripeService = StripeService;
 exports.StripeService = StripeService = StripeService_1 = __decorate([

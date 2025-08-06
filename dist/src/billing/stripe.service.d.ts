@@ -37,4 +37,10 @@ export declare class StripeService {
         proPriceId: string;
         enterprisePriceId: string;
     }>;
+    createPaymentIntent(tenantId: string, amount: number, currency: string, description: string, metadata?: Record<string, any>): Promise<Stripe.PaymentIntent>;
+    createInvoice(tenantId: string, subscriptionId: string, amount: number, currency: string): Promise<Stripe.Invoice>;
+    createRefund(tenantId: string, paymentIntentId: string, amount?: number, reason?: string): Promise<Stripe.Refund>;
+    getPaymentMethods(tenantId: string, customerId: string): Promise<Stripe.PaymentMethod[]>;
+    attachPaymentMethod(tenantId: string, customerId: string, paymentMethodId: string): Promise<void>;
+    detachPaymentMethod(tenantId: string, paymentMethodId: string): Promise<void>;
 }

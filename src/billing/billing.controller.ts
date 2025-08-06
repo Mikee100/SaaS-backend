@@ -1,21 +1,23 @@
 import { Controller, Get, Post, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
+import { SubscriptionService } from './subscription.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RawBodyRequest } from '@nestjs/common';
 import { Response } from 'express';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('billing')
 export class BillingController {
   constructor(
     private readonly billingService: BillingService,
     private readonly stripeService: StripeService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   @Get('test')
+  @UseGuards(AuthGuard('jwt'))
   async testEndpoint() {
     try {
       // Test database connection
@@ -34,13 +36,53 @@ export class BillingController {
     }
   }
 
+  @Get('test-subscription')
+  @UseGuards(AuthGuard('jwt'))
+  async testSubscription(@Req() req) {
+    try {
+      if (!req.user?.tenantId) {
+        return {
+          error: 'No tenant ID found in user object',
+          user: req.user,
+          timestamp: new Date().toISOString(),
+        };
+      }
+      
+      const subscription = await this.billingService.getCurrentSubscription(req.user.tenantId);
+      return {
+        message: 'Subscription test successful',
+        tenantId: req.user.tenantId,
+        subscription,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Subscription test error:', error);
+      return {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  @Get('health')
+  @UseGuards(AuthGuard('jwt'))
+  async healthCheck() {
+    return {
+      status: 'ok',
+      service: 'billing',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get('plans')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getPlans() {
     return this.billingService.getPlans();
   }
 
   @Get('subscription')
+  @UseGuards(AuthGuard('jwt'))
   async getCurrentSubscription(@Req() req) {
     try {
       if (!req.user?.tenantId) {
@@ -53,7 +95,23 @@ export class BillingController {
     }
   }
 
+  @Get('subscription-with-permissions')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('view_billing')
+  async getCurrentSubscriptionWithPermissions(@Req() req) {
+    try {
+      if (!req.user?.tenantId) {
+        throw new Error('No tenant ID found in user object');
+      }
+      
+      return this.billingService.getCurrentSubscription(req.user.tenantId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Get('limits')
+  @UseGuards(AuthGuard('jwt'))
   async getPlanLimits(@Req() req) {
     try {
       if (!req.user?.tenantId) {
@@ -67,12 +125,40 @@ export class BillingController {
   }
 
   @Get('invoices')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getInvoices(@Req() req) {
     return this.billingService.getInvoices(req.user.tenantId);
   }
 
+  @Post('create-subscription')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('edit_billing')
+  async createSubscription(
+    @Body() body: { planId: string },
+    @Req() req,
+  ) {
+    try {
+      if (!req.user?.tenantId) {
+        throw new Error('No tenant ID found in user object');
+      }
+
+      const subscription = await this.subscriptionService.createSubscription({
+        tenantId: req.user.tenantId,
+        planId: body.planId,
+      });
+
+      return {
+        message: 'Subscription created successfully',
+        subscription,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Post('create-checkout-session')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
   async createCheckoutSession(
     @Body() body: { priceId: string; successUrl: string; cancelUrl: string },
@@ -89,6 +175,7 @@ export class BillingController {
   }
 
   @Post('create-portal-session')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
   async createPortalSession(
     @Body() body: { returnUrl: string },
@@ -103,6 +190,7 @@ export class BillingController {
   }
 
   @Post('cancel-subscription')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
   async cancelSubscription(@Req() req) {
     await this.stripeService.cancelSubscription(req.user.tenantId, req.user.id);
@@ -110,6 +198,7 @@ export class BillingController {
   }
 
   @Get('subscription-details')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getSubscriptionDetails(@Req() req) {
     const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
@@ -117,6 +206,7 @@ export class BillingController {
   }
 
   @Post('cleanup-orphaned-subscriptions')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
   async cleanupOrphanedSubscriptions(@Req() req) {
     await this.stripeService.cleanupOrphanedSubscriptions(req.user.tenantId);

@@ -18,8 +18,13 @@ export class UserController {
 
   @Get()
   @Permissions('view_users')
-  async getUsers(@Query('tenantId') tenantId: string) {
-    return this.userService.findAllByTenant(tenantId);
+  async getUsers(@Req() req) {
+    // Use the tenantId from the JWT token
+    const tenantId = req.user.tenantId;
+    console.log(`Fetching users for tenant: ${tenantId}`);
+    const users = await this.userService.findAllByTenant(tenantId);
+    console.log(`Found ${users.length} users for tenant: ${tenantId}`);
+    return users;
   }
 
   @Get('protected')
@@ -48,13 +53,15 @@ export class UserController {
   @Put(':id/permissions')
   @Permissions('edit_users')
   async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
-    return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
+    const tenantId = req.user.tenantId;
+    return this.userService.updateUserPermissionsByTenant(id, body.permissions, tenantId, req.user.userId, req.ip);
   }
 
   @Get(':id/permissions')
   @Permissions('edit_users')
   async getUserPermissions(@Param('id') id: string, @Req() req) {
-    return this.userService.getUserPermissions(id);
+    const tenantId = req.user.tenantId;
+    return this.userService.getUserPermissionsByTenant(id, tenantId);
   }
 
   @Put('me/preferences')

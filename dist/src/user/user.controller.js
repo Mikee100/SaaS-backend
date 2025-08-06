@@ -26,8 +26,12 @@ let UserController = class UserController {
     async createUser(body, req) {
         return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
-    async getUsers(tenantId) {
-        return this.userService.findAllByTenant(tenantId);
+    async getUsers(req) {
+        const tenantId = req.user.tenantId;
+        console.log(`Fetching users for tenant: ${tenantId}`);
+        const users = await this.userService.findAllByTenant(tenantId);
+        console.log(`Found ${users.length} users for tenant: ${tenantId}`);
+        return users;
     }
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
@@ -47,10 +51,12 @@ let UserController = class UserController {
         return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
     }
     async updatePermissions(id, body, req) {
-        return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
+        const tenantId = req.user.tenantId;
+        return this.userService.updateUserPermissionsByTenant(id, body.permissions, tenantId, req.user.userId, req.ip);
     }
     async getUserPermissions(id, req) {
-        return this.userService.getUserPermissions(id);
+        const tenantId = req.user.tenantId;
+        return this.userService.getUserPermissionsByTenant(id, tenantId);
     }
     async updatePreferences(req, body) {
         return this.userService.updateUserPreferences(req.user.userId, body);
@@ -73,9 +79,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('view_users'),
-    __param(0, (0, common_1.Query)('tenantId')),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUsers", null);
 __decorate([

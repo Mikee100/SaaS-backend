@@ -14,6 +14,57 @@ export declare class SubscriptionService {
     private billingService;
     constructor(prisma: PrismaService, billingService: BillingService);
     createSubscription(data: CreateSubscriptionDto): Promise<{
+        subscription: {
+            plan: {
+                id: string;
+                name: string;
+                description: string | null;
+                price: number;
+                currency: string;
+                interval: string;
+                features: import("@prisma/client/runtime/library").JsonValue | null;
+                maxUsers: number | null;
+                maxProducts: number | null;
+                maxSalesPerMonth: number | null;
+                analyticsEnabled: boolean;
+                advancedReports: boolean;
+                prioritySupport: boolean;
+                customBranding: boolean;
+                apiAccess: boolean;
+                bulkOperations: boolean;
+                dataExport: boolean;
+                customFields: boolean;
+                advancedSecurity: boolean;
+                whiteLabel: boolean;
+                dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            planId: string;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string | null;
+            stripePriceId: string | null;
+        };
+        proration: {
+            credit: number;
+            charge: number;
+            netCharge: number;
+        };
+    } | ({
         plan: {
             id: string;
             name: string;
@@ -57,7 +108,7 @@ export declare class SubscriptionService {
         canceledAt: Date | null;
         stripeSubscriptionId: string | null;
         stripePriceId: string | null;
-    }>;
+    })>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
             plan: {
@@ -162,6 +213,7 @@ export declare class SubscriptionService {
         };
         invoices: {
             id: string;
+            description: string | null;
             currency: string;
             createdAt: Date;
             updatedAt: Date;
@@ -189,6 +241,7 @@ export declare class SubscriptionService {
     })[]>;
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         id: string;
+        description: string | null;
         currency: string;
         createdAt: Date;
         updatedAt: Date;

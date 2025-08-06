@@ -31,22 +31,66 @@ let InventoryService = class InventoryService {
         });
     }
     async createInventory(dto, tenantId, actorUserId, ip) {
-        const inventory = await this.prisma.inventory.create({
-            data: {
-                ...dto,
-                tenantId,
-            },
+        const result = await this.prisma.$transaction(async (prisma) => {
+            const existingInventory = await prisma.inventory.findFirst({
+                where: {
+                    productId: dto.productId,
+                    tenantId: tenantId,
+                },
+            });
+            let inventory;
+            if (existingInventory) {
+                inventory = await prisma.inventory.update({
+                    where: { id: existingInventory.id },
+                    data: { quantity: dto.quantity },
+                });
+            }
+            else {
+                inventory = await prisma.inventory.create({
+                    data: {
+                        ...dto,
+                        tenantId,
+                    },
+                });
+            }
+            await prisma.product.updateMany({
+                where: {
+                    id: dto.productId,
+                    tenantId: tenantId,
+                },
+                data: {
+                    stock: dto.quantity,
+                },
+            });
+            return inventory;
         });
         if (this.auditLogService) {
-            await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: inventory.id, ...dto }, ip);
+            await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: result.id, ...dto }, ip);
         }
         this.realtimeGateway.emitInventoryUpdate({ productId: dto.productId, quantity: dto.quantity });
-        return inventory;
+        return result;
     }
     async updateInventory(id, dto, tenantId, actorUserId, ip) {
-        const result = await this.prisma.inventory.updateMany({
-            where: { id, tenantId },
-            data: dto,
+        const result = await this.prisma.$transaction(async (prisma) => {
+            const inventory = await prisma.inventory.updateMany({
+                where: { id, tenantId },
+                data: dto,
+            });
+            const inventoryRecord = await prisma.inventory.findFirst({
+                where: { id, tenantId },
+            });
+            if (inventoryRecord && dto.quantity !== undefined) {
+                await prisma.product.updateMany({
+                    where: {
+                        id: inventoryRecord.productId,
+                        tenantId: tenantId,
+                    },
+                    data: {
+                        stock: dto.quantity,
+                    },
+                });
+            }
+            return inventory;
         });
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'inventory_updated', { inventoryId: id, updatedFields: dto }, ip);

@@ -12,6 +12,7 @@ const tenant_service_1 = require("./tenant.service");
 const tenant_controller_1 = require("./tenant.controller");
 const tenant_configuration_controller_1 = require("./tenant-configuration.controller");
 const tenant_configuration_service_1 = require("../config/tenant-configuration.service");
+const logo_service_1 = require("./logo.service");
 const prisma_service_1 = require("../prisma.service");
 const user_module_1 = require("../user/user.module");
 let TenantModule = class TenantModule {
@@ -20,8 +21,9 @@ exports.TenantModule = TenantModule;
 exports.TenantModule = TenantModule = __decorate([
     (0, common_1.Module)({
         imports: [user_module_1.UserModule],
-        providers: [tenant_service_1.TenantService, tenant_configuration_service_1.TenantConfigurationService, prisma_service_1.PrismaService],
-        controllers: [tenant_controller_1.TenantController, tenant_configuration_controller_1.TenantConfigurationController]
+        providers: [tenant_service_1.TenantService, tenant_configuration_service_1.TenantConfigurationService, logo_service_1.LogoService, prisma_service_1.PrismaService],
+        controllers: [tenant_controller_1.TenantController, tenant_configuration_controller_1.TenantConfigurationController],
+        exports: [logo_service_1.LogoService]
     })
 ], TenantModule);
 //# sourceMappingURL=tenant.module.js.map

@@ -74,7 +74,20 @@ export class TenantService {
     ];
     const data: any = {};
     for (const key of allowedFields) {
-      if (dto[key] !== undefined) data[key] = dto[key];
+      if (dto[key] !== undefined) {
+        // Convert specific fields to proper types
+        if (key === 'foundedYear' && dto[key] !== null) {
+          data[key] = parseInt(dto[key], 10);
+        } else if (key === 'latitude' && dto[key] !== null) {
+          data[key] = parseFloat(dto[key]);
+        } else if (key === 'longitude' && dto[key] !== null) {
+          data[key] = parseFloat(dto[key]);
+        } else if (key === 'rateLimit' && dto[key] !== null) {
+          data[key] = parseInt(dto[key], 10);
+        } else {
+          data[key] = dto[key];
+        }
+      }
     }
     return this.prisma.tenant.update({ where: { id: tenantId }, data });
   }

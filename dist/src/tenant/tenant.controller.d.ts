@@ -1,10 +1,20 @@
 import { TenantService } from './tenant.service';
+import { LogoService } from './logo.service';
 export declare class TenantController {
     private readonly tenantService;
-    constructor(tenantService: TenantService);
+    private readonly logoService;
+    constructor(tenantService: TenantService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
+        currency: string | null;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -31,7 +41,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -39,20 +48,21 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        currency: string | null;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -79,7 +89,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -87,30 +96,49 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
-    uploadLogo(req: any, file: Express.Multer.File): Promise<{
+    uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
+        type: any;
+        validation: import("./logo.service").LogoValidation;
     }>;
-    getBrandingSettings(req: any): Promise<{
-        logoUrl: string | null;
-        primaryColor: string;
-        secondaryColor: string;
-        customDomain: string | null;
-        whiteLabel: boolean;
+    getLogoCompliance(req: any): Promise<{
+        compliant: boolean;
+        missing: string[];
+        recommendations: string[];
     }>;
-    updateBrandingSettings(req: any, branding: any): Promise<{
+    validateLogos(req: any): Promise<{
+        requirements: import("./logo.service").LogoRequirements;
+        missing: string[];
+        compliance: boolean;
+    }>;
+    getLogoUsage(req: any): Promise<{
+        mainLogo: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        etimsQrCode: string | null;
+        watermark: string | null;
+    }>;
+    getLogoStatistics(req: any): Promise<{
+        totalLogos: number;
+        requiredLogos: number;
+        optionalLogos: number;
+        complianceScore: number;
+    }>;
+    updateBranding(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        currency: string | null;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -137,7 +165,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -145,16 +172,9 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -165,6 +185,14 @@ export declare class TenantController {
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
         name: string;
+        currency: string | null;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -191,7 +219,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -199,16 +226,9 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

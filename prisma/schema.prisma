@@ -13,105 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Tenant {
-  id             String          @id @default(uuid())
-  name           String
-  businessType   String
-  contactEmail   String
-  contactPhone   String?
-  
-  // Enhanced business information
-  businessCategory String? // e.g., "Retail", "Restaurant", "Manufacturing"
-  businessSubcategory String? // e.g., "Electronics", "Fast Food", "Textiles"
-  primaryProducts Json? // Array of primary products/services
-  secondaryProducts Json? // Array of secondary products/services
-  businessDescription String? // Detailed business description
-  
-  // Location information
-  address        String?
-  city           String?
-  state          String?
-  country        String?
-  postalCode     String?
-  latitude       Float?
-  longitude      Float?
-  
-  // Business details
-  foundedYear    Int?
-  employeeCount  String? // e.g., "1-10", "11-50", "51-200", "200+"
-  annualRevenue  String? // e.g., "< 1M", "1M-10M", "10M-100M", "100M+"
-  businessHours  Json? // Business operating hours
-  website        String?
-  socialMedia    Json? // Social media links
-  
-  // Legal and compliance
-  kraPin         String? // KRA PIN
-  vatNumber      String? // VAT Number
-  etimsQrUrl     String? // KRA eTIMS QR code URL
-  businessLicense String? // Business license number
-  taxId          String? // Tax identification number
-  
-  // Financial settings
-  currency       String? @default("KES")
-  timezone       String? @default("Africa/Nairobi")
-  invoiceFooter  String?
-  logoUrl        String?
-  
-  // Stripe fields
-  stripeCustomerId String? // Stripe customer ID
-  
-  // Enterprise branding fields
-  primaryColor   String? // Custom primary color
-  secondaryColor String? // Custom secondary color
-  customDomain   String? // Custom domain for white label
-  whiteLabel     Boolean @default(false) // White label mode
-  
-  // Enterprise API fields
-  apiKey         String? // API key for integrations
-  webhookUrl     String? // Webhook URL for notifications
-  rateLimit      Int?    // API rate limit
-  customIntegrations Boolean @default(false) // Custom integrations enabled
-  
-  // Enterprise security fields
-  ssoEnabled     Boolean @default(false) // Single sign-on enabled
-  auditLogs      Boolean @default(false) // Audit logging enabled
-  backupRestore  Boolean @default(false) // Backup and restore enabled
-  
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  userRoles      UserRole[]
-  products       Product[]
-  inventories    Inventory[]
-  sales          Sale[]
-  tenantModules  TenantModule[]
-  subscriptions  Subscription[]
-  paymentMethods PaymentMethod[]
-  branches       Branch[]
-  invoices       Invoice[]
-  configurations TenantConfiguration[]
-}
-
-model User {
-  id                      String             @id @default(uuid())
-  email                   String             @unique
-  password                String
-  name                    String
-  userRoles               UserRole[]
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
-  sales                   Sale[]
-  mpesaTransactions       MpesaTransaction[]
-  permissions             UserPermission[]
-  auditLogs               AuditLog[]
-  resetPasswordToken      String?
-  resetPasswordExpires    DateTime?
-  notificationPreferences Json?
-  language                String?
-  region                  String?
-  userBranchRoles         UserBranchRole[]
-  isSuperadmin            Boolean            @default(false)
-}
-
 model Permission {
   id              String           @id @default(uuid())
   key             String           @unique
@@ -298,7 +199,7 @@ model Subscription {
 }
 
 model Plan {
-  id               String         @id @default(uuid())
+  id               String         @id
   name             String         @unique
   description      String?
   price            Float
@@ -341,6 +242,7 @@ model Invoice {
   status            String   // paid, unpaid, void
   dueDate           DateTime
   paidAt            DateTime?
+  description       String?
   // Stripe fields
   stripeInvoiceId   String?  @unique
   createdAt         DateTime @default(now())
@@ -348,6 +250,28 @@ model Invoice {
 
   @@index([tenantId])
   @@index([subscriptionId])
+}
+
+model Payment {
+  id                    String   @id @default(uuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id])
+  stripePaymentIntentId  String?  @unique
+  amount                Float
+  currency              String   @default("USD")
+  status                String   // pending, completed, failed, canceled
+  description           String?
+  metadata              Json?
+  completedAt           DateTime?
+  refundedAt            DateTime?
+  refundAmount          Float?
+  refundReason          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PaymentMethod {
@@ -429,4 +353,101 @@ model TenantConfiguration {
   @@index([tenantId])
   @@index([category])
   @@index([key])
+}
+
+model Tenant {
+  id                    String                @id @default(uuid())
+  name                  String
+  businessType          String
+  contactEmail          String
+  contactPhone          String?
+  // Enhanced business information
+  businessCategory      String?
+  businessSubcategory   String?
+  primaryProducts       Json?
+  secondaryProducts     Json?
+  businessDescription   String?
+  // Location information
+  address               String?
+  city                  String?
+  state                 String?
+  country               String?
+  postalCode            String?
+  latitude              Float?
+  longitude             Float?
+  // Business details
+  foundedYear           Int?
+  employeeCount         String?
+  annualRevenue         String?
+  businessHours         Json?
+  website               String?
+  socialMedia           Json?
+  // Legal and compliance
+  kraPin                String?
+  vatNumber             String?
+  etimsQrUrl            String?
+  businessLicense       String?
+  taxId                 String?
+  // Financial settings
+  currency              String?               @default("KES")
+  timezone              String?               @default("Africa/Nairobi")
+  invoiceFooter         String?
+  logoUrl               String?
+  favicon               String?
+  receiptLogo           String?
+  watermark             String?
+  // Enterprise features
+  primaryColor          String?
+  secondaryColor        String?
+  customDomain          String?
+  whiteLabel            Boolean               @default(false)
+  apiKey                String?
+  webhookUrl            String?
+  rateLimit             Int?
+  customIntegrations    Boolean               @default(false)
+  ssoEnabled            Boolean               @default(false)
+  auditLogs             Boolean               @default(false)
+  backupRestore         Boolean               @default(false)
+  // Timestamps
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  // Relations
+  users                 User[]
+  products              Product[]
+  inventory             Inventory[]
+  sales                 Sale[]
+  modules               TenantModule[]
+  subscriptions         Subscription[]
+  invoices              Invoice[]
+  payments              Payment[]
+  paymentMethods        PaymentMethod[]
+  branches              Branch[]
+  configurations        TenantConfiguration[]
+
+  @@index([name])
+  @@index([contactEmail])
+}
+
+model User {
+  id                    String           @id @default(uuid())
+  email                 String           @unique
+  password              String
+  name                  String
+  isSuperadmin          Boolean          @default(false)
+  resetPasswordToken    String?
+  resetPasswordExpires  DateTime?
+  notificationPreferences Json?
+  language              String?
+  region                String?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  // Relations
+  userRoles             UserRole[]
+  userPermissions       UserPermission[]
+  sales                 Sale[]
+  mpesaTransactions     MpesaTransaction[]
+  auditLogs             AuditLog[]
+
+  @@index([email])
+  @@index([resetPasswordToken])
 }
