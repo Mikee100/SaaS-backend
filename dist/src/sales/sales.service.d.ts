@@ -90,9 +90,9 @@ export declare class SalesService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             sku: string;
             stock: number;
-            tenantId: string;
             branchId: string | null;
         }[];
     }>;

@@ -36,6 +36,21 @@ export declare class TenantService {
         timezone?: string;
         invoiceFooter?: string;
         logoUrl?: string;
+        favicon?: string;
+        receiptLogo?: string;
+        watermark?: string;
+        primaryColor?: string;
+        secondaryColor?: string;
+        customDomain?: string;
+        whiteLabel?: boolean;
+        apiKey?: string;
+        webhookUrl?: string;
+        rateLimit?: number;
+        customIntegrations?: boolean;
+        ssoEnabled?: boolean;
+        auditLogs?: boolean;
+        backupRestore?: boolean;
+        stripeCustomerId?: string;
     }): Promise<any>;
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
@@ -78,13 +93,16 @@ export declare class TenantService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     } | null>;
     getTenant(tenantId: string): Promise<{
         id: string;
@@ -126,13 +144,16 @@ export declare class TenantService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     } | null>;
     updateTenant(tenantId: string, dto: any): Promise<{
         id: string;
@@ -174,13 +195,16 @@ export declare class TenantService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     createOwnerUser(data: {
         name: string;
@@ -194,11 +218,12 @@ export declare class TenantService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        isSuperadmin: boolean;
+        tenantId: string | null;
     }>;
 }

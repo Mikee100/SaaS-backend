@@ -48,13 +48,16 @@ export declare class AdminService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
@@ -80,12 +83,13 @@ export declare class AdminService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        isSuperadmin: boolean;
+        tenantId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
         totalTenants: number;
@@ -166,13 +170,16 @@ export declare class AdminService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     deleteTenant(id: string): Promise<{
         id: string;
@@ -214,13 +221,16 @@ export declare class AdminService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     getTenantById(id: string): Promise<({
         _count: {
@@ -285,13 +295,16 @@ export declare class AdminService {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }) | null>;
     getSystemHealth(): Promise<{
         database: {
@@ -474,10 +487,10 @@ export declare class AdminService {
         downloadUrl: string;
         restorePoints: number;
         records: {
-            users: number;
-            products: number;
-            sales: number;
-            inventory: number;
+            users: any;
+            products: any;
+            sales: any;
+            inventory: any;
         };
         backupHistory: {
             id: string;
@@ -498,10 +511,10 @@ export declare class AdminService {
         description: any;
         estimatedDuration: number;
         records: {
-            users: number;
-            products: number;
-            sales: number;
-            inventory: number;
+            users: any;
+            products: any;
+            sales: any;
+            inventory: any;
         };
     }>;
     restoreTenantBackup(restoreData: any): Promise<{
@@ -529,7 +542,7 @@ export declare class AdminService {
         };
         sourceTenantId: string;
         sourceTenantName: string;
-        records: number;
+        records: any;
         size: number;
     }[]>;
     migrateTenant(migrationData: any): Promise<{
@@ -543,7 +556,7 @@ export declare class AdminService {
         progress: number;
         createdAt: string;
         estimatedDuration: number;
-        records: number;
+        records: any;
         size: number;
         options: any;
     }>;

@@ -21,7 +21,19 @@ let TenantService = class TenantService {
         this.userService = userService;
     }
     async createTenant(data) {
-        return this.prisma.tenant.create({ data });
+        const defaultTenantData = {
+            currency: 'KES',
+            timezone: 'Africa/Nairobi',
+            whiteLabel: false,
+            customIntegrations: false,
+            ssoEnabled: false,
+            auditLogs: false,
+            backupRestore: false,
+            ...data
+        };
+        return this.prisma.tenant.create({
+            data: defaultTenantData
+        });
     }
     async getAllTenants() {
         return this.prisma.tenant.findMany();

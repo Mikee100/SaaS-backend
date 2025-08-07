@@ -11,7 +11,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+
 }
 model Permission {
   id              String           @id @default(uuid())
@@ -25,11 +25,14 @@ model UserPermission {
   id           String     @id @default(uuid())
   userId       String
   permissionId String
-  grantedBy    String? // NEW: who granted this permission
-  grantedAt    DateTime? // NEW: when was it granted
-  note         String? // NEW: optional note
-  user         User       @relation(fields: [userId], references: [id])
+  grantedBy    String? // who granted this permission
+  grantedAt    DateTime? // when was it granted
+  note         String? // optional note
+  user         User       @relation("UserToUserPermission", fields: [userId], references: [id])
   permission   Permission @relation(fields: [permissionId], references: [id])
+  grantedByUser User?     @relation("UserPermissions", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permissionId])
 }
 
 model Product {
@@ -408,6 +411,7 @@ model Tenant {
   ssoEnabled            Boolean               @default(false)
   auditLogs             Boolean               @default(false)
   backupRestore         Boolean               @default(false)
+  stripeCustomerId      String?               @unique
   // Timestamps
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
@@ -423,30 +427,32 @@ model Tenant {
   paymentMethods        PaymentMethod[]
   branches              Branch[]
   configurations        TenantConfiguration[]
-
-  @@index([name])
-  @@index([contactEmail])
+  userRoles             UserRole[]
 }
 
 model User {
-  id                    String           @id @default(uuid())
-  email                 String           @unique
+  id                    String                @id @default(uuid())
+  email                 String                @unique
   password              String
   name                  String
-  isSuperadmin          Boolean          @default(false)
+  isSuperadmin          Boolean               @default(false)
   resetPasswordToken    String?
   resetPasswordExpires  DateTime?
   notificationPreferences Json?
   language              String?
   region                String?
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
   // Relations
   userRoles             UserRole[]
-  userPermissions       UserPermission[]
+  userPermissions       UserPermission[]      @relation("UserToUserPermission")
+  permissions           UserPermission[]      @relation("UserPermissions")
   sales                 Sale[]
   mpesaTransactions     MpesaTransaction[]
   auditLogs             AuditLog[]
+  userBranchRoles       UserBranchRole[]
+  tenant                Tenant?               @relation(fields: [tenantId], references: [id])
+  tenantId              String?
 
   @@index([email])
   @@index([resetPasswordToken])

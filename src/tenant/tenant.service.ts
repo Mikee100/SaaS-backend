@@ -43,8 +43,37 @@ export class TenantService {
     timezone?: string;
     invoiceFooter?: string;
     logoUrl?: string;
+    favicon?: string;
+    receiptLogo?: string;
+    watermark?: string;
+    // Enterprise features
+    primaryColor?: string;
+    secondaryColor?: string;
+    customDomain?: string;
+    whiteLabel?: boolean;
+    apiKey?: string;
+    webhookUrl?: string;
+    rateLimit?: number;
+    customIntegrations?: boolean;
+    ssoEnabled?: boolean;
+    auditLogs?: boolean;
+    backupRestore?: boolean;
+    stripeCustomerId?: string;
   }): Promise<any> {
-    return this.prisma.tenant.create({ data });
+    const defaultTenantData = {
+      currency: 'KES',
+      timezone: 'Africa/Nairobi',
+      whiteLabel: false,
+      customIntegrations: false,
+      ssoEnabled: false,
+      auditLogs: false,
+      backupRestore: false,
+      ...data
+    };
+
+    return this.prisma.tenant.create({ 
+      data: defaultTenantData 
+    });
   }
 
   async getAllTenants(): Promise<any[]> {

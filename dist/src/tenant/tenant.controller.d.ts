@@ -44,13 +44,16 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
@@ -92,13 +95,16 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -168,13 +174,16 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -222,13 +231,16 @@ export declare class TenantController {
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
-        stripeCustomerId: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        stripeCustomerId: string | null;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

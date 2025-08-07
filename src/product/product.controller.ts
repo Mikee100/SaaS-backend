@@ -6,6 +6,15 @@ import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
+
+declare global {
+  namespace Express {
+    interface Multer {
+      File: Express.Multer.File;
+    }
+  }
+}
+
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('products')
 export class ProductController {
@@ -32,7 +41,7 @@ export class ProductController {
   @Permissions('create_products')
   @UseInterceptors(FileInterceptor('file'))
   async bulkUpload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File, // Update type annotation
     @Req() req: Request
   ) {
     // Assume vendor info is in req.user (from auth middleware)
