@@ -1,37 +1,14 @@
+import { PrismaService } from '../prisma.service';
 export declare class AnalyticsController {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
     getBasicAnalytics(req: any): Promise<{
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
         totalCustomers: number;
         averageOrderValue: number;
-        conversionRate: number;
-        salesByMonth: {
-            '2024-01': number;
-            '2024-02': number;
-            '2024-03': number;
-            '2024-04': number;
-            '2024-05': number;
-            '2024-06': number;
-        };
-        topProducts: {
-            name: string;
-            sales: number;
-            revenue: number;
-            growth: number;
-        }[];
-        customerSegments: {
-            segment: string;
-            count: number;
-            revenue: number;
-            avgOrderValue: number;
-        }[];
-        salesByCategory: {
-            Electronics: number;
-            Clothing: number;
-            'Home & Garden': number;
-            Sports: number;
-        };
+        salesByMonth: Record<string, number>;
         message: string;
     }>;
     getAdvancedAnalytics(req: any): Promise<{

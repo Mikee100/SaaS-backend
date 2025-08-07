@@ -53,7 +53,7 @@ __decorate([
 ], InventoryController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, permissions_decorator_1.Permissions)('edit_inventory'),
+    (0, permissions_decorator_1.Permissions)('create_inventory'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -72,7 +72,7 @@ __decorate([
 ], InventoryController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, permissions_decorator_1.Permissions)('edit_inventory'),
+    (0, permissions_decorator_1.Permissions)('delete_inventory'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),

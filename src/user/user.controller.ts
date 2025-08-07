@@ -4,12 +4,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async createUser(@Body() body: any, @Req() req) {
     // Use the current tenant from JWT
@@ -17,6 +17,7 @@ export class UserController {
   }
 
   @Get()
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_users')
   async getUsers(@Req() req) {
     // Use the tenantId from the JWT token
@@ -28,22 +29,27 @@ export class UserController {
   }
 
   @Get('protected')
+  @UseGuards(AuthGuard('jwt'))
   getProtected(@Req() req) {
     return { message: 'You are authenticated!', user: req.user };
   }
 
   @Get('me')
+  @UseGuards(AuthGuard('jwt'))
   async getMe(@Req() req) {
     const user = await this.userService.findByEmail(req.user.email);
     if (!user) throw new NotFoundException('User not found');
     const permissions = await this.userService.getUserPermissions(user.id);
+    const userRoles = await this.userService.getUserRoles(user.id);
     return {
       ...user,
+      roles: userRoles.map(ur => ur.role.name),
       permissions: permissions.map(p => ({ key: p.permission.key }))
     };
   }
 
   @Put(':id')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async updateUser(@Req() req, @Param('id') id: string, @Body() body: { name?: string; role?: string }) {
     const tenantId = req.user.tenantId;
@@ -51,6 +57,7 @@ export class UserController {
   }
 
   @Put(':id/permissions')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
     const tenantId = req.user.tenantId;
@@ -58,6 +65,7 @@ export class UserController {
   }
 
   @Get(':id/permissions')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async getUserPermissions(@Param('id') id: string, @Req() req) {
     const tenantId = req.user.tenantId;
@@ -65,11 +73,13 @@ export class UserController {
   }
 
   @Put('me/preferences')
+  @UseGuards(AuthGuard('jwt'))
   async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {
     return this.userService.updateUserPreferences(req.user.userId, body);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async deleteUser(@Req() req, @Param('id') id: string) {
     const tenantId = req.user.tenantId;

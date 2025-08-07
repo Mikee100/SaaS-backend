@@ -15,6 +15,9 @@ export class PermissionsGuard implements CanActivate {
     }
     const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
     if (!user) throw new ForbiddenException('User not authenticated');
+    if (!Array.isArray(requiredPermissions) || requiredPermissions.length === 0) {
+      throw new ForbiddenException('No permissions specified for this action');
+    }
     const tenantId = user?.tenantId;
     const userId = user?.userId || user?.sub;
     let userPermissions: string[] = [];

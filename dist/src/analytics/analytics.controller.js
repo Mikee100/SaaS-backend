@@ -17,41 +17,35 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const plan_guard_1 = require("../billing/plan.guard");
 const plan_guard_2 = require("../billing/plan.guard");
+const prisma_service_1 = require("../prisma.service");
+const common_2 = require("@nestjs/common");
 let AnalyticsController = class AnalyticsController {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
     async getBasicAnalytics(req) {
+        const [totalSales, totalRevenue, totalProducts, totalCustomers, sales] = await Promise.all([
+            this.prisma.sale.count(),
+            this.prisma.sale.aggregate({ _sum: { total: true } }),
+            this.prisma.product.count(),
+            this.prisma.user.count(),
+            this.prisma.sale.findMany({ select: { total: true, createdAt: true } })
+        ]);
+        const avgOrderValue = totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0;
+        const salesByMonth = {};
+        sales.forEach(sale => {
+            const month = sale.createdAt.toISOString().slice(0, 7);
+            salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+        });
         return {
-            totalSales: 1250,
-            totalRevenue: 45600,
-            totalProducts: 45,
-            totalCustomers: 120,
-            averageOrderValue: 36.48,
-            conversionRate: 0.68,
-            salesByMonth: {
-                '2024-01': 12000,
-                '2024-02': 15000,
-                '2024-03': 18000,
-                '2024-04': 21000,
-                '2024-05': 19500,
-                '2024-06': 22000
-            },
-            topProducts: [
-                { name: 'Product A', sales: 234, revenue: 2340, growth: 0.15 },
-                { name: 'Product B', sales: 189, revenue: 1890, growth: 0.08 },
-                { name: 'Product C', sales: 156, revenue: 1560, growth: 0.22 },
-                { name: 'Product D', sales: 134, revenue: 1340, growth: -0.05 }
-            ],
-            customerSegments: [
-                { segment: 'VIP', count: 15, revenue: 25000, avgOrderValue: 166.67 },
-                { segment: 'Regular', count: 85, revenue: 20000, avgOrderValue: 235.29 },
-                { segment: 'New', count: 20, revenue: 600, avgOrderValue: 30.00 }
-            ],
-            salesByCategory: {
-                'Electronics': 18000,
-                'Clothing': 12000,
-                'Home & Garden': 8000,
-                'Sports': 7600
-            },
-            message: 'Enhanced basic analytics available to all plans'
+            totalSales,
+            totalRevenue: totalRevenue._sum.total || 0,
+            totalProducts,
+            totalCustomers,
+            averageOrderValue: avgOrderValue,
+            salesByMonth,
+            message: 'Basic analytics with real data'
         };
     }
     async getAdvancedAnalytics(req) {
@@ -233,6 +227,8 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getDashboardStats", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
-    (0, common_1.Controller)('analytics')
+    (0, common_1.Controller)('analytics'),
+    __param(0, (0, common_2.Inject)(prisma_service_1.PrismaService)),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], AnalyticsController);
 //# sourceMappingURL=analytics.controller.js.map

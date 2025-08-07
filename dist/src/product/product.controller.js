@@ -66,7 +66,7 @@ __decorate([
 ], ProductController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, permissions_decorator_1.Permissions)('edit_products'),
+    (0, permissions_decorator_1.Permissions)('create_products'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -75,7 +75,7 @@ __decorate([
 ], ProductController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)('bulk-upload'),
-    (0, permissions_decorator_1.Permissions)('edit_products'),
+    (0, permissions_decorator_1.Permissions)('create_products'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, common_1.Req)()),
@@ -100,7 +100,7 @@ __decorate([
 ], ProductController.prototype, "randomizeStocks", null);
 __decorate([
     (0, common_1.Delete)('clear-all'),
-    (0, permissions_decorator_1.Permissions)('edit_products'),
+    (0, permissions_decorator_1.Permissions)('delete_products'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -127,7 +127,7 @@ __decorate([
 ], ProductController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, permissions_decorator_1.Permissions)('edit_products'),
+    (0, permissions_decorator_1.Permissions)('delete_products'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),

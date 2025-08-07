@@ -12,6 +12,7 @@ export class MpesaController {
     private salesService: SalesService,
     private prisma: PrismaService,
   ) {}
+  
 
   @Post('initiate')
   async initiateMpesa(@Body() body: any, @Req() req: Request, @Res() res: Response) {
@@ -55,7 +56,7 @@ export class MpesaController {
     if (!callbackURL) {
       // For development, you can use ngrok or a public webhook service
       // Replace this with your actual public URL
-      callbackURL = 'https://webhook.site/your-unique-url';
+      callbackURL = 'https://webhook.site/d17f3362-20f5-4ecf-a848-a3ca16321908';
       
       // If you're using ngrok, it would be something like:
       // callbackURL = 'https://your-ngrok-url.ngrok.io/mpesa/webhook';

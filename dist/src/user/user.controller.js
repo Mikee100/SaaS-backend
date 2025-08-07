@@ -41,8 +41,10 @@ let UserController = class UserController {
         if (!user)
             throw new common_1.NotFoundException('User not found');
         const permissions = await this.userService.getUserPermissions(user.id);
+        const userRoles = await this.userService.getUserRoles(user.id);
         return {
             ...user,
+            roles: userRoles.map(ur => ur.role.name),
             permissions: permissions.map(p => ({ key: p.permission.key }))
         };
     }
@@ -69,6 +71,7 @@ let UserController = class UserController {
 exports.UserController = UserController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -78,6 +81,7 @@ __decorate([
 ], UserController.prototype, "createUser", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('view_users'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -86,6 +90,7 @@ __decorate([
 ], UserController.prototype, "getUsers", null);
 __decorate([
     (0, common_1.Get)('protected'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -93,6 +98,7 @@ __decorate([
 ], UserController.prototype, "getProtected", null);
 __decorate([
     (0, common_1.Get)('me'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -100,6 +106,7 @@ __decorate([
 ], UserController.prototype, "getMe", null);
 __decorate([
     (0, common_1.Put)(':id'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -110,6 +117,7 @@ __decorate([
 ], UserController.prototype, "updateUser", null);
 __decorate([
     (0, common_1.Put)(':id/permissions'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -120,6 +128,7 @@ __decorate([
 ], UserController.prototype, "updatePermissions", null);
 __decorate([
     (0, common_1.Get)(':id/permissions'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
@@ -129,6 +138,7 @@ __decorate([
 ], UserController.prototype, "getUserPermissions", null);
 __decorate([
     (0, common_1.Put)('me/preferences'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -137,6 +147,7 @@ __decorate([
 ], UserController.prototype, "updatePreferences", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -145,7 +156,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
 exports.UserController = UserController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

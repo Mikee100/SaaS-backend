@@ -56,7 +56,7 @@ let MpesaController = class MpesaController {
         const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
         let callbackURL = process.env.MPESA_CALLBACK_URL;
         if (!callbackURL) {
-            callbackURL = 'https://webhook.site/your-unique-url';
+            callbackURL = 'https://webhook.site/d17f3362-20f5-4ecf-a848-a3ca16321908';
             console.warn('⚠️  M-Pesa Callback URL not set. Using default webhook.site URL.');
             console.warn('   For production, set MPESA_CALLBACK_URL environment variable.');
             console.warn('   For development, use ngrok: ngrok http 3001');

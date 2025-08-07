@@ -29,6 +29,9 @@ let PermissionsGuard = class PermissionsGuard {
         const requiredPermissions = this.reflector.get('permissions', context.getHandler());
         if (!user)
             throw new common_1.ForbiddenException('User not authenticated');
+        if (!Array.isArray(requiredPermissions) || requiredPermissions.length === 0) {
+            throw new common_1.ForbiddenException('No permissions specified for this action');
+        }
         const tenantId = user?.tenantId;
         const userId = user?.userId || user?.sub;
         let userPermissions = [];

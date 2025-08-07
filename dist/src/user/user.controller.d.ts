@@ -62,6 +62,7 @@ export declare class UserController {
         user: any;
     };
     getMe(req: any): Promise<{
+        roles: string[];
         permissions: {
             key: string;
         }[];

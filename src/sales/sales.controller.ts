@@ -95,7 +95,7 @@ export class SalesController {
   }
 
   @Post()
-  @Permissions('edit_sales')
+  @Permissions('create_sales')
   async createSale(@Body() dto: CreateSaleDto & { idempotencyKey: string }, @Req() req) {
     if (!dto.idempotencyKey) throw new Error('Missing idempotency key');
     // Attach tenantId and userId from JWT
