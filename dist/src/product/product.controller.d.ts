@@ -8,24 +8,26 @@ export declare class ProductController {
         name: string;
         description: string | null;
         price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         sku: string;
         stock: number;
         tenantId: string;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
         description: string | null;
         price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         sku: string;
         stock: number;
         tenantId: string;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{
         summary: {

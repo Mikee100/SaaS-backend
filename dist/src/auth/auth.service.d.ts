@@ -11,7 +11,9 @@ export declare class AuthService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string | null;
         email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;

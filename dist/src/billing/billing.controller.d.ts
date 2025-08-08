@@ -9,8 +9,6 @@ export declare class BillingController {
     }>;
     getPlans(): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
         price: number;
@@ -25,7 +23,19 @@ export declare class BillingController {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
     }[] | {
         id: string;
         name: string;
@@ -57,8 +67,6 @@ export declare class BillingController {
         status: string;
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -73,11 +81,23 @@ export declare class BillingController {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
         startDate: Date;
         endDate: Date;
-        cancelledAt: Date | null;
+        cancelledAt: any;
         currentPeriodStart?: undefined;
         currentPeriodEnd?: undefined;
     }>;
@@ -97,8 +117,6 @@ export declare class BillingController {
     }): Promise<{
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -113,20 +131,33 @@ export declare class BillingController {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        planId: string;
         status: string;
+        planId: string;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     }>;
     updateSubscription(req: any, data: {
         planId: string;
@@ -135,8 +166,6 @@ export declare class BillingController {
         subscription: {
             plan: {
                 id: string;
-                createdAt: Date;
-                updatedAt: Date;
                 name: string;
                 description: string | null;
                 price: number;
@@ -151,20 +180,33 @@ export declare class BillingController {
                 prioritySupport: boolean;
                 customBranding: boolean;
                 apiAccess: boolean;
+                bulkOperations: boolean;
+                dataExport: boolean;
+                customFields: boolean;
+                advancedSecurity: boolean;
+                whiteLabel: boolean;
+                dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
                 isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
-            planId: string;
             status: string;
+            planId: string;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
-            cancelledAt: Date | null;
-            trialEnd: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string | null;
+            stripePriceId: string | null;
         };
         proration: {
             credit: number;
@@ -179,22 +221,21 @@ export declare class BillingController {
     }>;
     cancelSubscription(req: any): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        planId: string;
         status: string;
+        planId: string;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     }>;
     getSubscriptionHistory(req: any): Promise<({
         plan: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             name: string;
             description: string | null;
             price: number;
@@ -209,48 +250,61 @@ export declare class BillingController {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
         };
         invoices: {
             id: string;
-            status: string;
-            createdAt: Date;
-            updatedAt: Date;
             description: string | null;
             currency: string;
-            subscriptionId: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             amount: number;
+            status: string;
+            subscriptionId: string | null;
             dueDate: Date;
             paidAt: Date | null;
-            invoiceNumber: string;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            stripeInvoiceId: string | null;
         }[];
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        planId: string;
         status: string;
+        planId: string;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        cancelledAt: Date | null;
-        trialEnd: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string | null;
+        stripePriceId: string | null;
     })[]>;
     getInvoices(req: any): Promise<{
         id: string;
-        status: string;
-        createdAt: Date;
-        updatedAt: Date;
         description: string | null;
         currency: string;
-        subscriptionId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
         amount: number;
+        status: string;
+        subscriptionId: string | null;
         dueDate: Date;
         paidAt: Date | null;
-        invoiceNumber: string;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        stripeInvoiceId: string | null;
     }[]>;
     addPaymentMethod(req: any, data: any): Promise<{
         message: string;

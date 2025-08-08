@@ -16,8 +16,10 @@ export declare class AuditLogService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            email: string;
+            tenantId: string | null;
             password: string;
+            email: string;
+            isSuperadmin: boolean;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;

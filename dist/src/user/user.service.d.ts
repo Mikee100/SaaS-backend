@@ -15,8 +15,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -28,8 +30,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -45,8 +49,8 @@ export declare class UserService {
     } & {
         id: string;
         tenantId: string;
-        userId: string;
         roleId: string;
+        userId: string;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         userRoles: ({
@@ -58,16 +62,18 @@ export declare class UserService {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     } & {
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -90,8 +96,8 @@ export declare class UserService {
             };
         } & {
             id: string;
-            userId: string;
             permissionId: string;
+            userId: string;
             grantedBy: string | null;
             grantedAt: Date | null;
             note: string | null;
@@ -101,8 +107,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -118,8 +126,8 @@ export declare class UserService {
         };
     } & {
         id: string;
-        userId: string;
         permissionId: string;
+        userId: string;
         grantedBy: string | null;
         grantedAt: Date | null;
         note: string | null;
@@ -129,8 +137,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -146,8 +156,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
@@ -159,8 +171,10 @@ export declare class UserService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        email: string;
+        tenantId: string | null;
         password: string;
+        email: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
