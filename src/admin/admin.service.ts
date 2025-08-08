@@ -558,6 +558,7 @@ export class AdminService {
               user: true
             }
           },
+          inventory: true,  // Add this line to include inventory
           subscriptions: {
             include: {
               plan: true
@@ -572,10 +573,12 @@ export class AdminService {
       const analyticsData = await Promise.all(
         tenants.map(async (tenant) => {
           // Calculate real metrics
-          const userCount = tenant.userRoles.length;
-          const productCount = tenant.products.length;
-          const totalSales = tenant.sales.length;
-          const totalRevenue = tenant.sales.reduce((sum, sale) => sum + sale.total, 0);
+          const userCount = tenant.userRoles?.length || 0;
+          const productCount = tenant.products?.length || 0;
+          const saleCount = tenant.sales?.length || 0;
+          const inventoryCount = tenant.inventory?.length || 0;
+          const totalSales = tenant.sales?.length || 0;
+          const totalRevenue = tenant.sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
           
           // Get active subscription
           const activeSubscription = tenant.subscriptions[0];
@@ -985,10 +988,13 @@ export class AdminService {
               items: true
             }
           },
-          inventories: true,
+          inventory: true,  // Add this line to include inventory
           subscriptions: {
             include: {
               plan: true
+            },
+            where: {
+              status: 'active'
             }
           }
         }
@@ -996,10 +1002,10 @@ export class AdminService {
 
       // Generate backup data for each tenant
       const backups = tenants.map(tenant => {
-        const userCount = tenant.userRoles.length;
-        const productCount = tenant.products.length;
-        const saleCount = tenant.sales.length;
-        const inventoryCount = tenant.inventories.length;
+        const userCount = tenant.userRoles?.length || 0;
+        const productCount = tenant.products?.length || 0;
+        const saleCount = tenant.sales?.length || 0;
+        const inventoryCount = tenant.inventory?.length || 0;
         
         // Calculate backup size (approximate)
         const baseSize = 1024 * 1024 * 1024; // 1GB base
@@ -1052,7 +1058,15 @@ export class AdminService {
           userRoles: true,
           products: true,
           sales: true,
-          inventories: true
+          inventory: true,  // Add this line to include inventory
+          subscriptions: {
+            include: {
+              plan: true
+            },
+            where: {
+              status: 'active'
+            }
+          }
         }
       });
 
@@ -1061,10 +1075,10 @@ export class AdminService {
       }
 
       // Calculate backup size
-      const userCount = tenant.userRoles.length;
-      const productCount = tenant.products.length;
-      const saleCount = tenant.sales.length;
-      const inventoryCount = tenant.inventories.length;
+      const userCount = tenant.userRoles?.length || 0;
+      const productCount = tenant.products?.length || 0;
+      const saleCount = tenant.sales?.length || 0;
+      const inventoryCount = tenant.inventory?.length || 0;
       
       const baseSize = 1024 * 1024 * 1024; // 1GB base
       const userDataSize = userCount * 1024 * 1024;
@@ -1176,16 +1190,24 @@ export class AdminService {
           userRoles: true,
           products: true,
           sales: true,
-          inventories: true
+          inventory: true,  // Add this line to include inventory
+          subscriptions: {
+            include: {
+              plan: true
+            },
+            where: {
+              status: 'active'
+            }
+          }
         }
       });
 
       // Generate migration history for each tenant
       const migrations = tenants.flatMap(tenant => {
-        const userCount = tenant.userRoles.length;
-        const productCount = tenant.products.length;
-        const saleCount = tenant.sales.length;
-        const inventoryCount = tenant.inventories.length;
+        const userCount = tenant.userRoles?.length || 0;
+        const productCount = tenant.products?.length || 0;
+        const saleCount = tenant.sales?.length || 0;
+        const inventoryCount = tenant.inventory?.length || 0;
         
         const totalRecords = userCount + productCount + saleCount + inventoryCount;
         const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024); // 1KB per record + 1GB base
@@ -1226,7 +1248,15 @@ export class AdminService {
           userRoles: true,
           products: true,
           sales: true,
-          inventories: true
+          inventory: true,  // Add this line to include inventory
+          subscriptions: {
+            include: {
+              plan: true
+            },
+            where: {
+              status: 'active'
+            }
+          }
         }
       });
 
@@ -1247,10 +1277,10 @@ export class AdminService {
       }
 
       // Calculate migration size
-      const userCount = sourceTenant.userRoles.length;
-      const productCount = sourceTenant.products.length;
-      const saleCount = sourceTenant.sales.length;
-      const inventoryCount = sourceTenant.inventories.length;
+      const userCount = sourceTenant.userRoles?.length || 0;
+      const productCount = sourceTenant.products?.length || 0;
+      const saleCount = sourceTenant.sales?.length || 0;
+      const inventoryCount = sourceTenant.inventory?.length || 0;
       
       const totalRecords = userCount + productCount + saleCount + inventoryCount;
       const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024);

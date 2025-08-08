@@ -31,10 +31,10 @@ export declare class AdminController {
         downloadUrl: string;
         restorePoints: number;
         records: {
-            users: any;
-            products: any;
-            sales: any;
-            inventory: any;
+            users: number;
+            products: number;
+            sales: number;
+            inventory: number;
         };
         backupHistory: {
             id: string;
@@ -58,26 +58,18 @@ export declare class AdminController {
         };
         sourceTenantId: string;
         sourceTenantName: string;
-        records: any;
+        records: number;
         size: number;
     }[]>;
     getAllTenants(): Promise<({
         _count: {
-            userRoles: number;
-            sales: number;
             products: number;
+            sales: number;
+            userRoles: number;
         };
     } & {
         id: string;
         name: string;
-        currency: string | null;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -104,6 +96,7 @@ export declare class AdminController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
+        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -113,21 +106,28 @@ export declare class AdminController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
+            tenant: {
+                id: string;
+                name: string;
+            };
             role: {
                 id: string;
                 name: string;
                 description: string | null;
-            };
-            tenant: {
-                id: string;
-                name: string;
             };
         } & {
             id: string;
@@ -340,14 +340,6 @@ export declare class AdminController {
     createTenant(tenantData: any): Promise<{
         id: string;
         name: string;
-        currency: string | null;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -374,6 +366,7 @@ export declare class AdminController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
+        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -383,22 +376,21 @@ export declare class AdminController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     deleteTenant(id: string): Promise<{
         id: string;
         name: string;
-        currency: string | null;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -425,6 +417,7 @@ export declare class AdminController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
+        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -434,27 +427,29 @@ export declare class AdminController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getTenantById(id: string): Promise<({
-        _count: {
-            userRoles: number;
-            sales: number;
-            products: number;
-        };
         userRoles: ({
-            role: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
             user: {
                 id: string;
                 name: string;
                 email: string;
+            };
+            role: {
+                id: string;
+                name: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -462,17 +457,14 @@ export declare class AdminController {
             userId: string;
             roleId: string;
         })[];
+        _count: {
+            products: number;
+            sales: number;
+            userRoles: number;
+        };
     } & {
         id: string;
         name: string;
-        currency: string | null;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -499,6 +491,7 @@ export declare class AdminController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
+        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         logoUrl: string | null;
@@ -508,10 +501,17 @@ export declare class AdminController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }) | null>;
     getTenantAnalytics(timeRange?: string): Promise<any[]>;
     getTenantComparison(): Promise<{
@@ -539,10 +539,10 @@ export declare class AdminController {
         downloadUrl: string;
         restorePoints: number;
         records: {
-            users: any;
-            products: any;
-            sales: any;
-            inventory: any;
+            users: number;
+            products: number;
+            sales: number;
+            inventory: number;
         };
         backupHistory: {
             id: string;
@@ -563,10 +563,10 @@ export declare class AdminController {
         description: any;
         estimatedDuration: number;
         records: {
-            users: any;
-            products: any;
-            sales: any;
-            inventory: any;
+            users: number;
+            products: number;
+            sales: number;
+            inventory: number;
         };
     }>;
     restoreTenantBackup(restoreData: any): Promise<{
@@ -594,7 +594,7 @@ export declare class AdminController {
         };
         sourceTenantId: string;
         sourceTenantName: string;
-        records: any;
+        records: number;
         size: number;
     }[]>;
     migrateTenant(migrationData: any): Promise<{
@@ -608,7 +608,7 @@ export declare class AdminController {
         progress: number;
         createdAt: string;
         estimatedDuration: number;
-        records: any;
+        records: number;
         size: number;
         options: any;
     }>;

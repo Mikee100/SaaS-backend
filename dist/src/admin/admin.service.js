@@ -491,6 +491,7 @@ let AdminService = class AdminService {
                             user: true
                         }
                     },
+                    inventory: true,
                     subscriptions: {
                         include: {
                             plan: true
@@ -502,10 +503,12 @@ let AdminService = class AdminService {
                 }
             });
             const analyticsData = await Promise.all(tenants.map(async (tenant) => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const totalSales = tenant.sales.length;
-                const totalRevenue = tenant.sales.reduce((sum, sale) => sum + sale.total, 0);
+                const userCount = tenant.userRoles?.length || 0;
+                const productCount = tenant.products?.length || 0;
+                const saleCount = tenant.sales?.length || 0;
+                const inventoryCount = tenant.inventory?.length || 0;
+                const totalSales = tenant.sales?.length || 0;
+                const totalRevenue = tenant.sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
                 const activeSubscription = tenant.subscriptions[0];
                 const storageUsage = await this.calculateStorageUsage(tenant);
                 const lastLogin = await this.getLastUserActivity(tenant.id);
@@ -844,19 +847,22 @@ let AdminService = class AdminService {
                             items: true
                         }
                     },
-                    inventories: true,
+                    inventory: true,
                     subscriptions: {
                         include: {
                             plan: true
+                        },
+                        where: {
+                            status: 'active'
                         }
                     }
                 }
             });
             const backups = tenants.map(tenant => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const saleCount = tenant.sales.length;
-                const inventoryCount = tenant.inventories.length;
+                const userCount = tenant.userRoles?.length || 0;
+                const productCount = tenant.products?.length || 0;
+                const saleCount = tenant.sales?.length || 0;
+                const inventoryCount = tenant.inventory?.length || 0;
                 const baseSize = 1024 * 1024 * 1024;
                 const userDataSize = userCount * 1024 * 1024;
                 const productDataSize = productCount * 512 * 1024;
@@ -900,16 +906,24 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             if (!tenant) {
                 throw new Error('Tenant not found');
             }
-            const userCount = tenant.userRoles.length;
-            const productCount = tenant.products.length;
-            const saleCount = tenant.sales.length;
-            const inventoryCount = tenant.inventories.length;
+            const userCount = tenant.userRoles?.length || 0;
+            const productCount = tenant.products?.length || 0;
+            const saleCount = tenant.sales?.length || 0;
+            const inventoryCount = tenant.inventory?.length || 0;
             const baseSize = 1024 * 1024 * 1024;
             const userDataSize = userCount * 1024 * 1024;
             const productDataSize = productCount * 512 * 1024;
@@ -1003,14 +1017,22 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             const migrations = tenants.flatMap(tenant => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const saleCount = tenant.sales.length;
-                const inventoryCount = tenant.inventories.length;
+                const userCount = tenant.userRoles?.length || 0;
+                const productCount = tenant.products?.length || 0;
+                const saleCount = tenant.sales?.length || 0;
+                const inventoryCount = tenant.inventory?.length || 0;
                 const totalRecords = userCount + productCount + saleCount + inventoryCount;
                 const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024);
                 const migrationHistory = this.generateMigrationHistory(tenant.id);
@@ -1044,7 +1066,15 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             if (!sourceTenant) {
@@ -1059,10 +1089,10 @@ let AdminService = class AdminService {
                     throw new Error('Target tenant not found');
                 }
             }
-            const userCount = sourceTenant.userRoles.length;
-            const productCount = sourceTenant.products.length;
-            const saleCount = sourceTenant.sales.length;
-            const inventoryCount = sourceTenant.inventories.length;
+            const userCount = sourceTenant.userRoles?.length || 0;
+            const productCount = sourceTenant.products?.length || 0;
+            const saleCount = sourceTenant.sales?.length || 0;
+            const inventoryCount = sourceTenant.inventory?.length || 0;
             const totalRecords = userCount + productCount + saleCount + inventoryCount;
             const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024);
             const migrationId = `migration-${sourceTenantId}-${Date.now()}`;
