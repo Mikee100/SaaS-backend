@@ -14,6 +14,7 @@ const prisma_service_1 = require("../prisma.service");
 const audit_log_service_1 = require("../audit-log.service");
 const realtime_module_1 = require("../realtime.module");
 const user_module_1 = require("../user/user.module");
+const configuration_service_1 = require("../config/configuration.service");
 let SalesModule = class SalesModule {
 };
 exports.SalesModule = SalesModule;
@@ -21,7 +22,7 @@ exports.SalesModule = SalesModule = __decorate([
     (0, common_1.Module)({
         imports: [realtime_module_1.RealtimeModule, user_module_1.UserModule],
         controllers: [sales_controller_1.SalesController],
-        providers: [sales_service_1.SalesService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
+        providers: [sales_service_1.SalesService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService, configuration_service_1.ConfigurationService],
         exports: [sales_service_1.SalesService],
     })
 ], SalesModule);

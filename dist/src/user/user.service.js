@@ -64,6 +64,9 @@ let UserService = class UserService {
             include: {
                 userRoles: {
                     include: { role: true }
+                },
+                permissions: {
+                    include: { permission: true }
                 }
             }
         });
@@ -109,6 +112,38 @@ let UserService = class UserService {
             include: { permissions: { include: { permission: true } } },
         });
     }
+    async updateUserPermissionsByTenant(userId, permissions, tenantId, grantedBy, ip) {
+        const userInTenant = await this.prisma.userRole.findFirst({
+            where: { userId, tenantId }
+        });
+        if (!userInTenant) {
+            throw new Error('User not found in tenant');
+        }
+        const keys = permissions.map(p => p.key);
+        const allPerms = await this.prisma.permission.findMany({ where: { key: { in: keys } } });
+        await this.prisma.userPermission.deleteMany({ where: { userId } });
+        await Promise.all(permissions.map(async (p) => {
+            const perm = allPerms.find(ap => ap.key === p.key);
+            if (perm) {
+                await this.prisma.userPermission.create({
+                    data: {
+                        userId,
+                        permissionId: perm.id,
+                        grantedBy,
+                        grantedAt: new Date(),
+                        note: p.note || null,
+                    },
+                });
+            }
+        }));
+        if (this.auditLogService) {
+            await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions, tenantId }, ip);
+        }
+        return this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { permissions: { include: { permission: true } } },
+        });
+    }
     async deleteUser(id, tenantId, actorUserId, ip) {
         const result = await this.prisma.user.deleteMany({
             where: {
@@ -124,6 +159,18 @@ let UserService = class UserService {
         return result;
     }
     async getUserPermissions(userId) {
+        return this.prisma.userPermission.findMany({
+            where: { userId },
+            include: { permission: true },
+        });
+    }
+    async getUserPermissionsByTenant(userId, tenantId) {
+        const userInTenant = await this.prisma.userRole.findFirst({
+            where: { userId, tenantId }
+        });
+        if (!userInTenant) {
+            throw new Error('User not found in tenant');
+        }
         return this.prisma.userPermission.findMany({
             where: { userId },
             include: { permission: true },

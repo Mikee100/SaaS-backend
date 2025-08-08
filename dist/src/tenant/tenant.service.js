@@ -12,13 +12,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
+const user_service_1 = require("../user/user.service");
 let TenantService = class TenantService {
     prisma;
-    constructor(prisma) {
+    userService;
+    constructor(prisma, userService) {
         this.prisma = prisma;
+        this.userService = userService;
     }
     async createTenant(data) {
-        return this.prisma.tenant.create({ data });
+        const defaultTenantData = {
+            currency: 'KES',
+            timezone: 'Africa/Nairobi',
+            whiteLabel: false,
+            customIntegrations: false,
+            ssoEnabled: false,
+            auditLogs: false,
+            backupRestore: false,
+            ...data
+        };
+        return this.prisma.tenant.create({
+            data: defaultTenantData
+        });
     }
     async getAllTenants() {
         return this.prisma.tenant.findMany();
@@ -26,23 +41,56 @@ let TenantService = class TenantService {
     async getTenantById(tenantId) {
         return this.prisma.tenant.findUnique({ where: { id: tenantId } });
     }
+    async getTenant(tenantId) {
+        return this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    }
     async updateTenant(tenantId, dto) {
         const allowedFields = [
             'name', 'businessType', 'contactEmail', 'contactPhone',
-            'address', 'currency', 'timezone', 'invoiceFooter', 'logoUrl',
-            'kraPin', 'vatNumber', 'etimsQrUrl',
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'logoUrl',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+            'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogs', 'backupRestore'
         ];
         const data = {};
         for (const key of allowedFields) {
-            if (dto[key] !== undefined)
-                data[key] = dto[key];
+            if (dto[key] !== undefined) {
+                if (key === 'foundedYear' && dto[key] !== null) {
+                    data[key] = parseInt(dto[key], 10);
+                }
+                else if (key === 'latitude' && dto[key] !== null) {
+                    data[key] = parseFloat(dto[key]);
+                }
+                else if (key === 'longitude' && dto[key] !== null) {
+                    data[key] = parseFloat(dto[key]);
+                }
+                else if (key === 'rateLimit' && dto[key] !== null) {
+                    data[key] = parseInt(dto[key], 10);
+                }
+                else {
+                    data[key] = dto[key];
+                }
+            }
         }
         return this.prisma.tenant.update({ where: { id: tenantId }, data });
+    }
+    async createOwnerUser(data) {
+        return this.userService.createUser({
+            name: data.name,
+            email: data.email,
+            password: data.password,
+            role: 'owner',
+            tenantId: data.tenantId,
+        });
     }
 };
 exports.TenantService = TenantService;
 exports.TenantService = TenantService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, user_service_1.UserService])
 ], TenantService);
 //# sourceMappingURL=tenant.service.js.map

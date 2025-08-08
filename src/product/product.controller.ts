@@ -6,6 +6,15 @@ import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
+
+declare global {
+  namespace Express {
+    interface Multer {
+      File: Express.Multer.File;
+    }
+  }
+}
+
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('products')
 export class ProductController {
@@ -19,7 +28,7 @@ export class ProductController {
   }
 
   @Post()
-  @Permissions('edit_products')
+  @Permissions('create_products')
   async create(@Body() body, @Req() req) {
     // Attach tenantId from the authenticated user
     return this.productService.createProduct({
@@ -29,10 +38,10 @@ export class ProductController {
   }
 
   @Post('bulk-upload')
-  @Permissions('edit_products')
+  @Permissions('create_products')
   @UseInterceptors(FileInterceptor('file'))
   async bulkUpload(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File, // Update type annotation
     @Req() req: Request
   ) {
     // Assume vendor info is in req.user (from auth middleware)
@@ -51,7 +60,7 @@ export class ProductController {
   }
 
   @Delete('clear-all')
-  @Permissions('edit_products')
+  @Permissions('delete_products')
   async clearAll(@Req() req: Request) {
     // Only allow for current tenant
     return this.productService.clearAll((req.user! as { tenantId: string }).tenantId);
@@ -69,7 +78,7 @@ export class ProductController {
   }
 
   @Delete(':id')
-  @Permissions('edit_products')
+  @Permissions('delete_products')
   async remove(@Param('id') id: string, @Req() req) {
     return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
   }

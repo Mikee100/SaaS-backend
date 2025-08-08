@@ -22,7 +22,14 @@ const realtime_module_1 = require("./realtime.module");
 const permission_module_1 = require("./permission/permission.module");
 const billing_module_1 = require("./billing/billing.module");
 const analytics_module_1 = require("./analytics/analytics.module");
+const admin_module_1 = require("./admin/admin.module");
+const raw_body_middleware_1 = require("./middleware/raw-body.middleware");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer
+            .apply(raw_body_middleware_1.RawBodyMiddleware)
+            .forRoutes({ path: '/billing/webhook', method: common_1.RequestMethod.POST });
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
@@ -40,6 +47,7 @@ exports.AppModule = AppModule = __decorate([
             permission_module_1.PermissionModule,
             billing_module_1.BillingModule,
             analytics_module_1.AnalyticsModule,
+            admin_module_1.AdminModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

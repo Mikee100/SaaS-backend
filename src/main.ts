@@ -2,15 +2,44 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { validateStripeConfig } from './config/stripe.config';
+import { ConfigurationService } from './config/configuration.service';
 
 async function bootstrap() {
+  // Validate Stripe configuration
+  const stripeConfigured = validateStripeConfig();
+  if (stripeConfigured) {
+    console.log('✅ Stripe configuration validated');
+  } else {
+    console.warn('⚠️  Stripe configuration missing - billing features will be disabled');
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Get configuration service
+  const configService = app.get(ConfigurationService);
+  
+  // Initialize default configurations
+  try {
+    await configService.initializeDefaultConfigurations();
+    console.log('✅ Default configurations initialized');
+  } catch (error) {
+    console.warn('⚠️  Failed to initialize default configurations:', error.message);
+  }
+
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads/' });
+  
+  // Get CORS origins from configuration
+  const corsOrigins = await configService.getConfiguration('CORS_ORIGINS');
+  const allowedOrigins = corsOrigins ? corsOrigins.split(',').map(origin => origin.trim()) : ['http://localhost:5000'];
+  
   app.enableCors({
-    origin: 'http://localhost:3000', // Allow your frontend origin
-    credentials: true, // If you want to allow cookies
+    origin: allowedOrigins,
+    credentials: true,
   });
-  await app.listen(process.env.PORT ?? 3001);
+  
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port);
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
 }
 bootstrap();

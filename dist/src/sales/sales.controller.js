@@ -23,16 +23,81 @@ let SalesController = class SalesController {
     constructor(salesService) {
         this.salesService = salesService;
     }
-    async createSale(dto, req) {
-        if (!dto.idempotencyKey)
-            throw new Error('Missing idempotency key');
-        return this.salesService.createSale(dto, req.user.tenantId, req.user.userId);
+    async test() {
+        console.log('Test endpoint called');
+        return { message: 'Sales controller is working' };
     }
-    async listSales(req) {
-        return this.salesService.listSales(req.user.tenantId);
+    async testSale(id) {
+        console.log('Testing sale with ID:', id);
+        try {
+            const sale = await this.salesService.getSaleById(id, 'test-tenant-id');
+            return { message: 'Sale found', sale };
+        }
+        catch (error) {
+            return { message: 'Sale not found', error: error.message };
+        }
+    }
+    async testDb() {
+        console.log('Testing database connection');
+        try {
+            const sales = await this.salesService.listSales('test-tenant-id');
+            return {
+                message: 'Database connected',
+                salesCount: sales.length,
+                sales: sales.slice(0, 5)
+            };
+        }
+        catch (error) {
+            return { message: 'Database error', error: error.message };
+        }
     }
     async getAnalytics(req) {
         return this.salesService.getAnalytics(req.user.tenantId);
+    }
+    async getReceipt(id, req) {
+        console.log('Receipt endpoint called with ID:', id);
+        console.log('User tenant ID:', req.user?.tenantId);
+        try {
+            const sale = await this.salesService.getSaleById(id, req.user?.tenantId);
+            console.log('Sale found:', sale);
+            const tenant = await this.salesService.getTenantInfo(req.user?.tenantId);
+            console.log('Tenant info:', tenant);
+            return {
+                id: sale.saleId,
+                saleId: sale.saleId,
+                date: sale.date,
+                customerName: sale.customerName,
+                customerPhone: sale.customerPhone,
+                items: sale.items.map(item => ({
+                    productId: item.productId,
+                    name: item.name || 'Unknown Product',
+                    price: item.price,
+                    quantity: item.quantity
+                })),
+                total: sale.total,
+                paymentMethod: sale.paymentType,
+                amountReceived: sale.total,
+                change: 0,
+                businessInfo: {
+                    name: tenant?.name || 'Business Name',
+                    address: tenant?.address,
+                    phone: tenant?.contactPhone,
+                    email: tenant?.contactEmail
+                }
+            };
+        }
+        catch (error) {
+            console.error('Error in getReceipt:', error);
+            throw error;
+        }
+    }
+    async createSale(dto, req) {
+        if (!dto.idempotencyKey)
+            throw new Error('Missing idempotency key');
+        return this.salesService.createSale(dto, req.user.tenantId, req.user.id);
+    }
+    async listSales(req) {
+        return this.salesService.listSales(req.user.tenantId);
     }
     async getSaleById(id, req) {
         return this.salesService.getSaleById(id, req.user?.tenantId);
@@ -40,8 +105,45 @@ let SalesController = class SalesController {
 };
 exports.SalesController = SalesController;
 __decorate([
+    (0, common_1.Get)('test'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "test", null);
+__decorate([
+    (0, common_1.Get)('test-sale/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "testSale", null);
+__decorate([
+    (0, common_1.Get)('test-db'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "testDb", null);
+__decorate([
+    (0, common_1.Get)('analytics'),
+    (0, permissions_decorator_1.Permissions)('view_reports'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getAnalytics", null);
+__decorate([
+    (0, common_1.Get)(':id/receipt'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getReceipt", null);
+__decorate([
     (0, common_1.Post)(),
-    (0, permissions_decorator_1.Permissions)('edit_sales'),
+    (0, permissions_decorator_1.Permissions)('create_sales'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -56,14 +158,6 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "listSales", null);
-__decorate([
-    (0, common_1.Get)('analytics'),
-    (0, permissions_decorator_1.Permissions)('view_reports'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], SalesController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, permissions_decorator_1.Permissions)('view_sales'),

@@ -18,10 +18,20 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-    }[] | {
+    }[] | ({
         id: string;
         name: string;
         price: number;
@@ -34,7 +44,40 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
-    }[]>;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+    } | {
+        id: string;
+        name: string;
+        price: number;
+        interval: string;
+        maxUsers: null;
+        maxProducts: null;
+        maxSalesPerMonth: null;
+        analyticsEnabled: boolean;
+        advancedReports: boolean;
+        prioritySupport: boolean;
+        customBranding: boolean;
+        apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+    })[]>;
     getCurrentSubscription(tenantId: string): Promise<{
         plan: {
             name: string;
@@ -43,10 +86,9 @@ export declare class BillingService {
         status: string;
         currentPeriodStart: null;
         currentPeriodEnd: null;
+        cancelAtPeriodEnd: boolean;
         id?: undefined;
-        startDate?: undefined;
-        endDate?: undefined;
-        cancelledAt?: undefined;
+        canceledAt?: undefined;
     } | {
         id: string;
         status: string;
@@ -66,15 +108,24 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            whiteLabel: boolean;
+            dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
         };
-        startDate: Date;
-        endDate: Date;
-        cancelledAt: Date | null;
-        currentPeriodStart?: undefined;
-        currentPeriodEnd?: undefined;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
+        cancelAtPeriodEnd: boolean;
+        canceledAt: Date | null;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{
@@ -86,24 +137,52 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }>;
     checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{
         allowed: boolean;
         current: number;
         limit: number;
     }>;
+    getEnterpriseFeatures(tenantId: string): Promise<{
+        customBranding: {
+            enabled: boolean;
+            features: string[];
+        };
+        apiAccess: {
+            enabled: boolean;
+            features: string[];
+        };
+        security: {
+            enabled: boolean;
+            features: string[];
+        };
+        support: {
+            enabled: boolean;
+            features: string[];
+        };
+    } | null>;
     getInvoices(tenantId: string): Promise<{
         id: string;
         description: string | null;
         currency: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         status: string;
-        subscriptionId: string;
+        subscriptionId: string | null;
         amount: number;
         dueDate: Date;
         paidAt: Date | null;
-        invoiceNumber: string;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        stripeInvoiceId: string | null;
     }[]>;
 }

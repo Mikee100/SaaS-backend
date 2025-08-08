@@ -18,11 +18,13 @@ export declare class AuditLogService {
             updatedAt: Date;
             email: string;
             password: string;
+            isSuperadmin: boolean;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
+            tenantId: string | null;
         } | null;
     } & {
         id: string;

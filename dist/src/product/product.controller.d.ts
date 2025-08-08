@@ -1,5 +1,12 @@
 import { ProductService } from './product.service';
 import { Request, Response } from 'express';
+declare global {
+    namespace Express {
+        interface Multer {
+            File: Express.Multer.File;
+        }
+    }
+}
 export declare class ProductController {
     private readonly productService;
     constructor(productService: ProductService);
@@ -8,24 +15,26 @@ export declare class ProductController {
         name: string;
         description: string | null;
         price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         sku: string;
         stock: number;
-        tenantId: string;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
         description: string | null;
         price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         sku: string;
         stock: number;
-        tenantId: string;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{
         summary: {

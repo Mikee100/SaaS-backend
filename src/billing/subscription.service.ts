@@ -41,11 +41,15 @@ export class SubscriptionService {
           tenantId: data.tenantId,
           status: 'active',
         },
+        include: {
+          plan: true,
+        },
       });
 
       if (existingSubscription) {
-        console.error('Tenant already has active subscription:', data.tenantId);
-        throw new BadRequestException('Tenant already has an active subscription');
+        console.log('Tenant has existing subscription, upgrading to new plan');
+        // Handle upgrade by updating the existing subscription
+        return await this.handleUpgrade(existingSubscription, plan);
       }
 
       const now = new Date();
@@ -126,7 +130,7 @@ export class SubscriptionService {
       where: { id: subscription.id },
       data: {
         status: 'cancelled',
-        cancelledAt: new Date(),
+        canceledAt: new Date(),
       },
     });
   }
@@ -145,16 +149,14 @@ export class SubscriptionService {
     });
   }
 
-  async createInvoice(subscriptionId: string, amount: number) {
-    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+  async createInvoice(subscriptionId: string, amount: number, tenantId: string) {
     return await this.prisma.invoice.create({
       data: {
         subscriptionId,
+        tenantId,
         amount,
         status: 'pending',
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        invoiceNumber,
       },
     });
   }
@@ -204,7 +206,7 @@ export class SubscriptionService {
 
     // Create invoice for the difference
     if (netCharge > 0) {
-      await this.createInvoice(currentSubscription.id, netCharge);
+      await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
     }
 
     return {

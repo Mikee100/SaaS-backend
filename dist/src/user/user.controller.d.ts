@@ -9,13 +9,15 @@ export declare class UserController {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
-    getUsers(tenantId: string): Promise<({
+    getUsers(req: any): Promise<({
         userRoles: ({
             role: {
                 id: string;
@@ -28,6 +30,20 @@ export declare class UserController {
             userId: string;
             roleId: string;
         })[];
+        permissions: ({
+            permission: {
+                id: string;
+                description: string | null;
+                key: string;
+            };
+        } & {
+            id: string;
+            userId: string;
+            permissionId: string;
+            grantedBy: string | null;
+            grantedAt: Date | null;
+            note: string | null;
+        })[];
     } & {
         id: string;
         name: string;
@@ -35,17 +51,20 @@ export declare class UserController {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     })[]>;
     getProtected(req: any): {
         message: string;
         user: any;
     };
     getMe(req: any): Promise<{
+        roles: string[];
         permissions: {
             key: string;
         }[];
@@ -55,11 +74,13 @@ export declare class UserController {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     updateUser(req: any, id: string, body: {
         name?: string;
@@ -92,11 +113,13 @@ export declare class UserController {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         permission: {
@@ -123,11 +146,13 @@ export declare class UserController {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
 }

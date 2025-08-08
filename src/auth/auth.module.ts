@@ -6,6 +6,7 @@ import { UserModule } from '../user/user.module';
 import { JwtStrategy } from './jwt.strategy';
 import { AuditLogService } from '../audit-log.service';
 import { PrismaModule } from '../prisma.module';
+import { ConfigurationService } from '../config/configuration.service';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { PrismaModule } from '../prisma.module';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  providers: [AuthService, JwtStrategy, AuditLogService],
+  providers: [AuthService, JwtStrategy, AuditLogService, ConfigurationService],
   controllers: [AuthController],
 })
 export class AuthModule {}

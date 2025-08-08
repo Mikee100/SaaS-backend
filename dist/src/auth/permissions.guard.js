@@ -24,13 +24,14 @@ let PermissionsGuard = class PermissionsGuard {
         const req = context.switchToHttp().getRequest();
         const user = req.user;
         if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-            console.log('Owner/admin bypass: all permissions granted');
             return true;
         }
         const requiredPermissions = this.reflector.get('permissions', context.getHandler());
-        console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
         if (!user)
             throw new common_1.ForbiddenException('User not authenticated');
+        if (!Array.isArray(requiredPermissions) || requiredPermissions.length === 0) {
+            throw new common_1.ForbiddenException('No permissions specified for this action');
+        }
         const tenantId = user?.tenantId;
         const userId = user?.userId || user?.sub;
         let userPermissions = [];

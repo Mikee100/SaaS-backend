@@ -28,6 +28,17 @@ export class BillingService {
           prioritySupport: false,
           customBranding: false,
           apiAccess: false,
+          // New granular features
+          bulkOperations: false,
+          dataExport: false,
+          customFields: false,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
         },
         {
           id: 'pro-plan',
@@ -42,20 +53,42 @@ export class BillingService {
           prioritySupport: false,
           customBranding: false,
           apiAccess: false,
+          // New granular features
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
         },
         {
           id: 'enterprise-plan',
           name: 'Enterprise',
           price: 99,
           interval: 'monthly',
-          maxUsers: 100,
-          maxProducts: 2000,
-          maxSalesPerMonth: 5000,
+          maxUsers: null,
+          maxProducts: null,
+          maxSalesPerMonth: null,
           analyticsEnabled: true,
           advancedReports: true,
           prioritySupport: true,
           customBranding: true,
           apiAccess: true,
+          // New granular features
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: true,
+          whiteLabel: true,
+          dedicatedSupport: true,
+          ssoEnabled: true,
+          auditLogs: true,
+          backupRestore: true,
+          customIntegrations: true,
         },
       ];
     }
@@ -66,10 +99,13 @@ export class BillingService {
       const subscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId,
-          status: 'active',
+          status: { in: ['active', 'past_due', 'trialing'] },
         },
         include: {
           plan: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
 
@@ -79,24 +115,33 @@ export class BillingService {
           status: 'none',
           currentPeriodStart: null,
           currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
         };
+      }
+
+      // Check if subscription has a Stripe ID, if not, it might be orphaned
+      if (!subscription.stripeSubscriptionId && subscription.status === 'active') {
+        // Log this for debugging
+        console.warn(`Found subscription without Stripe ID: ${subscription.id} for tenant: ${tenantId}`);
       }
 
       return {
         id: subscription.id,
         status: subscription.status,
         plan: subscription.plan,
-        startDate: subscription.currentPeriodStart,
-        endDate: subscription.currentPeriodEnd,
-        cancelledAt: subscription.cancelledAt,
+        currentPeriodStart: subscription.currentPeriodStart,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+        canceledAt: subscription.canceledAt,
       };
     } catch (error) {
-      console.error('Error fetching subscription:', error);
+      console.error('Error getting current subscription:', error);
       return {
         plan: { name: 'Basic', price: 0 },
         status: 'none',
         currentPeriodStart: null,
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
       };
     }
   }
@@ -115,6 +160,7 @@ export class BillingService {
     const plan = subscription.plan;
     
     switch (feature) {
+      // Core features
       case 'analytics':
         return plan.analyticsEnabled;
       case 'advanced_reports':
@@ -125,42 +171,104 @@ export class BillingService {
         return plan.customBranding;
       case 'api_access':
         return plan.apiAccess;
+      
+      // New granular features
+      case 'bulk_operations':
+        return plan.bulkOperations || false;
+      case 'data_export':
+        return plan.dataExport || false;
+      case 'custom_fields':
+        return plan.customFields || false;
+      case 'advanced_security':
+        return plan.advancedSecurity || false;
+      case 'white_label':
+        return plan.whiteLabel || false;
+      case 'dedicated_support':
+        return plan.dedicatedSupport || false;
+      case 'sso_enabled':
+        return plan.ssoEnabled || false;
+      case 'audit_logs':
+        return plan.auditLogs || false;
+      case 'backup_restore':
+        return plan.backupRestore || false;
+      case 'custom_integrations':
+        return plan.customIntegrations || false;
+      
+      // Enterprise-specific features
+      case 'enterprise_branding':
+        return plan.customBranding && plan.whiteLabel;
+      case 'full_api_access':
+        return plan.apiAccess && plan.customIntegrations;
+      case 'advanced_analytics':
+        return plan.analyticsEnabled && plan.advancedReports;
+      case 'security_audit':
+        return plan.advancedSecurity && plan.auditLogs;
+      
       default:
         return false;
     }
   }
 
   async getPlanLimits(tenantId: string) {
-    const subscription = await this.prisma.subscription.findFirst({
-      where: { tenantId },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    try {
+      console.log('Getting plan limits for tenant:', tenantId);
+      
+      const subscription = await this.prisma.subscription.findFirst({
+        where: { tenantId },
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    if (!subscription) {
+      if (!subscription) {
+        return {
+          maxUsers: 3,
+          maxProducts: 100,
+          maxSalesPerMonth: 200,
+          analyticsEnabled: false,
+          advancedReports: false,
+          prioritySupport: false,
+          customBranding: false,
+          apiAccess: false,
+          // New granular features
+          bulkOperations: false,
+          dataExport: false,
+          customFields: false,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
+        };
+      }
+
+      const plan = subscription.plan;
+      
       return {
-        maxUsers: 3,
-        maxProducts: 100,
-        maxSalesPerMonth: 200,
-        analyticsEnabled: false,
-        advancedReports: false,
-        prioritySupport: false,
-        customBranding: false,
-        apiAccess: false,
+        maxUsers: plan.maxUsers,
+        maxProducts: plan.maxProducts,
+        maxSalesPerMonth: plan.maxSalesPerMonth,
+        analyticsEnabled: plan.analyticsEnabled,
+        advancedReports: plan.advancedReports,
+        prioritySupport: plan.prioritySupport,
+        customBranding: plan.customBranding,
+        apiAccess: plan.apiAccess,
+        // New granular features
+        bulkOperations: plan.bulkOperations || false,
+        dataExport: plan.dataExport || false,
+        customFields: plan.customFields || false,
+        advancedSecurity: plan.advancedSecurity || false,
+        whiteLabel: plan.whiteLabel || false,
+        dedicatedSupport: plan.dedicatedSupport || false,
+        ssoEnabled: plan.ssoEnabled || false,
+        auditLogs: plan.auditLogs || false,
+        backupRestore: plan.backupRestore || false,
+        customIntegrations: plan.customIntegrations || false,
       };
+    } catch (error) {
+      throw error;
     }
-
-    const plan = subscription.plan;
-    return {
-      maxUsers: plan.maxUsers,
-      maxProducts: plan.maxProducts,
-      maxSalesPerMonth: plan.maxSalesPerMonth,
-      analyticsEnabled: plan.analyticsEnabled,
-      advancedReports: plan.advancedReports,
-      prioritySupport: plan.prioritySupport,
-      customBranding: plan.customBranding,
-      apiAccess: plan.apiAccess,
-    };
   }
 
   async checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{ allowed: boolean; current: number; limit: number }> {
@@ -195,6 +303,37 @@ export class BillingService {
       allowed: limit === null || current < limit,
       current,
       limit: limit === null ? Infinity : limit,
+    };
+  }
+
+  async getEnterpriseFeatures(tenantId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      include: { plan: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!subscription || subscription.plan.name !== 'Enterprise') {
+      return null;
+    }
+
+    return {
+      customBranding: {
+        enabled: subscription.plan.customBranding,
+        features: ['logo', 'colors', 'domain', 'white_label']
+      },
+      apiAccess: {
+        enabled: subscription.plan.apiAccess,
+        features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+      },
+      security: {
+        enabled: subscription.plan.advancedSecurity,
+        features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+      },
+      support: {
+        enabled: subscription.plan.dedicatedSupport,
+        features: ['24_7_support', 'dedicated_manager', 'priority_queue']
+      }
     };
   }
 

@@ -17,11 +17,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     findByEmail(email: string): Promise<{
         id: string;
@@ -30,11 +32,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     } | null>;
     getUserRoles(userId: string): Promise<({
         role: {
@@ -61,6 +65,20 @@ export declare class UserService {
             userId: string;
             roleId: string;
         })[];
+        permissions: ({
+            permission: {
+                id: string;
+                description: string | null;
+                key: string;
+            };
+        } & {
+            id: string;
+            userId: string;
+            permissionId: string;
+            grantedBy: string | null;
+            grantedAt: Date | null;
+            note: string | null;
+        })[];
     } & {
         id: string;
         name: string;
@@ -68,11 +86,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -103,14 +123,63 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
+    }) | null>;
+    updateUserPermissionsByTenant(userId: string, permissions: Array<{
+        key: string;
+        note?: string;
+    }>, tenantId: string, grantedBy?: string, ip?: string): Promise<({
+        permissions: ({
+            permission: {
+                id: string;
+                description: string | null;
+                key: string;
+            };
+        } & {
+            id: string;
+            userId: string;
+            permissionId: string;
+            grantedBy: string | null;
+            grantedAt: Date | null;
+            note: string | null;
+        })[];
+    } & {
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        email: string;
+        password: string;
+        isSuperadmin: boolean;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
+        tenantId: string | null;
     }) | null>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     getUserPermissions(userId: string): Promise<({
+        permission: {
+            id: string;
+            description: string | null;
+            key: string;
+        };
+    } & {
+        id: string;
+        userId: string;
+        permissionId: string;
+        grantedBy: string | null;
+        grantedAt: Date | null;
+        note: string | null;
+    })[]>;
+    getUserPermissionsByTenant(userId: string, tenantId: string): Promise<({
         permission: {
             id: string;
             description: string | null;
@@ -131,11 +200,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -148,11 +219,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
@@ -161,11 +234,13 @@ export declare class UserService {
         updatedAt: Date;
         email: string;
         password: string;
+        isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        tenantId: string | null;
     }>;
     getEffectivePermissions(userId: string, tenantId: string): Promise<string[]>;
 }

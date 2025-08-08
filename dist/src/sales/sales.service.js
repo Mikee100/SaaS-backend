@@ -15,15 +15,18 @@ const prisma_service_1 = require("../prisma.service");
 const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
 const realtime_gateway_1 = require("../realtime.gateway");
+const configuration_service_1 = require("../config/configuration.service");
 const axios_1 = require("axios");
 let SalesService = class SalesService {
     prisma;
     auditLogService;
     realtimeGateway;
-    constructor(prisma, auditLogService, realtimeGateway) {
+    configurationService;
+    constructor(prisma, auditLogService, realtimeGateway, configurationService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
         this.realtimeGateway = realtimeGateway;
+        this.configurationService = configurationService;
     }
     async createSale(dto, tenantId, userId) {
         if (!dto.idempotencyKey)
@@ -118,6 +121,7 @@ let SalesService = class SalesService {
         };
     }
     async getSaleById(id, tenantId) {
+        console.log('getSaleById called with ID:', id, 'and tenantId:', tenantId);
         const sale = await this.prisma.sale.findFirst({
             where: { id, tenantId },
             include: {
@@ -126,9 +130,12 @@ let SalesService = class SalesService {
                 mpesaTransaction: true,
             },
         });
+        console.log('Database query result:', sale);
         if (!sale) {
+            console.log('Sale not found in database');
             throw new common_1.NotFoundException('Sale not found');
         }
+        console.log('Sale found, returning data');
         return {
             saleId: sale.id,
             date: sale.createdAt,
@@ -258,7 +265,8 @@ let SalesService = class SalesService {
         let customerSegments = [];
         try {
             if (customerInput.length > 0) {
-                const res = await axios_1.default.post('http://localhost:5000/customer_segments', {
+                const aiServiceUrl = await this.configurationService.getAiServiceUrl();
+                const res = await axios_1.default.post(`${aiServiceUrl}/customer_segments`, {
                     customers: customerInput,
                 });
                 customerSegments = res.data;
@@ -270,7 +278,8 @@ let SalesService = class SalesService {
         const salesValues = Object.values(salesByMonth);
         let forecast = { forecast_months: [], forecast_sales: [] };
         try {
-            const res = await axios_1.default.post('http://localhost:5000/forecast', {
+            const aiServiceUrl = await this.configurationService.getAiServiceUrl();
+            const res = await axios_1.default.post(`${aiServiceUrl}/forecast`, {
                 months,
                 sales: salesValues,
                 periods: 4,
@@ -292,12 +301,25 @@ let SalesService = class SalesService {
             lowStock,
         };
     }
+    async getTenantInfo(tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                name: true,
+                address: true,
+                contactEmail: true,
+                contactPhone: true,
+            },
+        });
+        return tenant;
+    }
 };
 exports.SalesService = SalesService;
 exports.SalesService = SalesService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_log_service_1.AuditLogService,
-        realtime_gateway_1.RealtimeGateway])
+        realtime_gateway_1.RealtimeGateway,
+        configuration_service_1.ConfigurationService])
 ], SalesService);
 //# sourceMappingURL=sales.service.js.map

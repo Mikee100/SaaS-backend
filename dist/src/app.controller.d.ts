@@ -1,9 +1,42 @@
-import { AppService } from './app.service';
+import { PrismaService } from './prisma.service';
 export declare class AppController {
-    private readonly appService;
-    constructor(appService: AppService);
+    private prisma;
+    constructor(prisma: PrismaService);
     getHello(): string;
-    healthCheck(): {
-        status: string;
-    };
+    getDashboardStats(req: any): Promise<{
+        totalSales: number;
+        totalProducts: number;
+        totalCustomers: number;
+        totalRevenue: number;
+        monthlyRevenue: number;
+        recentActivity: {
+            sales: {
+                id: string;
+                amount: number;
+                customer: string;
+                date: Date;
+                user: string;
+            }[];
+            products: {
+                id: string;
+                name: string;
+                price: number;
+                date: Date;
+            }[];
+        };
+    }>;
+    getUsageStats(req: any): Promise<{
+        users: {
+            current: number;
+            limit: number;
+        };
+        products: {
+            current: number;
+            limit: number;
+        };
+        sales: {
+            current: number;
+            limit: number;
+        };
+    }>;
 }

@@ -3,11 +3,13 @@ import { CreateSaleDto } from './create-sale.dto';
 import { SaleReceiptDto } from './sale-receipt.dto';
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
+import { ConfigurationService } from '../config/configuration.service';
 export declare class SalesService {
     private prisma;
     private auditLogService;
     private realtimeGateway;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway);
+    private configurationService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway, configurationService: ConfigurationService);
     createSale(dto: CreateSaleDto & {
         mpesaTransactionId?: string;
         idempotencyKey: string;
@@ -85,12 +87,19 @@ export declare class SalesService {
             name: string;
             description: string | null;
             price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             sku: string;
             stock: number;
-            tenantId: string;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         }[];
     }>;
+    getTenantInfo(tenantId: string): Promise<{
+        name: string;
+        contactEmail: string;
+        contactPhone: string | null;
+        address: string | null;
+    } | null>;
 }

@@ -19,7 +19,7 @@ export class InventoryController {
   }
 
   @Post()
-  @Permissions('edit_inventory')
+  @Permissions('create_inventory')
   async create(@Req() req, @Body() dto: CreateInventoryDto) {
     const tenantId = req.user.tenantId;
     return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
@@ -33,7 +33,7 @@ export class InventoryController {
   }
 
   @Delete(':id')
-  @Permissions('edit_inventory')
+  @Permissions('delete_inventory')
   async remove(@Req() req, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.inventoryService.deleteInventory(id, tenantId, req.user.userId, req.ip);

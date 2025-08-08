@@ -36,10 +36,13 @@ let SubscriptionService = class SubscriptionService {
                     tenantId: data.tenantId,
                     status: 'active',
                 },
+                include: {
+                    plan: true,
+                },
             });
             if (existingSubscription) {
-                console.error('Tenant already has active subscription:', data.tenantId);
-                throw new common_1.BadRequestException('Tenant already has an active subscription');
+                console.log('Tenant has existing subscription, upgrading to new plan');
+                return await this.handleUpgrade(existingSubscription, plan);
             }
             const now = new Date();
             const endDate = this.calculateEndDate(plan.interval);
@@ -105,7 +108,7 @@ let SubscriptionService = class SubscriptionService {
             where: { id: subscription.id },
             data: {
                 status: 'cancelled',
-                cancelledAt: new Date(),
+                canceledAt: new Date(),
             },
         });
     }
@@ -122,15 +125,14 @@ let SubscriptionService = class SubscriptionService {
             orderBy: { createdAt: 'desc' },
         });
     }
-    async createInvoice(subscriptionId, amount) {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    async createInvoice(subscriptionId, amount, tenantId) {
         return await this.prisma.invoice.create({
             data: {
                 subscriptionId,
+                tenantId,
                 amount,
                 status: 'pending',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                invoiceNumber,
             },
         });
     }
@@ -171,7 +173,7 @@ let SubscriptionService = class SubscriptionService {
             },
         });
         if (netCharge > 0) {
-            await this.createInvoice(currentSubscription.id, netCharge);
+            await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
         }
         return {
             subscription: updatedSubscription,

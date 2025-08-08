@@ -11,6 +11,7 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
+            isSuperadmin: boolean;
         };
     }>;
     forgotPassword(body: {
