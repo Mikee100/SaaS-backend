@@ -22,16 +22,17 @@ model Permission {
 }
 
 model UserPermission {
-  id          String     @id @default(uuid())
-  userId      String
-  user        User       @relation("UserToUserPermission", fields: [userId], references: [id])
-  permission  String
-  permissionRef Permission @relation(fields: [permission], references: [name])
-  grantedBy   String
-  grantedAt   DateTime   @default(now())
-  tenant      Tenant     @relation(fields: [tenantId], references: [id])
-  tenantId    String
-  
+  id              String     @id @default(uuid())
+  userId          String
+  user            User       @relation("UserToUserPermission", fields: [userId], references: [id])
+  permission      String
+  permissionRef   Permission @relation(fields: [permission], references: [name])
+  grantedBy       String
+  grantedAt       DateTime   @default(now())
+  tenant          Tenant     @relation(fields: [tenantId], references: [id])
+  tenantId        String
+  userPermissions User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
+
   @@unique([userId, permission, tenantId])
 }
 
@@ -71,23 +72,23 @@ model Inventory {
 }
 
 model Sale {
-  id                 String            @id @default(uuid())
+  id                 String             @id @default(uuid())
   tenantId           String
-  tenant             Tenant            @relation(fields: [tenantId], references: [id])
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
   userId             String
-  user               User              @relation(fields: [userId], references: [id])
+  user               User               @relation(fields: [userId], references: [id])
   total              Float
   paymentType        String
   items              SaleItem[]
-  createdAt          DateTime          @default(now())
+  createdAt          DateTime           @default(now())
   customerName       String?
   customerPhone      String?
-  mpesaTransactionId String?           @unique
+  mpesaTransactionId String?            @unique
   mpesaTransactions  MpesaTransaction[]
   idempotencyKey     String?
   vatAmount          Float? // KRA VAT amount
   branchId           String?
-  branch             Branch?           @relation(fields: [branchId], references: [id])
+  branch             Branch?            @relation(fields: [branchId], references: [id])
 
   @@unique([idempotencyKey, userId])
   @@index([tenantId])
@@ -124,32 +125,39 @@ model TenantModule {
 }
 
 model MpesaTransaction {
-  id              String   @id @default(uuid())
-  transactionId   String
-  transactionType String
-  amount          Float
-  phoneNumber     String
-  accountReference String?
-  status          String
-  resultCode      String?
-  resultDesc      String?
-  merchantRequestID String?
-  checkoutRequestID String?
-  responseCode     String?
-  responseDescription String?
-  customerMessage  String?
-  requestData      Json?
-  responseData     Json?
-  metadata         Json?
-  tenant           Tenant  @relation(fields: [tenantId], references: [id])
-  tenantId         String
-  user             User?   @relation(fields: [userId], references: [id])
-  userId           String?
-  sale             Sale?   @relation(fields: [saleId], references: [id])
-  saleId           String? @unique
-  
-  @@unique([saleId])
-  @@unique([transactionId])
+  id                String    @id @default(uuid())
+  userId            String?
+  user              User?     @relation(fields: [userId], references: [id])
+  phoneNumber       String
+  amount            Float
+  status            String    @default("pending")
+  merchantRequestId String?
+  checkoutRequestID String?   @unique
+  mpesaReceipt      String?
+  responseCode      String?
+  responseDesc      String?
+  message           String?
+  saleId            String?
+  sale              Sale?     @relation(fields: [saleId], references: [id])
+  saleData          Json?
+  transactionId     String?   @unique
+  transactionType   String?
+  transactionTime   DateTime?
+  businessShortCode String?
+  billRefNumber     String?
+  invoiceNumber     String?
+  orgAccountBalance String?
+  thirdPartyTransID String?
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([saleId])
+  @@index([tenantId])
+  @@index([checkoutRequestID])
+  @@index([mpesaReceipt])
 }
 
 model AuditLog {
@@ -163,23 +171,27 @@ model AuditLog {
 }
 
 model Role {
-  id              String           @id @default(uuid())
-  name            String           @unique
-  description     String?
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
   rolePermissions RolePermission[]
   userRoles       UserRole[]
   userBranchRoles UserBranchRole[]
   tenant          Tenant?          @relation(fields: [tenantId], references: [id])
   tenantId        String?
-  
+
   @@unique([name, tenantId])
 }
 
 model RolePermission {
   id           String     @id @default(uuid())
   roleId       String
-  permissionId String
   role         Role       @relation(fields: [roleId], references: [id])
+  permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id])
 }
 
@@ -191,85 +203,116 @@ model UserRole {
   roleId   String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
   tenantId String
+
+  @@unique([userId, roleId, tenantId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([tenantId])
 }
 
 model Plan {
-  id              String          @id @default(uuid())
-  name            String          @unique
-  description     String
-  price           Float
-  interval        String          // 'month' or 'year'
-  isActive        Boolean         @default(true)
-  maxUsers        Int?
-  maxProducts     Int?
-  maxSalesPerMonth Int?
-  features        PlanFeatureOnPlan[]
-  subscriptions   Subscription[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id               String  @id @default(uuid())
+  name             String
+  description      String
+  price            Float
+  interval         String // 'month' or 'year'
+  isActive         Boolean @default(true)
+  maxUsers         Int? // Nullable, no default
+  maxProducts      Int? // Nullable, no default
+  maxSalesPerMonth Int? // Nullable, no default
+
+  // Plan Features
+  analyticsEnabled   Boolean @default(false)
+  advancedReports    Boolean @default(false)
+  prioritySupport    Boolean @default(false)
+  customBranding     Boolean @default(false)
+  apiAccess          Boolean @default(false)
+  bulkOperations     Boolean @default(false)
+  dataExport         Boolean @default(false)
+  customFields       Boolean @default(false)
+  advancedSecurity   Boolean @default(false)
+  whiteLabel         Boolean @default(false)
+  dedicatedSupport   Boolean @default(false)
+  ssoEnabled         Boolean @default(false)
+  auditLogs          Boolean @default(false)
+  backupRestore      Boolean @default(false)
+  customIntegrations Boolean @default(false)
+
+  // Relations
+  subscriptions Subscription[]
+  features      PlanFeatureOnPlan[]
+
+  @@index([name])
+  @@index([isActive])
 }
 
 model PlanFeature {
-  id              String          @id @default(uuid())
-  featureKey      String          @unique
-  featureName     String
+  id                 String              @id @default(uuid())
+  featureKey         String              @unique
+  featureName        String
   featureDescription String?
-  isEnabled       Boolean         @default(true)
-  plans           PlanFeatureOnPlan[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  isEnabled          Boolean             @default(true)
+  plans              PlanFeatureOnPlan[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model PlanFeatureOnPlan {
-  planId          String
-  plan            Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
-  featureId       String
-  feature         PlanFeature     @relation(fields: [featureId], references: [id], onDelete: Cascade)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id        String      @id @default(uuid())
+  planId    String
+  plan      Plan        @relation(fields: [planId], references: [id])
+  featureId String
+  feature   PlanFeature @relation(fields: [featureId], references: [id])
+  isEnabled Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  @@id([planId, featureId])
+  @@unique([planId, featureId])
 }
 
 model Subscription {
-  id                  String          @id @default(uuid())
-  tenantId            String?
-  tenant              Tenant?         @relation("TenantSubscriptions", fields: [tenantId], references: [id])
-  userId              String?
-  user                User?           @relation("UserSubscriptions", fields: [userId], references: [id])
-  planId              String
-  plan                Plan            @relation(fields: [planId], references: [id])
-  status              String          // 'active', 'canceled', 'past_due', 'unpaid'
-  currentPeriodStart  DateTime
-  currentPeriodEnd    DateTime
-  cancelAtPeriodEnd   Boolean         @default(false)
-  stripeCustomerId    String?
-  stripeSubscriptionId String?
-  stripePriceId       String?
-  quantity           Int             @default(1)
-  invoices           Invoice[]
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id                     String    @id @default(uuid())
+  stripeSubscriptionId   String    @unique
+  stripeCustomerId       String
+  stripePriceId          String
+  stripeCurrentPeriodEnd DateTime
+  status                 String // 'active', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'trialing'
+  canceledAt             DateTime? // When the subscription was canceled
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean   @default(false)
+  trialStart             DateTime?
+  trialEnd               DateTime?
 
+  // Relations
+  planId   String
+  plan     Plan      @relation(fields: [planId], references: [id])
+  tenantId String
+  tenant   Tenant    @relation("TenantSubscriptions", fields: [tenantId], references: [id])
+  userId   String
+  user     User      @relation("UserSubscriptions", fields: [userId], references: [id])
+  invoices Invoice[]
+
+  @@index([stripeSubscriptionId])
+  @@index([stripeCustomerId])
+  @@index([status])
   @@index([tenantId])
   @@index([userId])
-  @@index([stripeCustomerId])
-  @@index([stripeSubscriptionId])
 }
 
 model Invoice {
-  id              String        @id @default(uuid())
-  number          String        @unique
-  amount          Float
-  status          String        // 'draft', 'open', 'paid', 'void', 'uncollectible'
-  dueDate         DateTime?
-  paidAt          DateTime?
-  subscriptionId  String?
-  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
-  tenantId        String
-  tenant          Tenant        @relation(fields: [tenantId], references: [id])
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  number         String        @unique
+  amount         Float
+  status         String // 'draft', 'open', 'paid', 'void', 'uncollectible'
+  dueDate        DateTime?
+  paidAt         DateTime?
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([subscriptionId])
@@ -330,16 +373,16 @@ model Branch {
 }
 
 model UserBranchRole {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
-  roleId    String
-  role      Role     @relation(fields: [roleId], references: [id])
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  tenantId  String
-  
+  id       String @id @default(uuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  roleId   String
+  role     Role   @relation(fields: [roleId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenantId String
+
   @@unique([userId, branchId, roleId])
 }
 
@@ -378,7 +421,7 @@ model TenantConfiguration {
 }
 
 model Tenant {
-  id                  String              @id @default(uuid())
+  id                  String                @id @default(uuid())
   name                String
   businessType        String
   contactEmail        String
@@ -416,7 +459,7 @@ model Tenant {
   invoiceFooter       String?
   credits             Float?                @default(0) // Account balance for one-time payments
   logoUrl             String?
-  loginLogoUrl        String?               // URL for login page logo
+  loginLogoUrl        String? // URL for login page logo
   favicon             String?
   receiptLogo         String?
   watermark           String?
@@ -434,7 +477,7 @@ model Tenant {
   rateLimit           Int?
   customIntegrations  Boolean               @default(false)
   ssoEnabled          Boolean               @default(false)
-  auditLogsEnabled    Boolean               @default(false)  // Renamed to avoid conflict
+  auditLogsEnabled    Boolean               @default(false) // Renamed to avoid conflict
   backupRestore       Boolean               @default(false)
   stripeCustomerId    String?               @unique
   // Timestamps
@@ -446,7 +489,7 @@ model Tenant {
   inventory           Inventory[]
   sales               Sale[]
   modules             TenantModule[]
-  subscriptions       Subscription[]   @relation("TenantSubscriptions")
+  subscriptions       Subscription[]        @relation("TenantSubscriptions")
   invoices            Invoice[]
   payments            Payment[]
   paymentMethods      PaymentMethod[]
@@ -475,32 +518,32 @@ model User {
   updatedAt               DateTime           @updatedAt
   // Relations
   userRoles               UserRole[]
-  userPermissions         UserPermission[] @relation("UserToUserPermission")
-  permissions             UserPermission[] @relation("UserPermissions")
+  userPermissions         UserPermission[]   @relation("UserToUserPermission")
+  permissions             UserPermission[]   @relation("UserPermissions")
   sales                   Sale[]
   mpesaTransactions       MpesaTransaction[]
   auditLogs               AuditLog[]
   userBranchRoles         UserBranchRole[]
-  tenant                  Tenant?          @relation(fields: [tenantId], references: [id])
+  tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
   tenantId                String?
-  subscriptions           Subscription[]   @relation("UserSubscriptions")
-  notifications           Notification[]   @relation("UserNotifications")
+  subscriptions           Subscription[]     @relation("UserSubscriptions")
+  notifications           Notification[]     @relation("UserNotifications")
 
   @@index([email])
   @@index([resetPasswordToken])
 }
 
 model Notification {
-  id          String   @id @default(uuid())
-  type        String   // e.g., 'system', 'payment', 'subscription'
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  data        Json?    // Additional data for the notification
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  tenantId    String
-  user        User?    @relation("UserNotifications", fields: [userId], references: [id])
-  userId      String?
-  createdAt   DateTime @default(now())
-  readAt      DateTime?
+  id        String    @id @default(uuid())
+  type      String // e.g., 'system', 'payment', 'subscription'
+  title     String
+  message   String
+  isRead    Boolean   @default(false)
+  data      Json? // Additional data for the notification
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  tenantId  String
+  user      User?     @relation("UserNotifications", fields: [userId], references: [id])
+  userId    String?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
 }

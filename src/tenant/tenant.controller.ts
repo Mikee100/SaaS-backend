@@ -1,13 +1,16 @@
-import { Controller, Get, Post, Put, Body, Req, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { TenantService } from './tenant.service';
 import { LogoService } from './logo.service';
+import { Logger } from '@nestjs/common';
 
 @Controller('tenant')
 export class TenantController {
+  private readonly logger = new Logger(TenantController.name);
+
   constructor(
     private readonly tenantService: TenantService,
     private readonly logoService: LogoService
@@ -180,29 +183,51 @@ export class TenantController {
 
   // Public endpoint for business registration
   @Post()
-  async createTenant(@Body() dto: any) {
-    // Extract owner information from the request
-    const {
-      ownerName,
-      ownerEmail,
-      ownerPassword,
-      ownerRole = 'owner',
-      ...tenantData
-    } = dto;
+  async createTenant(@Body() createTenantDto: any) {
+  this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
+  console.log('[TenantController] Incoming registration payload:', JSON.stringify(createTenantDto));
+    
+    try {
+      console.log('[TenantController] Starting tenant creation process...');
+      // Extract owner information from the request
+      const {
+        ownerName,
+        ownerEmail,
+        ownerPassword,
+        ownerRole = 'owner',
+        ...tenantData
+      } = createTenantDto;
 
-    // Create the tenant first
-    const tenant = await this.tenantService.createTenant(tenantData);
+      // Validate required fields
+      if (!ownerName || !ownerEmail || !ownerPassword) {
+        throw new BadRequestException('Missing required owner information');
+      }
 
-    // Create the owner user if owner information is provided
-    if (ownerName && ownerEmail && ownerPassword) {
-      await this.tenantService.createOwnerUser({
+      // Create the tenant with all required data
+      const tenant = await this.tenantService.createTenant({
+        ...tenantData,
+        ownerName,
+        ownerEmail,
+        ownerPassword,
+        ownerRole,
+      });
+      console.log('[TenantController] Tenant creation result:', tenant);
+
+      // Create the owner user with the selected role
+      const ownerUser = await this.tenantService.createOwnerUser({
         name: ownerName,
         email: ownerEmail,
         password: ownerPassword,
         tenantId: tenant.id,
+        role: ownerRole || 'admin',
       });
-    }
+      console.log('[TenantController] Owner user creation result:', ownerUser);
 
-    return tenant;
+      return { success: true, data: tenant };
+    } catch (error) {
+      this.logger.error('Error creating tenant:', error);
+      console.error('[TenantController] Error during tenant registration:', error);
+      throw error;
+    }
   }
 }

@@ -37,16 +37,28 @@ let UserController = class UserController {
         return { message: 'You are authenticated!', user: req.user };
     }
     async getMe(req) {
-        const user = await this.userService.findByEmail(req.user.email);
-        if (!user)
-            throw new common_1.NotFoundException('User not found');
-        const permissions = await this.userService.getUserPermissions(user.id);
-        const userRoles = await this.userService.getUserRoles(user.id);
-        return {
-            ...user,
-            roles: userRoles.map(ur => ur.role.name),
-            permissions: permissions.map(p => ({ key: p.permission.key }))
-        };
+        console.log('=== getMe called ===');
+        try {
+            if (!req.user) {
+                console.error('No user object in request');
+                throw new common_1.UnauthorizedException('No authentication data found');
+            }
+            return {
+                id: req.user.id || req.user.sub,
+                email: req.user.email,
+                name: req.user.name || null,
+                tenantId: req.user.tenantId || null,
+                roles: Array.isArray(req.user.roles) ? req.user.roles : []
+            };
+        }
+        catch (error) {
+            console.error('Error in getMe:', error);
+            throw new common_1.InternalServerErrorException({
+                statusCode: 500,
+                message: 'Error retrieving user data',
+                error: error.message
+            });
+        }
     }
     async updateUser(req, id, body) {
         const tenantId = req.user.tenantId;

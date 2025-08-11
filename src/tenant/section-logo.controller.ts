@@ -4,6 +4,19 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { SectionLogoService, SectionLogo, SectionLogoConfig } from './section-logo.service';
+import { Request } from 'express';
+
+// Define the user type that will be attached to the request
+interface UserPayload {
+  id: string;
+  tenantId: string;
+  // Add other user properties as needed
+}
+
+// Extend the Express Request type to include our user
+interface RequestWithUser extends Request {
+  user: UserPayload;
+}
 
 @Controller('section-logos')
 @UseGuards(AuthGuard('jwt'))
@@ -11,14 +24,14 @@ export class SectionLogoController {
   constructor(private readonly sectionLogoService: SectionLogoService) {}
 
   @Get()
-  async getAllSectionLogos(@Req() req) {
+  async getAllSectionLogos(@Req() req: RequestWithUser) {
     const tenantId = req.user.tenantId;
     return this.sectionLogoService.getAllSectionLogos(tenantId);
   }
 
   @Get(':section')
   async getSectionLogo(
-    @Req() req,
+    @Req() req: RequestWithUser,
     @Param('section') section: string
   ): Promise<SectionLogo> {
     const tenantId = req.user.tenantId;
@@ -33,7 +46,7 @@ export class SectionLogoController {
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
       destination: './uploads/section-logos',
-      filename: (req, file, cb) => {
+      filename: (req: RequestWithUser, file, cb) => {
         const ext = path.extname(file.originalname);
         const name = `${req.user.tenantId}_${req.params.section}${ext}`;
         cb(null, name);
@@ -52,7 +65,7 @@ export class SectionLogoController {
     limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   }))
   async uploadSectionLogo(
-    @Req() req,
+    @Req() req: RequestWithUser,
     @UploadedFile() file: Express.Multer.File,
     @Param('section') section: string,
     @Body() body: any
@@ -77,7 +90,7 @@ export class SectionLogoController {
 
   @Put(':section')
   async updateSectionLogoConfig(
-    @Req() req,
+    @Req() req: RequestWithUser,
     @Param('section') section: string,
     @Body() config: Partial<SectionLogoConfig>
   ) {
@@ -87,7 +100,7 @@ export class SectionLogoController {
 
   @Delete(':section')
   async removeSectionLogo(
-    @Req() req,
+    @Req() req: RequestWithUser,
     @Param('section') section: string
   ) {
     const tenantId = req.user.tenantId;
@@ -96,7 +109,7 @@ export class SectionLogoController {
   }
 
   @Get('config/validation')
-  async validateSectionLogoConfig(@Req() req) {
+  async validateSectionLogoConfig(@Req() req: RequestWithUser) {
     const tenantId = req.user.tenantId;
     return this.sectionLogoService.validateSectionLogoConfig(tenantId);
   }

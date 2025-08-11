@@ -16,35 +16,30 @@ export declare class MpesaController {
     } | {
         success: boolean;
         data: {
-            sale: {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                branchId: string | null;
-                userId: string;
-                total: number;
-                paymentType: string;
-                customerName: string | null;
-                customerPhone: string | null;
-                mpesaTransactionId: string | null;
-                idempotencyKey: string | null;
-                vatAmount: number | null;
-            } | null;
-        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             userId: string | null;
-            status: string;
-            amount: number;
-            message: string | null;
             phoneNumber: string;
-            mpesaReceipt: string | null;
+            amount: number;
+            status: string;
             merchantRequestId: string | null;
-            checkoutRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
         };
         error?: undefined;
     }>;
@@ -55,112 +50,97 @@ export declare class MpesaController {
     } | {
         success: boolean;
         data: {
-            sale: {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                branchId: string | null;
-                userId: string;
-                total: number;
-                paymentType: string;
-                customerName: string | null;
-                customerPhone: string | null;
-                mpesaTransactionId: string | null;
-                idempotencyKey: string | null;
-                vatAmount: number | null;
-            } | null;
-        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             userId: string | null;
-            status: string;
-            amount: number;
-            message: string | null;
             phoneNumber: string;
-            mpesaReceipt: string | null;
+            amount: number;
+            status: string;
             merchantRequestId: string | null;
-            checkoutRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
         };
         error?: undefined;
     }>;
     getUserTransactions(userId: string, req: Request): Promise<{
         success: boolean;
-        data: ({
-            sale: {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                branchId: string | null;
-                userId: string;
-                total: number;
-                paymentType: string;
-                customerName: string | null;
-                customerPhone: string | null;
-                mpesaTransactionId: string | null;
-                idempotencyKey: string | null;
-                vatAmount: number | null;
-            } | null;
-        } & {
+        data: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             userId: string | null;
-            status: string;
-            amount: number;
-            message: string | null;
             phoneNumber: string;
-            mpesaReceipt: string | null;
+            amount: number;
+            status: string;
             merchantRequestId: string | null;
-            checkoutRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
-        })[];
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[];
     }>;
     getTenantTransactions(tenantId: string): Promise<{
         success: boolean;
-        data: ({
-            sale: {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                branchId: string | null;
-                userId: string;
-                total: number;
-                paymentType: string;
-                customerName: string | null;
-                customerPhone: string | null;
-                mpesaTransactionId: string | null;
-                idempotencyKey: string | null;
-                vatAmount: number | null;
-            } | null;
-        } & {
+        data: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             userId: string | null;
-            status: string;
-            amount: number;
-            message: string | null;
             phoneNumber: string;
-            mpesaReceipt: string | null;
+            amount: number;
+            status: string;
             merchantRequestId: string | null;
-            checkoutRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
-        })[];
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[];
     }>;
     getTransactionStats(req: Request): Promise<{
         success: boolean;
         data: {
             total: number;
             pending: number;
-            successful: number;
+            completed: number;
             failed: number;
             totalAmount: number;
         };
@@ -171,37 +151,32 @@ export declare class MpesaController {
     }>;
     getPendingTransactions(): Promise<{
         success: boolean;
-        data: ({
-            sale: {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                branchId: string | null;
-                userId: string;
-                total: number;
-                paymentType: string;
-                customerName: string | null;
-                customerPhone: string | null;
-                mpesaTransactionId: string | null;
-                idempotencyKey: string | null;
-                vatAmount: number | null;
-            } | null;
-        } & {
+        data: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             userId: string | null;
-            status: string;
-            amount: number;
-            message: string | null;
             phoneNumber: string;
-            mpesaReceipt: string | null;
+            amount: number;
+            status: string;
             merchantRequestId: string | null;
-            checkoutRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
-        })[];
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[];
     }>;
     cleanupOldTransactions(): Promise<{
         success: boolean;

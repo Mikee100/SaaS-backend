@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException, InternalServerErrorException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
@@ -34,19 +34,38 @@ export class UserController {
     return { message: 'You are authenticated!', user: req.user };
   }
 
+  // In user.controller.ts
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Req() req) {
-    const user = await this.userService.findByEmail(req.user.email);
-    if (!user) throw new NotFoundException('User not found');
-    const permissions = await this.userService.getUserPermissions(user.id);
-    const userRoles = await this.userService.getUserRoles(user.id);
-    return {
-      ...user,
-      roles: userRoles.map(ur => ur.role.name),
-      permissions: permissions.map(p => ({ key: p.permission.key }))
-    };
+    console.log('=== getMe called ===');
+    
+    try {
+      if (!req.user) {
+        console.error('No user object in request');
+        throw new UnauthorizedException('No authentication data found');
+      }
+
+      // Return minimal user data from JWT
+      return {
+        id: req.user.id || req.user.sub,
+        email: req.user.email,
+        name: req.user.name || null,
+        tenantId: req.user.tenantId || null,
+        roles: Array.isArray(req.user.roles) ? req.user.roles : []
+      };
+      
+    } catch (error) {
+      console.error('Error in getMe:', error);
+      throw new InternalServerErrorException({
+        statusCode: 500,
+        message: 'Error retrieving user data',
+        error: error.message
+      });
+    }
   }
+
+
 
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
+const common_2 = require("@nestjs/common");
 let BillingService = class BillingService {
     prisma;
     constructor(prisma) {
@@ -113,35 +114,27 @@ let BillingService = class BillingService {
                     plan: true,
                 },
                 orderBy: {
-                    createdAt: 'desc',
+                    currentPeriodStart: 'desc',
                 },
             });
-            if (!subscription) {
+            if (!subscription || !subscription.plan) {
                 return {
-                    plan: { name: 'Basic', price: 0 },
+                    plan: { name: 'Basic', price: 0, id: 'free-tier' },
                     status: 'none',
                     currentPeriodStart: null,
                     currentPeriodEnd: null,
                     cancelAtPeriodEnd: false,
                 };
             }
-            if (!subscription.stripeSubscriptionId && subscription.status === 'active') {
-                console.warn(`Found subscription without Stripe ID: ${subscription.id} for tenant: ${tenantId}`);
-            }
             return {
-                id: subscription.id,
-                status: subscription.status,
+                ...subscription,
                 plan: subscription.plan,
-                currentPeriodStart: subscription.currentPeriodStart,
-                currentPeriodEnd: subscription.currentPeriodEnd,
-                cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-                canceledAt: subscription.canceledAt,
             };
         }
         catch (error) {
             console.error('Error getting current subscription:', error);
             return {
-                plan: { name: 'Basic', price: 0 },
+                plan: { name: 'Basic', price: 0, id: 'free-tier' },
                 status: 'none',
                 currentPeriodStart: null,
                 currentPeriodEnd: null,
@@ -152,10 +145,14 @@ let BillingService = class BillingService {
     async hasFeature(tenantId, feature) {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
-            include: { plan: true },
-            orderBy: { createdAt: 'desc' },
+            include: {
+                plan: true
+            },
+            orderBy: {
+                currentPeriodStart: 'desc'
+            },
         });
-        if (!subscription) {
+        if (!subscription || !subscription.plan) {
             return false;
         }
         const plan = subscription.plan;
@@ -207,10 +204,14 @@ let BillingService = class BillingService {
             console.log('Getting plan limits for tenant:', tenantId);
             const subscription = await this.prisma.subscription.findFirst({
                 where: { tenantId },
-                include: { plan: true },
-                orderBy: { createdAt: 'desc' },
+                include: {
+                    plan: true
+                },
+                orderBy: {
+                    currentPeriodStart: 'desc'
+                },
             });
-            if (!subscription) {
+            if (!subscription || !subscription.plan) {
                 return {
                     maxUsers: 3,
                     maxProducts: 100,
@@ -292,10 +293,14 @@ let BillingService = class BillingService {
     async getEnterpriseFeatures(tenantId) {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
-            include: { plan: true },
-            orderBy: { createdAt: 'desc' },
+            include: {
+                plan: true
+            },
+            orderBy: {
+                currentPeriodStart: 'desc'
+            },
         });
-        if (!subscription || subscription.plan.name !== 'Enterprise') {
+        if (!subscription || !subscription.plan || subscription.plan.name !== 'Enterprise') {
             return null;
         }
         return {
@@ -319,28 +324,85 @@ let BillingService = class BillingService {
     }
     async getInvoices(tenantId) {
         try {
-            const subscription = await this.prisma.subscription.findFirst({
+            const invoices = await this.prisma.invoice.findMany({
                 where: {
                     tenantId,
-                    status: 'active',
-                },
-            });
-            if (!subscription) {
-                return [];
-            }
-            return await this.prisma.invoice.findMany({
-                where: {
-                    subscriptionId: subscription.id,
+                    status: { in: ['paid', 'open', 'void'] },
                 },
                 orderBy: {
                     createdAt: 'desc',
                 },
+                include: {
+                    subscription: {
+                        include: {
+                            plan: true,
+                        },
+                    },
+                },
             });
+            return invoices.map((invoice) => ({
+                id: invoice.id,
+                number: invoice.number,
+                amount: invoice.amount,
+                status: invoice.status,
+                dueDate: invoice.dueDate,
+                paidAt: invoice.paidAt,
+                createdAt: invoice.createdAt,
+                subscription: invoice.subscriptionId ? {
+                    id: invoice.subscriptionId,
+                    plan: invoice.subscription?.plan ? {
+                        name: invoice.subscription.plan.name,
+                        price: invoice.subscription.plan.price,
+                    } : null,
+                } : null,
+            }));
         }
         catch (error) {
             console.error('Error fetching invoices:', error);
-            return [];
+            throw error;
         }
+    }
+    async getPlanFeatures(planId) {
+        const plan = await this.prisma.plan.findUnique({
+            where: { id: planId },
+        });
+        if (!plan) {
+            throw new common_2.NotFoundException('Plan not found');
+        }
+        return {
+            analyticsEnabled: plan.analyticsEnabled,
+            advancedReports: plan.advancedReports,
+            prioritySupport: plan.prioritySupport,
+            customBranding: plan.customBranding,
+            apiAccess: plan.apiAccess,
+            bulkOperations: plan.bulkOperations,
+            dataExport: plan.dataExport,
+            customFields: plan.customFields,
+            advancedSecurity: plan.advancedSecurity,
+            whiteLabel: plan.whiteLabel,
+            dedicatedSupport: plan.dedicatedSupport,
+            ssoEnabled: plan.ssoEnabled,
+            auditLogs: plan.auditLogs,
+            backupRestore: plan.backupRestore,
+            customIntegrations: plan.customIntegrations,
+        };
+    }
+    async getSubscriptionFeatures(subscriptionId) {
+        const subscription = await this.prisma.subscription.findUnique({
+            where: { id: subscriptionId },
+            include: {
+                plan: true,
+            },
+        });
+        if (!subscription) {
+            throw new common_2.NotFoundException('Subscription not found');
+        }
+        return {
+            customBranding: subscription.plan.customBranding,
+            apiAccess: subscription.plan.apiAccess,
+            advancedSecurity: subscription.plan.advancedSecurity,
+            dedicatedSupport: subscription.plan.dedicatedSupport,
+        };
     }
 };
 exports.BillingService = BillingService;

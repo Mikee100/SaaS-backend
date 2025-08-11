@@ -2,14 +2,99 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
+async function safeDeleteMany(model) {
+    try {
+        await model.deleteMany({});
+    }
+    catch (error) {
+        if (error.code !== 'P2021') {
+            throw error;
+        }
+        console.log(`Table for ${model.name} does not exist, skipping delete`);
+    }
+}
 async function main() {
     console.log('Seeding database...');
-    await prisma.planFeatureOnPlan.deleteMany({});
-    await prisma.planFeature.deleteMany({});
-    await prisma.plan.deleteMany({});
+    await safeDeleteMany(prisma.planFeatureOnPlan);
+    await safeDeleteMany(prisma.planFeature);
+    await safeDeleteMany(prisma.plan);
+    await safeDeleteMany(prisma.userRole);
+    await safeDeleteMany(prisma.role);
+    await safeDeleteMany(prisma.rolePermission);
+    await safeDeleteMany(prisma.permission);
+    console.log('Creating default roles...');
+    const defaultRoles = [
+        {
+            id: 'admin_role',
+            name: 'admin',
+            description: 'Administrator with full access to all features',
+        },
+        {
+            id: 'manager_role',
+            name: 'manager',
+            description: 'Manager with access to most features',
+        },
+        {
+            id: 'staff_role',
+            name: 'staff',
+            description: 'Regular staff with limited access',
+        },
+        {
+            id: 'viewer_role',
+            name: 'viewer',
+            description: 'View-only access to reports and data',
+        }
+    ];
+    for (const roleData of defaultRoles) {
+        await prisma.role.upsert({
+            where: { id: roleData.id },
+            update: {},
+            create: {
+                id: roleData.id,
+                name: roleData.name,
+                description: roleData.description,
+            },
+        });
+        console.log(`Created/Updated role: ${roleData.name}`);
+    }
+    const rolePermissions = {
+        admin_role: ['*'],
+        manager_role: ['manage_users', 'view_reports', 'manage_products', 'view_sales'],
+        staff_role: ['view_products', 'create_sales', 'view_own_sales'],
+        viewer_role: ['view_reports', 'view_products', 'view_sales']
+    };
+    for (const [roleId, permissions] of Object.entries(rolePermissions)) {
+        for (const permissionName of permissions) {
+            const permission = await prisma.permission.upsert({
+                where: { name: permissionName },
+                update: {},
+                create: {
+                    name: permissionName,
+                    description: `Permission to ${permissionName.replace(/_/g, ' ')}`,
+                },
+            });
+            const existingPermission = await prisma.rolePermission.findFirst({
+                where: {
+                    roleId: roleId,
+                    permissionId: permission.id,
+                },
+            });
+            if (!existingPermission) {
+                await prisma.rolePermission.create({
+                    data: {
+                        role: { connect: { id: roleId } },
+                        permission: { connect: { id: permission.id } },
+                    },
+                });
+            }
+        }
+        console.log(`Added permissions to role: ${roleId}`);
+    }
     const features = {
-        basic: await prisma.planFeature.create({
-            data: {
+        basic: await prisma.planFeature.upsert({
+            where: { id: 'basic_features' },
+            update: {},
+            create: {
                 id: 'basic_features',
                 featureKey: 'basic_features',
                 featureName: 'Basic Features',
@@ -17,8 +102,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        bulkOps: await prisma.planFeature.create({
-            data: {
+        bulkOps: await prisma.planFeature.upsert({
+            where: { id: 'bulk_operations' },
+            update: {},
+            create: {
                 id: 'bulk_operations',
                 featureKey: 'bulk_operations',
                 featureName: 'Bulk Operations',
@@ -26,8 +113,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        basicReports: await prisma.planFeature.create({
-            data: {
+        basicReports: await prisma.planFeature.upsert({
+            where: { id: 'basic_reports' },
+            update: {},
+            create: {
                 id: 'basic_reports',
                 featureKey: 'basic_reports',
                 featureName: 'Basic Reports',
@@ -35,8 +124,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        advancedReports: await prisma.planFeature.create({
-            data: {
+        advancedReports: await prisma.planFeature.upsert({
+            where: { id: 'advanced_reports' },
+            update: {},
+            create: {
                 id: 'advanced_reports',
                 featureKey: 'advanced_reports',
                 featureName: 'Advanced Reports',
@@ -44,8 +135,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        dataExport: await prisma.planFeature.create({
-            data: {
+        dataExport: await prisma.planFeature.upsert({
+            where: { id: 'data_export' },
+            update: {},
+            create: {
                 id: 'data_export',
                 featureKey: 'data_export',
                 featureName: 'Data Export',
@@ -53,8 +146,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        customFields: await prisma.planFeature.create({
-            data: {
+        customFields: await prisma.planFeature.upsert({
+            where: { id: 'custom_fields' },
+            update: {},
+            create: {
                 id: 'custom_fields',
                 featureKey: 'custom_fields',
                 featureName: 'Custom Fields',
@@ -62,8 +157,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        apiAccess: await prisma.planFeature.create({
-            data: {
+        apiAccess: await prisma.planFeature.upsert({
+            where: { id: 'api_access' },
+            update: {},
+            create: {
                 id: 'api_access',
                 featureKey: 'api_access',
                 featureName: 'API Access',
@@ -71,8 +168,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        customBranding: await prisma.planFeature.create({
-            data: {
+        customBranding: await prisma.planFeature.upsert({
+            where: { id: 'custom_branding' },
+            update: {},
+            create: {
                 id: 'custom_branding',
                 featureKey: 'custom_branding',
                 featureName: 'Custom Branding',
@@ -80,8 +179,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        whiteLabel: await prisma.planFeature.create({
-            data: {
+        whiteLabel: await prisma.planFeature.upsert({
+            where: { id: 'white_label' },
+            update: {},
+            create: {
                 id: 'white_label',
                 featureKey: 'white_label',
                 featureName: 'White Label',
@@ -89,8 +190,10 @@ async function main() {
                 isEnabled: true,
             },
         }),
-        dedicatedSupport: await prisma.planFeature.create({
-            data: {
+        dedicatedSupport: await prisma.planFeature.upsert({
+            where: { id: 'dedicated_support' },
+            update: {},
+            create: {
                 id: 'dedicated_support',
                 featureKey: 'dedicated_support',
                 featureName: 'Dedicated Support',
@@ -99,8 +202,10 @@ async function main() {
             },
         }),
     };
-    const basicPlan = await prisma.plan.create({
-        data: {
+    const basicPlan = await prisma.plan.upsert({
+        where: { id: 'basic_plan' },
+        update: {},
+        create: {
             id: 'basic_plan',
             name: 'Basic',
             description: 'Perfect for small businesses getting started',
@@ -119,8 +224,10 @@ async function main() {
             },
         },
     });
-    const proPlan = await prisma.plan.create({
-        data: {
+    const proPlan = await prisma.plan.upsert({
+        where: { id: 'pro_plan' },
+        update: {},
+        create: {
             id: 'pro_plan',
             name: 'Pro',
             description: 'For growing businesses with advanced needs',
@@ -142,8 +249,10 @@ async function main() {
             },
         },
     });
-    const enterprisePlan = await prisma.plan.create({
-        data: {
+    const enterprisePlan = await prisma.plan.upsert({
+        where: { id: 'enterprise_plan' },
+        update: {},
+        create: {
             id: 'enterprise_plan',
             name: 'Enterprise',
             description: 'For large businesses with custom requirements',
@@ -160,10 +269,12 @@ async function main() {
             },
         },
     });
-    console.log('Successfully seeded plans and features');
-    console.log('- Basic Plan:', basicPlan.name);
-    console.log('- Pro Plan:', proPlan.name);
-    console.log('- Enterprise Plan:', enterprisePlan.name);
+    console.log('Seeding completed successfully!');
+    console.log({
+        basicPlan: basicPlan.id,
+        proPlan: proPlan.id,
+        enterprisePlan: enterprisePlan.id,
+    });
 }
 main()
     .catch((e) => {

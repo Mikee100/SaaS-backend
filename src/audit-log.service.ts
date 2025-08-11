@@ -5,8 +5,9 @@ import { PrismaService } from './prisma.service';
 export class AuditLogService {
   constructor(private prisma: PrismaService) {}
 
-  async log(userId: string | null, action: string, details: any, ip?: string) {
-    return this.prisma.auditLog.create({
+  async log(userId: string | null, action: string, details: any, ip?: string, prismaClient?: any) {
+    const prisma = prismaClient || this.prisma;
+    return prisma.auditLog.create({
       data: { userId, action, details, ip },
     });
   }

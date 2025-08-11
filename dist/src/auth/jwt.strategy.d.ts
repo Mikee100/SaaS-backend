@@ -5,11 +5,13 @@ declare const JwtStrategy_base: new (...args: [opt: import("passport-jwt").Strat
 };
 export declare class JwtStrategy extends JwtStrategy_base {
     private readonly configurationService;
+    private readonly logger;
     constructor(configurationService: ConfigurationService);
     onModuleInit(): Promise<void>;
-    validate(payload: any): Promise<{
+    validate(req: any, payload: any): Promise<{
         id: any;
         email: any;
+        name: any;
         tenantId: any;
         roles: any;
     }>;

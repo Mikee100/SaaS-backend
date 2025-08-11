@@ -121,42 +121,124 @@ let SalesService = class SalesService {
         };
     }
     async getSaleById(id, tenantId) {
-        console.log('getSaleById called with ID:', id, 'and tenantId:', tenantId);
-        const sale = await this.prisma.sale.findFirst({
-            where: { id, tenantId },
-            include: {
-                user: true,
-                items: { include: { product: true } },
-                mpesaTransaction: true,
-            },
-        });
-        console.log('Database query result:', sale);
-        if (!sale) {
-            console.log('Sale not found in database');
-            throw new common_1.NotFoundException('Sale not found');
+        if (!id || !tenantId) {
+            throw new common_1.BadRequestException('Sale ID and Tenant ID are required');
         }
-        console.log('Sale found, returning data');
+        try {
+            console.log(`Fetching sale with ID: ${id} for tenant: ${tenantId}`);
+            const sale = await this.prisma.sale.findUnique({
+                where: { id, tenantId },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                        },
+                    },
+                    items: {
+                        include: {
+                            product: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    price: true,
+                                },
+                            },
+                        },
+                    },
+                    mpesaTransactions: {
+                        select: {
+                            id: true,
+                            phoneNumber: true,
+                            amount: true,
+                            status: true,
+                            transactionId: true,
+                            responseDesc: true,
+                            createdAt: true,
+                        },
+                        orderBy: {
+                            createdAt: 'desc',
+                        },
+                        take: 1,
+                    },
+                    tenant: true,
+                    branch: true,
+                },
+            });
+            if (!sale) {
+                console.log(`Sale not found with ID: ${id} for tenant: ${tenantId}`);
+                throw new common_1.NotFoundException('Sale not found');
+            }
+            const result = {
+                ...sale,
+                saleId: sale.id,
+                cashier: sale.user ? {
+                    id: sale.user.id,
+                    name: sale.user.name,
+                    email: sale.user.email,
+                } : null,
+                mpesaTransaction: sale.mpesaTransactions?.[0] ? {
+                    phoneNumber: sale.mpesaTransactions[0].phoneNumber,
+                    amount: sale.mpesaTransactions[0].amount,
+                    status: sale.mpesaTransactions[0].status,
+                    mpesaReceipt: sale.mpesaTransactions[0].transactionId,
+                    message: sale.mpesaTransactions[0].responseDesc || '',
+                    transactionDate: sale.mpesaTransactions[0].createdAt,
+                } : null,
+                items: sale.items.map(item => ({
+                    ...item,
+                    name: item.product?.name || 'Unknown Product',
+                    price: item.price || 0,
+                    productId: item.product?.id || '',
+                })),
+            };
+            return result;
+        }
+        catch (error) {
+            console.error('Error in getSaleById:', error);
+            throw error;
+        }
+    }
+    async getSales(tenantId, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+        const [sales, total] = await Promise.all([
+            this.prisma.sale.findMany({
+                where: { tenantId },
+                include: {
+                    user: true,
+                    items: {
+                        include: {
+                            product: true,
+                        },
+                    },
+                    mpesaTransactions: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.prisma.sale.count({ where: { tenantId } }),
+        ]);
         return {
-            saleId: sale.id,
-            date: sale.createdAt,
-            total: sale.total,
-            paymentType: sale.paymentType,
-            customerName: sale.customerName,
-            customerPhone: sale.customerPhone,
-            cashier: sale.user ? sale.user.name : null,
-            mpesaTransaction: sale.mpesaTransaction ? {
-                phoneNumber: sale.mpesaTransaction.phoneNumber,
-                amount: sale.mpesaTransaction.amount,
-                status: sale.mpesaTransaction.status,
-                mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
-                message: sale.mpesaTransaction.message,
-            } : null,
-            items: sale.items.map(item => ({
-                productId: item.productId,
-                name: item.product?.name || '',
-                price: item.price,
-                quantity: item.quantity,
+            data: sales.map(sale => ({
+                ...sale,
+                cashier: sale.user ? sale.user.name : null,
+                mpesaTransaction: sale.mpesaTransactions?.[0] ? {
+                    phoneNumber: sale.mpesaTransactions[0].phoneNumber,
+                    amount: sale.mpesaTransactions[0].amount,
+                    status: sale.mpesaTransactions[0].status,
+                } : null,
+                items: sale.items.map(item => ({
+                    ...item,
+                    productName: item.product?.name || 'Unknown',
+                })),
             })),
+            meta: {
+                total,
+                page,
+                lastPage: Math.ceil(total / limit),
+            },
         };
     }
     async listSales(tenantId) {
@@ -166,7 +248,7 @@ let SalesService = class SalesService {
             include: {
                 user: true,
                 items: { include: { product: true } },
-                mpesaTransaction: true,
+                mpesaTransactions: true,
             },
         });
         return sales.map(sale => ({
@@ -177,12 +259,10 @@ let SalesService = class SalesService {
             customerName: sale.customerName,
             customerPhone: sale.customerPhone,
             cashier: sale.user ? sale.user.name : null,
-            mpesaTransaction: sale.mpesaTransaction ? {
-                phoneNumber: sale.mpesaTransaction.phoneNumber,
-                amount: sale.mpesaTransaction.amount,
-                status: sale.mpesaTransaction.status,
-                mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
-                message: sale.mpesaTransaction.message,
+            mpesaTransaction: sale.mpesaTransactions?.[0] ? {
+                phoneNumber: sale.mpesaTransactions[0].phoneNumber,
+                amount: sale.mpesaTransactions[0].amount,
+                status: sale.mpesaTransactions[0].status,
             } : null,
             items: sale.items.map(item => ({
                 productId: item.productId,
@@ -312,6 +392,59 @@ let SalesService = class SalesService {
             },
         });
         return tenant;
+    }
+    async getRecentSales(tenantId, limit = 10) {
+        try {
+            console.log(`Fetching recent sales for tenant: ${tenantId}`);
+            const recentSales = await this.prisma.sale.findMany({
+                where: { tenantId },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                select: {
+                    id: true,
+                    total: true,
+                    paymentType: true,
+                    customerName: true,
+                    customerPhone: true,
+                    createdAt: true,
+                    items: {
+                        select: {
+                            quantity: true,
+                            price: true,
+                            product: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+            return recentSales.map(sale => ({
+                id: sale.id,
+                total: sale.total,
+                paymentMethod: sale.paymentType,
+                customerName: sale.customerName,
+                customerPhone: sale.customerPhone,
+                date: sale.createdAt,
+                items: sale.items.map(item => ({
+                    productId: item.product.id,
+                    productName: item.product.name,
+                    quantity: item.quantity,
+                    price: item.price,
+                    total: item.quantity * item.price,
+                })),
+            }));
+        }
+        catch (error) {
+            console.error('Error fetching recent sales:', {
+                error: error.message,
+                stack: error.stack,
+                tenantId,
+            });
+            return [];
+        }
     }
 };
 exports.SalesService = SalesService;

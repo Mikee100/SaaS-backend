@@ -36,13 +36,16 @@ export declare class AdminController {
     }[]>;
     getAllTenants(): Promise<({
         _count: {
+            sales: number;
             users: number;
             products: number;
-            sales: number;
         };
     } & {
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -72,11 +75,12 @@ export declare class AdminController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -90,11 +94,8 @@ export declare class AdminController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
@@ -105,6 +106,9 @@ export declare class AdminController {
             role: {
                 id: string;
                 name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string | null;
                 description: string | null;
             };
         } & {
@@ -115,17 +119,17 @@ export declare class AdminController {
         })[];
     } & {
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
         password: string;
+        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
@@ -142,6 +146,7 @@ export declare class AdminController {
     getPlatformLogs(): Promise<({
         user: {
             id: string;
+            email: string;
             name: string;
             userRoles: ({
                 tenant: {
@@ -154,7 +159,6 @@ export declare class AdminController {
                 userId: string;
                 roleId: string;
             })[];
-            email: string;
         } | null;
     } & {
         id: string;
@@ -318,6 +322,9 @@ export declare class AdminController {
     createTenant(tenantData: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -347,11 +354,12 @@ export declare class AdminController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -365,15 +373,15 @@ export declare class AdminController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     deleteTenant(id: string): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -403,11 +411,12 @@ export declare class AdminController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -421,51 +430,51 @@ export declare class AdminController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getTenantById(id: string): Promise<{
         users: {
             id: string;
-            name: string;
             email: string;
-        }[];
-        products?: {
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            description: string | null;
-            sku: string;
-            price: number;
-            stock: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            branchId: string | null;
-        }[] | undefined;
+        }[];
         sales?: {
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
             total: number;
-            vatAmount: number | null;
-            branchId: string | null;
             paymentType: string;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
+            vatAmount: number | null;
+            branchId: string | null;
+        }[] | undefined;
+        products?: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            description: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         }[] | undefined;
         _count?: {
-            products: number;
             sales: number;
+            products: number;
         } | undefined;
         id?: string | undefined;
         name?: string | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
+        stripeCustomerId?: string | null | undefined;
         businessType?: string | undefined;
         contactEmail?: string | undefined;
         contactPhone?: string | null | undefined;
@@ -495,11 +504,12 @@ export declare class AdminController {
         currency?: string | null | undefined;
         timezone?: string | null | undefined;
         invoiceFooter?: string | null | undefined;
+        credits?: number | null | undefined;
         logoUrl?: string | null | undefined;
+        loginLogoUrl?: string | null | undefined;
         favicon?: string | null | undefined;
         receiptLogo?: string | null | undefined;
         watermark?: string | null | undefined;
-        loginLogoUrl?: string | null | undefined;
         dashboardLogoUrl?: string | null | undefined;
         emailLogoUrl?: string | null | undefined;
         mobileLogoUrl?: string | null | undefined;
@@ -513,11 +523,8 @@ export declare class AdminController {
         rateLimit?: number | null | undefined;
         customIntegrations?: boolean | undefined;
         ssoEnabled?: boolean | undefined;
-        auditLogs?: boolean | undefined;
+        auditLogsEnabled?: boolean | undefined;
         backupRestore?: boolean | undefined;
-        stripeCustomerId?: string | null | undefined;
-        createdAt?: Date | undefined;
-        updatedAt?: Date | undefined;
     }>;
     getTenantAnalytics(timeRange?: string): Promise<any[]>;
     getTenantComparison(): Promise<{

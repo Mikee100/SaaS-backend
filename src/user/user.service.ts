@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
@@ -14,9 +14,11 @@ export class UserService {
         name: data.name,
         email: data.email,
         password: hashedPassword,
-        // ...other fields
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
+
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: data.role }, ip);
     }
@@ -29,6 +31,8 @@ export class UserService {
           userId: user.id,
           roleId: role.id,
           tenantId: data.tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
     }
@@ -36,14 +40,65 @@ export class UserService {
     return user;
   }
 
-  async findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+  async findByEmail(email: string, include?: any) {
+    try {
+      const defaultInclude = {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true
+                  }
+                }
+              }
+            },
+            tenant: true
+          }
+        },
+        userPermissions: {
+          include: {
+            permissionRef: true
+          }
+        }
+      };
+
+      const finalInclude = include || defaultInclude;
+      
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+        include: finalInclude
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      // Ensure userRoles exists and is an array
+      if (user.userRoles && !Array.isArray(user.userRoles)) {
+        user.userRoles = [];
+      } else if (!user.userRoles) {
+        user.userRoles = [];
+      }
+
+      // Filter out any invalid user roles
+      user.userRoles = user.userRoles.filter(ur => ur && ur.role);
+
+      return user;
+    } catch (error) {
+      console.error(`Error in findByEmail for ${email}:`, error);
+      throw error;
+    }
   }
 
   async getUserRoles(userId: string) {
     return this.prisma.userRole.findMany({
       where: { userId },
-      include: { role: true },
+      include: { 
+        role: true,
+        tenant: true
+      },
     });
   }
 
@@ -56,125 +111,228 @@ export class UserService {
       },
       include: {
         userRoles: {
-          include: { role: true }
+          include: { 
+            role: true,
+            tenant: true
+          }
         },
-        permissions: {
-          include: { permission: true }
+        userPermissions: {
+          include: { 
+            permissionRef: true 
+          }
         }
       }
     });
   }
 
   async updateUser(id: string, data: { name?: string; role?: string }, tenantId: string, actorUserId?: string, ip?: string) {
-    const result = await this.prisma.user.updateMany({
-      where: {
-        id,
-        userRoles: {
-          some: { tenantId }
+    // If role is being updated, handle role assignment
+    if (data.role) {
+      const role = await this.prisma.role.findUnique({ where: { name: data.role } });
+      if (!role) {
+        throw new NotFoundException(`Role '${data.role}' not found`);
+      }
+
+      // Update or create user role
+      await this.prisma.userRole.upsert({
+        where: {
+          userId_tenantId: {
+            userId: id,
+            tenantId: tenantId
+          }
+        },
+        update: {
+          roleId: role.id,
+          updatedAt: new Date()
+        },
+        create: {
+          userId: id,
+          roleId: role.id,
+          tenantId: tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
-      },
-      data,
-    });
+      });
+
+      // Remove role from data to prevent updating it directly
+      delete data.role;
+    }
+
+    // Update user data if there's anything left to update
+    let result;
+    if (Object.keys(data).length > 0) {
+      result = await this.prisma.user.updateMany({
+        where: {
+          id,
+          userRoles: {
+            some: { tenantId }
+          }
+        },
+        data: {
+          ...data,
+          updatedAt: new Date()
+        },
+      });
+    }
+
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'user_updated', { userId: id, updatedFields: data }, ip);
     }
-    return result;
+    
+    return result || { count: 1 }; // Return a result object similar to updateMany
   }
 
-  async updateUserPermissions(userId: string, permissions: Array<{ key: string; note?: string }>, grantedBy?: string, ip?: string) {
+  async updateUserPermissions(userId: string, permissions: Array<{ name: string; note?: string }>, grantedBy?: string, ip?: string) {
     // Get all permissions from the Permission table
-    const keys = permissions.map(p => p.key);
-    const allPerms = await this.prisma.permission.findMany({ where: { key: { in: keys } } });
+    const permissionNames = permissions.map(p => p.name);
+    const allPerms = await this.prisma.permission.findMany({ 
+      where: { name: { in: permissionNames } } 
+    });
+    
     // Remove all current permissions for the user
-    await this.prisma.userPermission.deleteMany({ where: { userId } });
+    await this.prisma.userPermission.deleteMany({ 
+      where: { userId } 
+    });
+    
     // Add new permissions with notes, grantedBy, grantedAt
     await Promise.all(
       permissions.map(async (p) => {
-        const perm = allPerms.find(ap => ap.key === p.key);
+        const perm = allPerms.find(ap => ap.name === p.name);
         if (perm) {
           await this.prisma.userPermission.create({
             data: {
               userId,
-              permissionId: perm.id,
-              grantedBy,
+              permission: perm.name,
+              grantedBy: grantedBy || 'system',
               grantedAt: new Date(),
               note: p.note || null,
+              tenantId: null, // Global permissions have null tenantId
+              createdAt: new Date(),
+              updatedAt: new Date()
             },
           });
         }
       })
     );
+    
     if (this.auditLogService) {
       await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions }, ip);
     }
+    
     // Return updated user with permissions
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: { permissions: { include: { permission: true } } },
+      include: { 
+        userPermissions: { 
+          include: { 
+            permissionRef: true 
+          } 
+        } 
+      },
     });
   }
 
-  async updateUserPermissionsByTenant(userId: string, permissions: Array<{ key: string; note?: string }>, tenantId: string, grantedBy?: string, ip?: string) {
+  async updateUserPermissionsByTenant(userId: string, permissions: Array<{ name: string; note?: string }>, tenantId: string, grantedBy?: string, ip?: string) {
     // First verify the user belongs to the tenant
     const userInTenant = await this.prisma.userRole.findFirst({
       where: { userId, tenantId }
     });
     
     if (!userInTenant) {
-      throw new Error('User not found in tenant');
+      throw new NotFoundException('User not found in tenant');
     }
     
     // Get all permissions from the Permission table
-    const keys = permissions.map(p => p.key);
-    const allPerms = await this.prisma.permission.findMany({ where: { key: { in: keys } } });
-    // Remove all current permissions for the user
-    await this.prisma.userPermission.deleteMany({ where: { userId } });
+    const permissionNames = permissions.map(p => p.name);
+    const allPerms = await this.prisma.permission.findMany({ 
+      where: { name: { in: permissionNames } } 
+    });
+    
+    // Remove all current permissions for the user in this tenant
+    await this.prisma.userPermission.deleteMany({ 
+      where: { 
+        userId,
+        tenantId
+      } 
+    });
+    
     // Add new permissions with notes, grantedBy, grantedAt
     await Promise.all(
       permissions.map(async (p) => {
-        const perm = allPerms.find(ap => ap.key === p.key);
+        const perm = allPerms.find(ap => ap.name === p.name);
         if (perm) {
           await this.prisma.userPermission.create({
             data: {
               userId,
-              permissionId: perm.id,
-              grantedBy,
+              permission: perm.name,
+              grantedBy: grantedBy || 'system',
               grantedAt: new Date(),
               note: p.note || null,
+              tenantId,
+              createdAt: new Date(),
+              updatedAt: new Date()
             },
           });
         }
       })
     );
+    
     if (this.auditLogService) {
       await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions, tenantId }, ip);
     }
+    
     // Return updated user with permissions
     return this.prisma.user.findUnique({
       where: { id: userId },
-      include: { permissions: { include: { permission: true } } },
+      include: { 
+        userPermissions: { 
+          where: { tenantId },
+          include: { 
+            permissionRef: true 
+          } 
+        } 
+      },
     });
   }
 
   async deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string) {
-    const result = await this.prisma.user.deleteMany({
+    // First remove user roles for this tenant
+    await this.prisma.userRole.deleteMany({
       where: {
-        id,
-        userRoles: {
-          some: { tenantId }
-        }
-      },
+        userId: id,
+        tenantId
+      }
     });
-    if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'user_deleted', { userId: id }, ip);
+
+    // Check if user has any remaining roles
+    const remainingRoles = await this.prisma.userRole.count({
+      where: { userId: id }
+    });
+
+    // If no remaining roles, delete the user
+    let result;
+    if (remainingRoles === 0) {
+      result = await this.prisma.user.delete({
+        where: { id },
+      });
+    } else {
+      result = { id };
     }
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'user_deleted', { userId: id, tenantId }, ip);
+    }
+    
     return result;
   }
 
   async getUserPermissions(userId: string) {
     return this.prisma.userPermission.findMany({
       where: { userId },
-      include: { permission: true },
+      include: { 
+        permissionRef: true,
+        tenant: true
+      },
     });
   }
 
@@ -185,26 +343,41 @@ export class UserService {
     });
     
     if (!userInTenant) {
-      throw new Error('User not found in tenant');
+      throw new NotFoundException('User not found in tenant');
     }
     
     return this.prisma.userPermission.findMany({
-      where: { userId },
-      include: { permission: true },
+      where: { 
+        userId,
+        OR: [
+          { tenantId },
+          { tenantId: null } // Include global permissions
+        ]
+      },
+      include: { 
+        permissionRef: true,
+        tenant: true
+      },
     });
   }
 
   async updateUserByEmail(email: string, data: any) {
     return this.prisma.user.update({
       where: { email },
-      data,
+      data: {
+        ...data,
+        updatedAt: new Date()
+      },
     });
   }
 
   async updateUserPreferences(userId: string, data: { notificationPreferences?: any, language?: string, region?: string }) {
     return this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: {
+        ...data,
+        updatedAt: new Date()
+      },
     });
   }
 
@@ -219,47 +392,69 @@ export class UserService {
     });
 
     if (!user) {
-      throw new Error('Invalid or expired reset token');
+      throw new NotFoundException('Invalid or expired reset token');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     
-    await this.prisma.user.update({
+    return this.prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
         resetPasswordToken: null,
         resetPasswordExpires: null,
+        updatedAt: new Date()
       },
     });
-
-    return user;
   }
 
   async getEffectivePermissions(userId: string, tenantId: string): Promise<string[]> {
-    // 1. Direct user permissions
-    const direct = await this.prisma.userPermission.findMany({
-      where: { userId },
-      include: { permission: true }
+    // 1. Get user's direct permissions (both global and tenant-specific)
+    const directPermissions = await this.prisma.userPermission.findMany({
+      where: {
+        userId,
+        OR: [
+          { tenantId: null }, // Global permissions
+          { tenantId } // Tenant-specific permissions
+        ]
+      },
+      include: { 
+        permissionRef: true 
+      }
     });
-    const directPerms = direct.map((p) => p.permission.key);
 
-    // 2. Permissions via roles
-    const roles = await this.prisma.userRole.findMany({
-      where: { userId, tenantId },
+    // 2. Get permissions from user's roles in this tenant
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { 
+        userId, 
+        tenantId 
+      },
       include: {
         role: {
           include: {
-            rolePermissions: { include: { permission: true } }
+            rolePermissions: {
+              include: {
+                permission: true
+              }
+            }
           }
         }
       }
     });
-    const rolePerms = roles.flatMap((ur) =>
-      ur.role.rolePermissions.map((rp) => rp.permission.key)
+
+    // Extract permission names from direct permissions
+    const directPerms = directPermissions
+      .filter(p => p.permissionRef)
+      .map(p => p.permissionRef.name);
+
+    // Extract permission names from role permissions
+    const rolePerms = userRoles.flatMap(ur => 
+      ur.role.rolePermissions
+        .filter(rp => rp.permission)
+        .map(rp => rp.permission.name)
     );
 
-    // Combine and dedupe
+    // Combine, dedupe, and return
     return Array.from(new Set([...directPerms, ...rolePerms]));
   }
 }

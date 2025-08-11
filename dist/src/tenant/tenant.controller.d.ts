@@ -3,10 +3,14 @@ import { LogoService } from './logo.service';
 export declare class TenantController {
     private readonly tenantService;
     private readonly logoService;
+    private readonly logger;
     constructor(tenantService: TenantService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -36,11 +40,12 @@ export declare class TenantController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -54,15 +59,15 @@ export declare class TenantController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -92,11 +97,12 @@ export declare class TenantController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -110,11 +116,8 @@ export declare class TenantController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -147,6 +150,9 @@ export declare class TenantController {
     updateBranding(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -176,11 +182,12 @@ export declare class TenantController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -194,11 +201,8 @@ export declare class TenantController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -209,6 +213,9 @@ export declare class TenantController {
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -238,11 +245,12 @@ export declare class TenantController {
         currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
+        credits: number | null;
         logoUrl: string | null;
+        loginLogoUrl: string | null;
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
-        loginLogoUrl: string | null;
         dashboardLogoUrl: string | null;
         emailLogoUrl: string | null;
         mobileLogoUrl: string | null;
@@ -256,14 +264,14 @@ export declare class TenantController {
         rateLimit: number | null;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        auditLogs: boolean;
+        auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;
     }>;
-    createTenant(dto: any): Promise<any>;
+    createTenant(createTenantDto: any): Promise<{
+        success: boolean;
+        data: any;
+    }>;
 }

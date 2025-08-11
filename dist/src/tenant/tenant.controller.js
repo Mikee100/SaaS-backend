@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var TenantController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantController = void 0;
 const common_1 = require("@nestjs/common");
@@ -20,9 +21,11 @@ const multer_1 = require("multer");
 const path = require("path");
 const tenant_service_1 = require("./tenant.service");
 const logo_service_1 = require("./logo.service");
-let TenantController = class TenantController {
+const common_2 = require("@nestjs/common");
+let TenantController = TenantController_1 = class TenantController {
     tenantService;
     logoService;
+    logger = new common_2.Logger(TenantController_1.name);
     constructor(tenantService, logoService) {
         this.tenantService = tenantService;
         this.logoService = logoService;
@@ -123,18 +126,38 @@ let TenantController = class TenantController {
         await this.tenantService.updateTenant(tenantId, { apiKey });
         return { apiKey };
     }
-    async createTenant(dto) {
-        const { ownerName, ownerEmail, ownerPassword, ownerRole = 'owner', ...tenantData } = dto;
-        const tenant = await this.tenantService.createTenant(tenantData);
-        if (ownerName && ownerEmail && ownerPassword) {
-            await this.tenantService.createOwnerUser({
+    async createTenant(createTenantDto) {
+        this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
+        console.log('[TenantController] Incoming registration payload:', JSON.stringify(createTenantDto));
+        try {
+            console.log('[TenantController] Starting tenant creation process...');
+            const { ownerName, ownerEmail, ownerPassword, ownerRole = 'owner', ...tenantData } = createTenantDto;
+            if (!ownerName || !ownerEmail || !ownerPassword) {
+                throw new common_1.BadRequestException('Missing required owner information');
+            }
+            const tenant = await this.tenantService.createTenant({
+                ...tenantData,
+                ownerName,
+                ownerEmail,
+                ownerPassword,
+                ownerRole,
+            });
+            console.log('[TenantController] Tenant creation result:', tenant);
+            const ownerUser = await this.tenantService.createOwnerUser({
                 name: ownerName,
                 email: ownerEmail,
                 password: ownerPassword,
                 tenantId: tenant.id,
+                role: ownerRole || 'admin',
             });
+            console.log('[TenantController] Owner user creation result:', ownerUser);
+            return { success: true, data: tenant };
         }
-        return tenant;
+        catch (error) {
+            this.logger.error('Error creating tenant:', error);
+            console.error('[TenantController] Error during tenant registration:', error);
+            throw error;
+        }
     }
 };
 exports.TenantController = TenantController;
@@ -261,7 +284,7 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "createTenant", null);
-exports.TenantController = TenantController = __decorate([
+exports.TenantController = TenantController = TenantController_1 = __decorate([
     (0, common_1.Controller)('tenant'),
     __metadata("design:paramtypes", [tenant_service_1.TenantService,
         logo_service_1.LogoService])

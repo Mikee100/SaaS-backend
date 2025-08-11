@@ -34,35 +34,41 @@ let AuthService = class AuthService {
         return null;
     }
     async login(email, password, ip) {
-        const user = await this.userService.findByEmail(email);
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            if (this.auditLogService) {
-                await this.auditLogService.log(null, 'login_failed', { email }, ip);
+        try {
+            const user = await this.userService.findByEmail(email);
+            if (!user || !(await bcrypt.compare(password, user.password))) {
+                if (this.auditLogService) {
+                    await this.auditLogService.log(null, 'login_failed', { email }, ip);
+                }
+                throw new common_1.UnauthorizedException('Invalid credentials');
             }
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        const userRoles = await this.userService.getUserRoles(user.id);
-        if (userRoles.length === 0) {
-            throw new common_1.UnauthorizedException('User has no assigned roles or tenant.');
-        }
-        const payload = {
-            email: user.email,
-            sub: user.id,
-            roles: userRoles.map(ur => ur.role.name),
-            tenantId: userRoles[0].tenantId,
-        };
-        if (this.auditLogService) {
-            await this.auditLogService.log(user.id, 'login_success', { email: user.email }, ip);
-        }
-        return {
-            access_token: this.jwtService.sign(payload),
-            user: {
-                id: user.id,
+            const userRoles = await this.userService.getUserRoles(user.id);
+            const payload = {
+                sub: user.id,
                 email: user.email,
                 name: user.name,
-                isSuperadmin: user.isSuperadmin,
-            },
-        };
+                tenantId: userRoles.length > 0 ? userRoles[0].tenantId : null,
+                roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+            };
+            const accessToken = this.jwtService.sign(payload);
+            if (this.auditLogService) {
+                await this.auditLogService.log(user.id, 'login_success', { email: user.email, tenantId: payload.tenantId }, ip);
+            }
+            return {
+                access_token: accessToken,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    tenantId: payload.tenantId,
+                    roles: payload.roles
+                }
+            };
+        }
+        catch (error) {
+            console.error('Login error:', error);
+            throw error;
+        }
     }
     async forgotPassword(email) {
         const user = await this.userService.findByEmail(email);

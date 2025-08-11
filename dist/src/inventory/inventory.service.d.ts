@@ -12,15 +12,15 @@ export declare class InventoryService {
         product: {
             id: string;
             name: string;
-            description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            sku: string;
-            stock: number;
             branchId: string | null;
+            description: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;

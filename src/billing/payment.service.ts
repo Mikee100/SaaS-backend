@@ -96,12 +96,10 @@ export class PaymentService {
         data: {
           tenantId: subscription.tenantId,
           subscriptionId: subscription.id,
-          stripeInvoiceId: stripeInvoice.id,
-          amount,
-          currency,
+          number: stripeInvoice.number || `INV-${Date.now()}`,
+          amount: amount / 100, // Convert from cents to dollars if needed
           status: 'draft',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-          description: `Invoice for ${subscription.plan.name} plan`,
         },
       });
 

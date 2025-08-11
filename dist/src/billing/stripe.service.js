@@ -230,11 +230,17 @@ let StripeService = StripeService_1 = class StripeService {
                     tenantId,
                     planId,
                     stripeSubscriptionId: subscription.id,
+                    stripeCustomerId: subscription.customer,
                     stripePriceId: priceId,
+                    stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
                     status: subscription.status,
                     currentPeriodStart: new Date(subscription.current_period_start * 1000),
                     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
                     cancelAtPeriodEnd: subscription.cancel_at_period_end,
+                    canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+                    trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
+                    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+                    userId: userId || 'system',
                 },
             });
             await this.auditLogService.log(userId || 'system', 'subscription_created', {
@@ -262,6 +268,9 @@ let StripeService = StripeService_1 = class StripeService {
                     currentPeriodStart: new Date(subscription.current_period_start * 1000),
                     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
                     cancelAtPeriodEnd: subscription.cancel_at_period_end,
+                    canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+                    trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
+                    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
                 },
             });
             await this.auditLogService.log(userId || 'system', 'subscription_updated', {
@@ -317,13 +326,13 @@ let StripeService = StripeService_1 = class StripeService {
             await this.prisma.invoice.create({
                 data: {
                     id: invoice.id,
+                    number: invoice.number || `INV-${Date.now()}`,
                     tenantId,
-                    stripeInvoiceId: invoice.id,
-                    amount: invoice.amount_paid,
-                    currency: invoice.currency,
-                    status: invoice.status || 'paid',
-                    dueDate: new Date(invoice.due_date * 1000),
-                    paidAt: new Date(),
+                    amount: invoice.amount_paid / 100,
+                    status: invoice.status === 'paid' ? 'paid' : 'open',
+                    dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+                    paidAt: invoice.status === 'paid' ? new Date() : null,
+                    subscriptionId: invoice.subscription ?? invoice.subscription_id ?? null,
                 },
             });
             await this.auditLogService.log(userId || 'system', 'payment_succeeded', {

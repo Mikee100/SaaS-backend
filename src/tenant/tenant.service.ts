@@ -1,90 +1,176 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
 
 @Injectable()
 export class TenantService {
-  constructor(private prisma: PrismaService, private userService: UserService) {}
+  private readonly logger = new Logger(TenantService.name);
+
+  constructor(
+    private prisma: PrismaService, 
+    private userService: UserService
+  ) {}
 
   async createTenant(data: {
-  name: string;
-  businessType: string;
-  contactEmail: string;
-  contactPhone?: string;
-  businessCategory?: string;
-  businessSubcategory?: string;
-  primaryProducts?: any;
-  secondaryProducts?: any;
-  businessDescription?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
-  latitude?: number;
-  longitude?: number;
-  foundedYear?: number;
-  employeeCount?: string;
-  annualRevenue?: string;
-  businessHours?: any;
-  website?: string;
-  socialMedia?: any;
-  kraPin?: string;
-  vatNumber?: string;
-  etimsQrUrl?: string;
-  businessLicense?: string;
-  taxId?: string;
-  currency?: string;
-  timezone?: string;
-  invoiceFooter?: string;
-  logoUrl?: string;
-  favicon?: string;
-  receiptLogo?: string;
-  watermark?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  customDomain?: string;
-  whiteLabel?: boolean;
-  apiKey?: string;
-  webhookUrl?: string;
-  rateLimit?: number;
-  customIntegrations?: boolean;
-  ssoEnabled?: boolean;
-  auditLogs?: boolean;
-  backupRestore?: boolean;
-  stripeCustomerId?: string;
+    name: string;
+    businessType: string;
+    contactEmail: string;
+    contactPhone?: string;
+    businessCategory?: string;
+    businessSubcategory?: string;
+    primaryProducts?: any;
+    secondaryProducts?: any;
+    businessDescription?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    latitude?: number;
+    longitude?: number;
+    foundedYear?: number;
+    employeeCount?: string;
+    annualRevenue?: string;
+    businessHours?: any;
+    website?: string;
+    socialMedia?: any;
+    kraPin?: string;
+    vatNumber?: string;
+    etimsQrUrl?: string;
+    businessLicense?: string;
+    taxId?: string;
+    currency?: string;
+    timezone?: string;
+    invoiceFooter?: string;
+    logoUrl?: string;
+    favicon?: string;
+    receiptLogo?: string;
+    watermark?: string;
+    primaryColor?: string;
+    secondaryColor?: string;
+    customDomain?: string;
+    whiteLabel?: boolean;
+    apiKey?: string;
+    webhookUrl?: string;
+    rateLimit?: number;
+    stripeCustomerId?: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  ownerRole?: string;
   }): Promise<any> {
-    const defaultTenantData = {
-      currency: 'KES',
-      timezone: 'Africa/Nairobi',
-      whiteLabel: false,
-      customIntegrations: false,
-      ssoEnabled: false,
-      auditLogs: false,
-      backupRestore: false,
-      ...data
-    };
-
-    // Only include scalar fields from the schema, not relations
-    const scalarFields = [
-      'name', 'businessType', 'contactEmail', 'contactPhone',
-      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
-      'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
-      'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
-      'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-      'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
-      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
-      'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-      'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
+  // Input validation with detailed error messages
+  console.log('[TenantService] createTenant called with:', JSON.stringify(data));
+    const requiredFields = [
+      { key: 'name', label: 'Business Name' },
+      { key: 'businessType', label: 'Business Type' },
+      { key: 'contactEmail', label: 'Contact Email' },
+      { key: 'ownerName', label: 'Owner Name' },
+      { key: 'ownerEmail', label: 'Owner Email' },
+      { key: 'ownerPassword', label: 'Owner Password' },
     ];
+
+    const missingFields = requiredFields
+      .filter(({ key }) => !data[key as keyof typeof data])
+      .map(({ label }) => label);
+
+    if (missingFields.length > 0) {
+      const errorMessage = `Missing required fields: ${missingFields.join(', ')}`;
+      this.logger.error(`Failed to create tenant: ${errorMessage}`, {
+        receivedData: Object.keys(data),
+        missingFields,
+        timestamp: new Date().toISOString(),
+      });
+      console.error('[TenantService] Validation failed:', errorMessage);
+      throw new BadRequestException(errorMessage);
+    }
+
+    // Log the incoming request data (excluding sensitive information)
+    const loggableData = { ...data };
+    if (loggableData.ownerPassword) {
+      loggableData.ownerPassword = '***';
+    }
+    
+    this.logger.debug('Creating tenant with data:', {
+      ...loggableData,
+      timestamp: new Date().toISOString(),
+    });
+    console.log('[TenantService] Creating tenant with data:', loggableData);
+
+    // Only include fields that exist in the Tenant model
+    const validTenantFields = [
+      'name', 'businessType', 'contactEmail', 'contactPhone',
+      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 
+      'businessDescription', 'address', 'city', 'state', 'country', 'postalCode', 
+      'latitude', 'longitude', 'foundedYear', 'employeeCount', 'annualRevenue', 
+      'businessHours', 'website', 'socialMedia', 'kraPin', 'vatNumber', 'etimsQrUrl', 
+      'businessLicense', 'taxId', 'currency', 'timezone', 'invoiceFooter', 'logoUrl', 
+      'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor', 
+      'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
+    ];
+
     const createData: any = {};
-    for (const key of scalarFields) {
-      if (defaultTenantData[key] !== undefined) {
-        createData[key] = defaultTenantData[key];
+    
+    // Only include fields that are defined in the input and are valid tenant fields
+    for (const key of validTenantFields) {
+      if (data[key as keyof typeof data] !== undefined && data[key as keyof typeof data] !== null) {
+        createData[key] = data[key as keyof typeof data];
       }
     }
-    return this.prisma.tenant.create({ 
-      data: createData 
+
+    // Wrap in a transaction to ensure both tenant and user are created or none
+    return await this.prisma.$transaction(async (prisma) => {
+      try {
+        // Log the data being used to create the tenant
+        this.logger.debug('Creating tenant with prisma data:', {
+          tenantData: createData,
+          timestamp: new Date().toISOString(),
+        });
+        console.log('[TenantService] Creating tenant in DB with:', createData);
+        // Create tenant
+        const tenant = await prisma.tenant.create({ 
+          data: createData 
+        });
+        console.log('[TenantService] Tenant created:', tenant);
+
+        this.logger.debug('Tenant created successfully, creating owner user', {
+          tenantId: tenant.id,
+          ownerEmail: data.ownerEmail,
+          timestamp: new Date().toISOString(),
+        });
+        // Create owner user using the transaction's prisma client
+        const ownerUser = await this.userService.createUser({
+          name: data.ownerName,
+          email: data.ownerEmail,
+          password: data.ownerPassword,
+          role: data.ownerRole || 'admin',
+          tenantId: tenant.id,
+          prismaClient: prisma,
+        });
+        console.log('[TenantService] Owner user created:', ownerUser);
+
+        this.logger.debug('Owner user created successfully', {
+          tenantId: tenant.id,
+          ownerEmail: data.ownerEmail,
+          timestamp: new Date().toISOString(),
+        });
+
+        return tenant;
+      } catch (error) {
+        this.logger.error('Error in tenant creation transaction:', {
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString(),
+        });
+        console.error('[TenantService] Error in transaction:', error);
+        throw new BadRequestException(
+          error.message || 'Failed to create tenant and owner user',
+          {
+            cause: error,
+            description: error.response?.message || error.toString(),
+          }
+        );
+      }
     });
   }
 
@@ -93,54 +179,68 @@ export class TenantService {
   }
 
   async getTenantById(tenantId: string) {
-    return this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    return this.prisma.tenant.findUnique({ 
+      where: { id: tenantId } 
+    });
   }
 
   async getTenant(tenantId: string) {
-    return this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    return this.prisma.tenant.findUnique({ 
+      where: { id: tenantId } 
+    });
   }
 
   async updateTenant(tenantId: string, dto: any) {
-    // Only allow updating specific fields
-    const allowedFields = [
+    // Only include valid fields in the update
+    const validTenantFields = [
       'name', 'businessType', 'contactEmail', 'contactPhone',
-      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
-      'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
-      'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
-      'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-      'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
-      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
-      'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-      'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
+      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 
+      'businessDescription', 'address', 'city', 'state', 'country', 'postalCode', 
+      'latitude', 'longitude', 'foundedYear', 'employeeCount', 'annualRevenue', 
+      'businessHours', 'website', 'socialMedia', 'kraPin', 'vatNumber', 'etimsQrUrl', 
+      'businessLicense', 'taxId', 'currency', 'timezone', 'invoiceFooter', 'logoUrl', 
+      'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor', 
+      'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
     ];
-    const data: any = {};
-    for (const key of allowedFields) {
-      if (dto[key] !== undefined) {
-        // Convert specific fields to proper types
-        if (key === 'foundedYear' && dto[key] !== null) {
-          data[key] = parseInt(dto[key], 10);
-        } else if (key === 'latitude' && dto[key] !== null) {
-          data[key] = parseFloat(dto[key]);
-        } else if (key === 'longitude' && dto[key] !== null) {
-          data[key] = parseFloat(dto[key]);
-        } else if (key === 'rateLimit' && dto[key] !== null) {
-          data[key] = parseInt(dto[key], 10);
-        } else {
-          data[key] = dto[key];
-        }
+
+    const updateData: any = {};
+    
+    // Only include fields that are defined in the DTO and are valid tenant fields
+    for (const key of validTenantFields) {
+      if (dto[key] !== undefined && dto[key] !== null) {
+        updateData[key] = dto[key];
       }
     }
-    return this.prisma.tenant.update({ where: { id: tenantId }, data });
+
+    try {
+      return await this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: updateData,
+      });
+    } catch (error) {
+      this.logger.error(`Error updating tenant ${tenantId}:`, error);
+      throw new BadRequestException('Failed to update tenant');
+    }
   }
 
-  async createOwnerUser(data: { name: string; email: string; password: string; tenantId: string }) {
-    // Use UserService to create user with role 'owner'
-    return this.userService.createUser({
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      role: 'owner',
-      tenantId: data.tenantId,
-    });
+  async createOwnerUser(data: { 
+    name: string; 
+    email: string; 
+    password: string; 
+    tenantId: string; 
+    role?: string;
+  }) {
+    try {
+      return await this.userService.createUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        tenantId: data.tenantId,
+        role: data.role || 'admin',
+      });
+    } catch (error) {
+      this.logger.error(`Error creating owner user for tenant ${data.tenantId}:`, error);
+      throw new BadRequestException('Failed to create owner user');
+    }
   }
 }
