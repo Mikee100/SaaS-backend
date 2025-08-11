@@ -3,261 +3,183 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Upsert 3 plans
-  await prisma.plan.upsert({
-    where: { id: 'basic-plan' },
-    update: {
-      name: 'Basic',
-      description: 'For small businesses getting started',
-      price: 0,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Up to 3 users',
-        'Up to 100 products',
-        'Basic sales reports',
-      ],
-      maxUsers: 3,
-      maxProducts: 100,
-      maxSalesPerMonth: 200,
-      analyticsEnabled: false,
-      advancedReports: false,
-      prioritySupport: false,
-      customBranding: false,
-      apiAccess: false,
-      // New granular features
-      bulkOperations: false,
-      dataExport: false,
-      customFields: false,
-      advancedSecurity: false,
-      whiteLabel: false,
-      dedicatedSupport: false,
-      ssoEnabled: false,
-      auditLogs: false,
-      backupRestore: false,
-      customIntegrations: false,
-    },
-    create: {
-      id: 'basic-plan',
-      name: 'Basic',
-      description: 'For small businesses getting started',
-      price: 0,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Up to 3 users',
-        'Up to 100 products',
-        'Basic sales reports',
-      ],
-      maxUsers: 3,
-      maxProducts: 100,
-      maxSalesPerMonth: 200,
-      analyticsEnabled: false,
-      advancedReports: false,
-      prioritySupport: false,
-      customBranding: false,
-      apiAccess: false,
-      // New granular features
-      bulkOperations: false,
-      dataExport: false,
-      customFields: false,
-      advancedSecurity: false,
-      whiteLabel: false,
-      dedicatedSupport: false,
-      ssoEnabled: false,
-      auditLogs: false,
-      backupRestore: false,
-      customIntegrations: false,
-    },
-  });
-  await prisma.plan.upsert({
-    where: { id: 'pro-plan' },
-    update: {
-      name: 'Pro',
-      description: 'For growing businesses',
-      price: 29,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Up to 10 users',
-        'Up to 1,000 products',
-        'Advanced sales reports',
-        'Analytics dashboard',
-        'Email support',
-      ],
-      maxUsers: 10,
-      maxProducts: 1000,
-      maxSalesPerMonth: 2000,
-      analyticsEnabled: true,
-      advancedReports: true,
-      prioritySupport: false,
-      customBranding: false,
-      apiAccess: false,
-      // New granular features
-      bulkOperations: true,
-      dataExport: true,
-      customFields: true,
-      advancedSecurity: false,
-      whiteLabel: false,
-      dedicatedSupport: false,
-      ssoEnabled: false,
-      auditLogs: false,
-      backupRestore: false,
-      customIntegrations: false,
-    },
-    create: {
-      id: 'pro-plan',
-      name: 'Pro',
-      description: 'For growing businesses',
-      price: 29,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Up to 10 users',
-        'Up to 1,000 products',
-        'Advanced sales reports',
-        'Analytics dashboard',
-        'Email support',
-      ],
-      maxUsers: 10,
-      maxProducts: 1000,
-      maxSalesPerMonth: 2000,
-      analyticsEnabled: true,
-      advancedReports: true,
-      prioritySupport: false,
-      customBranding: false,
-      apiAccess: false,
-      // New granular features
-      bulkOperations: true,
-      dataExport: true,
-      customFields: true,
-      advancedSecurity: false,
-      whiteLabel: false,
-      dedicatedSupport: false,
-      ssoEnabled: false,
-      auditLogs: false,
-      backupRestore: false,
-      customIntegrations: false,
-    },
-  });
-  await prisma.plan.upsert({
-    where: { id: 'enterprise-plan' },
-    update: {
-      name: 'Enterprise',
-      description: 'For large or custom businesses',
-      price: 99,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Unlimited users',
-        'Unlimited products',
-        'All reports',
-        'Analytics dashboard',
-        'Priority support',
-        'Custom branding',
-        'API access',
-      ],
-      maxUsers: null,
-      maxProducts: null,
-      maxSalesPerMonth: null,
-      analyticsEnabled: true,
-      advancedReports: true,
-      prioritySupport: true,
-      customBranding: true,
-      apiAccess: true,
-      // New granular features
-      bulkOperations: true,
-      dataExport: true,
-      customFields: true,
-      advancedSecurity: true,
-      whiteLabel: true,
-      dedicatedSupport: true,
-      ssoEnabled: true,
-      auditLogs: true,
-      backupRestore: true,
-      customIntegrations: true,
-    },
-    create: {
-      id: 'enterprise-plan',
-      name: 'Enterprise',
-      description: 'For large or custom businesses',
-      price: 99,
-      currency: 'USD',
-      interval: 'monthly',
-      features: [
-        'Unlimited users',
-        'Unlimited products',
-        'All reports',
-        'Analytics dashboard',
-        'Priority support',
-        'Custom branding',
-        'API access',
-      ],
-      maxUsers: null,
-      maxProducts: null,
-      maxSalesPerMonth: null,
-      analyticsEnabled: true,
-      advancedReports: true,
-      prioritySupport: true,
-      customBranding: true,
-      apiAccess: true,
-      // New granular features
-      bulkOperations: true,
-      dataExport: true,
-      customFields: true,
-      advancedSecurity: true,
-      whiteLabel: true,
-      dedicatedSupport: true,
-      ssoEnabled: true,
-      auditLogs: true,
-      backupRestore: true,
-      customIntegrations: true,
-    },
-  });
-  console.log('Seeded plans: Basic, Pro, Enterprise');
+  console.log('Seeding database...');
 
-  // Create basic roles
-  const roles = [
-    { name: 'owner', description: 'Business owner with full access' },
-    { name: 'manager', description: 'Manager with administrative access' },
-    { name: 'admin', description: 'Administrator with system access' },
-    { name: 'cashier', description: 'Cashier with sales access' },
-    { name: 'employee', description: 'Basic employee access' },
-  ];
+  // First, delete all existing data to avoid conflicts
+  await prisma.planFeatureOnPlan.deleteMany({});
+  await prisma.planFeature.deleteMany({});
+  await prisma.plan.deleteMany({});
 
-  for (const role of roles) {
-    await prisma.role.upsert({
-      where: { name: role.name },
-      update: {},
-      create: role,
-    });
-  }
-  console.log('Seeded roles: owner, manager, admin, cashier, employee');
-
-  // Create a superadmin user if not exists
-  const superadminEmail = 'superadmin@gmail.com';
-  const superadminPassword = '$2b$10$8QwQn1QwQn1QwQn1QwQn1uQwQn1QwQn1QwQn1QwQn1QwQn1QwQn1u'; // bcrypt hash for '10028Mike.'
-  const existingSuperadmin = await prisma.user.findUnique({ where: { email: superadminEmail } });
-  if (!existingSuperadmin) {
-    await prisma.user.create({
+  // Create features
+  const features = {
+    basic: await prisma.planFeature.create({
       data: {
-        email: superadminEmail,
-        password: superadminPassword,
-        name: 'Platform Superadmin',
-        isSuperadmin: true,
+        id: 'basic_features',
+        featureKey: 'basic_features',
+        featureName: 'Basic Features',
+        featureDescription: 'Essential features for getting started',
+        isEnabled: true,
       },
-    });
-    console.log('Superadmin user created:', superadminEmail);
-  } else {
-    console.log('Superadmin user already exists:', superadminEmail);
-  }
+    }),
+    bulkOps: await prisma.planFeature.create({
+      data: {
+        id: 'bulk_operations',
+        featureKey: 'bulk_operations',
+        featureName: 'Bulk Operations',
+        featureDescription: 'Import/export data in bulk',
+        isEnabled: true,
+      },
+    }),
+    basicReports: await prisma.planFeature.create({
+      data: {
+        id: 'basic_reports',
+        featureKey: 'basic_reports',
+        featureName: 'Basic Reports',
+        featureDescription: 'Essential business insights',
+        isEnabled: true,
+      },
+    }),
+    advancedReports: await prisma.planFeature.create({
+      data: {
+        id: 'advanced_reports',
+        featureKey: 'advanced_reports',
+        featureName: 'Advanced Reports',
+        featureDescription: 'Detailed business analytics',
+        isEnabled: true,
+      },
+    }),
+    dataExport: await prisma.planFeature.create({
+      data: {
+        id: 'data_export',
+        featureKey: 'data_export',
+        featureName: 'Data Export',
+        featureDescription: 'Export data in multiple formats',
+        isEnabled: true,
+      },
+    }),
+    customFields: await prisma.planFeature.create({
+      data: {
+        id: 'custom_fields',
+        featureKey: 'custom_fields',
+        featureName: 'Custom Fields',
+        featureDescription: 'Add custom fields to products and sales',
+        isEnabled: true,
+      },
+    }),
+    apiAccess: await prisma.planFeature.create({
+      data: {
+        id: 'api_access',
+        featureKey: 'api_access',
+        featureName: 'API Access',
+        featureDescription: 'Full API access for integrations',
+        isEnabled: true,
+      },
+    }),
+    customBranding: await prisma.planFeature.create({
+      data: {
+        id: 'custom_branding',
+        featureKey: 'custom_branding',
+        featureName: 'Custom Branding',
+        featureDescription: 'White-label and custom branding',
+        isEnabled: true,
+      },
+    }),
+    whiteLabel: await prisma.planFeature.create({
+      data: {
+        id: 'white_label',
+        featureKey: 'white_label',
+        featureName: 'White Label',
+        featureDescription: 'Remove all branding',
+        isEnabled: true,
+      },
+    }),
+    dedicatedSupport: await prisma.planFeature.create({
+      data: {
+        id: 'dedicated_support',
+        featureKey: 'dedicated_support',
+        featureName: 'Dedicated Support',
+        featureDescription: '24/7 priority support',
+        isEnabled: true,
+      },
+    }),
+  };
+
+  // Create plans with features
+  const basicPlan = await prisma.plan.create({
+    data: {
+      id: 'basic_plan',
+      name: 'Basic',
+      description: 'Perfect for small businesses getting started',
+      price: 0,
+      interval: 'month',
+      isActive: true,
+      maxUsers: 5,
+      maxProducts: 50,
+      maxSalesPerMonth: 1000,
+      features: {
+        create: [
+          { featureId: features.basic.id },
+          { featureId: features.bulkOps.id },
+          { featureId: features.basicReports.id },
+        ],
+      },
+    },
+  });
+
+  const proPlan = await prisma.plan.create({
+    data: {
+      id: 'pro_plan',
+      name: 'Pro',
+      description: 'For growing businesses with advanced needs',
+      price: 29,
+      interval: 'month',
+      isActive: true,
+      maxUsers: 25,
+      maxProducts: 500,
+      maxSalesPerMonth: 10000,
+      features: {
+        create: [
+          { featureId: features.basic.id },
+          { featureId: features.bulkOps.id },
+          { featureId: features.basicReports.id },
+          { featureId: features.advancedReports.id },
+          { featureId: features.dataExport.id },
+          { featureId: features.customFields.id },
+        ],
+      },
+    },
+  });
+
+  const enterprisePlan = await prisma.plan.create({
+    data: {
+      id: 'enterprise_plan',
+      name: 'Enterprise',
+      description: 'For large businesses with custom requirements',
+      price: 99,
+      interval: 'month',
+      isActive: true,
+      maxUsers: null, // Unlimited
+      maxProducts: null, // Unlimited
+      maxSalesPerMonth: null, // Unlimited
+      features: {
+        create: Object.values(features).map(feature => ({
+          featureId: feature.id
+        })),
+      },
+    },
+  });
+
+  console.log('Successfully seeded plans and features');
+  console.log('- Basic Plan:', basicPlan.name);
+  console.log('- Pro Plan:', proPlan.name);
+  console.log('- Enterprise Plan:', enterprisePlan.name);
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Error during seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
-  }); 
+  });

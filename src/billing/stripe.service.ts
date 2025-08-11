@@ -788,11 +788,28 @@ export class StripeService {
    */
   async createPaymentIntent(
     tenantId: string,
-    amount: number,
-    currency: string,
-    description: string,
-    metadata: Record<string, any> = {},
+    params: {
+      amount: number;
+      currency?: string;
+      description?: string;
+      metadata?: Record<string, any>;
+      paymentMethod?: string;
+      confirm?: boolean;
+      customerId?: string;
+      setupFutureUsage?: 'on_session' | 'off_session';
+    }
   ): Promise<Stripe.PaymentIntent> {
+    const {
+      amount,
+      currency = 'usd',
+      description,
+      metadata = {},
+      paymentMethod,
+      confirm = false,
+      customerId,
+      setupFutureUsage
+    } = params;
+
     const stripe = await this.getStripeForTenant(tenantId);
     if (!stripe) {
       throw new Error('Stripe is not configured for this tenant');
@@ -801,7 +818,7 @@ export class StripeService {
     try {
       this.logger.log(`Creating payment intent for tenant: ${tenantId}, amount: ${amount}`);
 
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency,
         description,
@@ -809,10 +826,24 @@ export class StripeService {
           tenantId,
           ...metadata,
         },
-        automatic_payment_methods: {
-          enabled: true,
-        },
-      });
+        setup_future_usage: setupFutureUsage,
+        customer: customerId,
+        confirm,
+        payment_method: paymentMethod,
+        // Enable automatic payment methods if no specific payment method is provided
+        ...(!paymentMethod && {
+          automatic_payment_methods: {
+            enabled: true,
+          },
+        }),
+      };
+
+      // Remove undefined values
+      Object.keys(paymentIntentParams).forEach(
+        (key) => paymentIntentParams[key] === undefined && delete paymentIntentParams[key]
+      );
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
       await this.auditLogService.log('system', 'payment_intent_created', {
         tenantId,
@@ -1009,4 +1040,119 @@ export class StripeService {
       throw new InternalServerErrorException('Failed to detach payment method');
     }
   }
-} 
+
+  /**
+   * Create a payment intent for one-time payments
+   */
+  async createOneTimePaymentIntent(
+    tenantId: string,
+    amount: number,
+    currency: string,
+    description: string,
+    metadata: Record<string, any> = {},
+    paymentMethod?: string,
+    confirm = false,
+    savePaymentMethod = false,
+    customerId?: string,
+  ): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Creating one-time payment intent for tenant: ${tenantId}, amount: ${amount}`);
+
+      const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        description,
+        metadata: {
+          tenantId,
+          ...metadata,
+        },
+        payment_method: paymentMethod,
+        confirm,
+        customer: customerId,
+        setup_future_usage: savePaymentMethod ? 'off_session' : undefined,
+      };
+
+      // If we're not confirming immediately, don't include payment method
+      if (!confirm) {
+        delete paymentIntentParams.payment_method;
+        delete paymentIntentParams.confirm;
+        delete paymentIntentParams.setup_future_usage;
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+      await this.auditLogService.log('system', 'one_time_payment_intent_created', {
+        tenantId,
+        paymentIntentId: paymentIntent.id,
+        amount,
+        currency,
+      });
+
+      this.logger.log(`Successfully created one-time payment intent: ${paymentIntent.id} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to create one-time payment intent for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to create one-time payment intent');
+    }
+  }
+
+  /**
+   * Retrieve a payment intent
+   */
+  async retrievePaymentIntent(tenantId: string, paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Retrieving payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      this.logger.log(`Successfully retrieved payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to retrieve payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to retrieve payment intent');
+    }
+  }
+
+  /**
+   * Confirm a payment intent
+   */
+  async confirmPaymentIntent(
+    tenantId: string,
+    paymentIntentId: string,
+    paymentMethodId: string,
+  ): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Confirming payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+
+      const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
+        payment_method: paymentMethodId,
+      });
+
+      await this.auditLogService.log('system', 'payment_intent_confirmed', {
+        tenantId,
+        paymentIntentId,
+      });
+
+      this.logger.log(`Successfully confirmed payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to confirm payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to confirm payment intent');
+    }
+  }
+}

@@ -31,8 +31,25 @@ let TenantService = class TenantService {
             backupRestore: false,
             ...data
         };
+        const scalarFields = [
+            'name', 'businessType', 'contactEmail', 'contactPhone',
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+            'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
+        ];
+        const createData = {};
+        for (const key of scalarFields) {
+            if (defaultTenantData[key] !== undefined) {
+                createData[key] = defaultTenantData[key];
+            }
+        }
         return this.prisma.tenant.create({
-            data: defaultTenantData
+            data: createData
         });
     }
     async getAllTenants() {
@@ -51,10 +68,10 @@ let TenantService = class TenantService {
             'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
             'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
             'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-            'currency', 'timezone', 'invoiceFooter', 'logoUrl',
+            'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
             'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
             'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-            'ssoEnabled', 'auditLogs', 'backupRestore'
+            'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
         ];
         const data = {};
         for (const key of allowedFields) {

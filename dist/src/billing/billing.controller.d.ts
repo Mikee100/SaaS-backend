@@ -2,11 +2,14 @@ import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionService } from './subscription.service';
 import { RawBodyRequest } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 export declare class BillingController {
     private readonly billingService;
     private readonly stripeService;
     private readonly subscriptionService;
-    constructor(billingService: BillingService, stripeService: StripeService, subscriptionService: SubscriptionService);
+    private readonly prisma;
+    private readonly logger;
+    constructor(billingService: BillingService, stripeService: StripeService, subscriptionService: SubscriptionService, prisma: PrismaService);
     testEndpoint(): Promise<{
         message: string;
         plansCount: number;
@@ -425,4 +428,41 @@ export declare class BillingController {
     handleWebhook(req: RawBodyRequest<Request>): Promise<{
         received: boolean;
     }>;
+    createPaymentIntent(req: any, body: {
+        amount: number;
+        currency?: string;
+        description?: string;
+        metadata?: any;
+        paymentMethodId?: string;
+        savePaymentMethod?: boolean;
+    }): Promise<{
+        success: boolean;
+        clientSecret: string | null;
+        paymentIntentId: string;
+    }>;
+    recordOneTimePayment(req: any, body: {
+        paymentId: string;
+        amount: number;
+        description: string;
+        metadata?: any;
+    }): Promise<{
+        success: boolean;
+        payment: {
+            id: string;
+            description: string | null;
+            currency: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            status: string;
+            amount: number;
+            stripePaymentIntentId: string | null;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            completedAt: Date | null;
+            refundedAt: Date | null;
+            refundAmount: number | null;
+            refundReason: string | null;
+        };
+    }>;
+    private applyPaymentBenefits;
 }

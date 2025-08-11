@@ -37,10 +37,22 @@ export declare class StripeService {
         proPriceId: string;
         enterprisePriceId: string;
     }>;
-    createPaymentIntent(tenantId: string, amount: number, currency: string, description: string, metadata?: Record<string, any>): Promise<Stripe.PaymentIntent>;
+    createPaymentIntent(tenantId: string, params: {
+        amount: number;
+        currency?: string;
+        description?: string;
+        metadata?: Record<string, any>;
+        paymentMethod?: string;
+        confirm?: boolean;
+        customerId?: string;
+        setupFutureUsage?: 'on_session' | 'off_session';
+    }): Promise<Stripe.PaymentIntent>;
     createInvoice(tenantId: string, subscriptionId: string, amount: number, currency: string): Promise<Stripe.Invoice>;
     createRefund(tenantId: string, paymentIntentId: string, amount?: number, reason?: string): Promise<Stripe.Refund>;
     getPaymentMethods(tenantId: string, customerId: string): Promise<Stripe.PaymentMethod[]>;
     attachPaymentMethod(tenantId: string, customerId: string, paymentMethodId: string): Promise<void>;
     detachPaymentMethod(tenantId: string, paymentMethodId: string): Promise<void>;
+    createOneTimePaymentIntent(tenantId: string, amount: number, currency: string, description: string, metadata?: Record<string, any>, paymentMethod?: string, confirm?: boolean, savePaymentMethod?: boolean, customerId?: string): Promise<Stripe.PaymentIntent>;
+    retrievePaymentIntent(tenantId: string, paymentIntentId: string): Promise<Stripe.PaymentIntent>;
+    confirmPaymentIntent(tenantId: string, paymentIntentId: string, paymentMethodId: string): Promise<Stripe.PaymentIntent>;
 }

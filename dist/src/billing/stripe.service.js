@@ -623,14 +623,15 @@ let StripeService = StripeService_1 = class StripeService {
             throw new common_1.InternalServerErrorException('Failed to update Stripe prices');
         }
     }
-    async createPaymentIntent(tenantId, amount, currency, description, metadata = {}) {
+    async createPaymentIntent(tenantId, params) {
+        const { amount, currency = 'usd', description, metadata = {}, paymentMethod, confirm = false, customerId, setupFutureUsage } = params;
         const stripe = await this.getStripeForTenant(tenantId);
         if (!stripe) {
             throw new Error('Stripe is not configured for this tenant');
         }
         try {
             this.logger.log(`Creating payment intent for tenant: ${tenantId}, amount: ${amount}`);
-            const paymentIntent = await stripe.paymentIntents.create({
+            const paymentIntentParams = {
                 amount: Math.round(amount * 100),
                 currency,
                 description,
@@ -638,10 +639,18 @@ let StripeService = StripeService_1 = class StripeService {
                     tenantId,
                     ...metadata,
                 },
-                automatic_payment_methods: {
-                    enabled: true,
-                },
-            });
+                setup_future_usage: setupFutureUsage,
+                customer: customerId,
+                confirm,
+                payment_method: paymentMethod,
+                ...(!paymentMethod && {
+                    automatic_payment_methods: {
+                        enabled: true,
+                    },
+                }),
+            };
+            Object.keys(paymentIntentParams).forEach((key) => paymentIntentParams[key] === undefined && delete paymentIntentParams[key]);
+            const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
             await this.auditLogService.log('system', 'payment_intent_created', {
                 tenantId,
                 paymentIntentId: paymentIntent.id,
@@ -787,6 +796,84 @@ let StripeService = StripeService_1 = class StripeService {
         catch (error) {
             this.logger.error(`Failed to detach payment method for tenant: ${tenantId}`, error);
             throw new common_1.InternalServerErrorException('Failed to detach payment method');
+        }
+    }
+    async createOneTimePaymentIntent(tenantId, amount, currency, description, metadata = {}, paymentMethod, confirm = false, savePaymentMethod = false, customerId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Creating one-time payment intent for tenant: ${tenantId}, amount: ${amount}`);
+            const paymentIntentParams = {
+                amount: Math.round(amount * 100),
+                currency,
+                description,
+                metadata: {
+                    tenantId,
+                    ...metadata,
+                },
+                payment_method: paymentMethod,
+                confirm,
+                customer: customerId,
+                setup_future_usage: savePaymentMethod ? 'off_session' : undefined,
+            };
+            if (!confirm) {
+                delete paymentIntentParams.payment_method;
+                delete paymentIntentParams.confirm;
+                delete paymentIntentParams.setup_future_usage;
+            }
+            const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+            await this.auditLogService.log('system', 'one_time_payment_intent_created', {
+                tenantId,
+                paymentIntentId: paymentIntent.id,
+                amount,
+                currency,
+            });
+            this.logger.log(`Successfully created one-time payment intent: ${paymentIntent.id} for tenant: ${tenantId}`);
+            return paymentIntent;
+        }
+        catch (error) {
+            this.logger.error(`Failed to create one-time payment intent for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to create one-time payment intent');
+        }
+    }
+    async retrievePaymentIntent(tenantId, paymentIntentId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Retrieving payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+            const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+            this.logger.log(`Successfully retrieved payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+            return paymentIntent;
+        }
+        catch (error) {
+            this.logger.error(`Failed to retrieve payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to retrieve payment intent');
+        }
+    }
+    async confirmPaymentIntent(tenantId, paymentIntentId, paymentMethodId) {
+        const stripe = await this.getStripeForTenant(tenantId);
+        if (!stripe) {
+            throw new Error('Stripe is not configured for this tenant');
+        }
+        try {
+            this.logger.log(`Confirming payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+            const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
+                payment_method: paymentMethodId,
+            });
+            await this.auditLogService.log('system', 'payment_intent_confirmed', {
+                tenantId,
+                paymentIntentId,
+            });
+            this.logger.log(`Successfully confirmed payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+            return paymentIntent;
+        }
+        catch (error) {
+            this.logger.error(`Failed to confirm payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+            throw new common_1.InternalServerErrorException('Failed to confirm payment intent');
         }
     }
 };

@@ -11,8 +11,8 @@ export declare class TenantService {
         contactPhone?: string;
         businessCategory?: string;
         businessSubcategory?: string;
-        primaryProducts?: any[];
-        secondaryProducts?: any[];
+        primaryProducts?: any;
+        secondaryProducts?: any;
         businessDescription?: string;
         address?: string;
         city?: string;
@@ -96,6 +96,11 @@ export declare class TenantService {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -147,6 +152,11 @@ export declare class TenantService {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -198,6 +208,11 @@ export declare class TenantService {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;

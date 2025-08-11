@@ -8,12 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var LogoService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LogoService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
-let LogoService = class LogoService {
+const common_2 = require("@nestjs/common");
+let LogoService = LogoService_1 = class LogoService {
     prisma;
+    logger = new common_1.Logger(LogoService_1.name);
     constructor(prisma) {
         this.prisma = prisma;
     }
@@ -89,8 +92,11 @@ let LogoService = class LogoService {
         };
     }
     async validateLogoFile(file, logoType) {
-        const errors = [];
-        const warnings = [];
+        const result = {
+            isValid: true,
+            errors: [],
+            warnings: []
+        };
         const maxSizes = {
             main: 2 * 1024 * 1024,
             favicon: 0.5 * 1024 * 1024,
@@ -100,7 +106,7 @@ let LogoService = class LogoService {
         };
         const maxSize = maxSizes[logoType] || 2 * 1024 * 1024;
         if (file.size > maxSize) {
-            errors.push(`File size must be less than ${maxSize / (1024 * 1024)}MB`);
+            result.errors.push(`File size must be less than ${maxSize / (1024 * 1024)}MB`);
         }
         const allowedTypes = {
             main: ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'],
@@ -111,16 +117,12 @@ let LogoService = class LogoService {
         };
         const allowedMimes = allowedTypes[logoType] || ['image/jpeg', 'image/jpg', 'image/png'];
         if (!allowedMimes.includes(file.mimetype)) {
-            errors.push(`File type must be one of: ${allowedMimes.join(', ')}`);
+            result.errors.push(`File type must be one of: ${allowedMimes.join(', ')}`);
         }
         if (logoType === 'etimsQrCode') {
-            warnings.push('Ensure this is a valid KRA eTIMS QR code for tax compliance');
+            result.warnings.push('Ensure this is a valid KRA eTIMS QR code for tax compliance');
         }
-        return {
-            isValid: errors.length === 0,
-            errors,
-            warnings
-        };
+        return result;
     }
     async getLogoStatistics(tenantId) {
         const logos = await this.getLogoUsage(tenantId);
@@ -136,9 +138,72 @@ let LogoService = class LogoService {
             complianceScore
         };
     }
+    async getLogoRequirements(tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                id: true,
+                name: true,
+                logoUrl: true,
+                etimsQrUrl: true,
+            },
+        });
+        if (!tenant) {
+            throw new common_2.NotFoundException('Tenant not found');
+        }
+        const requirements = {
+            logo: {
+                required: true,
+                current: tenant.logoUrl,
+                maxSize: 2 * 1024 * 1024,
+                allowedTypes: ['image/png', 'image/jpeg', 'image/svg+xml'],
+                dimensions: {
+                    width: 200,
+                    height: 200,
+                },
+            },
+            etimsQrCode: {
+                required: true,
+                current: tenant.etimsQrUrl,
+                maxSize: 1 * 1024 * 1024,
+                allowedTypes: ['image/png', 'image/jpeg'],
+                dimensions: {
+                    width: 300,
+                    height: 300,
+                },
+            },
+        };
+        return requirements;
+    }
+    async updateLogo(tenantId, file) {
+        const logoUrl = await this.uploadFile(file);
+        const updatedTenant = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { logoUrl },
+        });
+        return {
+            logoUrl: updatedTenant.logoUrl,
+            message: 'Logo updated successfully',
+        };
+    }
+    async updateEtimsQrCode(tenantId, file) {
+        const etimsQrUrl = await this.uploadFile(file);
+        const updatedTenant = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { etimsQrUrl },
+        });
+        return {
+            etimsQrUrl: updatedTenant.etimsQrUrl,
+            message: 'ETIMS QR code updated successfully',
+        };
+    }
+    async uploadFile(file) {
+        const fileName = `${Date.now()}-${file.originalname}`;
+        return `/uploads/${fileName}`;
+    }
 };
 exports.LogoService = LogoService;
-exports.LogoService = LogoService = __decorate([
+exports.LogoService = LogoService = LogoService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], LogoService);

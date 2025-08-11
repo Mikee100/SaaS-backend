@@ -7,43 +7,16 @@ export declare class AdminController {
     }>;
     testAnalytics(): Promise<any[]>;
     testComparison(): Promise<{
-        metric: string;
-        average: number;
-        median: number;
-        topTenant: {
-            name: string;
-            value: number;
-        };
-        bottomTenant: {
-            name: string;
-            value: number;
-        };
-    }[]>;
-    testBackups(): Promise<{
         id: string;
-        tenantId: string;
-        tenantName: string;
-        type: string;
-        status: string;
-        size: number;
-        createdAt: string;
-        completedAt: string;
-        downloadUrl: string;
-        restorePoints: number;
-        records: {
-            users: number;
-            products: number;
-            sales: number;
-            inventory: number;
-        };
-        backupHistory: {
-            id: string;
-            createdAt: string;
-            type: string;
-            status: string;
-            size: number;
-        }[];
+        name: string;
+        plan: string;
+        userCount: number;
+        productCount: number;
+        saleCount: number;
+        inventoryCount: number;
+        createdAt: Date;
     }[]>;
+    testBackups(): Promise<never[]>;
     testMigrations(): Promise<{
         id: string;
         type: string;
@@ -63,9 +36,9 @@ export declare class AdminController {
     }[]>;
     getAllTenants(): Promise<({
         _count: {
+            users: number;
             products: number;
             sales: number;
-            userRoles: number;
         };
     } & {
         id: string;
@@ -103,6 +76,11 @@ export declare class AdminController {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -373,6 +351,11 @@ export declare class AdminController {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -424,6 +407,11 @@ export declare class AdminController {
         favicon: string | null;
         receiptLogo: string | null;
         watermark: string | null;
+        loginLogoUrl: string | null;
+        dashboardLogoUrl: string | null;
+        emailLogoUrl: string | null;
+        mobileLogoUrl: string | null;
+        logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
@@ -439,119 +427,110 @@ export declare class AdminController {
         createdAt: Date;
         updatedAt: Date;
     }>;
-    getTenantById(id: string): Promise<({
-        userRoles: ({
-            user: {
-                id: string;
-                name: string;
-                email: string;
-            };
-            role: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
-        } & {
+    getTenantById(id: string): Promise<{
+        users: {
             id: string;
+            name: string;
+            email: string;
+        }[];
+        products?: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            description: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
+        }[] | undefined;
+        sales?: {
+            id: string;
+            createdAt: Date;
             tenantId: string;
             userId: string;
-            roleId: string;
-        })[];
-        _count: {
+            total: number;
+            vatAmount: number | null;
+            branchId: string | null;
+            paymentType: string;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+        }[] | undefined;
+        _count?: {
             products: number;
             sales: number;
-            userRoles: number;
-        };
-    } & {
-        id: string;
-        name: string;
-        businessType: string;
-        contactEmail: string;
-        contactPhone: string | null;
-        businessCategory: string | null;
-        businessSubcategory: string | null;
-        primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-        secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-        businessDescription: string | null;
-        address: string | null;
-        city: string | null;
-        state: string | null;
-        country: string | null;
-        postalCode: string | null;
-        latitude: number | null;
-        longitude: number | null;
-        foundedYear: number | null;
-        employeeCount: string | null;
-        annualRevenue: string | null;
-        businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-        website: string | null;
-        socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-        kraPin: string | null;
-        vatNumber: string | null;
-        etimsQrUrl: string | null;
-        businessLicense: string | null;
-        taxId: string | null;
-        currency: string | null;
-        timezone: string | null;
-        invoiceFooter: string | null;
-        logoUrl: string | null;
-        favicon: string | null;
-        receiptLogo: string | null;
-        watermark: string | null;
-        primaryColor: string | null;
-        secondaryColor: string | null;
-        customDomain: string | null;
-        whiteLabel: boolean;
-        apiKey: string | null;
-        webhookUrl: string | null;
-        rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }) | null>;
+        } | undefined;
+        id?: string | undefined;
+        name?: string | undefined;
+        businessType?: string | undefined;
+        contactEmail?: string | undefined;
+        contactPhone?: string | null | undefined;
+        businessCategory?: string | null | undefined;
+        businessSubcategory?: string | null | undefined;
+        primaryProducts?: import("@prisma/client/runtime/library").JsonValue | undefined;
+        secondaryProducts?: import("@prisma/client/runtime/library").JsonValue | undefined;
+        businessDescription?: string | null | undefined;
+        address?: string | null | undefined;
+        city?: string | null | undefined;
+        state?: string | null | undefined;
+        country?: string | null | undefined;
+        postalCode?: string | null | undefined;
+        latitude?: number | null | undefined;
+        longitude?: number | null | undefined;
+        foundedYear?: number | null | undefined;
+        employeeCount?: string | null | undefined;
+        annualRevenue?: string | null | undefined;
+        businessHours?: import("@prisma/client/runtime/library").JsonValue | undefined;
+        website?: string | null | undefined;
+        socialMedia?: import("@prisma/client/runtime/library").JsonValue | undefined;
+        kraPin?: string | null | undefined;
+        vatNumber?: string | null | undefined;
+        etimsQrUrl?: string | null | undefined;
+        businessLicense?: string | null | undefined;
+        taxId?: string | null | undefined;
+        currency?: string | null | undefined;
+        timezone?: string | null | undefined;
+        invoiceFooter?: string | null | undefined;
+        logoUrl?: string | null | undefined;
+        favicon?: string | null | undefined;
+        receiptLogo?: string | null | undefined;
+        watermark?: string | null | undefined;
+        loginLogoUrl?: string | null | undefined;
+        dashboardLogoUrl?: string | null | undefined;
+        emailLogoUrl?: string | null | undefined;
+        mobileLogoUrl?: string | null | undefined;
+        logoSettings?: import("@prisma/client/runtime/library").JsonValue | undefined;
+        primaryColor?: string | null | undefined;
+        secondaryColor?: string | null | undefined;
+        customDomain?: string | null | undefined;
+        whiteLabel?: boolean | undefined;
+        apiKey?: string | null | undefined;
+        webhookUrl?: string | null | undefined;
+        rateLimit?: number | null | undefined;
+        customIntegrations?: boolean | undefined;
+        ssoEnabled?: boolean | undefined;
+        auditLogs?: boolean | undefined;
+        backupRestore?: boolean | undefined;
+        stripeCustomerId?: string | null | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
+    }>;
     getTenantAnalytics(timeRange?: string): Promise<any[]>;
     getTenantComparison(): Promise<{
-        metric: string;
-        average: number;
-        median: number;
-        topTenant: {
-            name: string;
-            value: number;
-        };
-        bottomTenant: {
-            name: string;
-            value: number;
-        };
-    }[]>;
-    getTenantBackups(): Promise<{
         id: string;
-        tenantId: string;
-        tenantName: string;
-        type: string;
-        status: string;
-        size: number;
-        createdAt: string;
-        completedAt: string;
-        downloadUrl: string;
-        restorePoints: number;
-        records: {
-            users: number;
-            products: number;
-            sales: number;
-            inventory: number;
-        };
-        backupHistory: {
-            id: string;
-            createdAt: string;
-            type: string;
-            status: string;
-            size: number;
-        }[];
+        name: string;
+        plan: string;
+        userCount: number;
+        productCount: number;
+        saleCount: number;
+        inventoryCount: number;
+        createdAt: Date;
     }[]>;
+    getTenantBackups(): Promise<never[]>;
     createTenantBackup(backupData: any): Promise<{
         id: string;
         tenantId: any;

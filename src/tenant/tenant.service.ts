@@ -7,58 +7,52 @@ export class TenantService {
   constructor(private prisma: PrismaService, private userService: UserService) {}
 
   async createTenant(data: {
-    name: string;
-    businessType: string;
-    contactEmail: string;
-    contactPhone?: string;
-    // Enhanced business information
-    businessCategory?: string;
-    businessSubcategory?: string;
-    primaryProducts?: any[];
-    secondaryProducts?: any[];
-    businessDescription?: string;
-    // Location information
-    address?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    postalCode?: string;
-    latitude?: number;
-    longitude?: number;
-    // Business details
-    foundedYear?: number;
-    employeeCount?: string;
-    annualRevenue?: string;
-    businessHours?: any;
-    website?: string;
-    socialMedia?: any;
-    // Legal and compliance
-    kraPin?: string;
-    vatNumber?: string;
-    etimsQrUrl?: string;
-    businessLicense?: string;
-    taxId?: string;
-    // Financial settings
-    currency?: string;
-    timezone?: string;
-    invoiceFooter?: string;
-    logoUrl?: string;
-    favicon?: string;
-    receiptLogo?: string;
-    watermark?: string;
-    // Enterprise features
-    primaryColor?: string;
-    secondaryColor?: string;
-    customDomain?: string;
-    whiteLabel?: boolean;
-    apiKey?: string;
-    webhookUrl?: string;
-    rateLimit?: number;
-    customIntegrations?: boolean;
-    ssoEnabled?: boolean;
-    auditLogs?: boolean;
-    backupRestore?: boolean;
-    stripeCustomerId?: string;
+  name: string;
+  businessType: string;
+  contactEmail: string;
+  contactPhone?: string;
+  businessCategory?: string;
+  businessSubcategory?: string;
+  primaryProducts?: any;
+  secondaryProducts?: any;
+  businessDescription?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  foundedYear?: number;
+  employeeCount?: string;
+  annualRevenue?: string;
+  businessHours?: any;
+  website?: string;
+  socialMedia?: any;
+  kraPin?: string;
+  vatNumber?: string;
+  etimsQrUrl?: string;
+  businessLicense?: string;
+  taxId?: string;
+  currency?: string;
+  timezone?: string;
+  invoiceFooter?: string;
+  logoUrl?: string;
+  favicon?: string;
+  receiptLogo?: string;
+  watermark?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  customDomain?: string;
+  whiteLabel?: boolean;
+  apiKey?: string;
+  webhookUrl?: string;
+  rateLimit?: number;
+  customIntegrations?: boolean;
+  ssoEnabled?: boolean;
+  auditLogs?: boolean;
+  backupRestore?: boolean;
+  stripeCustomerId?: string;
   }): Promise<any> {
     const defaultTenantData = {
       currency: 'KES',
@@ -71,8 +65,26 @@ export class TenantService {
       ...data
     };
 
+    // Only include scalar fields from the schema, not relations
+    const scalarFields = [
+      'name', 'businessType', 'contactEmail', 'contactPhone',
+      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+      'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+      'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+      'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+      'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
+      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+      'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+      'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
+    ];
+    const createData: any = {};
+    for (const key of scalarFields) {
+      if (defaultTenantData[key] !== undefined) {
+        createData[key] = defaultTenantData[key];
+      }
+    }
     return this.prisma.tenant.create({ 
-      data: defaultTenantData 
+      data: createData 
     });
   }
 
@@ -96,10 +108,10 @@ export class TenantService {
       'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
       'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
       'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-      'currency', 'timezone', 'invoiceFooter', 'logoUrl',
+      'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
       'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
       'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-      'ssoEnabled', 'auditLogs', 'backupRestore'
+      'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
     ];
     const data: any = {};
     for (const key of allowedFields) {

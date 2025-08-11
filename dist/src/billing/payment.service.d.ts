@@ -19,20 +19,20 @@ export declare class PaymentService {
     }>;
     generateInvoice(subscriptionId: string, amount: number, currency?: string): Promise<{
         id: string;
-        description: string | null;
-        currency: string;
-        createdAt: Date;
-        updatedAt: Date;
         tenantId: string;
-        status: string;
         subscriptionId: string | null;
         amount: number;
+        currency: string;
+        status: string;
         dueDate: Date;
         paidAt: Date | null;
+        description: string | null;
         stripeInvoiceId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
-        period: "month" | "year" | "quarter";
+        period: "month" | "quarter" | "year";
         totalRevenue: number;
         paymentCount: number;
         averagePayment: number;

@@ -11,8 +11,11 @@ export interface LogoRequirements {
     receiptLogo: boolean;
     watermark: boolean;
 }
+export interface MulterFile extends Express.Multer.File {
+}
 export declare class LogoService {
     private prisma;
+    private readonly logger;
     constructor(prisma: PrismaService);
     validateTenantLogos(tenantId: string): Promise<{
         requirements: LogoRequirements;
@@ -31,11 +34,42 @@ export declare class LogoService {
         missing: string[];
         recommendations: string[];
     }>;
-    validateLogoFile(file: Express.Multer.File, logoType: string): Promise<LogoValidation>;
+    validateLogoFile(file: MulterFile, logoType: string): Promise<LogoValidation>;
     getLogoStatistics(tenantId: string): Promise<{
         totalLogos: number;
         requiredLogos: number;
         optionalLogos: number;
         complianceScore: number;
     }>;
+    getLogoRequirements(tenantId: string): Promise<{
+        logo: {
+            required: boolean;
+            current: string | null;
+            maxSize: number;
+            allowedTypes: string[];
+            dimensions: {
+                width: number;
+                height: number;
+            };
+        };
+        etimsQrCode: {
+            required: boolean;
+            current: string | null;
+            maxSize: number;
+            allowedTypes: string[];
+            dimensions: {
+                width: number;
+                height: number;
+            };
+        };
+    }>;
+    updateLogo(tenantId: string, file: MulterFile): Promise<{
+        logoUrl: string | null;
+        message: string;
+    }>;
+    updateEtimsQrCode(tenantId: string, file: MulterFile): Promise<{
+        etimsQrUrl: string | null;
+        message: string;
+    }>;
+    private uploadFile;
 }
