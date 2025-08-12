@@ -112,8 +112,8 @@ export class SalesController {
           address: tenant.address || 'N/A',
           phone: tenant.contactPhone || 'N/A',
           email: tenant.contactEmail || 'N/A',
-          vatNumber: tenant.vatNumber || 'N/A',
-          receiptFooter: tenant.receiptFooter || 'Thank you for your business!'
+          // vatNumber: tenant.vatNumber || 'N/A',
+          // receiptFooter: tenant.receiptFooter || 'Thank you for your business!'
         },
         mpesaTransaction: sale.mpesaTransactions?.[0] ? {
           phoneNumber: sale.mpesaTransactions[0].phoneNumber,

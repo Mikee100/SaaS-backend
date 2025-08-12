@@ -9,7 +9,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MpesaModule = void 0;
 const common_1 = require("@nestjs/common");
 const mpesa_service_1 = require("./mpesa.service");
-const mpesa_controller_1 = require("./mpesa.controller");
 const prisma_service_1 = require("./prisma.service");
 const sales_module_1 = require("./sales/sales.module");
 let MpesaModule = class MpesaModule {
@@ -17,7 +16,6 @@ let MpesaModule = class MpesaModule {
 exports.MpesaModule = MpesaModule;
 exports.MpesaModule = MpesaModule = __decorate([
     (0, common_1.Module)({
-        controllers: [mpesa_controller_1.MpesaController],
         providers: [mpesa_service_1.MpesaService, prisma_service_1.PrismaService],
         imports: [sales_module_1.SalesModule],
     })

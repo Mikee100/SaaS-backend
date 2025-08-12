@@ -19,13 +19,12 @@ export declare class SubscriptionService {
                 id: string;
                 name: string;
                 auditLogs: boolean;
+                description: string;
                 whiteLabel: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 backupRestore: boolean;
-                description: string;
                 price: number;
-                customFields: boolean;
                 interval: string;
                 isActive: boolean;
                 maxUsers: number | null;
@@ -38,6 +37,7 @@ export declare class SubscriptionService {
                 apiAccess: boolean;
                 bulkOperations: boolean;
                 dataExport: boolean;
+                customFields: boolean;
                 advancedSecurity: boolean;
                 dedicatedSupport: boolean;
             };
@@ -68,13 +68,12 @@ export declare class SubscriptionService {
             id: string;
             name: string;
             auditLogs: boolean;
+            description: string;
             whiteLabel: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
-            description: string;
             price: number;
-            customFields: boolean;
             interval: string;
             isActive: boolean;
             maxUsers: number | null;
@@ -87,6 +86,7 @@ export declare class SubscriptionService {
             apiAccess: boolean;
             bulkOperations: boolean;
             dataExport: boolean;
+            customFields: boolean;
             advancedSecurity: boolean;
             dedicatedSupport: boolean;
         };
@@ -113,13 +113,12 @@ export declare class SubscriptionService {
                 id: string;
                 name: string;
                 auditLogs: boolean;
+                description: string;
                 whiteLabel: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 backupRestore: boolean;
-                description: string;
                 price: number;
-                customFields: boolean;
                 interval: string;
                 isActive: boolean;
                 maxUsers: number | null;
@@ -132,6 +131,7 @@ export declare class SubscriptionService {
                 apiAccess: boolean;
                 bulkOperations: boolean;
                 dataExport: boolean;
+                customFields: boolean;
                 advancedSecurity: boolean;
                 dedicatedSupport: boolean;
             };
@@ -180,7 +180,46 @@ export declare class SubscriptionService {
         trialEnd: Date | null;
         planId: string;
     }>;
-    getSubscriptionHistory(tenantId: string): Promise<{
+    getSubscriptionHistory(tenantId: string): Promise<({
+        plan: {
+            id: string;
+            name: string;
+            auditLogs: boolean;
+            description: string;
+            whiteLabel: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            backupRestore: boolean;
+            price: number;
+            interval: string;
+            isActive: boolean;
+            maxUsers: number | null;
+            maxProducts: number | null;
+            maxSalesPerMonth: number | null;
+            analyticsEnabled: boolean;
+            advancedReports: boolean;
+            prioritySupport: boolean;
+            customBranding: boolean;
+            apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            dedicatedSupport: boolean;
+        };
+        invoices: {
+            number: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            amount: number;
+            status: string;
+            dueDate: Date | null;
+            paidAt: Date | null;
+            subscriptionId: string | null;
+        }[];
+    } & {
         id: string;
         tenantId: string;
         userId: string;
@@ -196,7 +235,7 @@ export declare class SubscriptionService {
         trialStart: Date | null;
         trialEnd: Date | null;
         planId: string;
-    }[]>;
+    })[]>;
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         number: string;
         id: string;

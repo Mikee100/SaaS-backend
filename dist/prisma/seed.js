@@ -19,11 +19,16 @@ async function main() {
     await safeDeleteMany(prisma.planFeature);
     await safeDeleteMany(prisma.plan);
     await safeDeleteMany(prisma.userRole);
-    await safeDeleteMany(prisma.role);
     await safeDeleteMany(prisma.rolePermission);
+    await safeDeleteMany(prisma.role);
     await safeDeleteMany(prisma.permission);
     console.log('Creating default roles...');
     const defaultRoles = [
+        {
+            id: 'owner_role',
+            name: 'owner',
+            description: 'Owner with full access to all features and settings',
+        },
         {
             id: 'admin_role',
             name: 'admin',
@@ -43,7 +48,12 @@ async function main() {
             id: 'viewer_role',
             name: 'viewer',
             description: 'View-only access to reports and data',
-        }
+        },
+        {
+            id: 'cashier_role',
+            name: 'cashier',
+            description: 'Cashier with access to sales and transactions',
+        },
     ];
     for (const roleData of defaultRoles) {
         await prisma.role.upsert({
@@ -57,11 +67,50 @@ async function main() {
         });
         console.log(`Created/Updated role: ${roleData.name}`);
     }
+    const allPermissions = [
+        'view_users', 'edit_users', 'delete_users',
+        'view_roles', 'edit_roles', 'delete_roles',
+        'view_sales', 'create_sales', 'edit_sales', 'delete_sales',
+        'view_inventory', 'edit_inventory', 'delete_inventory',
+        'view_products', 'edit_products', 'delete_products',
+        'view_analytics', 'export_data',
+        'view_settings', 'edit_settings',
+        'view_billing', 'edit_billing'
+    ];
+    for (const permissionName of allPermissions) {
+        await prisma.permission.upsert({
+            where: { name: permissionName },
+            update: {},
+            create: {
+                name: permissionName,
+                description: `Permission to ${permissionName.replace(/_/g, ' ')}`,
+            },
+        });
+    }
     const rolePermissions = {
-        admin_role: ['*'],
-        manager_role: ['manage_users', 'view_reports', 'manage_products', 'view_sales'],
-        staff_role: ['view_products', 'create_sales', 'view_own_sales'],
-        viewer_role: ['view_reports', 'view_products', 'view_sales']
+        owner_role: allPermissions,
+        admin_role: allPermissions,
+        manager_role: [
+            'view_users', 'edit_users',
+            'view_roles', 'edit_roles',
+            'view_sales', 'create_sales', 'edit_sales',
+            'view_inventory', 'edit_inventory',
+            'view_products', 'edit_products',
+            'view_analytics', 'export_data',
+            'view_settings', 'edit_settings',
+            'view_billing', 'edit_billing'
+        ],
+        staff_role: [
+            'view_sales', 'create_sales',
+            'view_inventory',
+            'view_products',
+        ],
+        viewer_role: [
+            'view_sales', 'view_inventory', 'view_products', 'view_analytics', 'view_settings', 'view_billing'
+        ],
+        cashier_role: [
+            'view_sales', 'create_sales', 'view_products'
+        ]
     };
     for (const [roleId, permissions] of Object.entries(rolePermissions)) {
         for (const permissionName of permissions) {

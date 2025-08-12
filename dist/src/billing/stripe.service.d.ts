@@ -11,7 +11,7 @@ export declare class StripeService {
     constructor(prisma: PrismaService, auditLogService: AuditLogService, tenantConfigurationService: TenantConfigurationService);
     private getStripeForTenant;
     createCustomer(tenantId: string, email: string, name: string): Promise<Stripe.Customer>;
-    createCheckoutSession(tenantId: string, priceId: string, successUrl: string, cancelUrl: string, userId: string): Promise<Stripe.Checkout.Session>;
+    createCheckoutSession(tenantId: string, priceId: string, successUrl: string, cancelUrl: string, userId: string, customerEmail?: string): Promise<Stripe.Checkout.Session>;
     createBillingPortalSession(tenantId: string, returnUrl: string, userId: string): Promise<Stripe.BillingPortal.Session>;
     handleWebhook(event: Stripe.Event, userId?: string): Promise<void>;
     private handleSubscriptionCreated;
@@ -20,7 +20,12 @@ export declare class StripeService {
     private handlePaymentSucceeded;
     private handlePaymentFailed;
     cancelSubscription(tenantId: string, userId: string): Promise<void>;
-    getSubscriptionDetails(tenantId: string): Promise<Stripe.Subscription | null>;
+    getSubscription(tenantId: string): Promise<{
+        id: string;
+        status: string;
+        stripeSubscriptionId: string;
+        stripeCustomerId: string;
+    } | null>;
     cleanupOrphanedSubscriptions(tenantId: string): Promise<void>;
     verifyWebhookSignature(payload: Buffer, signature: string, secret: string): Promise<Stripe.Event>;
     createStripeProductsAndPrices(tenantId: string): Promise<{

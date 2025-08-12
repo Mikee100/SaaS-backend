@@ -77,10 +77,29 @@ export class UserController {
 
   @Put(':id/permissions')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('edit_users')
-  async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.userService.updateUserPermissionsByTenant(id, body.permissions, tenantId, req.user.userId, req.ip);
+  @Permissions('manage_users')
+  async updateUserPermissions(
+    @Param('id') id: string,
+    @Body() body: { permissions: Array<{ name: string; note?: string }> },
+    @Req() req: any
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new UnauthorizedException('No tenant ID found in user object');
+    }
+    // Transform permissions to match expected format
+    const formattedPermissions = body.permissions.map(p => ({
+      name: p.name,
+      note: p.note
+    }));
+    // Call the service method (to be implemented if missing)
+    return this.userService.updateUserPermissionsByTenant(
+      id,
+      formattedPermissions,
+      tenantId,
+      req.user.userId,
+      req.ip
+    );
   }
 
   @Get(':id/permissions')
@@ -104,4 +123,12 @@ export class UserController {
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
   }
-} 
+
+  @Get('permissions/all')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('view_users')
+  async getAllPermissions() {
+    // Return all permission names from the Permission table
+    return this.userService.getAllPermissions();
+  }
+}

@@ -12,10 +12,6 @@ export declare class PermissionService {
         name: string;
         description: string | null;
     }>;
-    seedPermissions(permissions: Array<{
-        name: string;
-        description: string;
-    }>): Promise<never[]>;
     getAllRoles(): Promise<({
         rolePermissions: ({
             permission: {
@@ -45,6 +41,11 @@ export declare class PermissionService {
         description: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
@@ -53,33 +54,14 @@ export declare class PermissionService {
             tenantId: string | null;
             description: string | null;
         };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
     } & {
         id: string;
         roleId: string;
         permissionId: string;
     })[]>;
-    updateRolePermissions(roleId: string, permissionNames: string[]): Promise<({
-        role: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
-            description: string | null;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
-    } & {
+    updateRolePermissions(roleId: string, permissionNames: string[]): Promise<{
         id: string;
         roleId: string;
         permissionId: string;
-    })[]>;
+    }[]>;
 }

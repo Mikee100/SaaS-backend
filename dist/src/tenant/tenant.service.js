@@ -14,6 +14,7 @@ exports.TenantService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const user_service_1 = require("../user/user.service");
+const bcrypt = require("bcrypt");
 let TenantService = TenantService_1 = class TenantService {
     prisma;
     userService;
@@ -86,13 +87,13 @@ let TenantService = TenantService_1 = class TenantService {
                     ownerEmail: data.ownerEmail,
                     timestamp: new Date().toISOString(),
                 });
+                const hashedPassword = await bcrypt.hash(data.ownerPassword, 10);
                 const ownerUser = await this.userService.createUser({
                     name: data.ownerName,
                     email: data.ownerEmail,
-                    password: data.ownerPassword,
+                    password: hashedPassword,
                     role: data.ownerRole || 'admin',
                     tenantId: tenant.id,
-                    prismaClient: prisma,
                 });
                 console.log('[TenantService] Owner user created:', ownerUser);
                 this.logger.debug('Owner user created successfully', {
@@ -130,6 +131,13 @@ let TenantService = TenantService_1 = class TenantService {
         });
     }
     async updateTenant(tenantId, dto) {
+        const existingTenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+        });
+        if (!existingTenant) {
+            throw new common_1.NotFoundException('Tenant not found');
+        }
+        const updateData = {};
         const validTenantFields = [
             'name', 'businessType', 'contactEmail', 'contactPhone',
             'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts',
@@ -140,29 +148,24 @@ let TenantService = TenantService_1 = class TenantService {
             'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor',
             'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
         ];
-        const updateData = {};
         for (const key of validTenantFields) {
             if (dto[key] !== undefined && dto[key] !== null) {
                 updateData[key] = dto[key];
             }
         }
-        try {
-            return await this.prisma.tenant.update({
-                where: { id: tenantId },
-                data: updateData,
-            });
-        }
-        catch (error) {
-            this.logger.error(`Error updating tenant ${tenantId}:`, error);
-            throw new common_1.BadRequestException('Failed to update tenant');
-        }
+        const updatedTenant = await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: updateData,
+        });
+        return updatedTenant;
     }
     async createOwnerUser(data) {
         try {
+            const hashedPassword = await bcrypt.hash(data.password, 10);
             return await this.userService.createUser({
                 name: data.name,
                 email: data.email,
-                password: data.password,
+                password: hashedPassword,
                 tenantId: data.tenantId,
                 role: data.role || 'admin',
             });

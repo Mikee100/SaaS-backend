@@ -147,11 +147,11 @@ export class SubscriptionService {
       include: {
         plan: true,
         invoices: {
-          orderBy: { createdAt: 'desc' as const },
+          orderBy: { createdAt: 'desc' },
           take: 10,
         },
       },
-      orderBy: { createdAt: 'desc' as const },
+  // orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -167,6 +167,8 @@ export class SubscriptionService {
         amount,
         status: 'open',
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }

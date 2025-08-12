@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TenantService {
@@ -54,13 +55,13 @@ export class TenantService {
     webhookUrl?: string;
     rateLimit?: number;
     stripeCustomerId?: string;
-  ownerName: string;
-  ownerEmail: string;
-  ownerPassword: string;
-  ownerRole?: string;
+    ownerName: string;
+    ownerEmail: string;
+    ownerPassword: string;
+    ownerRole?: string;
   }): Promise<any> {
-  // Input validation with detailed error messages
-  console.log('[TenantService] createTenant called with:', JSON.stringify(data));
+    // Input validation with detailed error messages
+    console.log('[TenantService] createTenant called with:', JSON.stringify(data));
     const requiredFields = [
       { key: 'name', label: 'Business Name' },
       { key: 'businessType', label: 'Business Type' },
@@ -139,13 +140,14 @@ export class TenantService {
           timestamp: new Date().toISOString(),
         });
         // Create owner user using the transaction's prisma client
+        const hashedPassword = await bcrypt.hash(data.ownerPassword, 10);
         const ownerUser = await this.userService.createUser({
           name: data.ownerName,
           email: data.ownerEmail,
-          password: data.ownerPassword,
+          password: hashedPassword,
           role: data.ownerRole || 'admin',
           tenantId: tenant.id,
-          prismaClient: prisma,
+          // prismaClient: prisma,
         });
         console.log('[TenantService] Owner user created:', ownerUser);
 
@@ -190,8 +192,63 @@ export class TenantService {
     });
   }
 
-  async updateTenant(tenantId: string, dto: any) {
-    // Only include valid fields in the update
+  async updateTenant(tenantId: string, dto: Partial<{
+    name: string;
+    businessType: string;
+    contactEmail: string;
+    contactPhone: string | null;
+    businessCategory: string | null;
+    businessSubcategory: string | null;
+    primaryProducts: any;
+    secondaryProducts: any;
+    businessDescription: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    postalCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    foundedYear: number | null;
+    employeeCount: string | null;
+    annualRevenue: string | null;
+    businessHours: any;
+    website: string | null;
+    socialMedia: any;
+    kraPin: string | null;
+    vatNumber: string | null;
+    etimsQrUrl: string | null;
+    businessLicense: string | null;
+    taxId: string | null;
+    currency: string | null;
+    timezone: string | null;
+    invoiceFooter: string | null;
+    logoUrl: string | null;
+    favicon: string | null;
+    receiptLogo: string | null;
+    watermark: string | null;
+    primaryColor: string | null;
+    secondaryColor: string | null;
+    customDomain: string | null;
+    whiteLabel: boolean | null;
+    apiKey: string | null;
+    webhookUrl: string | null;
+    rateLimit: number | null;
+    stripeCustomerId: string | null;
+  }>) {
+    // Get existing tenant
+    const existingTenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!existingTenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Update tenant
+    const updateData: any = {};
+    
+    // Only include fields that are defined in the DTO and are valid tenant fields
     const validTenantFields = [
       'name', 'businessType', 'contactEmail', 'contactPhone',
       'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 
@@ -203,24 +260,18 @@ export class TenantService {
       'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
     ];
 
-    const updateData: any = {};
-    
-    // Only include fields that are defined in the DTO and are valid tenant fields
     for (const key of validTenantFields) {
       if (dto[key] !== undefined && dto[key] !== null) {
         updateData[key] = dto[key];
       }
     }
 
-    try {
-      return await this.prisma.tenant.update({
-        where: { id: tenantId },
-        data: updateData,
-      });
-    } catch (error) {
-      this.logger.error(`Error updating tenant ${tenantId}:`, error);
-      throw new BadRequestException('Failed to update tenant');
-    }
+    const updatedTenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: updateData,
+    });
+
+    return updatedTenant;
   }
 
   async createOwnerUser(data: { 
@@ -231,10 +282,11 @@ export class TenantService {
     role?: string;
   }) {
     try {
+      const hashedPassword = await bcrypt.hash(data.password, 10);
       return await this.userService.createUser({
         name: data.name,
         email: data.email,
-        password: data.password,
+        password: hashedPassword,
         tenantId: data.tenantId,
         role: data.role || 'admin',
       });

@@ -88,59 +88,48 @@ let StripeService = StripeService_1 = class StripeService {
             throw new common_1.InternalServerErrorException('Failed to create customer');
         }
     }
-    async createCheckoutSession(tenantId, priceId, successUrl, cancelUrl, userId) {
+    async createCheckoutSession(tenantId, priceId, successUrl, cancelUrl, userId, customerEmail) {
         const stripe = await this.getStripeForTenant(tenantId);
         if (!stripe) {
             throw new Error('Stripe is not configured for this tenant');
         }
-        try {
-            this.logger.log(`Creating checkout session for tenant: ${tenantId}, price: ${priceId}`);
-            const tenant = await this.prisma.tenant.findUnique({
-                where: { id: tenantId },
-                select: { stripeCustomerId: true, name: true },
-            });
-            if (!tenant) {
-                throw new common_1.BadRequestException('Tenant not found');
+        const subscription = await this.prisma.subscription.findFirst({
+            where: { tenantId },
+            orderBy: { id: 'desc' },
+        });
+        let customer = null;
+        if (subscription?.stripeCustomerId) {
+            try {
+                const customerData = await stripe.customers.retrieve(subscription.stripeCustomerId);
+                if (!customerData.deleted) {
+                    customer = customerData;
+                }
             }
-            let customerId = tenant.stripeCustomerId;
-            if (!customerId) {
-                const customer = await this.createCustomer(tenantId, 'admin@example.com', tenant.name);
-                customerId = customer.id;
+            catch (error) {
+                this.logger.error(`Failed to retrieve customer: ${error.message}`);
             }
-            const session = await stripe.checkout.sessions.create({
-                customer: customerId,
-                payment_method_types: ['card'],
-                line_items: [
-                    {
-                        price: priceId,
-                        quantity: 1,
-                    },
-                ],
-                mode: 'subscription',
-                success_url: successUrl,
-                cancel_url: cancelUrl,
-                metadata: {
-                    tenantId,
-                    userId,
-                },
-                subscription_data: {
-                    metadata: {
-                        tenantId,
-                    },
-                },
-            });
-            await this.auditLogService.log(userId, 'stripe_checkout_created', {
-                tenantId,
-                sessionId: session.id,
-                priceId,
-            });
-            this.logger.log(`Successfully created checkout session: ${session.id} for tenant: ${tenantId}`);
-            return session;
         }
-        catch (error) {
-            this.logger.error(`Failed to create checkout session for tenant: ${tenantId}`, error);
-            throw new common_1.InternalServerErrorException('Failed to create checkout session');
+        if (!customer) {
+            customer = await stripe.customers.create({
+                email: customerEmail,
+                metadata: { tenantId, userId },
+            });
         }
+        return stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                    price: priceId,
+                    quantity: 1,
+                }],
+            mode: 'subscription',
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            customer: customer.id,
+            client_reference_id: tenantId,
+            subscription_data: {
+                metadata: { tenantId, userId },
+            },
+        });
     }
     async createBillingPortalSession(tenantId, returnUrl, userId) {
         const stripe = await this.getStripeForTenant(tenantId);
@@ -328,11 +317,10 @@ let StripeService = StripeService_1 = class StripeService {
                     id: invoice.id,
                     number: invoice.number || `INV-${Date.now()}`,
                     tenantId,
-                    amount: invoice.amount_paid / 100,
+                    amount: (invoice.amount_paid || 0) / 100,
                     status: invoice.status === 'paid' ? 'paid' : 'open',
                     dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
                     paidAt: invoice.status === 'paid' ? new Date() : null,
-                    subscriptionId: invoice.subscription ?? invoice.subscription_id ?? null,
                 },
             });
             await this.auditLogService.log(userId || 'system', 'payment_succeeded', {
@@ -414,26 +402,29 @@ let StripeService = StripeService_1 = class StripeService {
             throw new common_1.InternalServerErrorException('Failed to cancel subscription');
         }
     }
-    async getSubscriptionDetails(tenantId) {
-        const stripe = await this.getStripeForTenant(tenantId);
-        if (!stripe) {
-            throw new Error('Stripe is not configured for this tenant');
-        }
+    async getSubscription(tenantId) {
         try {
             const subscription = await this.prisma.subscription.findFirst({
-                where: {
-                    tenantId,
-                    status: { in: ['active', 'past_due', 'trialing', 'canceled'] }
+                where: { tenantId },
+                orderBy: { id: 'desc' },
+                include: {
+                    tenant: true,
+                    user: true,
                 },
             });
-            if (!subscription?.stripeSubscriptionId) {
+            if (!subscription || !subscription.stripeSubscriptionId) {
                 return null;
             }
-            return await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+            return {
+                id: subscription.id,
+                status: subscription.status,
+                stripeSubscriptionId: subscription.stripeSubscriptionId,
+                stripeCustomerId: subscription.stripeCustomerId,
+            };
         }
         catch (error) {
-            this.logger.error(`Failed to get subscription details for tenant: ${tenantId}`, error);
-            return null;
+            this.logger.error('Error getting subscription:', error);
+            throw error;
         }
     }
     async cleanupOrphanedSubscriptions(tenantId) {
@@ -441,7 +432,6 @@ let StripeService = StripeService_1 = class StripeService {
             const orphanedSubscriptions = await this.prisma.subscription.findMany({
                 where: {
                     tenantId,
-                    stripeSubscriptionId: null,
                     status: { in: ['active', 'past_due', 'trialing'] }
                 }
             });

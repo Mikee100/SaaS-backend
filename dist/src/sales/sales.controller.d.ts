@@ -36,15 +36,14 @@ export declare class SalesController {
                 saleId: string;
                 quantity: number;
             }[];
-            mpesaTransactions: {
+            branch: {
                 id: string;
+                name: string;
                 createdAt: Date;
-                phoneNumber: string;
-                amount: number;
-                status: string;
-                responseDesc: string | null;
-                transactionId: string | null;
-            }[];
+                updatedAt: Date;
+                tenantId: string;
+                address: string | null;
+            } | null;
             tenant: {
                 id: string;
                 name: string;
@@ -107,14 +106,15 @@ export declare class SalesController {
                 email: string;
                 name: string;
             };
-            branch: {
+            mpesaTransactions: {
                 id: string;
-                name: string;
                 createdAt: Date;
-                updatedAt: Date;
-                tenantId: string;
-                address: string | null;
-            } | null;
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                responseDesc: string | null;
+                transactionId: string | null;
+            }[];
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -196,10 +196,10 @@ export declare class SalesController {
             tenantId: string;
             branchId: string | null;
             description: string | null;
-            sku: string;
             price: number;
-            stock: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            sku: string;
+            stock: number;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
@@ -226,8 +226,6 @@ export declare class SalesController {
             address: string;
             phone: string;
             email: string;
-            vatNumber: any;
-            receiptFooter: any;
         };
         mpesaTransaction: {
             phoneNumber: string;
@@ -304,15 +302,14 @@ export declare class SalesController {
             saleId: string;
             quantity: number;
         }[];
-        mpesaTransactions: {
+        branch: {
             id: string;
+            name: string;
             createdAt: Date;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
+            updatedAt: Date;
+            tenantId: string;
+            address: string | null;
+        } | null;
         tenant: {
             id: string;
             name: string;
@@ -375,14 +372,15 @@ export declare class SalesController {
             email: string;
             name: string;
         };
-        branch: {
+        mpesaTransactions: {
             id: string;
-            name: string;
             createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            address: string | null;
-        } | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         id: string;
         createdAt: Date;
         tenantId: string;

@@ -104,23 +104,11 @@ let MpesaController = class MpesaController {
                 timeout: 30000
             });
             const userId = req.user?.userId || undefined;
-            const transaction = await this.mpesaService.createTransaction({
-                userId,
-                phoneNumber,
-                amount,
-                status: 'pending',
-                merchantRequestId: stkResponse.data.MerchantRequestID,
-                checkoutRequestId: stkResponse.data.CheckoutRequestID,
-                message: stkResponse.data.ResponseDescription,
-                saleData: saleData || null,
-            });
             return res.status(200).json({
                 success: true,
                 message: 'Payment request initiated successfully',
                 data: {
                     ...stkResponse.data,
-                    transactionId: transaction.id,
-                    checkoutRequestId: transaction.checkoutRequestId
                 }
             });
         }
@@ -149,138 +137,50 @@ let MpesaController = class MpesaController {
                 code: error.response?.data?.errorCode || 'UNKNOWN_ERROR'
             });
         }
-    }
-    async mpesaWebhook(body, req, res) {
-        console.log('M-Pesa Webhook received:', JSON.stringify(body, null, 2));
-        try {
-            const result = body.Body?.stkCallback;
-            if (!result) {
-                console.error('Invalid webhook payload:', body);
-                return res.status(400).json({ error: 'Invalid webhook payload' });
-            }
-            const checkoutRequestId = result.CheckoutRequestID;
-            const status = result.ResultCode === 0 ? 'success' : 'failed';
-            let mpesaReceipt = undefined;
-            let message = result.ResultDesc;
-            let responseCode = String(result.ResultCode);
-            let responseDesc = result.ResultDesc;
-            if (status === 'success' && result.CallbackMetadata) {
-                const receiptItem = result.CallbackMetadata.Item.find((i) => i.Name === 'MpesaReceiptNumber');
-                mpesaReceipt = receiptItem ? receiptItem.Value : undefined;
-            }
-            await this.mpesaService.updateTransaction(checkoutRequestId, {
-                status,
-                mpesaReceipt,
-                responseCode,
-                responseDesc,
-                message,
-            });
-            if (status === 'success') {
-                const mpesaTx = await this.mpesaService.getTransactionByCheckoutId(checkoutRequestId);
-                if (mpesaTx && !mpesaTx.sale && mpesaTx.saleData) {
-                    const saleData = mpesaTx.saleData;
-                    try {
-                        const tenantId = req.user?.tenantId || saleData.tenantId;
-                        const userId = req.user?.id || saleData.userId;
-                        if (!tenantId || !userId) {
-                            console.error('Missing tenantId or userId for sale creation');
-                            await this.mpesaService.updateTransaction(checkoutRequestId, {
-                                status: 'failed',
-                                message: 'Missing tenant or user information',
-                            });
-                            return res.status(400).json({ error: 'Missing tenant or user information' });
-                        }
-                        await this.salesService.createSale({
-                            items: saleData.items,
-                            paymentMethod: 'mpesa',
-                            amountReceived: mpesaTx.amount,
-                            customerName: saleData.customerName,
-                            customerPhone: saleData.customerPhone,
-                            mpesaTransactionId: mpesaTx.id,
-                            idempotencyKey: `mpesa_${mpesaTx.id}`,
-                        }, tenantId, userId);
-                        console.log('Sale created successfully for M-Pesa transaction:', mpesaTx.id);
-                    }
-                    catch (err) {
-                        console.error('Failed to create sale for M-Pesa transaction:', err);
-                        await this.mpesaService.updateTransaction(checkoutRequestId, {
-                            status: 'stock_unavailable',
-                            message: 'Stock unavailable for one or more items',
-                        });
-                        return res.status(409).json({
-                            error: 'Stock unavailable for one or more items'
-                        });
-                    }
+        if (status === 'success' && result.CallbackMetadata) {
+            const receiptItem = result.CallbackMetadata.Item.find((i) => i.Name === 'MpesaReceiptNumber');
+            mpesaReceipt = receiptItem ? receiptItem.Value : undefined;
+        }
+        await this.mpesaService.updateTransaction(checkoutRequestId, {
+            status,
+            mpesaReceipt,
+            responseCode,
+            responseDesc,
+            message,
+        });
+        if (status === 'success') {
+            const mpesaTx = await this.mpesaService.getTransactionByCheckoutId(checkoutRequestId);
+            const saleData = mpesaTx.saleData;
+            try {
+                const tenantId = req.user?.tenantId || saleData.tenantId;
+                const userId = req.user?.id || saleData.userId;
+                if (!tenantId || !userId) {
+                    console.error('Missing tenantId or userId for sale creation');
+                    await this.mpesaService.updateTransaction(checkoutRequestId, {
+                        status: 'failed',
+                        message: 'Missing tenant or user information',
+                    });
+                    return res.status(400).json({ error: 'Missing tenant or user information' });
                 }
+                await this.salesService.createSale({
+                    items: saleData.items,
+                    paymentMethod: 'mpesa',
+                    amountReceived: mpesaTx.amount,
+                    customerName: saleData.customerName,
+                    customerPhone: saleData.customerPhone,
+                    mpesaTransactionId: mpesaTx.id,
+                    idempotencyKey: `mpesa_${mpesaTx.id}`,
+                }, tenantId, userId);
+                console.log('Sale created successfully for M-Pesa transaction:', mpesaTx.id);
             }
-            return res.status(200).json({ received: true });
+            catch (err) {
+                console.error('Failed to create sale for M-Pesa transaction:', err);
+                await this.mpesaService.updateTransaction(checkoutRequestId, {
+                    status: 'stock_unavailable',
+                    message: 'Stock unavailable for one or more items',
+                });
+            }
         }
-        catch (err) {
-            console.error('Webhook processing error:', err);
-            return res.status(500).json({ error: 'Failed to process webhook' });
-        }
-    }
-    async getTransactionStatus(checkoutRequestId) {
-        const transaction = await this.mpesaService.getTransactionByCheckoutId(checkoutRequestId);
-        if (!transaction) {
-            return { error: 'Transaction not found' };
-        }
-        return {
-            success: true,
-            data: transaction
-        };
-    }
-    async getTransactionById(id) {
-        const transaction = await this.mpesaService.getTransactionById(id);
-        if (!transaction) {
-            return { error: 'Transaction not found' };
-        }
-        return {
-            success: true,
-            data: transaction
-        };
-    }
-    async getUserTransactions(userId, req) {
-        const transactions = await this.mpesaService.getTransactionsByUserId(userId);
-        return {
-            success: true,
-            data: transactions
-        };
-    }
-    async getTenantTransactions(tenantId) {
-        const transactions = await this.mpesaService.getTransactionsByTenant(tenantId);
-        return {
-            success: true,
-            data: transactions
-        };
-    }
-    async getTransactionStats(req) {
-        const stats = await this.mpesaService.getTransactionStats();
-        return {
-            success: true,
-            data: stats
-        };
-    }
-    async cancelTransaction(checkoutRequestId) {
-        await this.mpesaService.cancelTransaction(checkoutRequestId);
-        return {
-            success: true,
-            message: 'Transaction cancelled successfully'
-        };
-    }
-    async getPendingTransactions() {
-        const transactions = await this.mpesaService.getPendingTransactions();
-        return {
-            success: true,
-            data: transactions
-        };
-    }
-    async cleanupOldTransactions() {
-        const result = await this.mpesaService.cleanupOldPendingTransactions();
-        return {
-            success: true,
-            message: `Cleaned up ${result.count} old pending transactions`
-        };
     }
 };
 exports.MpesaController = MpesaController;
@@ -293,70 +193,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], MpesaController.prototype, "initiateMpesa", null);
-__decorate([
-    (0, common_1.Post)('webhook'),
-    __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Req)()),
-    __param(2, (0, common_1.Res)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, Object]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "mpesaWebhook", null);
-__decorate([
-    (0, common_1.Get)('status/:checkoutRequestId'),
-    __param(0, (0, common_1.Param)('checkoutRequestId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getTransactionStatus", null);
-__decorate([
-    (0, common_1.Get)('transaction/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getTransactionById", null);
-__decorate([
-    (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getUserTransactions", null);
-__decorate([
-    (0, common_1.Get)('tenant/:tenantId'),
-    __param(0, (0, common_1.Param)('tenantId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getTenantTransactions", null);
-__decorate([
-    (0, common_1.Get)('stats'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getTransactionStats", null);
-__decorate([
-    (0, common_1.Delete)('cancel/:checkoutRequestId'),
-    __param(0, (0, common_1.Param)('checkoutRequestId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "cancelTransaction", null);
-__decorate([
-    (0, common_1.Get)('pending'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getPendingTransactions", null);
-__decorate([
-    (0, common_1.Post)('cleanup'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "cleanupOldTransactions", null);
 exports.MpesaController = MpesaController = __decorate([
     (0, common_1.Controller)('mpesa'),
     __metadata("design:paramtypes", [mpesa_service_1.MpesaService,

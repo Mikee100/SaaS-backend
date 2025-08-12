@@ -1,4 +1,14 @@
 import { PrismaService } from '../prisma.service';
+export interface MpesaTransactionUpdate {
+    status?: string;
+    message?: string;
+    resultCode?: number;
+    resultDesc?: string;
+    mpesaReceiptNumber?: string;
+    transactionDate?: string;
+    phoneNumber?: string;
+    amount?: number;
+}
 export declare class MpesaService {
     private prisma;
     constructor(prisma: PrismaService);
@@ -28,7 +38,33 @@ export declare class MpesaService {
         orgAccountBalance: string | null;
         thirdPartyTransID: string | null;
     } | null>;
-    getTransactionsByUserId(userId: string): Promise<{
+    getTransactionsByUserId(userId: string, limit?: number): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        userId: string | null;
+        phoneNumber: string;
+        amount: number;
+        status: string;
+        merchantRequestId: string | null;
+        checkoutRequestID: string | null;
+        mpesaReceipt: string | null;
+        responseCode: string | null;
+        responseDesc: string | null;
+        message: string | null;
+        saleId: string | null;
+        saleData: import("@prisma/client/runtime/library").JsonValue | null;
+        transactionId: string | null;
+        transactionType: string | null;
+        transactionTime: Date | null;
+        businessShortCode: string | null;
+        billRefNumber: string | null;
+        invoiceNumber: string | null;
+        orgAccountBalance: string | null;
+        thirdPartyTransID: string | null;
+    }[]>;
+    getTransactionsByPhoneNumber(phoneNumber: string, limit?: number): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -113,7 +149,7 @@ export declare class MpesaService {
         orgAccountBalance: string | null;
         thirdPartyTransID: string | null;
     }>;
-    getPendingTransactions(): Promise<{
+    getPendingTransactions(limit?: number): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -139,4 +175,30 @@ export declare class MpesaService {
         orgAccountBalance: string | null;
         thirdPartyTransID: string | null;
     }[]>;
+    updateTransaction(id: string, data: MpesaTransactionUpdate): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        userId: string | null;
+        phoneNumber: string;
+        amount: number;
+        status: string;
+        merchantRequestId: string | null;
+        checkoutRequestID: string | null;
+        mpesaReceipt: string | null;
+        responseCode: string | null;
+        responseDesc: string | null;
+        message: string | null;
+        saleId: string | null;
+        saleData: import("@prisma/client/runtime/library").JsonValue | null;
+        transactionId: string | null;
+        transactionType: string | null;
+        transactionTime: Date | null;
+        businessShortCode: string | null;
+        billRefNumber: string | null;
+        invoiceNumber: string | null;
+        orgAccountBalance: string | null;
+        thirdPartyTransID: string | null;
+    }>;
 }

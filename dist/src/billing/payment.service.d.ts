@@ -30,7 +30,7 @@ export declare class PaymentService {
         subscriptionId: string | null;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
-        period: "month" | "quarter" | "year";
+        period: "month" | "year" | "quarter";
         totalRevenue: number;
         paymentCount: number;
         averagePayment: number;

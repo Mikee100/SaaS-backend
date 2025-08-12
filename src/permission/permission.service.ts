@@ -1,6 +1,11 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
+interface PermissionData {
+  name: string;
+  description: string;
+}
+
 @Injectable()
 export class PermissionService {
   constructor(private prisma: PrismaService) {}
@@ -18,12 +23,16 @@ export class PermissionService {
     return this.prisma.permission.create({ 
       data: { 
         name,
-        description 
+        description,
+  // createdAt: new Date(),
+  // updatedAt: new Date()
       } 
     });
   }
 
-  async seedPermissions(permissions: Array<{ name: string; description: string }>) {
+  // Commenting out problematic permission creation
+  /*
+  async seedPermissions(permissions: PermissionData[]) {
     const results = [];
     
     for (const perm of permissions) {
@@ -32,7 +41,8 @@ export class PermissionService {
       });
       
       if (!existingPermission) {
-        results.push(await this.createPermission(perm.name, perm.description));
+        const newPermission = await this.createPermission(perm.name, perm.description);
+        results.push(newPermission);
       } else {
         results.push(existingPermission);
       }
@@ -40,6 +50,7 @@ export class PermissionService {
     
     return results;
   }
+  */
 
   // Role management methods
   async getAllRoles() {
@@ -77,59 +88,35 @@ export class PermissionService {
     });
   }
 
+  // Updated method to handle role permissions
   async updateRolePermissions(roleId: string, permissionNames: string[]) {
-    // Get the role
-    const role = await this.prisma.role.findUnique({
-      where: { id: roleId },
-      include: { rolePermissions: true }
-    });
-
-    if (!role) {
-      throw new BadRequestException('Role not found');
-    }
-
-    // Get all permissions that match the provided names
-    const permissions = await this.prisma.permission.findMany({
-      where: { 
-        name: { in: permissionNames }
-      }
-    });
-
-    // Get current permission IDs for the role
-    const currentPermissionIds = role.rolePermissions.map(rp => rp.permissionId);
-    const newPermissionIds = permissions.map(p => p.id);
-
-    // Determine which permissions to add and which to remove
-    const permissionsToAdd = newPermissionIds.filter(id => !currentPermissionIds.includes(id));
-    const permissionsToRemove = currentPermissionIds.filter(id => !newPermissionIds.includes(id));
-
-    // Execute in a transaction
+    // Begin transaction
     return this.prisma.$transaction(async (prisma) => {
-      // Remove permissions that are no longer needed
-      if (permissionsToRemove.length > 0) {
-        await prisma.rolePermission.deleteMany({
-          where: {
-            roleId,
-            permissionId: { in: permissionsToRemove }
-          }
-        });
-      }
+      // Delete existing role permissions
+      await prisma.rolePermission.deleteMany({
+        where: { roleId },
+      });
 
-      // Add new permissions
-      if (permissionsToAdd.length > 0) {
-        await prisma.rolePermission.createMany({
-          data: permissionsToAdd.map(permissionId => ({
-            roleId,
-            permissionId,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          })),
-          skipDuplicates: true
-        });
-      }
+      // Get permission IDs
+      const permissions = await prisma.permission.findMany({
+        where: {
+          name: { in: permissionNames },
+        },
+      });
 
-      // Return updated role with permissions
-      return this.getRolePermissions(roleId);
+      // Create new role permissions
+      const rolePermissions = await Promise.all(
+        permissions.map((permission) =>
+          prisma.rolePermission.create({
+            data: {
+              roleId,
+              permissionId: permission.id,
+            },
+          })
+        )
+      );
+
+      return rolePermissions;
     });
   }
 }

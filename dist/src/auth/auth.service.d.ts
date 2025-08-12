@@ -18,17 +18,17 @@ export declare class AuthService {
             userId: string;
             roleId: string;
         })[] | ({
+            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedBy: string;
             grantedAt: Date;
         } | {
+            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedBy: string;
             grantedAt: Date;
         })[] | ({
@@ -193,10 +193,10 @@ export declare class AuthService {
             userId: string;
             roleId: string;
         }[] | {
+            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedBy: string;
             grantedAt: Date;
         }[] | {

@@ -31,6 +31,11 @@ export declare class RoleController {
         description: string | null;
     }>;
     getRolePermissions(id: string): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
@@ -39,33 +44,14 @@ export declare class RoleController {
             tenantId: string | null;
             description: string | null;
         };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
     } & {
         id: string;
         roleId: string;
         permissionId: string;
     })[]>;
-    updateRolePermissions(id: string, body: any): Promise<({
-        role: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
-            description: string | null;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
-    } & {
+    updateRolePermissions(id: string, body: any): Promise<{
         id: string;
         roleId: string;
         permissionId: string;
-    })[]>;
+    }[]>;
 }

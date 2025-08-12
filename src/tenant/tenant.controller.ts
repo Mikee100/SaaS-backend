@@ -168,7 +168,7 @@ export class TenantController {
     return this.tenantService.updateTenant(tenantId, {
       webhookUrl: apiSettings.webhookUrl,
       rateLimit: apiSettings.rateLimit,
-      customIntegrations: apiSettings.customIntegrations,
+  // customIntegrations: apiSettings.customIntegrations,
     });
   }
 

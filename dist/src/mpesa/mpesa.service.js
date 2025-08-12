@@ -22,16 +22,24 @@ let MpesaService = class MpesaService {
             where: { checkoutRequestID },
         });
     }
-    async getTransactionsByUserId(userId) {
+    async getTransactionsByUserId(userId, limit = 10) {
         return this.prisma.mpesaTransaction.findMany({
             where: { userId },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+    }
+    async getTransactionsByPhoneNumber(phoneNumber, limit = 10) {
+        return this.prisma.mpesaTransaction.findMany({
+            where: { phoneNumber },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
         });
     }
     async getTransactionsByTenant(tenantId) {
         return this.prisma.mpesaTransaction.findMany({
             where: { tenantId },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
         });
     }
     async getTransactionStats() {
@@ -68,10 +76,20 @@ let MpesaService = class MpesaService {
             data: { status: 'cancelled' },
         });
     }
-    async getPendingTransactions() {
+    async getPendingTransactions(limit = 100) {
         return this.prisma.mpesaTransaction.findMany({
             where: { status: 'pending' },
-            orderBy: { created_at: 'desc' },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+    }
+    async updateTransaction(id, data) {
+        return this.prisma.mpesaTransaction.update({
+            where: { id },
+            data: {
+                ...data,
+                updatedAt: new Date(),
+            },
         });
     }
 };

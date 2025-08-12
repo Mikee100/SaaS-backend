@@ -61,7 +61,7 @@ export declare class PaymentController {
     getPaymentAnalytics(period: "month" | "quarter" | "year" | undefined, req: any): Promise<{
         success: boolean;
         analytics: {
-            period: "month" | "quarter" | "year";
+            period: "month" | "year" | "quarter";
             totalRevenue: number;
             paymentCount: number;
             averagePayment: number;

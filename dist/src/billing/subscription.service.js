@@ -128,7 +128,6 @@ let SubscriptionService = class SubscriptionService {
                     take: 10,
                 },
             },
-            orderBy: { createdAt: 'desc' },
         });
     }
     async createInvoice(subscriptionId, amount, tenantId) {
@@ -141,6 +140,8 @@ let SubscriptionService = class SubscriptionService {
                 amount,
                 status: 'open',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                createdAt: new Date(),
+                updatedAt: new Date(),
             },
         });
     }

@@ -85,20 +85,6 @@ export class BillingController {
     return this.billingService.getPlans();
   }
 
-  @Get('subscription')
-  @UseGuards(AuthGuard('jwt'))
-  async getCurrentSubscription(@Req() req) {
-    try {
-      if (!req.user?.tenantId) {
-        throw new Error('No tenant ID found in user object');
-      }
-      
-      return this.billingService.getCurrentSubscription(req.user.tenantId);
-    } catch (error) {
-      throw error;
-    }
-  }
-
   @Get('subscription-with-permissions')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
@@ -205,7 +191,7 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getSubscriptionDetails(@Req() req) {
-    const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
+    const subscription = await this.stripeService.getSubscription(req.user.tenantId);
     return subscription;
   }
 

@@ -64,9 +64,16 @@ let UserController = class UserController {
         const tenantId = req.user.tenantId;
         return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
     }
-    async updatePermissions(id, body, req) {
-        const tenantId = req.user.tenantId;
-        return this.userService.updateUserPermissionsByTenant(id, body.permissions, tenantId, req.user.userId, req.ip);
+    async updateUserPermissions(id, body, req) {
+        const tenantId = req.user?.tenantId;
+        if (!tenantId) {
+            throw new common_1.UnauthorizedException('No tenant ID found in user object');
+        }
+        const formattedPermissions = body.permissions.map(p => ({
+            name: p.name,
+            note: p.note
+        }));
+        return this.userService.updateUserPermissionsByTenant(id, formattedPermissions, tenantId, req.user.userId, req.ip);
     }
     async getUserPermissions(id, req) {
         const tenantId = req.user.tenantId;
@@ -78,6 +85,9 @@ let UserController = class UserController {
     async deleteUser(req, id) {
         const tenantId = req.user.tenantId;
         return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
+    }
+    async getAllPermissions() {
+        return this.userService.getAllPermissions();
     }
 };
 exports.UserController = UserController;
@@ -130,14 +140,14 @@ __decorate([
 __decorate([
     (0, common_1.Put)(':id/permissions'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
-    (0, permissions_decorator_1.Permissions)('edit_users'),
+    (0, permissions_decorator_1.Permissions)('manage_users'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
-], UserController.prototype, "updatePermissions", null);
+], UserController.prototype, "updateUserPermissions", null);
 __decorate([
     (0, common_1.Get)(':id/permissions'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
@@ -167,6 +177,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
+__decorate([
+    (0, common_1.Get)('permissions/all'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('view_users'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getAllPermissions", null);
 exports.UserController = UserController = __decorate([
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])

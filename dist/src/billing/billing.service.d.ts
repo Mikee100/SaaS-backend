@@ -6,13 +6,12 @@ export declare class BillingService {
         id: string;
         name: string;
         auditLogs: boolean;
+        description: string;
         whiteLabel: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         backupRestore: boolean;
-        description: string;
         price: number;
-        customFields: boolean;
         interval: string;
         isActive: boolean;
         maxUsers: number | null;
@@ -25,6 +24,7 @@ export declare class BillingService {
         apiAccess: boolean;
         bulkOperations: boolean;
         dataExport: boolean;
+        customFields: boolean;
         advancedSecurity: boolean;
         dedicatedSupport: boolean;
     }[] | ({
@@ -89,13 +89,12 @@ export declare class BillingService {
             id: string;
             name: string;
             auditLogs: boolean;
+            description: string;
             whiteLabel: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
-            description: string;
             price: number;
-            customFields: boolean;
             interval: string;
             isActive: boolean;
             maxUsers: number | null;
@@ -108,6 +107,7 @@ export declare class BillingService {
             apiAccess: boolean;
             bulkOperations: boolean;
             dataExport: boolean;
+            customFields: boolean;
             advancedSecurity: boolean;
             dedicatedSupport: boolean;
         };

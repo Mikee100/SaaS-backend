@@ -86,17 +86,6 @@ let BillingController = BillingController_1 = class BillingController {
     async getPlans() {
         return this.billingService.getPlans();
     }
-    async getCurrentSubscription(req) {
-        try {
-            if (!req.user?.tenantId) {
-                throw new Error('No tenant ID found in user object');
-            }
-            return this.billingService.getCurrentSubscription(req.user.tenantId);
-        }
-        catch (error) {
-            throw error;
-        }
-    }
     async getCurrentSubscriptionWithPermissions(req) {
         try {
             if (!req.user?.tenantId) {
@@ -153,7 +142,7 @@ let BillingController = BillingController_1 = class BillingController {
         return { message: 'Subscription will be canceled at the end of the current period' };
     }
     async getSubscriptionDetails(req) {
-        const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
+        const subscription = await this.stripeService.getSubscription(req.user.tenantId);
         return subscription;
     }
     async cleanupOrphanedSubscriptions(req) {
@@ -287,14 +276,6 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "getPlans", null);
-__decorate([
-    (0, common_1.Get)('subscription'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], BillingController.prototype, "getCurrentSubscription", null);
 __decorate([
     (0, common_1.Get)('subscription-with-permissions'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),

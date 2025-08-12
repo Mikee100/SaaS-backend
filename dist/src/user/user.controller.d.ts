@@ -19,6 +19,14 @@ export declare class UserController {
     }>;
     getUsers(req: any): Promise<({
         userRoles: ({
+            role: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string | null;
+                description: string | null;
+            };
             tenant: {
                 id: string;
                 name: string;
@@ -76,14 +84,6 @@ export declare class UserController {
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
             };
-            role: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                tenantId: string | null;
-                description: string | null;
-            };
         } & {
             id: string;
             tenantId: string;
@@ -97,10 +97,10 @@ export declare class UserController {
                 description: string | null;
             };
         } & {
+            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedBy: string;
             grantedAt: Date;
         })[];
@@ -134,23 +134,80 @@ export declare class UserController {
         name?: string;
         role?: string;
     }): Promise<any>;
-    updatePermissions(id: string, body: {
-        permissions: {
-            key: string;
+    updateUserPermissions(id: string, body: {
+        permissions: Array<{
+            name: string;
             note?: string;
-        }[];
+        }>;
     }, req: any): Promise<({
         userPermissions: ({
+            tenant: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                stripeCustomerId: string | null;
+                businessType: string;
+                contactEmail: string;
+                contactPhone: string | null;
+                businessCategory: string | null;
+                businessSubcategory: string | null;
+                primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                businessDescription: string | null;
+                address: string | null;
+                city: string | null;
+                state: string | null;
+                country: string | null;
+                postalCode: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                foundedYear: number | null;
+                employeeCount: string | null;
+                annualRevenue: string | null;
+                businessHours: import("@prisma/client/runtime/library").JsonValue | null;
+                website: string | null;
+                socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+                kraPin: string | null;
+                vatNumber: string | null;
+                etimsQrUrl: string | null;
+                businessLicense: string | null;
+                taxId: string | null;
+                currency: string | null;
+                timezone: string | null;
+                invoiceFooter: string | null;
+                credits: number | null;
+                logoUrl: string | null;
+                loginLogoUrl: string | null;
+                favicon: string | null;
+                receiptLogo: string | null;
+                watermark: string | null;
+                dashboardLogoUrl: string | null;
+                emailLogoUrl: string | null;
+                mobileLogoUrl: string | null;
+                logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                primaryColor: string | null;
+                secondaryColor: string | null;
+                customDomain: string | null;
+                whiteLabel: boolean;
+                apiKey: string | null;
+                webhookUrl: string | null;
+                rateLimit: number | null;
+                customIntegrations: boolean;
+                ssoEnabled: boolean;
+                auditLogsEnabled: boolean;
+                backupRestore: boolean;
+            };
             permissionRef: {
                 id: string;
                 name: string;
                 description: string | null;
             };
         } & {
+            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedBy: string;
             grantedAt: Date;
         })[];
@@ -169,14 +226,77 @@ export declare class UserController {
         updatedAt: Date;
         tenantId: string | null;
     }) | null>;
-    getUserPermissions(id: string, req: any): Promise<{
+    getUserPermissions(id: string, req: any): Promise<({
+        tenant: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string | null;
+            businessType: string;
+            contactEmail: string;
+            contactPhone: string | null;
+            businessCategory: string | null;
+            businessSubcategory: string | null;
+            primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+            secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+            businessDescription: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            postalCode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            foundedYear: number | null;
+            employeeCount: string | null;
+            annualRevenue: string | null;
+            businessHours: import("@prisma/client/runtime/library").JsonValue | null;
+            website: string | null;
+            socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+            kraPin: string | null;
+            vatNumber: string | null;
+            etimsQrUrl: string | null;
+            businessLicense: string | null;
+            taxId: string | null;
+            currency: string | null;
+            timezone: string | null;
+            invoiceFooter: string | null;
+            credits: number | null;
+            logoUrl: string | null;
+            loginLogoUrl: string | null;
+            favicon: string | null;
+            receiptLogo: string | null;
+            watermark: string | null;
+            dashboardLogoUrl: string | null;
+            emailLogoUrl: string | null;
+            mobileLogoUrl: string | null;
+            logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+            primaryColor: string | null;
+            secondaryColor: string | null;
+            customDomain: string | null;
+            whiteLabel: boolean;
+            apiKey: string | null;
+            webhookUrl: string | null;
+            rateLimit: number | null;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            auditLogsEnabled: boolean;
+            backupRestore: boolean;
+        };
+        permissionRef: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
+    } & {
+        permission: string;
         id: string;
         tenantId: string;
         userId: string;
-        permission: string;
         grantedBy: string;
         grantedAt: Date;
-    }[]>;
+    })[]>;
     updatePreferences(req: any, body: {
         notificationPreferences?: any;
         language?: string;
@@ -197,4 +317,7 @@ export declare class UserController {
         tenantId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
+    getAllPermissions(): Promise<{
+        name: string;
+    }[]>;
 }

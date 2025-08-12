@@ -17,6 +17,7 @@ exports.MpesaController = void 0;
 const common_1 = require("@nestjs/common");
 const mpesa_service_1 = require("../mpesa.service");
 const sales_service_1 = require("../sales/sales.service");
+const schedule_1 = require("@nestjs/schedule");
 let MpesaController = MpesaController_1 = class MpesaController {
     mpesaService;
     salesService;
@@ -25,129 +26,73 @@ let MpesaController = MpesaController_1 = class MpesaController {
         this.mpesaService = mpesaService;
         this.salesService = salesService;
     }
-    async handleCallback(data) {
+    async handleCallback(callbackData) {
         try {
-            if (data.Body?.stkCallback) {
-                const callbackData = data.Body.stkCallback;
-                const checkoutRequestID = callbackData.CheckoutRequestID;
-                const resultCode = callbackData.ResultCode;
-                const resultDesc = callbackData.ResultDesc;
-                const transaction = await this.mpesaService.getTransactionByCheckoutRequestId(checkoutRequestID);
-                if (!transaction) {
-                    this.logger.warn(`Transaction not found for checkout request ID: ${checkoutRequestID}`);
-                    return { ResultCode: 0, ResultDesc: 'Success' };
-                }
-                const updateData = {
-                    responseCode: resultCode.toString(),
-                    responseDesc: resultDesc,
-                    transactionTime: new Date(),
-                };
-                if (resultCode === '0') {
-                    const callbackMetadata = callbackData.CallbackMetadata || {};
-                    const items = Array.isArray(callbackMetadata.Item) ? callbackMetadata.Item : [];
-                    for (const item of items) {
-                        switch (item.Name) {
-                            case 'MpesaReceiptNumber':
-                                updateData.mpesaReceipt = item.Value;
-                                break;
-                            case 'PhoneNumber':
-                                updateData.phoneNumber = item.Value;
-                                break;
-                            case 'Amount':
-                                updateData.amount = parseFloat(item.Value);
-                                break;
-                        }
-                    }
-                    updateData.status = 'success';
-                    updateData.message = 'Payment received successfully';
-                }
-                else {
-                    updateData.status = 'failed';
-                    updateData.message = resultDesc || 'Payment failed';
-                }
-                await this.mpesaService.updateTransaction(transaction.id, updateData);
-                if (transaction.saleData) {
-                    try {
-                        await this.salesService.create({
-                            ...transaction.saleData,
-                            mpesaTransactionId: transaction.id,
-                            paymentMethod: 'mpesa',
-                        });
-                    }
-                    catch (saleError) {
-                        this.logger.error('Error creating sale from M-Pesa transaction', saleError);
-                        await this.mpesaService.updateTransaction(transaction.id, {
-                            status: 'failed',
-                            message: `Sale creation failed: ${saleError.message}`,
-                        });
-                    }
-                }
-            }
-            return {
-                ResultCode: 0,
-                ResultDesc: 'Success',
-            };
+            const transaction = await this.mpesaService.updateTransaction(callbackData.CheckoutRequestID, {
+                mpesaReceiptNumber: callbackData.MPESAReceiptNumber,
+                transactionDate: new Date().toISOString(),
+                phoneNumber: callbackData.PhoneNumber,
+                amount: parseFloat(callbackData.Amount),
+            });
+            return { success: true, transaction };
         }
         catch (error) {
-            this.logger.error('Error processing M-Pesa callback', error);
-            return {
-                ResultCode: 1,
-                ResultDesc: 'Error processing callback',
-            };
+            this.logger.error('Error processing MPESA callback:', error);
+            throw new common_1.InternalServerErrorException('Failed to process callback');
         }
     }
-    async getTransaction(checkoutRequestId) {
-        const transaction = await this.mpesaService.getTransactionByCheckoutRequestId(checkoutRequestId);
+    async getTransactions() {
+    }
+    async getTransaction(id) {
         if (!transaction) {
             throw new common_1.NotFoundException('Transaction not found');
         }
         return transaction;
     }
-    async getTransactionsByPhone(phoneNumber, limit = '10') {
-        return this.mpesaService.getTransactionsByPhoneNumber(phoneNumber, parseInt(limit, 10));
-    }
-    async cancelTransaction(id) {
-        return this.mpesaService.updateTransaction(id, {
-            status: 'cancelled',
-            message: 'Transaction cancelled by user',
-        });
+    async getPendingTransactions() {
+        return this.mpesaService.getPendingTransactions();
     }
     async cleanupOldPendingTransactions() {
-        return this.mpesaService.cleanupOldPendingTransactions();
+        try {
+            const result = await this.mpesaService.getPendingTransactions(100);
+            return { success: true, count: result.length };
+        }
+        catch (error) {
+            this.logger.error('Error cleaning up old transactions:', error);
+            throw new common_1.InternalServerErrorException('Failed to clean up transactions');
+        }
     }
 };
 exports.MpesaController = MpesaController;
 __decorate([
     (0, common_1.Post)('callback'),
+    (0, common_1.HttpCode)(200),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], MpesaController.prototype, "handleCallback", null);
 __decorate([
-    (0, common_1.Get)('transaction/:checkoutRequestId'),
-    __param(0, (0, common_1.Param)('checkoutRequestId')),
+    (0, common_1.Get)('transactions'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getTransactions", null);
+__decorate([
+    (0, common_1.Get)('transactions/:id'),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], MpesaController.prototype, "getTransaction", null);
 __decorate([
-    (0, common_1.Get)('transactions/phone/:phoneNumber'),
-    __param(0, (0, common_1.Param)('phoneNumber')),
-    __param(1, (0, common_1.Query)('limit')),
+    (0, common_1.Get)('pending'),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
-], MpesaController.prototype, "getTransactionsByPhone", null);
+], MpesaController.prototype, "getPendingTransactions", null);
 __decorate([
-    (0, common_1.Post)('transaction/:id/cancel'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], MpesaController.prototype, "cancelTransaction", null);
-__decorate([
-    (0, common_1.Post)('cleanup-pending'),
+    (0, schedule_1.Cron)('0 0 * * * *'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
