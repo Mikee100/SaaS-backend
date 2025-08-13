@@ -14,6 +14,98 @@ async function safeDeleteMany(model) {
     }
 }
 async function main() {
+    const allUsers = await prisma.user.findMany({ where: { NOT: { tenantId: null } } });
+    const ownerRole = await prisma.role.findUnique({ where: { name: 'owner' } });
+    const allPerms = await prisma.permission.findMany();
+    for (const user of allUsers) {
+        const tenantId = user.tenantId;
+        if (ownerRole) {
+            const existingUserRole = await prisma.userRole.findFirst({
+                where: {
+                    userId: user.id,
+                    roleId: ownerRole.id,
+                    tenantId,
+                },
+            });
+            if (!existingUserRole) {
+                await prisma.userRole.create({
+                    data: {
+                        userId: user.id,
+                        roleId: ownerRole.id,
+                        tenantId,
+                    },
+                });
+                console.log(`Assigned 'owner' role to user ${user.email} for tenant ${tenantId}`);
+            }
+        }
+        for (const perm of allPerms) {
+            const existingUserPerm = await prisma.userPermission.findFirst({
+                where: {
+                    userId: user.id,
+                    permission: perm.name,
+                    tenantId,
+                },
+            });
+            if (!existingUserPerm) {
+                await prisma.userPermission.create({
+                    data: {
+                        userId: user.id,
+                        permission: perm.name,
+                        grantedBy: user.id,
+                        grantedAt: new Date(),
+                        tenantId,
+                    },
+                });
+                console.log(`Granted permission '${perm.name}' to user ${user.email} for tenant ${tenantId}`);
+            }
+        }
+    }
+    const gilmore = await prisma.user.findUnique({ where: { email: 'gilmore@gmail.com' } });
+    const ownerRoleDirect = await prisma.role.findUnique({ where: { name: 'owner' } });
+    if (gilmore && gilmore.tenantId && ownerRoleDirect) {
+        const existingUserRole = await prisma.userRole.findFirst({
+            where: {
+                userId: gilmore.id,
+                roleId: ownerRoleDirect.id,
+                tenantId: gilmore.tenantId,
+            },
+        });
+        if (!existingUserRole) {
+            await prisma.userRole.create({
+                data: {
+                    userId: gilmore.id,
+                    roleId: ownerRoleDirect.id,
+                    tenantId: gilmore.tenantId,
+                },
+            });
+            console.log(`Assigned 'owner' role to gilmore@gmail.com for tenant ${gilmore.tenantId}`);
+        }
+    }
+    if (ownerRole) {
+        for (const user of allUsers) {
+            const tenantId = user.tenantId;
+            const existingUserRole = await prisma.userRole.findFirst({
+                where: {
+                    userId: user.id,
+                    roleId: ownerRole.id,
+                    tenantId,
+                },
+            });
+            if (!existingUserRole) {
+                await prisma.userRole.create({
+                    data: {
+                        userId: user.id,
+                        roleId: ownerRole.id,
+                        tenantId,
+                    },
+                });
+                console.log(`Assigned 'owner' role to user ${user.email} for tenant ${tenantId}`);
+            }
+        }
+    }
+    else {
+        console.error("Owner role not found. Please check your roles seeding.");
+    }
     console.log('Seeding database...');
     await safeDeleteMany(prisma.planFeatureOnPlan);
     await safeDeleteMany(prisma.planFeature);

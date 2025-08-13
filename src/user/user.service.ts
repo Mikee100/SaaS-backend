@@ -89,11 +89,6 @@ export class UserService {
       if (!user) {
         return null;
       }
-
-      // Ensure userRoles exists and is an array
-
-  // [REMOVED: userRoles array/type checks for type error cleanup]
-
       return user;
     } catch (error) {
       console.error(`Error in findByEmail for ${email}:`, error);
@@ -101,11 +96,11 @@ export class UserService {
     }
   }
 
-  async getUserRoles(userId: string) {
-    return this.prisma.userRole.findMany({
-      where: { userId },
+  async getUserRoles(tenantId: string) {
+    return this.prisma.role.findMany({
+      where: { tenantId },
       include: { 
-        role: true,
+        rolePermissions: true,
         tenant: true
       },
     });

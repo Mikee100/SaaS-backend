@@ -91,11 +91,11 @@ let UserService = UserService_1 = class UserService {
             throw error;
         }
     }
-    async getUserRoles(userId) {
-        return this.prisma.userRole.findMany({
-            where: { userId },
+    async getUserRoles(tenantId) {
+        return this.prisma.role.findMany({
+            where: { tenantId },
             include: {
-                role: true,
+                rolePermissions: true,
                 tenant: true
             },
         });

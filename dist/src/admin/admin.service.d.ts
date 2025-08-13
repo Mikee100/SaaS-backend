@@ -274,6 +274,10 @@ export declare class AdminService {
             vatAmount: number | null;
             branchId: string | null;
         }[] | undefined;
+        _count?: {
+            sales: number;
+            products: number;
+        } | undefined;
         products?: {
             id: string;
             name: string;
@@ -287,10 +291,6 @@ export declare class AdminService {
             sku: string;
             stock: number;
         }[] | undefined;
-        _count?: {
-            sales: number;
-            products: number;
-        } | undefined;
         id?: string | undefined;
         name?: string | undefined;
         createdAt?: Date | undefined;

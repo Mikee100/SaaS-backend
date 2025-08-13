@@ -1,4 +1,4 @@
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.services';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -11,8 +11,12 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
-            tenantId: string | null;
-            roles: string[];
+            tenantId: string;
+            roles: {
+                id: string;
+                roleId: string;
+                permissionId: string;
+            }[][];
         };
     }>;
     forgotPassword(body: {

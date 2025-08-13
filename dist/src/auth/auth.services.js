@@ -36,6 +36,7 @@ let AuthService = class AuthService {
     async login(email, password, ip) {
         try {
             const user = await this.userService.findByEmail(email);
+            console.log('the user: ', user);
             if (!user || !(await bcrypt.compare(password, user.password))) {
                 if (this.auditLogService) {
                     await this.auditLogService.log(null, 'login_failed', { email }, ip);
@@ -43,12 +44,20 @@ let AuthService = class AuthService {
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
             const userRoles = await this.userService.getUserRoles(user.id);
+            let tenantId = null;
+            console.log("tenantId: ", tenantId);
+            if (userRoles.length > 0) {
+                tenantId = userRoles[0].tenantId;
+            }
+            if (!tenantId) {
+                throw new common_1.UnauthorizedException('No tenant assigned to this user. Please contact support.');
+            }
             const payload = {
                 sub: user.id,
                 email: user.email,
                 name: user.name,
-                tenantId: userRoles.length > 0 ? userRoles[0].tenantId : null,
-                roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+                tenantId,
+                roles: userRoles.map(ur => ur.rolePermissions).filter(Boolean) || []
             };
             const accessToken = this.jwtService.sign(payload);
             if (this.auditLogService) {
@@ -102,4 +111,4 @@ exports.AuthService = AuthService = __decorate([
         jwt_1.JwtService,
         audit_log_service_1.AuditLogService])
 ], AuthService);
-//# sourceMappingURL=auth.service.js.map
+//# sourceMappingURL=auth.services.js.map

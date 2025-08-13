@@ -315,15 +315,7 @@ export declare class UserService {
         updatedAt: Date;
         tenantId: string | null;
     }) | null>;
-    getUserRoles(userId: string): Promise<({
-        role: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
-            description: string | null;
-        };
+    getUserRoles(tenantId: string): Promise<({
         tenant: {
             id: string;
             name: string;
@@ -380,12 +372,19 @@ export declare class UserService {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
-        };
+        } | null;
+        rolePermissions: {
+            id: string;
+            roleId: string;
+            permissionId: string;
+        }[];
     } & {
         id: string;
-        tenantId: string;
-        userId: string;
-        roleId: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
+        description: string | null;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         userRoles: ({

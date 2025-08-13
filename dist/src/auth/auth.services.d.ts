@@ -18,17 +18,17 @@ export declare class AuthService {
             userId: string;
             roleId: string;
         })[] | ({
-            permission: string;
             id: string;
             tenantId: string;
             userId: string;
+            permission: string;
             grantedBy: string;
             grantedAt: Date;
         } | {
-            permission: string;
             id: string;
             tenantId: string;
             userId: string;
+            permission: string;
             grantedBy: string;
             grantedAt: Date;
         })[] | ({
@@ -166,7 +166,6 @@ export declare class AuthService {
             trialEnd: Date | null;
             planId: string;
         })[] | ({
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -175,9 +174,9 @@ export declare class AuthService {
             type: string;
             title: string;
             isRead: boolean;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         } | {
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -186,6 +185,7 @@ export declare class AuthService {
             type: string;
             title: string;
             isRead: boolean;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         })[] | {
             id: string;
@@ -193,10 +193,10 @@ export declare class AuthService {
             userId: string;
             roleId: string;
         }[] | {
-            permission: string;
             id: string;
             tenantId: string;
             userId: string;
+            permission: string;
             grantedBy: string;
             grantedAt: Date;
         }[] | {
@@ -267,7 +267,6 @@ export declare class AuthService {
             trialEnd: Date | null;
             planId: string;
         }[] | {
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -276,6 +275,7 @@ export declare class AuthService {
             type: string;
             title: string;
             isRead: boolean;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         }[];
         [x: number]: never;
@@ -299,8 +299,12 @@ export declare class AuthService {
             id: string;
             email: string;
             name: string;
-            tenantId: string | null;
-            roles: string[];
+            tenantId: string;
+            roles: {
+                id: string;
+                roleId: string;
+                permissionId: string;
+            }[][];
         };
     }>;
     forgotPassword(email: string): Promise<{

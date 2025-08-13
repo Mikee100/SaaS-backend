@@ -26,6 +26,8 @@ export class AuthService {
     try {
       // 1. Find user by email with minimal data
       const user = await this.userService.findByEmail(email);
+
+      console.log('the user: ',user);
       
       // 2. Check if user exists and password is correct
       if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -35,16 +37,24 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+
       // 3. Get user's roles (if any)
       const userRoles = await this.userService.getUserRoles(user.id);
-      
+  let tenantId: string | null = null;
+  console.log("tenantId: ",tenantId)
+      if (userRoles.length > 0) {
+        tenantId = userRoles[0].tenantId;
+      }
+      if (!tenantId) {
+        throw new UnauthorizedException('No tenant assigned to this user. Please contact support.');
+      }
       // 4. Prepare JWT payload
       const payload = {
         sub: user.id,
         email: user.email,
         name: user.name,
-        tenantId: userRoles.length > 0 ? userRoles[0].tenantId : null,
-        roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+        tenantId,
+        roles: userRoles.map(ur => ur.rolePermissions).filter(Boolean) || []
       };
 
       // 5. Generate JWT token
