@@ -51,7 +51,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: payload.tenantId || null,
       roles: roles,
     };
-
     this.logger.debug(`Validated user: ${user.email || user.id}`);
     return user;
   }

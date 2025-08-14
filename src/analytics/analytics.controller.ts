@@ -163,39 +163,82 @@ export class AnalyticsController {
   @Get('dashboard')
   @UseGuards(AuthGuard('jwt'))
   async getDashboardStats(@Req() req: any) {
-    // Enhanced dashboard stats for all users
+    const tenantId = req.user.tenantId;
+
+    // Fetch products for profitability and inventory
+    const products = await this.prisma.product.findMany({ where: { tenantId } });
+    // Fetch sales with items for customer retention and product sales
+    const allSales = await this.prisma.sale.findMany({ where: { tenantId }, include: { items: true } });
+    // Fetch total sales count
+    const totalSales = await this.prisma.sale.count({ where: { tenantId } });
+    // Fetch total revenue
+    const totalRevenueAgg = await this.prisma.sale.aggregate({ _sum: { total: true }, where: { tenantId } });
+    const totalRevenue = totalRevenueAgg._sum.total || 0;
+    // Fetch total products
+    const totalProducts = products.length;
+    // Fetch total customers (distinct customerName)
+    const customerNames = await this.prisma.sale.findMany({ where: { tenantId, customerName: { not: null } }, select: { customerName: true }, distinct: ['customerName'] });
+    const totalCustomers = customerNames.length;
+    // Average order value
+    const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+    // Sales by month (last 6 months)
+    const salesByMonth: Record<string, number> = {};
+    allSales.forEach(sale => {
+      const month = sale.createdAt.toISOString().slice(0, 7); // YYYY-MM
+      salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+    });
+    // Profitability: margin = (price - avgSalePrice) / price (no cost field, so use sale price)
+    const productSalesMap: Record<string, { unitsSold: number; revenue: number }> = {};
+    allSales.forEach(sale => {
+      sale.items.forEach(item => {
+        if (!productSalesMap[item.productId]) {
+          productSalesMap[item.productId] = { unitsSold: 0, revenue: 0 };
+        }
+        productSalesMap[item.productId].unitsSold += item.quantity;
+        productSalesMap[item.productId].revenue += item.quantity * item.price;
+      });
+    });
+    const topProducts = products.map(p => {
+      const salesData = productSalesMap[p.id] || { unitsSold: 0, revenue: 0 };
+      // Margin: (price - avgSalePrice) / price
+      const avgSalePrice = salesData.unitsSold > 0 ? salesData.revenue / salesData.unitsSold : p.price;
+      const margin = p.price > 0 ? ((p.price - avgSalePrice) / p.price) : 0;
+      return { id: p.id, name: p.name, unitsSold: salesData.unitsSold, revenue: salesData.revenue, margin };
+    }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+    // Inventory movement
+    const lowStockItems = products.filter(p => (p.stock ?? 0) <= 10 && (p.stock ?? 0) > 0).length;
+    const overstockItems = products.filter(p => (p.stock ?? 0) > 100).length;
+    const inventoryTurnover = totalProducts > 0 ? totalSales / totalProducts : 0;
+    const stockoutRate = totalProducts > 0 ? products.filter(p => (p.stock ?? 0) === 0).length / totalProducts : 0;
+    // Customer retention
+    const customerSales: Record<string, number> = {};
+    allSales.forEach(sale => {
+      if (sale.customerName) {
+        customerSales[sale.customerName] = (customerSales[sale.customerName] || 0) + 1;
+      }
+    });
+    const repeatCustomers = Object.values(customerSales).filter(count => count > 1).length;
+    const retentionRate = totalCustomers > 0 ? repeatCustomers / totalCustomers : 0;
     return {
-      totalSales: 1250,
-      totalRevenue: 45600,
-      totalProducts: 45,
-      totalCustomers: 120,
-      averageOrderValue: 36.48,
-      conversionRate: 0.68,
-      recentActivity: {
-        sales: [
-          { amount: 150, customer: 'John Doe', date: '2024-01-15T10:30:00Z' },
-          { amount: 89, customer: 'Jane Smith', date: '2024-01-15T09:15:00Z' },
-          { amount: 234, customer: 'Mike Johnson', date: '2024-01-15T08:45:00Z' }
-        ],
-        products: [
-          { name: 'New Product X', date: '2024-01-15T11:00:00Z' },
-          { name: 'Updated Product Y', date: '2024-01-14T16:30:00Z' }
-        ]
+      totalSales,
+      totalRevenue,
+      totalProducts,
+      totalCustomers,
+      averageOrderValue: avgOrderValue,
+      salesByMonth,
+      topProducts,
+      inventoryAnalytics: {
+        lowStockItems,
+        overstockItems,
+        inventoryTurnover,
+        stockoutRate
       },
-      customerGrowth: {
-        '2024-01': 85,
-        '2024-02': 92,
-        '2024-03': 98,
-        '2024-04': 105,
-        '2024-05': 112,
-        '2024-06': 120
+      customerRetention: {
+        totalCustomers,
+        repeatCustomers,
+        retentionRate
       },
-      topProducts: [
-        { name: 'Product A', sales: 234, revenue: 2340 },
-        { name: 'Product B', sales: 189, revenue: 1890 },
-        { name: 'Product C', sales: 156, revenue: 1560 },
-        { name: 'Product D', sales: 134, revenue: 1340 }
-      ]
+      message: 'Dashboard analytics with real business data and advanced KPIs'
     };
   }
-} 
+}

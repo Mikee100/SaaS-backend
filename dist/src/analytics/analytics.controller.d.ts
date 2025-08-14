@@ -111,30 +111,25 @@ export declare class AnalyticsController {
         totalProducts: number;
         totalCustomers: number;
         averageOrderValue: number;
-        conversionRate: number;
-        recentActivity: {
-            sales: {
-                amount: number;
-                customer: string;
-                date: string;
-            }[];
-            products: {
-                name: string;
-                date: string;
-            }[];
-        };
-        customerGrowth: {
-            '2024-01': number;
-            '2024-02': number;
-            '2024-03': number;
-            '2024-04': number;
-            '2024-05': number;
-            '2024-06': number;
-        };
+        salesByMonth: Record<string, number>;
         topProducts: {
+            id: string;
             name: string;
-            sales: number;
+            unitsSold: number;
             revenue: number;
+            margin: number;
         }[];
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+        };
+        customerRetention: {
+            totalCustomers: number;
+            repeatCustomers: number;
+            retentionRate: number;
+        };
+        message: string;
     }>;
 }
