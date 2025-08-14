@@ -38,12 +38,11 @@ export class AuthService {
       }
 
 
-      // 3. Get user's roles (if any)
-      const userRoles = await this.userService.getUserRoles(user.id);
-  let tenantId: string | null = null;
-  console.log("tenantId: ",tenantId)
-      if (userRoles.length > 0) {
-        tenantId = userRoles[0].tenantId;
+      // 3. Get user's roles and tenant from user.userRoles
+      const userRoles = user.userRoles || [];
+      let tenantId: string | null = null;
+      if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
+        tenantId = (userRoles[0] as any).tenantId;
       }
       if (!tenantId) {
         throw new UnauthorizedException('No tenant assigned to this user. Please contact support.');
@@ -54,7 +53,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         tenantId,
-        roles: userRoles.map(ur => ur.rolePermissions).filter(Boolean) || []
+        roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
       };
 
       // 5. Generate JWT token

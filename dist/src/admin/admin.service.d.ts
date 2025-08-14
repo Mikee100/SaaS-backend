@@ -68,6 +68,10 @@ export declare class AdminService {
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
+            tenant: {
+                id: string;
+                name: string;
+            };
             role: {
                 id: string;
                 name: string;
@@ -75,10 +79,6 @@ export declare class AdminService {
                 updatedAt: Date;
                 tenantId: string | null;
                 description: string | null;
-            };
-            tenant: {
-                id: string;
-                name: string;
             };
         } & {
             id: string;
@@ -265,6 +265,7 @@ export declare class AdminService {
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -272,7 +273,6 @@ export declare class AdminService {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         }[] | undefined;
         _count?: {
             sales: number;
@@ -284,12 +284,12 @@ export declare class AdminService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             stock: number;
+            branchId: string | null;
         }[] | undefined;
         id?: string | undefined;
         name?: string | undefined;

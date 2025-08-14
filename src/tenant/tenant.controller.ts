@@ -203,7 +203,7 @@ export class TenantController {
         throw new BadRequestException('Missing required owner information');
       }
 
-      // Create the tenant with all required data
+      // Create the tenant and owner user in one transaction
       const tenant = await this.tenantService.createTenant({
         ...tenantData,
         ownerName,
@@ -212,16 +212,6 @@ export class TenantController {
         ownerRole,
       });
       console.log('[TenantController] Tenant creation result:', tenant);
-
-      // Create the owner user with the selected role
-      const ownerUser = await this.tenantService.createOwnerUser({
-        name: ownerName,
-        email: ownerEmail,
-        password: ownerPassword,
-        tenantId: tenant.id,
-        role: ownerRole || 'admin',
-      });
-      console.log('[TenantController] Owner user creation result:', ownerUser);
 
       return { success: true, data: tenant };
     } catch (error) {

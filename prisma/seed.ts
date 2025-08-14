@@ -15,14 +15,36 @@ async function safeDeleteMany(model: any) {
 }
 
 async function main() {
-  // Assign 'owner' role and all permissions to every user with a tenantId
-  const allUsers = await prisma.user.findMany({ where: { NOT: { tenantId: null } } });
+  // Debug: Print all users and their tenantId before assignment
+  const allUsers = await prisma.user.findMany({});
+  console.log('All users in DB:');
+  for (const user of allUsers) {
+    console.log(`User: ${user.email}, tenantId: ${user.tenantId}`);
+  }
+  // Only users with tenantId will be assigned roles/permissions
+  const usersWithTenant = allUsers.filter(u => u.tenantId);
+  console.log('Users with tenantId:');
+  for (const user of usersWithTenant) {
+    console.log(`User: ${user.email}, tenantId: ${user.tenantId}`);
+  }
+  // ...existing code for deleting and creating roles/permissions...
+
+  // ...existing code for deleting and creating roles/permissions...
+
+  // After roles and permissions are created, assign 'owner' role and all permissions to every user with a tenantId
+  const usersWithTenantId = await prisma.user.findMany({ where: { NOT: { tenantId: null } } });
   const ownerRole = await prisma.role.findUnique({ where: { name: 'owner' } });
   const allPerms = await prisma.permission.findMany();
-  for (const user of allUsers) {
-    const tenantId = user.tenantId as string;
-    // Assign owner role
-    if (ownerRole) {
+  if (ownerRole) {
+    for (const user of usersWithTenantId) {
+      const tenantId = user.tenantId as string;
+      // Check if tenant exists
+      const tenantExists = await prisma.tenant.findUnique({ where: { id: tenantId } });
+      if (!tenantExists) {
+        console.warn(`Skipping user ${user.email}: tenantId ${tenantId} does not exist in Tenant table.`);
+        continue;
+      }
+      // Assign owner role
       const existingUserRole = await prisma.userRole.findFirst({
         where: {
           userId: user.id,
@@ -40,72 +62,27 @@ async function main() {
         });
         console.log(`Assigned 'owner' role to user ${user.email} for tenant ${tenantId}`);
       }
-    }
-    // Assign all permissions directly
-    for (const perm of allPerms) {
-      const existingUserPerm = await prisma.userPermission.findFirst({
-        where: {
-          userId: user.id,
-          permission: perm.name,
-          tenantId,
-        },
-      });
-      if (!existingUserPerm) {
-        await prisma.userPermission.create({
-          data: {
+      // Assign all permissions directly
+      for (const perm of allPerms) {
+        const existingUserPerm = await prisma.userPermission.findFirst({
+          where: {
             userId: user.id,
             permission: perm.name,
-            grantedBy: user.id,
-            grantedAt: new Date(),
             tenantId,
           },
         });
-        console.log(`Granted permission '${perm.name}' to user ${user.email} for tenant ${tenantId}`);
-      }
-    }
-  }
-  // Directly assign 'owner' role to gilmore@gmail.com for their tenant
-  const gilmore = await prisma.user.findUnique({ where: { email: 'gilmore@gmail.com' } });
-  const ownerRoleDirect = await prisma.role.findUnique({ where: { name: 'owner' } });
-  if (gilmore && gilmore.tenantId && ownerRoleDirect) {
-    const existingUserRole = await prisma.userRole.findFirst({
-      where: {
-        userId: gilmore.id,
-        roleId: ownerRoleDirect.id,
-        tenantId: gilmore.tenantId,
-      },
-    });
-    if (!existingUserRole) {
-      await prisma.userRole.create({
-        data: {
-          userId: gilmore.id,
-          roleId: ownerRoleDirect.id,
-          tenantId: gilmore.tenantId,
-        },
-      });
-      console.log(`Assigned 'owner' role to gilmore@gmail.com for tenant ${gilmore.tenantId}`);
-    }
-  }
-  // Assign 'owner' role to every user with a tenantId
-  if (ownerRole) {
-    for (const user of allUsers) {
-      const tenantId = user.tenantId as string;
-      const existingUserRole = await prisma.userRole.findFirst({
-        where: {
-          userId: user.id,
-          roleId: ownerRole.id,
-          tenantId,
-        },
-      });
-      if (!existingUserRole) {
-        await prisma.userRole.create({
-          data: {
-            userId: user.id,
-            roleId: ownerRole.id,
-            tenantId,
-          },
-        });
-        console.log(`Assigned 'owner' role to user ${user.email} for tenant ${tenantId}`);
+        if (!existingUserPerm) {
+          await prisma.userPermission.create({
+            data: {
+              userId: user.id,
+              permission: perm.name,
+              grantedBy: user.id,
+              grantedAt: new Date(),
+              tenantId,
+            },
+          });
+          console.log(`Granted permission '${perm.name}' to user ${user.email} for tenant ${tenantId}`);
+        }
       }
     }
   } else {
@@ -117,10 +94,11 @@ async function main() {
   await safeDeleteMany(prisma.planFeatureOnPlan);
   await safeDeleteMany(prisma.planFeature);
   await safeDeleteMany(prisma.plan);
+  await safeDeleteMany(prisma.userPermission); // <-- delete user permissions first
   await safeDeleteMany(prisma.userRole); // Clear existing user roles
   await safeDeleteMany(prisma.rolePermission); // Clear existing role permissions
   await safeDeleteMany(prisma.role); // Clear existing roles
-  await safeDeleteMany(prisma.permission); // Clear existing permissions
+  await safeDeleteMany(prisma.permission); // <-- then delete permissions
 
   // Create default roles
   console.log('Creating default roles...');
@@ -182,7 +160,7 @@ async function main() {
     // Inventory
     'view_inventory', 'edit_inventory', 'delete_inventory',
     // Products
-    'view_products', 'edit_products', 'delete_products',
+    'view_products', 'edit_products', 'delete_products','bulk_operations','data_export',
     // Analytics
     'view_analytics', 'export_data',
     // Settings

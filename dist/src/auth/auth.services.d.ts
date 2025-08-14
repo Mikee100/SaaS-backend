@@ -20,22 +20,23 @@ export declare class AuthService {
         })[] | ({
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
-            grantedBy: string;
+            userId: string;
+            grantedBy: string | null;
             grantedAt: Date;
         } | {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
-            grantedBy: string;
+            userId: string;
+            grantedBy: string | null;
             grantedAt: Date;
         })[] | ({
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -43,12 +44,12 @@ export declare class AuthService {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         } | {
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -56,7 +57,6 @@ export declare class AuthService {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         })[] | ({
             id: string;
             createdAt: Date;
@@ -136,10 +136,10 @@ export declare class AuthService {
         })[] | ({
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -152,10 +152,10 @@ export declare class AuthService {
         } | {
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -170,22 +170,22 @@ export declare class AuthService {
             createdAt: Date;
             tenantId: string;
             userId: string | null;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
             isRead: boolean;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         } | {
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
             isRead: boolean;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         })[] | {
             id: string;
@@ -195,15 +195,16 @@ export declare class AuthService {
         }[] | {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
-            grantedBy: string;
+            userId: string;
+            grantedBy: string | null;
             grantedAt: Date;
         }[] | {
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -211,7 +212,6 @@ export declare class AuthService {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         }[] | {
             id: string;
             createdAt: Date;
@@ -253,10 +253,10 @@ export declare class AuthService {
         }[] | {
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -271,11 +271,11 @@ export declare class AuthService {
             createdAt: Date;
             tenantId: string;
             userId: string | null;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
             isRead: boolean;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             readAt: Date | null;
         }[];
         [x: number]: never;
@@ -300,11 +300,7 @@ export declare class AuthService {
             email: string;
             name: string;
             tenantId: string;
-            roles: {
-                id: string;
-                roleId: string;
-                permissionId: string;
-            }[][];
+            roles: any[];
         };
     }>;
     forgotPassword(email: string): Promise<{

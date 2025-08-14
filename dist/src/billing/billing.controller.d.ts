@@ -70,10 +70,10 @@ export declare class BillingController {
             };
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -211,10 +211,10 @@ export declare class BillingController {
         };
         id: string;
         tenantId: string;
+        stripeCustomerId: string;
         userId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
@@ -296,10 +296,10 @@ export declare class BillingController {
             } & {
                 id: string;
                 tenantId: string;
+                stripeCustomerId: string;
                 userId: string;
                 status: string;
                 stripeSubscriptionId: string;
-                stripeCustomerId: string;
                 stripePriceId: string;
                 stripeCurrentPeriodEnd: Date;
                 canceledAt: Date | null;
@@ -345,10 +345,10 @@ export declare class BillingController {
         } & {
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -412,10 +412,10 @@ export declare class BillingController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            amount: number;
-            status: string;
             description: string | null;
             currency: string;
+            amount: number;
+            status: string;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             stripePaymentIntentId: string | null;
             completedAt: Date | null;

@@ -140,15 +140,13 @@ export class TenantService {
           timestamp: new Date().toISOString(),
         });
         // Create owner user using the transaction's prisma client
-        const hashedPassword = await bcrypt.hash(data.ownerPassword, 10);
         const ownerUser = await this.userService.createUser({
           name: data.ownerName,
           email: data.ownerEmail,
-          password: hashedPassword,
+          password: data.ownerPassword,
           role: data.ownerRole || 'admin',
           tenantId: tenant.id,
-          // prismaClient: prisma,
-        });
+        }, undefined, undefined, prisma);
         console.log('[TenantService] Owner user created:', ownerUser);
 
         this.logger.debug('Owner user created successfully', {

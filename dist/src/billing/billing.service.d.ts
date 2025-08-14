@@ -113,10 +113,10 @@ export declare class BillingService {
         };
         id: string;
         tenantId: string;
+        stripeCustomerId: string;
         userId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;

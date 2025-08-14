@@ -43,10 +43,9 @@ let AuthService = class AuthService {
                 }
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
-            const userRoles = await this.userService.getUserRoles(user.id);
+            const userRoles = user.userRoles || [];
             let tenantId = null;
-            console.log("tenantId: ", tenantId);
-            if (userRoles.length > 0) {
+            if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
                 tenantId = userRoles[0].tenantId;
             }
             if (!tenantId) {
@@ -57,7 +56,7 @@ let AuthService = class AuthService {
                 email: user.email,
                 name: user.name,
                 tenantId,
-                roles: userRoles.map(ur => ur.rolePermissions).filter(Boolean) || []
+                roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
             };
             const accessToken = this.jwtService.sign(payload);
             if (this.auditLogService) {

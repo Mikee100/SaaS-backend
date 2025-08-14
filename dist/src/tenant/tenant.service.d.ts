@@ -274,19 +274,5 @@ export declare class TenantService {
         password: string;
         tenantId: string;
         role?: string;
-    }): Promise<{
-        id: string;
-        email: string;
-        password: string;
-        name: string;
-        isSuperadmin: boolean;
-        resetPasswordToken: string | null;
-        resetPasswordExpires: Date | null;
-        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-        language: string | null;
-        region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-    }>;
+    }): Promise<any>;
 }

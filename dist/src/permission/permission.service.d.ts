@@ -41,17 +41,17 @@ export declare class PermissionService {
         description: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
         role: {
             id: string;
             name: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string | null;
+            description: string | null;
+        };
+        permission: {
+            id: string;
+            name: string;
             description: string | null;
         };
     } & {

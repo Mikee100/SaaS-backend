@@ -2,37 +2,14 @@ import { UserService } from './user.service';
 export declare class UserController {
     private readonly userService;
     constructor(userService: UserService);
-    createUser(body: any, req: any): Promise<{
-        id: string;
-        email: string;
-        password: string;
-        name: string;
-        isSuperadmin: boolean;
-        resetPasswordToken: string | null;
-        resetPasswordExpires: Date | null;
-        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-        language: string | null;
-        region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-    }>;
+    createUser(body: any, req: any): Promise<any>;
     getUsers(req: any): Promise<({
         userRoles: ({
-            role: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                tenantId: string | null;
-                description: string | null;
-            };
             tenant: {
                 id: string;
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -83,6 +60,15 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
+            };
+            role: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string | null;
+                description: string | null;
             };
         } & {
             id: string;
@@ -97,11 +83,11 @@ export declare class UserController {
                 description: string | null;
             };
         } & {
-            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            grantedBy: string;
+            permission: string;
+            grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
@@ -119,6 +105,13 @@ export declare class UserController {
         updatedAt: Date;
         tenantId: string | null;
     })[]>;
+    getAllUserPermissions(req: any): Promise<{
+        id: string;
+        name: string;
+        email: string;
+        roles: string[];
+        permissions: string[];
+    }[]>;
     getProtected(req: any): {
         message: string;
         user: any;
@@ -129,6 +122,7 @@ export declare class UserController {
         name: any;
         tenantId: any;
         roles: any;
+        permissions: string[];
     }>;
     updateUser(req: any, id: string, body: {
         name?: string;
@@ -146,7 +140,6 @@ export declare class UserController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -197,6 +190,7 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             permissionRef: {
                 id: string;
@@ -204,11 +198,11 @@ export declare class UserController {
                 description: string | null;
             };
         } & {
-            permission: string;
             id: string;
             tenantId: string;
             userId: string;
-            grantedBy: string;
+            permission: string;
+            grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
@@ -232,7 +226,6 @@ export declare class UserController {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -283,6 +276,7 @@ export declare class UserController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
+            stripeCustomerId: string | null;
         };
         permissionRef: {
             id: string;
@@ -290,11 +284,11 @@ export declare class UserController {
             description: string | null;
         };
     } & {
-        permission: string;
         id: string;
         tenantId: string;
         userId: string;
-        grantedBy: string;
+        permission: string;
+        grantedBy: string | null;
         grantedAt: Date;
     })[]>;
     updatePreferences(req: any, body: {

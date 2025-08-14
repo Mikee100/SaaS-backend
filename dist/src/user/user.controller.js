@@ -33,6 +33,10 @@ let UserController = class UserController {
         console.log(`Found ${users.length} users for tenant: ${tenantId}`);
         return users;
     }
+    async getAllUserPermissions(req) {
+        const tenantId = req.user.tenantId;
+        return this.userService.getAllUserPermissionsByTenant(tenantId);
+    }
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
     }
@@ -43,12 +47,20 @@ let UserController = class UserController {
                 console.error('No user object in request');
                 throw new common_1.UnauthorizedException('No authentication data found');
             }
+            const userId = req.user.id || req.user.sub;
+            const tenantId = req.user.tenantId || null;
+            let permissions = [];
+            if (userId && tenantId) {
+                const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
+                permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
+            }
             return {
-                id: req.user.id || req.user.sub,
+                id: userId,
                 email: req.user.email,
                 name: req.user.name || null,
-                tenantId: req.user.tenantId || null,
-                roles: Array.isArray(req.user.roles) ? req.user.roles : []
+                tenantId,
+                roles: Array.isArray(req.user.roles) ? req.user.roles : [],
+                permissions
             };
         }
         catch (error) {
@@ -110,6 +122,15 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUsers", null);
+__decorate([
+    (0, common_1.Get)('permissions'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('view_users'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getAllUserPermissions", null);
 __decorate([
     (0, common_1.Get)('protected'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

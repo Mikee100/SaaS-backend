@@ -44,10 +44,10 @@ export declare class SubscriptionService {
         } & {
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -93,10 +93,10 @@ export declare class SubscriptionService {
     } & {
         id: string;
         tenantId: string;
+        stripeCustomerId: string;
         userId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
@@ -138,10 +138,10 @@ export declare class SubscriptionService {
         } & {
             id: string;
             tenantId: string;
+            stripeCustomerId: string;
             userId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
@@ -166,10 +166,10 @@ export declare class SubscriptionService {
     cancelSubscription(tenantId: string): Promise<{
         id: string;
         tenantId: string;
+        stripeCustomerId: string;
         userId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
@@ -181,6 +181,18 @@ export declare class SubscriptionService {
         planId: string;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
+        invoices: {
+            number: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            amount: number;
+            status: string;
+            dueDate: Date | null;
+            paidAt: Date | null;
+            subscriptionId: string | null;
+        }[];
         plan: {
             id: string;
             name: string;
@@ -207,25 +219,13 @@ export declare class SubscriptionService {
             advancedSecurity: boolean;
             dedicatedSupport: boolean;
         };
-        invoices: {
-            number: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            amount: number;
-            status: string;
-            dueDate: Date | null;
-            paidAt: Date | null;
-            subscriptionId: string | null;
-        }[];
     } & {
         id: string;
         tenantId: string;
+        stripeCustomerId: string;
         userId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;

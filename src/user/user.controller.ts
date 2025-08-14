@@ -28,6 +28,15 @@ export class UserController {
     return users;
   }
 
+
+  @Get('permissions')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('view_users')
+  async getAllUserPermissions(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.userService.getAllUserPermissionsByTenant(tenantId);
+  }
+
   @Get('protected')
   @UseGuards(AuthGuard('jwt'))
   getProtected(@Req() req) {
@@ -39,22 +48,28 @@ export class UserController {
   @UseGuards(AuthGuard('jwt'))
   async getMe(@Req() req) {
     console.log('=== getMe called ===');
-    
     try {
       if (!req.user) {
         console.error('No user object in request');
         throw new UnauthorizedException('No authentication data found');
       }
-
-      // Return minimal user data from JWT
+      // Fetch permissions for the user and tenant
+      const userId = req.user.id || req.user.sub;
+      const tenantId = req.user.tenantId || null;
+      let permissions: string[] = [];
+      if (userId && tenantId) {
+        // Get permissions for this user and tenant
+        const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
+        permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
+      }
       return {
-        id: req.user.id || req.user.sub,
+        id: userId,
         email: req.user.email,
         name: req.user.name || null,
-        tenantId: req.user.tenantId || null,
-        roles: Array.isArray(req.user.roles) ? req.user.roles : []
+        tenantId,
+        roles: Array.isArray(req.user.roles) ? req.user.roles : [],
+        permissions
       };
-      
     } catch (error) {
       console.error('Error in getMe:', error);
       throw new InternalServerErrorException({

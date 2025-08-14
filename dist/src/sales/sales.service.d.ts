@@ -39,17 +39,23 @@ export declare class SalesService {
                 price: number;
             };
             id: string;
-            saleId: string;
             quantity: number;
+            saleId: string;
         }[];
-        branch: {
+        user: {
             id: string;
+            email: string;
             name: string;
+        };
+        mpesaTransactions: {
+            id: string;
             createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            address: string | null;
-        } | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         tenant: {
             id: string;
             name: string;
@@ -107,24 +113,19 @@ export declare class SalesService {
             auditLogsEnabled: boolean;
             backupRestore: boolean;
         };
-        user: {
+        branch: {
             id: string;
-            email: string;
             name: string;
-        };
-        mpesaTransactions: {
-            id: string;
             createdAt: Date;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
+            updatedAt: Date;
+            tenantId: string;
+            address: string | null;
+        } | null;
         id: string;
         createdAt: Date;
         tenantId: string;
         userId: string;
+        branchId: string | null;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -132,7 +133,6 @@ export declare class SalesService {
         mpesaTransactionId: string | null;
         idempotencyKey: string | null;
         vatAmount: number | null;
-        branchId: string | null;
     }>;
     getSales(tenantId: string, page?: number, limit?: number): Promise<{
         data: {
@@ -150,18 +150,18 @@ export declare class SalesService {
                     createdAt: Date;
                     updatedAt: Date;
                     tenantId: string;
-                    branchId: string | null;
                     description: string | null;
                     price: number;
                     customFields: import("@prisma/client/runtime/library").JsonValue | null;
                     sku: string;
                     stock: number;
+                    branchId: string | null;
                 };
                 id: string;
-                saleId: string;
                 price: number;
                 productId: string;
                 quantity: number;
+                saleId: string;
             }[];
             user: {
                 id: string;
@@ -208,6 +208,7 @@ export declare class SalesService {
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -215,7 +216,6 @@ export declare class SalesService {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         }[];
         meta: {
             total: number;
@@ -273,12 +273,12 @@ export declare class SalesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             stock: number;
+            branchId: string | null;
         }[];
     }>;
     getTenantInfo(tenantId: string): Promise<{

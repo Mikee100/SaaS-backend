@@ -27,7 +27,7 @@ model UserPermission {
   user            User       @relation("Permission", fields: [userId], references: [id])
   permission      String
   permissionRef   Permission @relation(fields: [permission], references: [name])
-  grantedBy       String
+  grantedBy       String?
   grantedAt       DateTime   @default(now())
   tenant          Tenant     @relation(fields: [tenantId], references: [id])
   tenantId        String

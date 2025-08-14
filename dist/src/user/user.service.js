@@ -24,34 +24,63 @@ let UserService = UserService_1 = class UserService {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
     }
-    async createUser(data, actorUserId, ip) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
-        return this.prisma.$transaction(async (prisma) => {
-            const user = await prisma.user.create({
-                data: {
-                    name: data.name,
-                    email: data.email,
-                    password: hashedPassword,
+    async getAllUserPermissionsByTenant(tenantId) {
+        const users = await this.prisma.user.findMany({
+            where: {
+                userRoles: {
+                    some: { tenantId }
+                }
+            },
+            include: {
+                userPermissions: {
+                    where: { tenantId },
+                    include: { permissionRef: true }
                 },
-            });
-            const role = await prisma.role.findUnique({
-                where: { name: data.role }
-            });
-            if (!role) {
-                throw new common_1.BadRequestException(`Role '${data.role}' not found`);
+                userRoles: {
+                    where: { tenantId },
+                    include: { role: true }
+                }
             }
-            await prisma.userRole.create({
-                data: {
-                    userId: user.id,
-                    roleId: role.id,
-                    tenantId: data.tenantId,
-                },
-            });
-            if (this.auditLogService) {
-                await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: data.role }, ip);
-            }
-            return user;
         });
+        return users.map(u => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            roles: u.userRoles.map(ur => ur.role.name),
+            permissions: u.userPermissions.map(up => up.permissionRef?.name)
+        }));
+    }
+    async createUser(data, actorUserId, ip, prismaClient) {
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+        const prisma = prismaClient || this.prisma;
+        const tenant = await prisma.tenant.findUnique({ where: { id: data.tenantId } });
+        if (!tenant) {
+            throw new common_1.BadRequestException(`Tenant with id '${data.tenantId}' does not exist. Cannot create user.`);
+        }
+        const user = await prisma.user.create({
+            data: {
+                name: data.name,
+                email: data.email,
+                password: hashedPassword,
+            },
+        });
+        const role = await prisma.role.findUnique({
+            where: { name: data.role }
+        });
+        if (!role) {
+            throw new common_1.BadRequestException(`Role '${data.role}' not found`);
+        }
+        await prisma.userRole.create({
+            data: {
+                userId: user.id,
+                roleId: role.id,
+                tenantId: data.tenantId,
+            },
+        });
+        if (this.auditLogService) {
+            await this.auditLogService.log(actorUserId || null, 'user_created', { createdUserId: user.id, email: user.email, role: data.role }, ip);
+        }
+        return user;
     }
     async findByEmail(email, include) {
         try {
@@ -128,6 +157,22 @@ let UserService = UserService_1 = class UserService {
             if (!role) {
                 throw new common_1.NotFoundException(`Role '${data.role}' not found`);
             }
+            console.log("role: ", role);
+            await this.prisma.userRole.upsert({
+                where: {
+                    userId_roleId_tenantId: {
+                        userId: id,
+                        roleId: role.id,
+                        tenantId: tenantId
+                    }
+                },
+                update: {},
+                create: {
+                    userId: id,
+                    roleId: role.id,
+                    tenantId: tenantId
+                }
+            });
             delete data.role;
         }
         let result;
@@ -150,7 +195,8 @@ let UserService = UserService_1 = class UserService {
         }
         return result || { count: 1 };
     }
-    async updateUserPermissions(userId, permissions, grantedBy, ip) {
+    async updateUserPermissions(userId, tenantId, permissions, grantedBy, ip) {
+        console.log("tried updating the perm:  ");
         const permissionNames = permissions.map(p => p.name);
         const allPerms = await this.prisma.permission.findMany({
             where: { name: { in: permissionNames } }
@@ -158,6 +204,20 @@ let UserService = UserService_1 = class UserService {
         await this.prisma.userPermission.deleteMany({
             where: { userId }
         });
+        await Promise.all(permissions.map(async (p) => {
+            const perm = allPerms.find(ap => ap.name === p.name);
+            if (perm) {
+                await this.prisma.userPermission.create({
+                    data: {
+                        userId,
+                        permission: perm.name,
+                        grantedBy: grantedBy || 'system',
+                        grantedAt: new Date(),
+                        tenantId,
+                    },
+                });
+            }
+        }));
         if (this.auditLogService) {
             await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions }, ip);
         }
@@ -173,6 +233,7 @@ let UserService = UserService_1 = class UserService {
         });
     }
     async getUserPermissions(userId) {
+        console.log("userId: ", userId);
         return this.prisma.userPermission.findMany({
             where: { userId },
             include: {
@@ -185,6 +246,7 @@ let UserService = UserService_1 = class UserService {
         const userInTenant = await this.prisma.userRole.findFirst({
             where: { userId, tenantId }
         });
+        console.log("userInTenat: ", userInTenant);
         if (!userInTenant) {
             throw new common_1.NotFoundException('User not found in tenant');
         }
@@ -306,34 +368,59 @@ let UserService = UserService_1 = class UserService {
         return result;
     }
     async updateUserPermissionsByTenant(userId, permissions, tenantId, grantedBy, ip) {
+        this.logger.log(`Updating permissions for userId=${userId}, tenantId=${tenantId}`);
+        this.logger.log(`Requested permissions: ${JSON.stringify(permissions)}`);
         const permissionNames = permissions.map(p => p.name).filter((n) => !!n);
         if (permissionNames.length === 0) {
+            this.logger.warn('No valid permission names provided');
             throw new common_1.BadRequestException('No valid permission names provided');
         }
         const allPerms = await this.prisma.permission.findMany({
             where: { name: { in: permissionNames } }
         });
+        const foundNames = allPerms.map(p => p.name);
+        const missing = permissionNames.filter(n => !foundNames.includes(n));
+        if (missing.length > 0) {
+            this.logger.warn(`Some permissions do not exist: ${missing.join(', ')}`);
+            throw new common_1.BadRequestException(`Permissions not found: ${missing.join(', ')}`);
+        }
         await this.prisma.userPermission.deleteMany({
             where: { userId, tenantId }
         });
         for (const p of permissions) {
             const perm = allPerms.find(ap => ap.name === p.name);
-            if (perm) {
-                await this.prisma.userPermission.create({
-                    data: {
-                        userId,
-                        permission: perm.name,
-                        grantedBy: grantedBy || 'system',
-                        grantedAt: new Date(),
-                        tenantId,
-                    }
-                });
+            if (!perm) {
+                this.logger.error(`Permission ${p.name} not found in DB, skipping.`);
+                continue;
+            }
+            let grantedByUserId = undefined;
+            if (grantedBy) {
+                const userExists = await this.prisma.user.findUnique({ where: { id: grantedBy } });
+                if (userExists) {
+                    grantedByUserId = grantedBy;
+                }
+            }
+            const data = {
+                userId,
+                permission: perm.name,
+                grantedAt: new Date(),
+                tenantId,
+            };
+            if (grantedByUserId !== undefined) {
+                data.grantedBy = grantedByUserId;
+            }
+            try {
+                await this.prisma.userPermission.create({ data });
+                this.logger.log(`Assigned permission ${perm.name} to user ${userId} for tenant ${tenantId}`);
+            }
+            catch (err) {
+                this.logger.error(`Failed to assign permission ${perm.name} to user ${userId}: ${err.message}`);
             }
         }
         if (this.auditLogService) {
             await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions, tenantId }, ip);
         }
-        return this.prisma.user.findUnique({
+        const updatedUser = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
                 userPermissions: {
@@ -342,6 +429,8 @@ let UserService = UserService_1 = class UserService {
                 }
             }
         });
+        this.logger.log(`Updated permissions for user ${userId}: ${JSON.stringify(updatedUser?.userPermissions)}`);
+        return updatedUser;
     }
     async getAllPermissions() {
         return this.prisma.permission.findMany({

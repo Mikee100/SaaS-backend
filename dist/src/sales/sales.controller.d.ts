@@ -33,17 +33,23 @@ export declare class SalesController {
                     price: number;
                 };
                 id: string;
-                saleId: string;
                 quantity: number;
+                saleId: string;
             }[];
-            branch: {
+            user: {
                 id: string;
+                email: string;
                 name: string;
+            };
+            mpesaTransactions: {
+                id: string;
                 createdAt: Date;
-                updatedAt: Date;
-                tenantId: string;
-                address: string | null;
-            } | null;
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                responseDesc: string | null;
+                transactionId: string | null;
+            }[];
             tenant: {
                 id: string;
                 name: string;
@@ -101,24 +107,19 @@ export declare class SalesController {
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
             };
-            user: {
+            branch: {
                 id: string;
-                email: string;
                 name: string;
-            };
-            mpesaTransactions: {
-                id: string;
                 createdAt: Date;
-                phoneNumber: string;
-                amount: number;
-                status: string;
-                responseDesc: string | null;
-                transactionId: string | null;
-            }[];
+                updatedAt: Date;
+                tenantId: string;
+                address: string | null;
+            } | null;
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -126,7 +127,6 @@ export declare class SalesController {
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-            branchId: string | null;
         };
         error?: undefined;
     } | {
@@ -194,12 +194,12 @@ export declare class SalesController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             stock: number;
+            branchId: string | null;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
@@ -299,17 +299,23 @@ export declare class SalesController {
                 price: number;
             };
             id: string;
-            saleId: string;
             quantity: number;
+            saleId: string;
         }[];
-        branch: {
+        user: {
             id: string;
+            email: string;
             name: string;
+        };
+        mpesaTransactions: {
+            id: string;
             createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            address: string | null;
-        } | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         tenant: {
             id: string;
             name: string;
@@ -367,24 +373,19 @@ export declare class SalesController {
             auditLogsEnabled: boolean;
             backupRestore: boolean;
         };
-        user: {
+        branch: {
             id: string;
-            email: string;
             name: string;
-        };
-        mpesaTransactions: {
-            id: string;
             createdAt: Date;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
+            updatedAt: Date;
+            tenantId: string;
+            address: string | null;
+        } | null;
         id: string;
         createdAt: Date;
         tenantId: string;
         userId: string;
+        branchId: string | null;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -392,6 +393,5 @@ export declare class SalesController {
         mpesaTransactionId: string | null;
         idempotencyKey: string | null;
         vatAmount: number | null;
-        branchId: string | null;
     }>;
 }

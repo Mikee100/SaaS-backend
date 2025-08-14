@@ -87,14 +87,13 @@ let TenantService = TenantService_1 = class TenantService {
                     ownerEmail: data.ownerEmail,
                     timestamp: new Date().toISOString(),
                 });
-                const hashedPassword = await bcrypt.hash(data.ownerPassword, 10);
                 const ownerUser = await this.userService.createUser({
                     name: data.ownerName,
                     email: data.ownerEmail,
-                    password: hashedPassword,
+                    password: data.ownerPassword,
                     role: data.ownerRole || 'admin',
                     tenantId: tenant.id,
-                });
+                }, undefined, undefined, prisma);
                 console.log('[TenantService] Owner user created:', ownerUser);
                 this.logger.debug('Owner user created successfully', {
                     tenantId: tenant.id,
