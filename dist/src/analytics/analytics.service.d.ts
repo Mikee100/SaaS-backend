@@ -12,6 +12,8 @@ export interface SalesAnalytics {
         name: string;
         revenue: number;
         quantity: number;
+        cost: number;
+        margin: number;
     }>;
 }
 export interface InventoryAnalytics {

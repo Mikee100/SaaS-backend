@@ -467,6 +467,7 @@ export declare class AdminController {
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
+            cost: number;
             stock: number;
             branchId: string | null;
         }[] | undefined;

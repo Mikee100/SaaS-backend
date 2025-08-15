@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MpesaController } from './mpesa/mpesa.controller';
+import { MpesaController } from './mpesa.controller';
 
 @Module({
   controllers: [MpesaController],

@@ -71,6 +71,12 @@ export class SectionLogoService {
           enabled: true,
           dimensions: { width: 120, height: 30 },
           position: 'center'
+        },
+        receipt: {
+          logoType: 'receiptLogoUrl',
+          enabled: true,
+          dimensions: { width: 200, height: 50 },
+          position: 'center'
         }
       }
     };

@@ -8,7 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MpesaModule = void 0;
 const common_1 = require("@nestjs/common");
-const mpesa_controller_1 = require("./mpesa/mpesa.controller");
+const mpesa_controller_1 = require("./mpesa.controller");
 let MpesaModule = class MpesaModule {
 };
 exports.MpesaModule = MpesaModule;

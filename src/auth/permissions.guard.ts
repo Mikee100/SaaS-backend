@@ -21,6 +21,7 @@ export class PermissionsGuard implements CanActivate {
     const tenantId = user?.tenantId;
     const userId = user?.userId || user?.sub;
     let userPermissions: string[] = [];
+    
 
     if (tenantId) {
       // Normal case: tenant-specific permissions

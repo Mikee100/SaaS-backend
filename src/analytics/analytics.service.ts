@@ -8,7 +8,7 @@ export interface SalesAnalytics {
   totalRevenue: number;
   averageOrderValue: number;
   salesTrend: Array<{ date: string; amount: number }>;
-  topProducts: Array<{ id: string; name: string; revenue: number; quantity: number }>;
+  topProducts: Array<{ id: string; name: string; revenue: number; quantity: number; cost: number; margin: number }>;
 }
 
 export interface InventoryAnalytics {
@@ -25,7 +25,13 @@ export class AnalyticsService {
   async getSalesAnalytics(tenantId: string): Promise<SalesAnalytics> {
     const sales = await this.prisma.sale.findMany({
       where: { tenantId },
-      include: { items: { include: { product: true } } },
+      include: {
+        items: {
+          include: {
+            product: true // Select all fields, including 'cost' if present in schema
+          }
+        }
+      }
     });
     const totalSales = sales.length;
     const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
@@ -43,20 +49,29 @@ export class AnalyticsService {
       };
     });
 
-    // Top products by revenue
-    const productRevenue = new Map<string, { id: string; name: string; revenue: number; quantity: number }>();
+    // Top products by revenue, cost, and margin
+    const productRevenue = new Map<string, { id: string; name: string; revenue: number; quantity: number; cost: number; margin: number }>();
     sales.forEach(sale => {
       sale.items.forEach(item => {
         const existing = productRevenue.get(item.productId) || {
           id: item.productId,
           name: item.product.name,
           revenue: 0,
-          quantity: 0
+          quantity: 0,
+          cost: item.product.cost ?? 0,
+          margin: 0
         };
+        const revenue = existing.revenue + (item.quantity * item.price);
+        const quantity = existing.quantity + item.quantity;
+        const cost = item.product.cost ?? 0;
+        // Margin = (revenue - cost * quantity) / revenue
+        const margin = revenue > 0 ? (revenue - cost * quantity) / revenue : 0;
         productRevenue.set(item.productId, {
           ...existing,
-          revenue: existing.revenue + (item.quantity * item.price),
-          quantity: existing.quantity + item.quantity,
+          revenue,
+          quantity,
+          cost,
+          margin,
         });
       });
     });

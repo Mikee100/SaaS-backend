@@ -58,7 +58,10 @@ let LogoService = LogoService_1 = class LogoService {
             where: { id: tenantId },
             select: {
                 logoUrl: true,
+                favicon: true,
+                receiptLogo: true,
                 etimsQrUrl: true,
+                watermark: true,
             }
         });
         if (!tenant) {
@@ -66,10 +69,10 @@ let LogoService = LogoService_1 = class LogoService {
         }
         return {
             mainLogo: tenant.logoUrl,
-            favicon: null,
-            receiptLogo: null,
+            favicon: tenant.favicon,
+            receiptLogo: tenant.receiptLogo,
             etimsQrCode: tenant.etimsQrUrl,
-            watermark: null,
+            watermark: tenant.watermark,
         };
     }
     async enforceLogoCompliance(tenantId) {

@@ -157,19 +157,63 @@ let AnalyticsController = class AnalyticsController {
     }
     async getDashboardStats(req) {
         const tenantId = req.user.tenantId;
-        const products = await this.prisma.product.findMany({ where: { tenantId } });
-        const allSales = await this.prisma.sale.findMany({ where: { tenantId }, include: { items: true } });
-        const totalSales = await this.prisma.sale.count({ where: { tenantId } });
-        const totalRevenueAgg = await this.prisma.sale.aggregate({ _sum: { total: true }, where: { tenantId } });
-        const totalRevenue = totalRevenueAgg._sum.total || 0;
+        const products = await this.prisma.product.findMany({ where: { tenantId }, select: { id: true, name: true, cost: true, stock: true } });
+        const allSales = await this.prisma.sale.findMany({ where: { tenantId }, include: { items: { include: { product: true } } } });
+        const totalSales = allSales.length;
+        const totalRevenue = allSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+        const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
         const totalProducts = products.length;
         const customerNames = await this.prisma.sale.findMany({ where: { tenantId, customerName: { not: null } }, select: { customerName: true }, distinct: ['customerName'] });
         const totalCustomers = customerNames.length;
-        const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
-        const salesByMonth = {};
+        const salesTrendDay = {};
+        const salesTrendWeek = {};
+        const salesTrendMonth = {};
         allSales.forEach(sale => {
+            const day = sale.createdAt.toISOString().split('T')[0];
+            const week = `${sale.createdAt.getFullYear()}-W${Math.ceil((sale.createdAt.getDate()) / 7)}`;
             const month = sale.createdAt.toISOString().slice(0, 7);
-            salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
+            salesTrendDay[day] = (salesTrendDay[day] || 0) + (sale.total || 0);
+            salesTrendWeek[week] = (salesTrendWeek[week] || 0) + (sale.total || 0);
+            salesTrendMonth[month] = (salesTrendMonth[month] || 0) + (sale.total || 0);
+        });
+        let salesGrowthRate = 0;
+        let avgSalesPerCustomer = 0;
+        let topPaymentMethods = [];
+        let topCustomer = null;
+        let salesByHour = Array(24).fill(0);
+        const monthKeys = Object.keys(salesTrendMonth).sort();
+        if (monthKeys.length >= 2) {
+            const lastMonth = salesTrendMonth[monthKeys[monthKeys.length - 1]];
+            const prevMonth = salesTrendMonth[monthKeys[monthKeys.length - 2]];
+            if (prevMonth > 0) {
+                salesGrowthRate = ((lastMonth - prevMonth) / prevMonth) * 100;
+            }
+        }
+        avgSalesPerCustomer = totalCustomers > 0 ? totalSales / totalCustomers : 0;
+        const paymentMethodTotals = {};
+        allSales.forEach(sale => {
+            if (sale.paymentType) {
+                paymentMethodTotals[sale.paymentType] = (paymentMethodTotals[sale.paymentType] || 0) + sale.total;
+            }
+        });
+        topPaymentMethods = Object.entries(paymentMethodTotals)
+            .sort((a, b) => b[1] - a[1])
+            .map(([method, total]) => ({ method, total }));
+        if (allSales.length > 0) {
+            const customerTotals = {};
+            allSales.forEach(sale => {
+                if (sale.customerName) {
+                    customerTotals[sale.customerName] = (customerTotals[sale.customerName] || 0) + sale.total;
+                }
+            });
+            const sortedCustomers = Object.entries(customerTotals).sort((a, b) => b[1] - a[1]);
+            if (sortedCustomers.length > 0) {
+                topCustomer = { name: sortedCustomers[0][0], total: sortedCustomers[0][1] };
+            }
+        }
+        allSales.forEach(sale => {
+            const hour = sale.createdAt.getHours();
+            salesByHour[hour] += sale.total || 0;
         });
         const productSalesMap = {};
         allSales.forEach(sale => {
@@ -183,14 +227,19 @@ let AnalyticsController = class AnalyticsController {
         });
         const topProducts = products.map(p => {
             const salesData = productSalesMap[p.id] || { unitsSold: 0, revenue: 0 };
-            const avgSalePrice = salesData.unitsSold > 0 ? salesData.revenue / salesData.unitsSold : p.price;
-            const margin = p.price > 0 ? ((p.price - avgSalePrice) / p.price) : 0;
-            return { id: p.id, name: p.name, unitsSold: salesData.unitsSold, revenue: salesData.revenue, margin };
+            const margin = salesData.revenue > 0 ? (salesData.revenue - (p.cost * salesData.unitsSold)) / salesData.revenue : 0;
+            return { id: p.id, name: p.name, unitsSold: salesData.unitsSold, revenue: salesData.revenue, cost: p.cost ?? 0, margin };
         }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
         const lowStockItems = products.filter(p => (p.stock ?? 0) <= 10 && (p.stock ?? 0) > 0).length;
         const overstockItems = products.filter(p => (p.stock ?? 0) > 100).length;
         const inventoryTurnover = totalProducts > 0 ? totalSales / totalProducts : 0;
         const stockoutRate = totalProducts > 0 ? products.filter(p => (p.stock ?? 0) === 0).length / totalProducts : 0;
+        const paymentBreakdown = {};
+        allSales.forEach(sale => {
+            if (sale.paymentType) {
+                paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+            }
+        });
         const customerSales = {};
         allSales.forEach(sale => {
             if (sale.customerName) {
@@ -199,13 +248,21 @@ let AnalyticsController = class AnalyticsController {
         });
         const repeatCustomers = Object.values(customerSales).filter(count => count > 1).length;
         const retentionRate = totalCustomers > 0 ? repeatCustomers / totalCustomers : 0;
+        const advancedSegments = {
+            byLocation: [],
+            byAge: [],
+            byDevice: []
+        };
         return {
             totalSales,
             totalRevenue,
             totalProducts,
             totalCustomers,
-            averageOrderValue: avgOrderValue,
-            salesByMonth,
+            averageOrderValue,
+            salesTrendDay,
+            salesTrendWeek,
+            salesTrendMonth,
+            salesByMonth: salesTrendMonth,
             topProducts,
             inventoryAnalytics: {
                 lowStockItems,
@@ -213,11 +270,18 @@ let AnalyticsController = class AnalyticsController {
                 inventoryTurnover,
                 stockoutRate
             },
+            paymentBreakdown,
             customerRetention: {
                 totalCustomers,
                 repeatCustomers,
                 retentionRate
             },
+            advancedSegments,
+            salesGrowthRate,
+            avgSalesPerCustomer,
+            topPaymentMethods,
+            topCustomer,
+            salesByHour,
             message: 'Dashboard analytics with real business data and advanced KPIs'
         };
     }

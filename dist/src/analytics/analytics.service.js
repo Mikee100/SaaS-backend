@@ -23,7 +23,13 @@ let AnalyticsService = class AnalyticsService {
     async getSalesAnalytics(tenantId) {
         const sales = await this.prisma.sale.findMany({
             where: { tenantId },
-            include: { items: { include: { product: true } } },
+            include: {
+                items: {
+                    include: {
+                        product: true
+                    }
+                }
+            }
         });
         const totalSales = sales.length;
         const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
@@ -45,12 +51,20 @@ let AnalyticsService = class AnalyticsService {
                     id: item.productId,
                     name: item.product.name,
                     revenue: 0,
-                    quantity: 0
+                    quantity: 0,
+                    cost: item.product.cost ?? 0,
+                    margin: 0
                 };
+                const revenue = existing.revenue + (item.quantity * item.price);
+                const quantity = existing.quantity + item.quantity;
+                const cost = item.product.cost ?? 0;
+                const margin = revenue > 0 ? (revenue - cost * quantity) / revenue : 0;
                 productRevenue.set(item.productId, {
                     ...existing,
-                    revenue: existing.revenue + (item.quantity * item.price),
-                    quantity: existing.quantity + item.quantity,
+                    revenue,
+                    quantity,
+                    cost,
+                    margin,
                 });
             });
         });
