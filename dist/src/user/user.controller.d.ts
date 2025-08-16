@@ -10,7 +10,6 @@ export declare class UserController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -61,6 +60,7 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             role: {
                 id: string;
@@ -85,8 +85,8 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            permission: string;
             userId: string;
+            permission: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
@@ -140,7 +140,6 @@ export declare class UserController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -191,6 +190,7 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             permissionRef: {
                 id: string;
@@ -200,8 +200,8 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            permission: string;
             userId: string;
+            permission: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
@@ -226,7 +226,6 @@ export declare class UserController {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -277,6 +276,7 @@ export declare class UserController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
+            stripeCustomerId: string | null;
         };
         permissionRef: {
             id: string;
@@ -286,8 +286,8 @@ export declare class UserController {
     } & {
         id: string;
         tenantId: string;
-        permission: string;
         userId: string;
+        permission: string;
         grantedBy: string | null;
         grantedAt: Date;
     })[]>;

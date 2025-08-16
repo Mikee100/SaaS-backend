@@ -92,7 +92,11 @@ let UserController = class UserController {
         return this.userService.getUserPermissionsByTenant(id, tenantId);
     }
     async updatePreferences(req, body) {
-        return this.userService.updateUserPreferences(req.user.userId, body);
+        const userId = req.user.userId || req.user.id || req.user.sub;
+        if (!userId) {
+            throw new common_1.BadRequestException('User ID not found in request context');
+        }
+        return this.userService.updateUserPreferences(userId, body);
     }
     async deleteUser(req, id) {
         const tenantId = req.user.tenantId;

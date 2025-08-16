@@ -128,7 +128,12 @@ export class UserController {
   @Put('me/preferences')
   @UseGuards(AuthGuard('jwt'))
   async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {
-    return this.userService.updateUserPreferences(req.user.userId, body);
+    // Robustly extract userId from req.user
+    const userId = req.user.userId || req.user.id || req.user.sub;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in request context');
+    }
+    return this.userService.updateUserPreferences(userId, body);
   }
 
   @Delete(':id')
