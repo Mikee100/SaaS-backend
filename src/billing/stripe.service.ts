@@ -99,67 +99,55 @@ export class StripeService {
     successUrl: string,
     cancelUrl: string,
     userId: string,
+    customerEmail?: string
   ): Promise<Stripe.Checkout.Session> {
     const stripe = await this.getStripeForTenant(tenantId);
     if (!stripe) {
       throw new Error('Stripe is not configured for this tenant');
     }
-    
-    try {
-      this.logger.log(`Creating checkout session for tenant: ${tenantId}, price: ${priceId}`);
 
-      // Get tenant and customer info
-      const tenant = await this.prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: { stripeCustomerId: true, name: true },
+    // Get the tenant's subscription to determine if this is an upgrade/downgrade
+      const subscription = await this.prisma.subscription.findFirst({
+        where: { tenantId },
+        orderBy: { id: 'desc' },
       });
 
-      if (!tenant) {
-        throw new BadRequestException('Tenant not found');
+    // Create or retrieve customer
+    let customer: Stripe.Customer | null = null;
+    if (subscription?.stripeCustomerId) {
+      try {
+        const customerData = await stripe.customers.retrieve(subscription.stripeCustomerId);
+        if (!customerData.deleted) {
+          customer = customerData as Stripe.Customer;
+        }
+      } catch (error) {
+        this.logger.error(`Failed to retrieve customer: ${error.message}`);
       }
-
-      // Create customer if doesn't exist
-      let customerId = tenant.stripeCustomerId;
-      if (!customerId) {
-        const customer = await this.createCustomer(tenantId, 'admin@example.com', tenant.name);
-        customerId = customer.id;
-      }
-
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        metadata: {
-          tenantId,
-          userId,
-        },
-        subscription_data: {
-          metadata: {
-            tenantId,
-          },
-        },
-      });
-
-      await this.auditLogService.log(userId, 'stripe_checkout_created', {
-        tenantId,
-        sessionId: session.id,
-        priceId,
-      });
-
-      this.logger.log(`Successfully created checkout session: ${session.id} for tenant: ${tenantId}`);
-      return session;
-    } catch (error) {
-      this.logger.error(`Failed to create checkout session for tenant: ${tenantId}`, error);
-      throw new InternalServerErrorException('Failed to create checkout session');
     }
+
+    if (!customer) {
+      customer = await stripe.customers.create({
+        email: customerEmail,
+        metadata: { tenantId, userId },
+      });
+    }
+
+    // Create checkout session
+    return stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price: priceId,
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      customer: customer.id,
+      client_reference_id: tenantId,
+      subscription_data: {
+        metadata: { tenantId, userId },
+      },
+    });
   }
 
   /**
@@ -277,11 +265,17 @@ export class StripeService {
           tenantId,
           planId,
           stripeSubscriptionId: subscription.id,
+          stripeCustomerId: subscription.customer as string,
           stripePriceId: priceId,
+          stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           status: subscription.status,
           currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
           currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+          trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
+          trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+          userId: userId || 'system', // Use system as fallback if userId is not provided
         },
       });
 
@@ -315,6 +309,9 @@ export class StripeService {
           currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
           currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
+          trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
+          trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
         },
       });
 
@@ -382,16 +379,20 @@ export class StripeService {
         return;
       }
 
+  // const subscriptionId = typeof invoice.subscription === 'string'
+  //   ? invoice.subscription
+  //   : invoice.subscription?.id || null;
+
       await this.prisma.invoice.create({
         data: {
           id: invoice.id,
+          number: invoice.number || `INV-${Date.now()}`,
           tenantId,
-          stripeInvoiceId: invoice.id,
-          amount: invoice.amount_paid,
-          currency: invoice.currency,
-          status: invoice.status || 'paid',
-          dueDate: new Date((invoice as any).due_date * 1000),
-          paidAt: new Date(),
+          amount: (invoice.amount_paid || 0) / 100, // Convert from cents to dollars
+          status: invoice.status === 'paid' ? 'paid' : 'open',
+          dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+          paidAt: invoice.status === 'paid' ? new Date() : null,
+          // subscriptionId,
         },
       });
 
@@ -503,28 +504,30 @@ export class StripeService {
   /**
    * Get subscription details
    */
-  async getSubscriptionDetails(tenantId: string): Promise<Stripe.Subscription | null> {
-    const stripe = await this.getStripeForTenant(tenantId);
-    if (!stripe) {
-      throw new Error('Stripe is not configured for this tenant');
-    }
-    
+  async getSubscription(tenantId: string): Promise<{ id: string; status: string; stripeSubscriptionId: string; stripeCustomerId: string } | null> {
     try {
       const subscription = await this.prisma.subscription.findFirst({
-        where: { 
-          tenantId,
-          status: { in: ['active', 'past_due', 'trialing', 'canceled'] }
+        where: { tenantId },
+        orderBy: { id: 'desc' }, 
+        include: {
+          tenant: true,
+          user: true,
         },
       });
 
-      if (!subscription?.stripeSubscriptionId) {
+      if (!subscription || !subscription.stripeSubscriptionId) {
         return null;
       }
 
-      return await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+      return {
+        id: subscription.id,
+        status: subscription.status,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        stripeCustomerId: subscription.stripeCustomerId,
+      };
     } catch (error) {
-      this.logger.error(`Failed to get subscription details for tenant: ${tenantId}`, error);
-      return null;
+      this.logger.error('Error getting subscription:', error);
+      throw error;
     }
   }
 
@@ -536,7 +539,7 @@ export class StripeService {
       const orphanedSubscriptions = await this.prisma.subscription.findMany({
         where: {
           tenantId,
-          stripeSubscriptionId: null,
+          // stripeSubscriptionId: null,
           status: { in: ['active', 'past_due', 'trialing'] }
         }
       });
@@ -788,11 +791,28 @@ export class StripeService {
    */
   async createPaymentIntent(
     tenantId: string,
-    amount: number,
-    currency: string,
-    description: string,
-    metadata: Record<string, any> = {},
+    params: {
+      amount: number;
+      currency?: string;
+      description?: string;
+      metadata?: Record<string, any>;
+      paymentMethod?: string;
+      confirm?: boolean;
+      customerId?: string;
+      setupFutureUsage?: 'on_session' | 'off_session';
+    }
   ): Promise<Stripe.PaymentIntent> {
+    const {
+      amount,
+      currency = 'usd',
+      description,
+      metadata = {},
+      paymentMethod,
+      confirm = false,
+      customerId,
+      setupFutureUsage
+    } = params;
+
     const stripe = await this.getStripeForTenant(tenantId);
     if (!stripe) {
       throw new Error('Stripe is not configured for this tenant');
@@ -801,7 +821,7 @@ export class StripeService {
     try {
       this.logger.log(`Creating payment intent for tenant: ${tenantId}, amount: ${amount}`);
 
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency,
         description,
@@ -809,10 +829,24 @@ export class StripeService {
           tenantId,
           ...metadata,
         },
-        automatic_payment_methods: {
-          enabled: true,
-        },
-      });
+        setup_future_usage: setupFutureUsage,
+        customer: customerId,
+        confirm,
+        payment_method: paymentMethod,
+        // Enable automatic payment methods if no specific payment method is provided
+        ...(!paymentMethod && {
+          automatic_payment_methods: {
+            enabled: true,
+          },
+        }),
+      };
+
+      // Remove undefined values
+      Object.keys(paymentIntentParams).forEach(
+        (key) => paymentIntentParams[key] === undefined && delete paymentIntentParams[key]
+      );
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
       await this.auditLogService.log('system', 'payment_intent_created', {
         tenantId,
@@ -1009,4 +1043,119 @@ export class StripeService {
       throw new InternalServerErrorException('Failed to detach payment method');
     }
   }
-} 
+
+  /**
+   * Create a payment intent for one-time payments
+   */
+  async createOneTimePaymentIntent(
+    tenantId: string,
+    amount: number,
+    currency: string,
+    description: string,
+    metadata: Record<string, any> = {},
+    paymentMethod?: string,
+    confirm = false,
+    savePaymentMethod = false,
+    customerId?: string,
+  ): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Creating one-time payment intent for tenant: ${tenantId}, amount: ${amount}`);
+
+      const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        description,
+        metadata: {
+          tenantId,
+          ...metadata,
+        },
+        payment_method: paymentMethod,
+        confirm,
+        customer: customerId,
+        setup_future_usage: savePaymentMethod ? 'off_session' : undefined,
+      };
+
+      // If we're not confirming immediately, don't include payment method
+      if (!confirm) {
+        delete paymentIntentParams.payment_method;
+        delete paymentIntentParams.confirm;
+        delete paymentIntentParams.setup_future_usage;
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+      await this.auditLogService.log('system', 'one_time_payment_intent_created', {
+        tenantId,
+        paymentIntentId: paymentIntent.id,
+        amount,
+        currency,
+      });
+
+      this.logger.log(`Successfully created one-time payment intent: ${paymentIntent.id} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to create one-time payment intent for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to create one-time payment intent');
+    }
+  }
+
+  /**
+   * Retrieve a payment intent
+   */
+  async retrievePaymentIntent(tenantId: string, paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Retrieving payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      this.logger.log(`Successfully retrieved payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to retrieve payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to retrieve payment intent');
+    }
+  }
+
+  /**
+   * Confirm a payment intent
+   */
+  async confirmPaymentIntent(
+    tenantId: string,
+    paymentIntentId: string,
+    paymentMethodId: string,
+  ): Promise<Stripe.PaymentIntent> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    try {
+      this.logger.log(`Confirming payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+
+      const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
+        payment_method: paymentMethodId,
+      });
+
+      await this.auditLogService.log('system', 'payment_intent_confirmed', {
+        tenantId,
+        paymentIntentId,
+      });
+
+      this.logger.log(`Successfully confirmed payment intent ${paymentIntentId} for tenant: ${tenantId}`);
+      return paymentIntent;
+    } catch (error) {
+      this.logger.error(`Failed to confirm payment intent ${paymentIntentId} for tenant: ${tenantId}`, error);
+      throw new InternalServerErrorException('Failed to confirm payment intent');
+    }
+  }
+}

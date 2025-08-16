@@ -10,26 +10,28 @@ export declare class ProductService {
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
-        description: string | null;
-        price: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
+        description: string | null;
+        price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         sku: string;
+        cost: number;
         stock: number;
         branchId: string | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
-        description: string | null;
-        price: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
+        description: string | null;
+        price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         sku: string;
+        cost: number;
         stock: number;
         branchId: string | null;
     }>;

@@ -8,12 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AdminService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
-let AdminService = class AdminService {
+let AdminService = AdminService_1 = class AdminService {
     prisma;
+    logger = new common_1.Logger(AdminService_1.name);
     constructor(prisma) {
         this.prisma = prisma;
     }
@@ -22,7 +24,7 @@ let AdminService = class AdminService {
             include: {
                 _count: {
                     select: {
-                        userRoles: true,
+                        users: true,
                         products: true,
                         sales: true,
                     },
@@ -102,26 +104,33 @@ let AdminService = class AdminService {
         return baseStorage + logoStorage;
     }
     async getNearCapacityTenants() {
-        const tenants = await this.prisma.tenant.findMany({
-            include: {
-                userRoles: true,
-                products: true,
-                subscriptions: {
-                    include: {
-                        plan: true
-                    },
-                    where: {
-                        status: 'active'
-                    }
-                }
-            }
+        const tenants = await this.prisma.tenant.findMany();
+        const userCounts = await this.prisma.user.groupBy({
+            by: ['tenantId'],
+            _count: { id: true }
         });
+        const userCountMap = Object.fromEntries(userCounts.map(u => [u.tenantId, u._count.id]));
+        const productCounts = await this.prisma.product.groupBy({
+            by: ['tenantId'],
+            _count: { id: true }
+        });
+        const productCountMap = Object.fromEntries(productCounts.map(p => [p.tenantId, p._count.id]));
+        const allSubscriptions = await this.prisma.subscription.findMany({
+            where: { status: 'active' },
+            include: { plan: true }
+        });
+        const subMap = new Map();
+        for (const sub of allSubscriptions) {
+            subMap.set(sub.tenantId, sub);
+        }
         return tenants.filter(tenant => {
-            const subscription = tenant.subscriptions[0];
+            const subscription = subMap.get(tenant.id);
             if (!subscription)
                 return false;
-            const userUsage = tenant.userRoles.length / (subscription.plan.maxUsers || 50);
-            const productUsage = tenant.products.length / (subscription.plan.maxProducts || 1000);
+            const userCount = userCountMap[tenant.id] || 0;
+            const productCount = productCountMap[tenant.id] || 0;
+            const userUsage = userCount / (subscription.plan.maxUsers || 50);
+            const productUsage = productCount / (subscription.plan.maxProducts || 1000);
             return userUsage > 0.8 || productUsage > 0.8;
         });
     }
@@ -166,26 +175,43 @@ let AdminService = class AdminService {
         });
     }
     async createTenant(tenantData) {
-        const { name, businessType, contactEmail, contactPhone, address, currency, timezone, invoiceFooter, logoUrl, kraPin, vatNumber, etimsQrUrl } = tenantData;
+        const allowedFields = [
+            'name', 'businessType', 'contactEmail', 'contactPhone',
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'logoUrl', 'favicon', 'receiptLogo', 'watermark',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
+            'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogs', 'backupRestore', 'stripeCustomerId'
+        ];
+        const data = {};
+        for (const key of allowedFields) {
+            if (tenantData[key] !== undefined) {
+                data[key] = tenantData[key];
+            }
+        }
+        if (!data.currency)
+            data.currency = 'KES';
+        if (!data.timezone)
+            data.timezone = 'Africa/Nairobi';
+        if (data.whiteLabel === undefined)
+            data.whiteLabel = false;
+        if (data.customIntegrations === undefined)
+            data.customIntegrations = false;
+        if (data.ssoEnabled === undefined)
+            data.ssoEnabled = false;
+        if (data.auditLogs === undefined)
+            data.auditLogs = false;
+        if (data.backupRestore === undefined)
+            data.backupRestore = false;
         const tenant = await this.prisma.tenant.create({
-            data: {
-                name,
-                businessType,
-                contactEmail,
-                contactPhone,
-                address,
-                currency,
-                timezone,
-                invoiceFooter,
-                logoUrl,
-                kraPin,
-                vatNumber,
-                etimsQrUrl,
-            },
+            data
         });
         const adminUser = await this.prisma.user.create({
             data: {
-                email: contactEmail,
+                email: tenantData.contactEmail,
                 password: '$2b$10$defaultpassword',
                 name: 'Admin User',
             },
@@ -222,30 +248,24 @@ let AdminService = class AdminService {
         });
     }
     async getTenantById(id) {
-        return this.prisma.tenant.findUnique({
+        const tenant = await this.prisma.tenant.findUnique({
             where: { id },
             include: {
                 _count: {
                     select: {
-                        userRoles: true,
                         products: true,
                         sales: true,
                     },
                 },
-                userRoles: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                            },
-                        },
-                        role: true,
-                    },
-                },
+                products: true,
+                sales: true,
             },
         });
+        const users = await this.prisma.user.findMany({
+            where: { tenantId: id },
+            select: { id: true, name: true, email: true }
+        });
+        return { ...tenant, users };
     }
     async getSystemHealth() {
         const database = {
@@ -475,197 +495,87 @@ let AdminService = class AdminService {
         return operation;
     }
     async getTenantAnalytics() {
-        try {
-            const tenants = await this.prisma.tenant.findMany({
-                include: {
-                    userRoles: {
-                        include: {
-                            user: true,
-                            role: true
-                        }
+        const tenants = await this.prisma.tenant.findMany();
+        const userCounts = await this.prisma.user.groupBy({
+            by: ['tenantId'],
+            _count: { id: true }
+        });
+        const userCountMap = Object.fromEntries(userCounts.map(u => [u.tenantId, u._count.id]));
+        const productCounts = await this.prisma.product.groupBy({
+            by: ['tenantId'],
+            _count: { id: true }
+        });
+        const productCountMap = Object.fromEntries(productCounts.map(p => [p.tenantId, p._count.id]));
+        const salesByTenant = await this.prisma.sale.groupBy({
+            by: ['tenantId'],
+            _count: { id: true },
+            _sum: { total: true }
+        });
+        const saleCountMap = Object.fromEntries(salesByTenant.map(s => [s.tenantId, s._count.id]));
+        const revenueMap = Object.fromEntries(salesByTenant.map(s => [s.tenantId, s._sum.total || 0]));
+        const inventoryCounts = await this.prisma.inventory.groupBy({
+            by: ['tenantId'],
+            _count: { id: true }
+        });
+        const inventoryCountMap = Object.fromEntries(inventoryCounts.map(i => [i.tenantId, i._count.id]));
+        const allSubscriptions = await this.prisma.subscription.findMany({
+            where: { status: 'active' },
+            include: { plan: true }
+        });
+        const subMap = new Map();
+        for (const sub of allSubscriptions) {
+            subMap.set(sub.tenantId, sub);
+        }
+        const analyticsData = tenants.map((tenant) => {
+            const userCount = userCountMap[tenant.id] || 0;
+            const productCount = productCountMap[tenant.id] || 0;
+            const saleCount = saleCountMap[tenant.id] || 0;
+            const inventoryCount = inventoryCountMap[tenant.id] || 0;
+            const totalSales = saleCount;
+            const totalRevenue = revenueMap[tenant.id] || 0;
+            const activeSubscription = subMap.get(tenant.id);
+            const storageUsage = 1024 * 1024 * 1024 + (tenant.logoUrl ? 1024 * 1024 : 0);
+            return {
+                id: tenant.id,
+                name: tenant.name,
+                businessType: tenant.businessType,
+                createdAt: tenant.createdAt,
+                subscription: activeSubscription ? {
+                    plan: activeSubscription.plan.name,
+                    status: activeSubscription.status,
+                    currentPeriodStart: activeSubscription.currentPeriodStart,
+                    currentPeriodEnd: activeSubscription.currentPeriodEnd
+                } : null,
+                usage: {
+                    users: {
+                        current: userCount,
+                        limit: activeSubscription?.plan.maxUsers || 50,
+                        percentage: activeSubscription?.plan.maxUsers ? (userCount / activeSubscription.plan.maxUsers) * 100 : 0
                     },
-                    products: true,
+                    products: {
+                        current: productCount,
+                        limit: activeSubscription?.plan.maxProducts || 1000,
+                        percentage: activeSubscription?.plan.maxProducts ? (productCount / activeSubscription.plan.maxProducts) * 100 : 0
+                    },
                     sales: {
-                        include: {
-                            items: true,
-                            user: true
-                        }
+                        current: totalSales,
+                        limit: activeSubscription?.plan.maxSalesPerMonth || 10000,
+                        percentage: activeSubscription?.plan.maxSalesPerMonth ? (totalSales / activeSubscription.plan.maxSalesPerMonth) * 100 : 0
                     },
-                    subscriptions: {
-                        include: {
-                            plan: true
-                        },
-                        where: {
-                            status: 'active'
-                        }
+                    storage: {
+                        current: storageUsage,
+                        limit: 100 * 1024 * 1024 * 1024,
+                        percentage: (storageUsage / (100 * 1024 * 1024 * 1024)) * 100
+                    },
+                    apiCalls: {
+                        current: 0,
+                        limit: 100000,
+                        percentage: 0
                     }
                 }
-            });
-            const analyticsData = await Promise.all(tenants.map(async (tenant) => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const totalSales = tenant.sales.length;
-                const totalRevenue = tenant.sales.reduce((sum, sale) => sum + sale.total, 0);
-                const activeSubscription = tenant.subscriptions[0];
-                const storageUsage = await this.calculateStorageUsage(tenant);
-                const lastLogin = await this.getLastUserActivity(tenant.id);
-                const activeDays = await this.getActiveDays(tenant.id);
-                const performance = await this.calculatePerformanceMetrics(tenant.id);
-                const historicalData = await this.generateHistoricalData(tenant.id);
-                return {
-                    id: tenant.id,
-                    name: tenant.name,
-                    businessType: tenant.businessType,
-                    createdAt: tenant.createdAt,
-                    subscription: activeSubscription ? {
-                        plan: activeSubscription.plan.name,
-                        status: activeSubscription.status,
-                        currentPeriodStart: activeSubscription.currentPeriodStart,
-                        currentPeriodEnd: activeSubscription.currentPeriodEnd
-                    } : null,
-                    usage: {
-                        users: {
-                            current: userCount,
-                            limit: activeSubscription?.plan.maxUsers || 50,
-                            percentage: activeSubscription?.plan.maxUsers ? (userCount / activeSubscription.plan.maxUsers) * 100 : 0
-                        },
-                        products: {
-                            current: productCount,
-                            limit: activeSubscription?.plan.maxProducts || 1000,
-                            percentage: activeSubscription?.plan.maxProducts ? (productCount / activeSubscription.plan.maxProducts) * 100 : 0
-                        },
-                        sales: {
-                            current: totalSales,
-                            limit: activeSubscription?.plan.maxSalesPerMonth || 10000,
-                            percentage: activeSubscription?.plan.maxSalesPerMonth ? (totalSales / activeSubscription.plan.maxSalesPerMonth) * 100 : 0
-                        },
-                        storage: {
-                            current: storageUsage,
-                            limit: 100 * 1024 * 1024 * 1024,
-                            percentage: (storageUsage / (100 * 1024 * 1024 * 1024)) * 100
-                        },
-                        apiCalls: {
-                            current: await this.getApiCallCount(tenant.id),
-                            limit: 100000,
-                            percentage: 0
-                        }
-                    },
-                    performance: {
-                        averageResponseTime: performance.averageResponseTime,
-                        uptime: performance.uptime,
-                        errorRate: performance.errorRate,
-                        activeUsers: await this.getActiveUsers(tenant.id),
-                        peakConcurrentUsers: await this.getPeakConcurrentUsers(tenant.id)
-                    },
-                    revenue: {
-                        monthlyRecurringRevenue: activeSubscription?.plan.price || 0,
-                        totalRevenue: totalRevenue,
-                        averageOrderValue: totalSales > 0 ? totalRevenue / totalSales : 0,
-                        customerLifetimeValue: this.calculateCLV(tenant.id, totalRevenue)
-                    },
-                    activity: {
-                        lastLogin: lastLogin,
-                        activeDays: activeDays,
-                        totalSessions: await this.getTotalSessions(tenant.id),
-                        averageSessionDuration: await this.getAverageSessionDuration(tenant.id)
-                    },
-                    historicalData: historicalData
-                };
-            }));
-            return analyticsData;
-        }
-        catch (error) {
-            console.error('Error getting tenant analytics:', error);
-            throw error;
-        }
-    }
-    async calculateStorageUsage(tenant) {
-        const baseStorage = 1024 * 1024 * 1024;
-        const logoStorage = tenant.logoUrl ? 1024 * 1024 : 0;
-        return baseStorage + logoStorage;
-    }
-    async getLastUserActivity(tenantId) {
-        const lastActivity = await this.prisma.auditLog.findFirst({
-            where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                }
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
+            };
         });
-        return lastActivity?.createdAt || null;
-    }
-    async getActiveDays(tenantId) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const activeDays = await this.prisma.auditLog.groupBy({
-            by: ['createdAt'],
-            where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                },
-                createdAt: {
-                    gte: thirtyDaysAgo
-                }
-            }
-        });
-        return new Set(activeDays.map(day => day.createdAt.toDateString())).size;
-    }
-    async calculatePerformanceMetrics(tenantId) {
-        return {
-            averageResponseTime: 120,
-            uptime: 99.9,
-            errorRate: 0.1
-        };
-    }
-    async getApiCallCount(tenantId) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const apiCalls = await this.prisma.auditLog.count({
-            where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                },
-                createdAt: {
-                    gte: thirtyDaysAgo
-                }
-            }
-        });
-        return apiCalls;
-    }
-    async getActiveUsers(tenantId) {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const activeUsers = await this.prisma.auditLog.groupBy({
-            by: ['userId'],
-            where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                },
-                createdAt: {
-                    gte: sevenDaysAgo
-                }
-            }
-        });
-        return activeUsers.length;
+        return analyticsData;
     }
     async getPeakConcurrentUsers(tenantId) {
         return Math.floor(Math.random() * 20) + 10;
@@ -678,218 +588,14 @@ let AdminService = class AdminService {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const sessions = await this.prisma.auditLog.count({
             where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                },
+                action: 'login',
+                userId: tenantId,
                 createdAt: {
                     gte: thirtyDaysAgo
                 }
             }
         });
         return sessions;
-    }
-    async getAverageSessionDuration(tenantId) {
-        return 30 * 60 * 1000;
-    }
-    async generateHistoricalData(tenantId) {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const dailyData = await this.prisma.auditLog.groupBy({
-            by: ['createdAt'],
-            _count: {
-                id: true
-            },
-            where: {
-                user: {
-                    userRoles: {
-                        some: {
-                            tenantId: tenantId
-                        }
-                    }
-                },
-                createdAt: {
-                    gte: thirtyDaysAgo
-                }
-            }
-        });
-        const users = [];
-        const sales = [];
-        const apiCalls = [];
-        const storage = [];
-        for (let i = 29; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            const dayData = dailyData.find(d => d.createdAt.toISOString().split('T')[0] === dateStr);
-            users.push({
-                timestamp: dateStr,
-                value: dayData ? Math.floor(Math.random() * 10) + 5 : 0
-            });
-            sales.push({
-                timestamp: dateStr,
-                value: dayData ? Math.floor(Math.random() * 50) + 10 : 0
-            });
-            apiCalls.push({
-                timestamp: dateStr,
-                value: dayData ? dayData._count.id : 0
-            });
-            storage.push({
-                timestamp: dateStr,
-                value: Math.floor(Math.random() * 5) + 1
-            });
-        }
-        return {
-            users,
-            sales,
-            apiCalls,
-            storage
-        };
-    }
-    async getTenantComparison() {
-        try {
-            const tenants = await this.getTenantAnalytics();
-            if (tenants.length === 0) {
-                return [];
-            }
-            const metrics = [
-                'monthly_recurring_revenue',
-                'active_users',
-                'storage_usage',
-                'api_calls'
-            ];
-            const comparisonData = metrics.map(metric => {
-                const values = tenants.map(tenant => {
-                    switch (metric) {
-                        case 'monthly_recurring_revenue':
-                            return tenant.revenue.monthlyRecurringRevenue;
-                        case 'active_users':
-                            return tenant.performance.activeUsers;
-                        case 'storage_usage':
-                            return tenant.usage.storage.current / (1024 * 1024 * 1024);
-                        case 'api_calls':
-                            return tenant.usage.apiCalls.current;
-                        default:
-                            return 0;
-                    }
-                }).filter(val => val > 0);
-                if (values.length === 0) {
-                    return {
-                        metric,
-                        average: 0,
-                        median: 0,
-                        topTenant: { name: 'N/A', value: 0 },
-                        bottomTenant: { name: 'N/A', value: 0 }
-                    };
-                }
-                const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-                const sorted = values.sort((a, b) => a - b);
-                const median = sorted[Math.floor(sorted.length / 2)];
-                let topTenant = { name: 'N/A', value: 0 };
-                let bottomTenant = { name: 'N/A', value: 0 };
-                tenants.forEach(tenant => {
-                    let value = 0;
-                    switch (metric) {
-                        case 'monthly_recurring_revenue':
-                            value = tenant.revenue.monthlyRecurringRevenue;
-                            break;
-                        case 'active_users':
-                            value = tenant.performance.activeUsers;
-                            break;
-                        case 'storage_usage':
-                            value = tenant.usage.storage.current / (1024 * 1024 * 1024);
-                            break;
-                        case 'api_calls':
-                            value = tenant.usage.apiCalls.current;
-                            break;
-                    }
-                    if (value > topTenant.value) {
-                        topTenant = { name: tenant.name, value };
-                    }
-                    if (value < bottomTenant.value || bottomTenant.value === 0) {
-                        bottomTenant = { name: tenant.name, value };
-                    }
-                });
-                return {
-                    metric,
-                    average: Math.round(average * 100) / 100,
-                    median: Math.round(median * 100) / 100,
-                    topTenant,
-                    bottomTenant
-                };
-            });
-            return comparisonData;
-        }
-        catch (error) {
-            console.error('Error getting tenant comparison:', error);
-            throw error;
-        }
-    }
-    async getTenantBackups() {
-        try {
-            const tenants = await this.prisma.tenant.findMany({
-                include: {
-                    userRoles: {
-                        include: {
-                            user: true,
-                            role: true
-                        }
-                    },
-                    products: true,
-                    sales: {
-                        include: {
-                            items: true
-                        }
-                    },
-                    inventories: true,
-                    subscriptions: {
-                        include: {
-                            plan: true
-                        }
-                    }
-                }
-            });
-            const backups = tenants.map(tenant => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const saleCount = tenant.sales.length;
-                const inventoryCount = tenant.inventories.length;
-                const baseSize = 1024 * 1024 * 1024;
-                const userDataSize = userCount * 1024 * 1024;
-                const productDataSize = productCount * 512 * 1024;
-                const saleDataSize = saleCount * 2 * 1024;
-                const inventoryDataSize = inventoryCount * 1024;
-                const totalSize = baseSize + userDataSize + productDataSize + saleDataSize + inventoryDataSize;
-                const backupHistory = this.generateBackupHistory(tenant.id);
-                return {
-                    id: `backup-${tenant.id}`,
-                    tenantId: tenant.id,
-                    tenantName: tenant.name,
-                    type: 'full',
-                    status: 'completed',
-                    size: totalSize,
-                    createdAt: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
-                    completedAt: new Date(Date.now() - Math.random() * 23 * 60 * 60 * 1000).toISOString(),
-                    downloadUrl: `/api/admin/backups/${tenant.id}/download`,
-                    restorePoints: backupHistory.length,
-                    records: {
-                        users: userCount,
-                        products: productCount,
-                        sales: saleCount,
-                        inventory: inventoryCount
-                    },
-                    backupHistory
-                };
-            });
-            return backups;
-        }
-        catch (error) {
-            console.error('Error getting tenant backups:', error);
-            throw error;
-        }
     }
     async createTenantBackup(backupData) {
         try {
@@ -900,16 +606,24 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             if (!tenant) {
                 throw new Error('Tenant not found');
             }
-            const userCount = tenant.userRoles.length;
-            const productCount = tenant.products.length;
-            const saleCount = tenant.sales.length;
-            const inventoryCount = tenant.inventories.length;
+            const userCount = tenant.userRoles?.length || 0;
+            const productCount = tenant.products?.length || 0;
+            const saleCount = tenant.sales?.length || 0;
+            const inventoryCount = tenant.inventory?.length || 0;
             const baseSize = 1024 * 1024 * 1024;
             const userDataSize = userCount * 1024 * 1024;
             const productDataSize = productCount * 512 * 1024;
@@ -1003,14 +717,22 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             const migrations = tenants.flatMap(tenant => {
-                const userCount = tenant.userRoles.length;
-                const productCount = tenant.products.length;
-                const saleCount = tenant.sales.length;
-                const inventoryCount = tenant.inventories.length;
+                const userCount = tenant.userRoles?.length || 0;
+                const productCount = tenant.products?.length || 0;
+                const saleCount = tenant.sales?.length || 0;
+                const inventoryCount = tenant.inventory?.length || 0;
                 const totalRecords = userCount + productCount + saleCount + inventoryCount;
                 const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024);
                 const migrationHistory = this.generateMigrationHistory(tenant.id);
@@ -1044,7 +766,15 @@ let AdminService = class AdminService {
                     userRoles: true,
                     products: true,
                     sales: true,
-                    inventories: true
+                    inventory: true,
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    }
                 }
             });
             if (!sourceTenant) {
@@ -1059,10 +789,10 @@ let AdminService = class AdminService {
                     throw new Error('Target tenant not found');
                 }
             }
-            const userCount = sourceTenant.userRoles.length;
-            const productCount = sourceTenant.products.length;
-            const saleCount = sourceTenant.sales.length;
-            const inventoryCount = sourceTenant.inventories.length;
+            const userCount = sourceTenant.userRoles?.length || 0;
+            const productCount = sourceTenant.products?.length || 0;
+            const saleCount = sourceTenant.sales?.length || 0;
+            const inventoryCount = sourceTenant.inventory?.length || 0;
             const totalRecords = userCount + productCount + saleCount + inventoryCount;
             const totalSize = (totalRecords * 1024) + (1024 * 1024 * 1024);
             const migrationId = `migration-${sourceTenantId}-${Date.now()}`;
@@ -1367,9 +1097,136 @@ let AdminService = class AdminService {
             };
         }
     }
+    async getTenantUsage(tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: {
+                subscriptions: {
+                    where: { status: 'active' },
+                    include: { plan: true },
+                },
+                userRoles: true,
+                products: true,
+                sales: true,
+                inventory: true,
+            },
+        });
+        if (!tenant) {
+            throw new Error('Tenant not found');
+        }
+        const activeSubscription = tenant.subscriptions?.[0];
+        if (!activeSubscription) {
+            return {
+                userUsage: 0,
+                productUsage: 0,
+                storageUsage: 0,
+                subscription: null,
+            };
+        }
+        const userUsage = (tenant.userRoles?.length || 0) / (activeSubscription.plan?.maxUsers || 50);
+        const productUsage = (tenant.products?.length || 0) / (activeSubscription.plan?.maxProducts || 1000);
+        const storageUsage = (tenant.inventory?.length || 0) / 100;
+        return {
+            userUsage,
+            productUsage,
+            storageUsage,
+            subscription: {
+                plan: activeSubscription.plan.name,
+                status: activeSubscription.status,
+                currentPeriodStart: activeSubscription.currentPeriodStart,
+                currentPeriodEnd: activeSubscription.currentPeriodEnd,
+            },
+        };
+    }
+    async getTenantStats(tenantId) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            include: {
+                subscriptions: {
+                    where: { status: 'active' },
+                    include: { plan: true },
+                },
+                userRoles: true,
+                products: true,
+                sales: true,
+                inventory: true,
+            },
+        });
+        if (!tenant) {
+            throw new Error('Tenant not found');
+        }
+        const userCount = tenant.userRoles?.length || 0;
+        const productCount = tenant.products?.length || 0;
+        const saleCount = tenant.sales?.length || 0;
+        const inventoryCount = tenant.inventory?.length || 0;
+        const totalSales = tenant.sales?.reduce((sum, sale) => sum + sale.total, 0) || 0;
+        const activeSubscription = tenant.subscriptions?.[0];
+        return {
+            userCount,
+            productCount,
+            saleCount,
+            inventoryCount,
+            totalSales,
+            activeSubscription: activeSubscription
+                ? {
+                    plan: activeSubscription.plan.name,
+                    status: activeSubscription.status,
+                    currentPeriodStart: activeSubscription.currentPeriodStart,
+                    currentPeriodEnd: activeSubscription.currentPeriodEnd,
+                }
+                : null,
+        };
+    }
+    async getTenantComparison() {
+        try {
+            const tenants = await this.prisma.tenant.findMany({
+                include: {
+                    subscriptions: {
+                        include: {
+                            plan: true
+                        },
+                        where: {
+                            status: 'active'
+                        }
+                    },
+                    _count: {
+                        select: {
+                            users: true,
+                            products: true,
+                            sales: true,
+                            inventory: true
+                        }
+                    }
+                }
+            });
+            return tenants.map(tenant => ({
+                id: tenant.id,
+                name: tenant.name,
+                plan: tenant.subscriptions[0]?.plan.name || 'Free',
+                userCount: tenant._count.users,
+                productCount: tenant._count.products,
+                saleCount: tenant._count.sales,
+                inventoryCount: tenant._count.inventory,
+                createdAt: tenant.createdAt
+            }));
+        }
+        catch (error) {
+            this.logger.error('Error getting tenant comparison', error);
+            throw new Error('Failed to get tenant comparison data');
+        }
+    }
+    async getTenantBackups() {
+        try {
+            return [];
+        }
+        catch (error) {
+            this.logger.error('Error getting tenant backups', error);
+            throw new Error('Failed to get tenant backups');
+        }
+    }
 };
 exports.AdminService = AdminService;
-exports.AdminService = AdminService = __decorate([
+exports.AdminService = AdminService = AdminService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], AdminService);

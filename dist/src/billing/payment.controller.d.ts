@@ -41,18 +41,16 @@ export declare class PaymentController {
     }, req: any): Promise<{
         success: boolean;
         invoice: {
+            number: string;
             id: string;
-            description: string | null;
-            currency: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
-            subscriptionId: string | null;
             amount: number;
-            dueDate: Date;
+            status: string;
+            dueDate: Date | null;
             paidAt: Date | null;
-            stripeInvoiceId: string | null;
+            subscriptionId: string | null;
         };
         error?: undefined;
     } | {

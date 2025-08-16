@@ -18,18 +18,16 @@ export declare class PaymentService {
         paymentId: string;
     }>;
     generateInvoice(subscriptionId: string, amount: number, currency?: string): Promise<{
+        number: string;
         id: string;
-        description: string | null;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
-        subscriptionId: string | null;
         amount: number;
-        dueDate: Date;
+        status: string;
+        dueDate: Date | null;
         paidAt: Date | null;
-        stripeInvoiceId: string | null;
+        subscriptionId: string | null;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
         period: "month" | "year" | "quarter";

@@ -4,12 +4,12 @@ export declare class PermissionController {
     constructor(permissionService: PermissionService);
     getPermissions(): Promise<{
         id: string;
+        name: string;
         description: string | null;
-        key: string;
     }[]>;
     createPermission(body: any): Promise<{
         id: string;
+        name: string;
         description: string | null;
-        key: string;
     }>;
 }

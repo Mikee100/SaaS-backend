@@ -54,6 +54,12 @@ let SubscriptionService = class SubscriptionService {
                     status: 'active',
                     currentPeriodStart: now,
                     currentPeriodEnd: endDate,
+                    stripeSubscriptionId: 'manual_' + Date.now(),
+                    stripeCustomerId: 'cust_' + data.tenantId,
+                    stripePriceId: 'price_' + plan.id,
+                    stripeCurrentPeriodEnd: endDate,
+                    cancelAtPeriodEnd: false,
+                    userId: 'system',
                 },
                 include: {
                     plan: true,
@@ -122,17 +128,20 @@ let SubscriptionService = class SubscriptionService {
                     take: 10,
                 },
             },
-            orderBy: { createdAt: 'desc' },
         });
     }
     async createInvoice(subscriptionId, amount, tenantId) {
+        const invoiceNumber = 'INV-' + Date.now();
         return await this.prisma.invoice.create({
             data: {
+                number: invoiceNumber,
                 subscriptionId,
                 tenantId,
                 amount,
-                status: 'pending',
+                status: 'open',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                createdAt: new Date(),
+                updatedAt: new Date(),
             },
         });
     }
@@ -166,7 +175,6 @@ let SubscriptionService = class SubscriptionService {
             where: { id: currentSubscription.id },
             data: {
                 planId: newPlan.id,
-                updatedAt: new Date(),
             },
             include: {
                 plan: true,

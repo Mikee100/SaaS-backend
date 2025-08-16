@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards, Logger } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionService } from './subscription.service';
@@ -7,13 +7,17 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RawBodyRequest } from '@nestjs/common';
 import { Response } from 'express';
+import { PrismaService } from '../prisma.service';
 
 @Controller('billing')
 export class BillingController {
+  private readonly logger = new Logger(BillingController.name);
+
   constructor(
     private readonly billingService: BillingService,
     private readonly stripeService: StripeService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('test')
@@ -79,20 +83,6 @@ export class BillingController {
   @Permissions('view_billing')
   async getPlans() {
     return this.billingService.getPlans();
-  }
-
-  @Get('subscription')
-  @UseGuards(AuthGuard('jwt'))
-  async getCurrentSubscription(@Req() req) {
-    try {
-      if (!req.user?.tenantId) {
-        throw new Error('No tenant ID found in user object');
-      }
-      
-      return this.billingService.getCurrentSubscription(req.user.tenantId);
-    } catch (error) {
-      throw error;
-    }
   }
 
   @Get('subscription-with-permissions')
@@ -201,7 +191,7 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getSubscriptionDetails(@Req() req) {
-    const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
+    const subscription = await this.stripeService.getSubscription(req.user.tenantId);
     return subscription;
   }
 
@@ -236,4 +226,137 @@ export class BillingController {
       throw new Error('Webhook signature verification failed');
     }
   }
-} 
+
+  @Post('create-payment-intent')
+  @UseGuards(AuthGuard('jwt'))
+  async createPaymentIntent(
+    @Req() req: any,
+    @Body() body: { 
+      amount: number; 
+      currency?: string; 
+      description?: string; 
+      metadata?: any; 
+      paymentMethodId?: string; 
+      savePaymentMethod?: boolean 
+    }
+  ) {
+    try {
+      const { 
+        amount, 
+        currency = 'usd', 
+        description, 
+        metadata, 
+        paymentMethodId, 
+        savePaymentMethod = false 
+      } = body;
+      
+      // Validate amount
+      if (!amount || amount < 50) { // Minimum charge is $0.50
+        throw new Error('Invalid amount');
+      }
+
+      // Get tenant's Stripe customer ID or create one
+      let customerId = req.user.tenant.stripeCustomerId;
+      if (!customerId && req.user.tenant.contactEmail) {
+        // Create a new Stripe customer if one doesn't exist
+        const customer = await this.stripeService.createCustomer(
+          req.user.tenantId,
+          req.user.tenant.contactEmail,
+          req.user.tenant.name
+        );
+        customerId = customer.id;
+        
+        // Update tenant with Stripe customer ID
+        await this.prisma.tenant.update({
+          where: { id: req.user.tenantId },
+          data: { stripeCustomerId: customerId },
+        });
+      }
+
+      // Create payment intent
+      const paymentIntent = await this.stripeService.createPaymentIntent(
+        req.user.tenantId,
+        {
+          amount: Math.round(amount * 100), // Convert to cents
+          currency,
+          description,
+          metadata: {
+            ...metadata,
+            tenantId: req.user.tenantId,
+            userId: req.user.userId,
+            type: 'one_time',
+          },
+          paymentMethod: paymentMethodId,
+          confirm: !!paymentMethodId, // Auto-confirm if using saved payment method
+          customerId,
+          setupFutureUsage: savePaymentMethod ? 'off_session' : undefined,
+        }
+      );
+
+      return { 
+        success: true, 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      };
+    } catch (error) {
+      this.logger.error('Error creating payment intent:', error);
+      throw new Error('Failed to create payment intent');
+    }
+  }
+
+  @Post('record-one-time-payment')
+  @UseGuards(AuthGuard('jwt'))
+  async recordOneTimePayment(
+    @Req() req: any,
+    @Body() body: { paymentId: string; amount: number; description: string; metadata?: any }
+  ) {
+    try {
+      const { paymentId, amount, description, metadata = {} } = body;
+      
+      // Verify the payment with Stripe
+      const paymentIntent = await this.stripeService.retrievePaymentIntent(
+        req.user.tenantId,
+        paymentId
+      );
+      
+      if (paymentIntent.status !== 'succeeded') {
+        throw new Error('Payment not completed');
+      }
+
+      // Record the payment in your database
+      const payment = await this.prisma.payment.create({
+        data: {
+          id: paymentId,
+          amount: amount / 100, // Convert from cents to dollars
+          currency: paymentIntent.currency,
+          status: paymentIntent.status,
+          description,
+          metadata: {
+            ...metadata,
+            userId: req.user.userId, // Store user ID in metadata instead
+            stripe_payment_intent_id: paymentIntent.id,
+          },
+          tenantId: req.user.tenantId,
+          stripePaymentIntentId: paymentIntent.id,
+        },
+      });
+
+      // Apply any business logic for the successful payment
+      await this.applyPaymentBenefits(req.user.tenantId, amount, metadata);
+
+      return { success: true, payment };
+    } catch (error) {
+      this.logger.error('Error recording one-time payment:', error);
+      throw new Error('Failed to record payment');
+    }
+  }
+
+  private async applyPaymentBenefits(tenantId: string, amount: number, metadata: any) {
+    // Add credits to the tenant's account using raw query to ensure type safety
+    await this.prisma.$executeRaw`
+      UPDATE "Tenant" 
+      SET credits = COALESCE(credits, 0) + ${Math.floor(amount / 100)}
+      WHERE id = ${tenantId}
+    `;
+  }
+}

@@ -21,14 +21,16 @@ export class PermissionsGuard implements CanActivate {
     const tenantId = user?.tenantId;
     const userId = user?.userId || user?.sub;
     let userPermissions: string[] = [];
+    
 
     if (tenantId) {
       // Normal case: tenant-specific permissions
-      userPermissions = await this.userService.getEffectivePermissions(userId, tenantId);
+      const permissions = await this.userService.getEffectivePermissions(userId, tenantId);
+      userPermissions = permissions.map(p => p.name);
     } else {
       // Global endpoints: check direct user permissions (not via roles)
       const direct = await this.userService.getUserPermissions(userId);
-      userPermissions = direct.map((p: any) => p.permission.key);
+      userPermissions = direct.map((p: any) => p.permission?.key || p.permission?.name || '');
       // Allow all permissions for owners/admins
       if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
         return true;

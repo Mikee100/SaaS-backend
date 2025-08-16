@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var BillingController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingController = void 0;
 const common_1 = require("@nestjs/common");
@@ -20,14 +21,18 @@ const subscription_service_1 = require("./subscription.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
-let BillingController = class BillingController {
+const prisma_service_1 = require("../prisma.service");
+let BillingController = BillingController_1 = class BillingController {
     billingService;
     stripeService;
     subscriptionService;
-    constructor(billingService, stripeService, subscriptionService) {
+    prisma;
+    logger = new common_1.Logger(BillingController_1.name);
+    constructor(billingService, stripeService, subscriptionService, prisma) {
         this.billingService = billingService;
         this.stripeService = stripeService;
         this.subscriptionService = subscriptionService;
+        this.prisma = prisma;
     }
     async testEndpoint() {
         try {
@@ -80,17 +85,6 @@ let BillingController = class BillingController {
     }
     async getPlans() {
         return this.billingService.getPlans();
-    }
-    async getCurrentSubscription(req) {
-        try {
-            if (!req.user?.tenantId) {
-                throw new Error('No tenant ID found in user object');
-            }
-            return this.billingService.getCurrentSubscription(req.user.tenantId);
-        }
-        catch (error) {
-            throw error;
-        }
     }
     async getCurrentSubscriptionWithPermissions(req) {
         try {
@@ -148,7 +142,7 @@ let BillingController = class BillingController {
         return { message: 'Subscription will be canceled at the end of the current period' };
     }
     async getSubscriptionDetails(req) {
-        const subscription = await this.stripeService.getSubscriptionDetails(req.user.tenantId);
+        const subscription = await this.stripeService.getSubscription(req.user.tenantId);
         return subscription;
     }
     async cleanupOrphanedSubscriptions(req) {
@@ -170,6 +164,85 @@ let BillingController = class BillingController {
             console.error('Webhook signature verification failed:', err);
             throw new Error('Webhook signature verification failed');
         }
+    }
+    async createPaymentIntent(req, body) {
+        try {
+            const { amount, currency = 'usd', description, metadata, paymentMethodId, savePaymentMethod = false } = body;
+            if (!amount || amount < 50) {
+                throw new Error('Invalid amount');
+            }
+            let customerId = req.user.tenant.stripeCustomerId;
+            if (!customerId && req.user.tenant.contactEmail) {
+                const customer = await this.stripeService.createCustomer(req.user.tenantId, req.user.tenant.contactEmail, req.user.tenant.name);
+                customerId = customer.id;
+                await this.prisma.tenant.update({
+                    where: { id: req.user.tenantId },
+                    data: { stripeCustomerId: customerId },
+                });
+            }
+            const paymentIntent = await this.stripeService.createPaymentIntent(req.user.tenantId, {
+                amount: Math.round(amount * 100),
+                currency,
+                description,
+                metadata: {
+                    ...metadata,
+                    tenantId: req.user.tenantId,
+                    userId: req.user.userId,
+                    type: 'one_time',
+                },
+                paymentMethod: paymentMethodId,
+                confirm: !!paymentMethodId,
+                customerId,
+                setupFutureUsage: savePaymentMethod ? 'off_session' : undefined,
+            });
+            return {
+                success: true,
+                clientSecret: paymentIntent.client_secret,
+                paymentIntentId: paymentIntent.id,
+            };
+        }
+        catch (error) {
+            this.logger.error('Error creating payment intent:', error);
+            throw new Error('Failed to create payment intent');
+        }
+    }
+    async recordOneTimePayment(req, body) {
+        try {
+            const { paymentId, amount, description, metadata = {} } = body;
+            const paymentIntent = await this.stripeService.retrievePaymentIntent(req.user.tenantId, paymentId);
+            if (paymentIntent.status !== 'succeeded') {
+                throw new Error('Payment not completed');
+            }
+            const payment = await this.prisma.payment.create({
+                data: {
+                    id: paymentId,
+                    amount: amount / 100,
+                    currency: paymentIntent.currency,
+                    status: paymentIntent.status,
+                    description,
+                    metadata: {
+                        ...metadata,
+                        userId: req.user.userId,
+                        stripe_payment_intent_id: paymentIntent.id,
+                    },
+                    tenantId: req.user.tenantId,
+                    stripePaymentIntentId: paymentIntent.id,
+                },
+            });
+            await this.applyPaymentBenefits(req.user.tenantId, amount, metadata);
+            return { success: true, payment };
+        }
+        catch (error) {
+            this.logger.error('Error recording one-time payment:', error);
+            throw new Error('Failed to record payment');
+        }
+    }
+    async applyPaymentBenefits(tenantId, amount, metadata) {
+        await this.prisma.$executeRaw `
+      UPDATE "Tenant" 
+      SET credits = COALESCE(credits, 0) + ${Math.floor(amount / 100)}
+      WHERE id = ${tenantId}
+    `;
     }
 };
 exports.BillingController = BillingController;
@@ -203,14 +276,6 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "getPlans", null);
-__decorate([
-    (0, common_1.Get)('subscription'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], BillingController.prototype, "getCurrentSubscription", null);
 __decorate([
     (0, common_1.Get)('subscription-with-permissions'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
@@ -301,10 +366,29 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], BillingController.prototype, "handleWebhook", null);
-exports.BillingController = BillingController = __decorate([
+__decorate([
+    (0, common_1.Post)('create-payment-intent'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "createPaymentIntent", null);
+__decorate([
+    (0, common_1.Post)('record-one-time-payment'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "recordOneTimePayment", null);
+exports.BillingController = BillingController = BillingController_1 = __decorate([
     (0, common_1.Controller)('billing'),
     __metadata("design:paramtypes", [billing_service_1.BillingService,
         stripe_service_1.StripeService,
-        subscription_service_1.SubscriptionService])
+        subscription_service_1.SubscriptionService,
+        prisma_service_1.PrismaService])
 ], BillingController);
 //# sourceMappingURL=billing.controller.js.map

@@ -20,36 +20,70 @@ let PermissionService = class PermissionService {
     async getAllPermissions() {
         return this.prisma.permission.findMany();
     }
-    async createPermission(key, description) {
-        const existing = await this.prisma.permission.findUnique({ where: { key } });
+    async createPermission(name, description) {
+        const existing = await this.prisma.permission.findUnique({
+            where: { name }
+        });
         if (existing)
-            throw new common_1.BadRequestException('Permission already exists');
-        return this.prisma.permission.create({ data: { key, description } });
+            return existing;
+        return this.prisma.permission.create({
+            data: {
+                name,
+                description,
+            }
+        });
     }
     async getAllRoles() {
-        return this.prisma.role.findMany();
+        return this.prisma.role.findMany({
+            include: {
+                rolePermissions: {
+                    include: {
+                        permission: true
+                    }
+                }
+            }
+        });
     }
     async createRole(name, description) {
         const existing = await this.prisma.role.findUnique({ where: { name } });
         if (existing)
             throw new common_1.BadRequestException('Role already exists');
-        return this.prisma.role.create({ data: { name, description } });
+        return this.prisma.role.create({
+            data: {
+                name,
+                description,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        });
     }
     async getRolePermissions(roleId) {
         return this.prisma.rolePermission.findMany({
             where: { roleId },
-            include: { permission: true },
+            include: {
+                permission: true,
+                role: true
+            },
         });
     }
-    async updateRolePermissions(roleId, permissions) {
-        await this.prisma.rolePermission.deleteMany({ where: { roleId } });
-        for (const perm of permissions) {
-            const permission = await this.prisma.permission.findUnique({ where: { key: perm.key } });
-            if (permission) {
-                await this.prisma.rolePermission.create({ data: { roleId, permissionId: permission.id } });
-            }
-        }
-        return this.getRolePermissions(roleId);
+    async updateRolePermissions(roleId, permissionNames) {
+        return this.prisma.$transaction(async (prisma) => {
+            await prisma.rolePermission.deleteMany({
+                where: { roleId },
+            });
+            const permissions = await prisma.permission.findMany({
+                where: {
+                    name: { in: permissionNames },
+                },
+            });
+            const rolePermissions = await Promise.all(permissions.map((permission) => prisma.rolePermission.create({
+                data: {
+                    roleId,
+                    permissionId: permission.id,
+                },
+            })));
+            return rolePermissions;
+        });
     }
 };
 exports.PermissionService = PermissionService;

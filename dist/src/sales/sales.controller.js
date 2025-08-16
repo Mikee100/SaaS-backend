@@ -16,8 +16,10 @@ exports.SalesController = void 0;
 const common_1 = require("@nestjs/common");
 const sales_service_1 = require("./sales.service");
 const passport_1 = require("@nestjs/passport");
+const common_2 = require("@nestjs/common");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const common_3 = require("@nestjs/common");
 let SalesController = class SalesController {
     salesService;
     constructor(salesService) {
@@ -55,40 +57,112 @@ let SalesController = class SalesController {
         return this.salesService.getAnalytics(req.user.tenantId);
     }
     async getReceipt(id, req) {
-        console.log('Receipt endpoint called with ID:', id);
-        console.log('User tenant ID:', req.user?.tenantId);
+        const requestId = Math.random().toString(36).substring(2, 9);
+        const logContext = { requestId, saleId: id, userId: req.user?.id, tenantId: req.user?.tenantId };
+        console.log('Receipt request received:', { ...logContext });
         try {
-            const sale = await this.salesService.getSaleById(id, req.user?.tenantId);
-            console.log('Sale found:', sale);
-            const tenant = await this.salesService.getTenantInfo(req.user?.tenantId);
-            console.log('Tenant info:', tenant);
-            return {
-                id: sale.saleId,
-                saleId: sale.saleId,
-                date: sale.date,
-                customerName: sale.customerName,
-                customerPhone: sale.customerPhone,
+            if (!id) {
+                console.error('Missing sale ID in request', logContext);
+                throw new common_3.BadRequestException('Sale ID is required');
+            }
+            if (!req.user?.tenantId) {
+                console.error('Missing tenant ID in user context', logContext);
+                throw new common_3.UnauthorizedException('Invalid user context');
+            }
+            console.log('Fetching sale details...', logContext);
+            const sale = await this.salesService.getSaleById(id, req.user.tenantId);
+            if (!sale) {
+                console.error('Sale not found', logContext);
+                throw new common_2.NotFoundException('Sale not found');
+            }
+            console.log('Fetching tenant info...', { ...logContext, saleId: sale.id });
+            const tenant = await this.salesService.getTenantInfo(req.user.tenantId);
+            if (!tenant) {
+                console.error('Tenant not found', logContext);
+                throw new common_2.NotFoundException('Business information not found');
+            }
+            const response = {
+                id: sale.id,
+                saleId: sale.id,
+                date: sale.createdAt,
+                customerName: sale.customerName || 'Walk-in Customer',
+                customerPhone: sale.customerPhone || 'N/A',
                 items: sale.items.map(item => ({
                     productId: item.productId,
                     name: item.name || 'Unknown Product',
                     price: item.price,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    total: item.price * item.quantity
                 })),
+                subtotal: sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
                 total: sale.total,
+                vatAmount: sale.vatAmount || 0,
                 paymentMethod: sale.paymentType,
                 amountReceived: sale.total,
                 change: 0,
                 businessInfo: {
-                    name: tenant?.name || 'Business Name',
-                    address: tenant?.address,
-                    phone: tenant?.contactPhone,
-                    email: tenant?.contactEmail
-                }
+                    name: tenant.name || 'Business Name',
+                    address: tenant.address || 'N/A',
+                    phone: tenant.contactPhone || 'N/A',
+                    email: tenant.contactEmail || 'N/A',
+                },
+                mpesaTransaction: sale.mpesaTransactions?.[0] ? {
+                    phoneNumber: sale.mpesaTransactions[0].phoneNumber,
+                    amount: sale.mpesaTransactions[0].amount,
+                    status: sale.mpesaTransactions[0].status,
+                    mpesaReceipt: sale.mpesaTransactions[0].transactionId,
+                    message: sale.mpesaTransactions[0].responseDesc || '',
+                    transactionDate: sale.mpesaTransactions[0].createdAt,
+                } : null,
             };
+            console.log('Receipt generated successfully', { ...logContext, saleId: sale.id });
+            return response;
         }
         catch (error) {
-            console.error('Error in getReceipt:', error);
-            throw error;
+            console.error('Error generating receipt:', {
+                ...logContext,
+                error: error.message,
+                stack: error.stack,
+                errorName: error.name,
+                errorCode: error.status || error.statusCode || 500,
+            });
+            if (error instanceof common_3.BadRequestException ||
+                error instanceof common_3.UnauthorizedException ||
+                error instanceof common_2.NotFoundException) {
+                throw error;
+            }
+            throw new common_3.InternalServerErrorException('Failed to generate receipt. Please try again later.');
+        }
+    }
+    async getRecentSales(req) {
+        const requestId = Math.random().toString(36).substring(2, 9);
+        const logContext = {
+            requestId,
+            userId: req.user?.id,
+            tenantId: req.user?.tenantId
+        };
+        console.log('Recent sales request received:', { ...logContext });
+        try {
+            if (!req.user?.tenantId) {
+                console.error('Missing tenant ID in user context', logContext);
+                throw new common_3.UnauthorizedException('Invalid user context');
+            }
+            console.log('Fetching recent sales...', logContext);
+            const recentSales = await this.salesService.getRecentSales(req.user.tenantId, 10);
+            console.log(`Found ${recentSales.length} recent sales`, {
+                ...logContext,
+                salesCount: recentSales.length
+            });
+            return recentSales;
+        }
+        catch (error) {
+            console.error('Error fetching recent sales:', {
+                ...logContext,
+                error: error.message,
+                stack: error.stack,
+                errorName: error.name,
+            });
+            return [];
         }
     }
     async createSale(dto, req) {
@@ -141,6 +215,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getReceipt", null);
+__decorate([
+    (0, common_1.Get)('recent'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getRecentSales", null);
 __decorate([
     (0, common_1.Post)(),
     (0, permissions_decorator_1.Permissions)('create_sales'),

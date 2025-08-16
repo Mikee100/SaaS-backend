@@ -22,7 +22,8 @@ async function bootstrap() {
     catch (error) {
         console.warn('⚠️  Failed to initialize default configurations:', error.message);
     }
-    app.useStaticAssets((0, path_1.join)(__dirname, '..', 'uploads'), { prefix: '/uploads/' });
+    const uploadsPath = (0, path_1.join)(process.cwd(), 'uploads');
+    app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
     const corsOrigins = await configService.getConfiguration('CORS_ORIGINS');
     const allowedOrigins = corsOrigins ? corsOrigins.split(',').map(origin => origin.trim()) : ['http://localhost:5000'];
     app.enableCors({

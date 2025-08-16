@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { NotFoundException } from '@nestjs/common';
+import { Express } from 'express';
 
 export interface LogoValidation {
   isValid: boolean;
@@ -15,8 +17,12 @@ export interface LogoRequirements {
   watermark: boolean;
 }
 
+export interface MulterFile extends Express.Multer.File {}
+
 @Injectable()
 export class LogoService {
+  private readonly logger = new Logger(LogoService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async validateTenantLogos(tenantId: string): Promise<{
@@ -28,7 +34,6 @@ export class LogoService {
       where: { id: tenantId },
       select: {
         logoUrl: true,
-       
         etimsQrUrl: true,
         country: true,
       }
@@ -76,9 +81,10 @@ export class LogoService {
       where: { id: tenantId },
       select: {
         logoUrl: true,
-
+        favicon: true,
+        receiptLogo: true,
         etimsQrUrl: true,
-       
+        watermark: true,
       }
     });
 
@@ -88,10 +94,10 @@ export class LogoService {
 
     return {
       mainLogo: tenant.logoUrl,
-      favicon: null,
-      receiptLogo: null,
+      favicon: tenant.favicon,
+      receiptLogo: tenant.receiptLogo,
       etimsQrCode: tenant.etimsQrUrl,
-      watermark: null,
+      watermark: tenant.watermark,
     };
   }
 
@@ -124,9 +130,12 @@ export class LogoService {
     };
   }
 
-  async validateLogoFile(file: Express.Multer.File, logoType: string): Promise<LogoValidation> {
-    const errors: string[] = [];
-    const warnings: string[] = [];
+  async validateLogoFile(file: MulterFile, logoType: string): Promise<LogoValidation> {
+    const result: LogoValidation = {
+      isValid: true,
+      errors: [],
+      warnings: []
+    };
 
     // File size validation
     const maxSizes = {
@@ -139,7 +148,7 @@ export class LogoService {
 
     const maxSize = maxSizes[logoType as keyof typeof maxSizes] || 2 * 1024 * 1024;
     if (file.size > maxSize) {
-      errors.push(`File size must be less than ${maxSize / (1024 * 1024)}MB`);
+      result.errors.push(`File size must be less than ${maxSize / (1024 * 1024)}MB`);
     }
 
     // File type validation
@@ -153,19 +162,15 @@ export class LogoService {
 
     const allowedMimes = allowedTypes[logoType as keyof typeof allowedTypes] || ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedMimes.includes(file.mimetype)) {
-      errors.push(`File type must be one of: ${allowedMimes.join(', ')}`);
+      result.errors.push(`File type must be one of: ${allowedMimes.join(', ')}`);
     }
 
     // Special validation for eTIMS QR code
     if (logoType === 'etimsQrCode') {
-      warnings.push('Ensure this is a valid KRA eTIMS QR code for tax compliance');
+      result.warnings.push('Ensure this is a valid KRA eTIMS QR code for tax compliance');
     }
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-      warnings
-    };
+    return result;
   }
 
   async getLogoStatistics(tenantId: string): Promise<{
@@ -189,4 +194,89 @@ export class LogoService {
       complianceScore
     };
   }
-} 
+
+  async getLogoRequirements(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        etimsQrUrl: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const requirements = {
+      logo: {
+        required: true,
+        current: tenant.logoUrl,
+        maxSize: 2 * 1024 * 1024, // 2MB
+        allowedTypes: ['image/png', 'image/jpeg', 'image/svg+xml'],
+        dimensions: {
+          width: 200,
+          height: 200,
+        },
+      },
+      etimsQrCode: {
+        required: true,
+        current: tenant.etimsQrUrl,
+        maxSize: 1 * 1024 * 1024, // 1MB
+        allowedTypes: ['image/png', 'image/jpeg'],
+        dimensions: {
+          width: 300,
+          height: 300,
+        },
+      },
+    };
+
+    return requirements;
+  }
+
+  async updateLogo(tenantId: string, file: MulterFile) {
+    // Upload the file to storage (e.g., S3, local storage, etc.)
+    const logoUrl = await this.uploadFile(file);
+    
+    // Update the tenant with the new logo URL
+    const updatedTenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { logoUrl },
+    });
+
+    return {
+      logoUrl: updatedTenant.logoUrl,
+      message: 'Logo updated successfully',
+    };
+  }
+
+  async updateEtimsQrCode(tenantId: string, file: MulterFile) {
+    // Upload the file to storage
+    const etimsQrUrl = await this.uploadFile(file);
+    
+    // Update the tenant with the new ETIMS QR code URL
+    const updatedTenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { etimsQrUrl },
+    });
+
+    return {
+      etimsQrUrl: updatedTenant.etimsQrUrl,
+      message: 'ETIMS QR code updated successfully',
+    };
+  }
+
+  private async uploadFile(file: MulterFile): Promise<string> {
+    // Implement your file upload logic here
+    // This is a placeholder - replace with your actual file storage implementation
+    const fileName = `${Date.now()}-${file.originalname}`;
+    // Example: Upload to S3 or save to disk
+    // const result = await this.storageService.upload(file.buffer, fileName, file.mimetype);
+    // return result.url;
+    
+    // For now, return a placeholder URL
+    return `/uploads/${fileName}`;
+  }
+}

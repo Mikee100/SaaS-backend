@@ -15,6 +15,7 @@ import { BillingModule } from './billing/billing.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AdminModule } from './admin/admin.module';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
+import { SectionLogoModule } from './tenant/section-logo.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { RawBodyMiddleware } from './middleware/raw-body.middleware';
     BillingModule,
     AnalyticsModule,
     AdminModule,
+    SectionLogoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

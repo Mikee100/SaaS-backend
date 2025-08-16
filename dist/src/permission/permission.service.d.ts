@@ -4,46 +4,64 @@ export declare class PermissionService {
     constructor(prisma: PrismaService);
     getAllPermissions(): Promise<{
         id: string;
-        description: string | null;
-        key: string;
-    }[]>;
-    createPermission(key: string, description?: string): Promise<{
-        id: string;
-        description: string | null;
-        key: string;
-    }>;
-    getAllRoles(): Promise<{
-        id: string;
         name: string;
         description: string | null;
     }[]>;
+    createPermission(name: string, description: string): Promise<{
+        id: string;
+        name: string;
+        description: string | null;
+    }>;
+    getAllRoles(): Promise<({
+        rolePermissions: ({
+            permission: {
+                id: string;
+                name: string;
+                description: string | null;
+            };
+        } & {
+            id: string;
+            roleId: string;
+            permissionId: string;
+        })[];
+    } & {
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
+        description: string | null;
+    })[]>;
     createRole(name: string, description?: string): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
         description: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
+        role: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string | null;
+            description: string | null;
+        };
         permission: {
             id: string;
+            name: string;
             description: string | null;
-            key: string;
         };
     } & {
         id: string;
         roleId: string;
         permissionId: string;
     })[]>;
-    updateRolePermissions(roleId: string, permissions: {
-        key: string;
-    }[]): Promise<({
-        permission: {
-            id: string;
-            description: string | null;
-            key: string;
-        };
-    } & {
+    updateRolePermissions(roleId: string, permissionNames: string[]): Promise<{
         id: string;
         roleId: string;
         permissionId: string;
-    })[]>;
+    }[]>;
 }

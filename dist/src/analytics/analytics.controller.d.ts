@@ -111,30 +111,46 @@ export declare class AnalyticsController {
         totalProducts: number;
         totalCustomers: number;
         averageOrderValue: number;
-        conversionRate: number;
-        recentActivity: {
-            sales: {
-                amount: number;
-                customer: string;
-                date: string;
-            }[];
-            products: {
-                name: string;
-                date: string;
-            }[];
-        };
-        customerGrowth: {
-            '2024-01': number;
-            '2024-02': number;
-            '2024-03': number;
-            '2024-04': number;
-            '2024-05': number;
-            '2024-06': number;
-        };
+        salesTrendDay: Record<string, number>;
+        salesTrendWeek: Record<string, number>;
+        salesTrendMonth: Record<string, number>;
+        salesByMonth: Record<string, number>;
         topProducts: {
+            id: string;
             name: string;
-            sales: number;
+            unitsSold: number;
             revenue: number;
+            cost: number;
+            margin: number;
         }[];
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+        };
+        paymentBreakdown: Record<string, number>;
+        customerRetention: {
+            totalCustomers: number;
+            repeatCustomers: number;
+            retentionRate: number;
+        };
+        advancedSegments: {
+            byLocation: never[];
+            byAge: never[];
+            byDevice: never[];
+        };
+        salesGrowthRate: number;
+        avgSalesPerCustomer: number;
+        topPaymentMethods: {
+            method: string;
+            total: number;
+        }[];
+        topCustomer: {
+            name: string;
+            total: number;
+        } | null;
+        salesByHour: number[];
+        message: string;
     }>;
 }
