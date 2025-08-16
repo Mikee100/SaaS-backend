@@ -1,7 +1,4 @@
+import { Response } from 'express';
 export declare class MpesaController {
-    initiatePayment(body: any): Promise<{
-        success: boolean;
-        message: string;
-        data: any;
-    }>;
+    initiatePayment(body: any, res: Response): Promise<Response<any, Record<string, any>>>;
 }

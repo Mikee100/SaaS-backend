@@ -214,13 +214,16 @@ export class SectionLogoService {
 
   async getSectionLogo(tenantId: string, section: string): Promise<SectionLogo | null> {
     const config = await this.getSectionLogoConfig(tenantId, section);
-    
     if (!config || !config.enabled) {
       return null;
     }
-
-    const logoUrl = config.logoUrl || '';
-    
+    let logoUrl = config.logoUrl || '';
+    // If logoUrl is set and not already in section-logos, rewrite to section-logos path
+    if (logoUrl && !logoUrl.includes('/uploads/section-logos/')) {
+      // Extract filename from logoUrl
+      const filename = logoUrl.split('/').pop();
+      logoUrl = `/uploads/section-logos/${filename}`;
+    }
     return {
       url: logoUrl,
       width: config.dimensions?.width,

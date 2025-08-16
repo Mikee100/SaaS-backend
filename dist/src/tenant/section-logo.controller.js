@@ -30,11 +30,16 @@ let SectionLogoController = class SectionLogoController {
     }
     async getSectionLogo(req, section) {
         const tenantId = req.user.tenantId;
-        const logo = await this.sectionLogoService.getSectionLogo(tenantId, section);
-        if (!logo) {
-            throw new common_1.BadRequestException(`No logo found for section: ${section}`);
+        let logo = await this.sectionLogoService.getSectionLogo(tenantId, section);
+        if (!logo || !logo.url) {
+            logo = {
+                url: '/uploads/section-logos/default-logo.png',
+                altText: `${section} logo`,
+                width: 120,
+                height: 120
+            };
         }
-        return logo;
+        return { sectionLogos: { [section]: logo } };
     }
     async uploadSectionLogo(req, file, section, body) {
         if (!file) {
@@ -136,7 +141,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SectionLogoController.prototype, "validateSectionLogoConfig", null);
 exports.SectionLogoController = SectionLogoController = __decorate([
-    (0, common_1.Controller)('section-logos'),
+    (0, common_1.Controller)('api/tenant/section-logos'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:paramtypes", [section_logo_service_1.SectionLogoService])
 ], SectionLogoController);

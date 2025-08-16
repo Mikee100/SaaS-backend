@@ -174,7 +174,11 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
         if (!config || !config.enabled) {
             return null;
         }
-        const logoUrl = config.logoUrl || '';
+        let logoUrl = config.logoUrl || '';
+        if (logoUrl && !logoUrl.includes('/uploads/section-logos/')) {
+            const filename = logoUrl.split('/').pop();
+            logoUrl = `/uploads/section-logos/${filename}`;
+        }
         return {
             url: logoUrl,
             width: config.dimensions?.width,

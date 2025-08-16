@@ -1,4 +1,4 @@
-import { SectionLogoService, SectionLogo, SectionLogoConfig } from './section-logo.service';
+import { SectionLogoService, SectionLogoConfig } from './section-logo.service';
 import { Request } from 'express';
 interface UserPayload {
     id: string;
@@ -11,7 +11,7 @@ export declare class SectionLogoController {
     private readonly sectionLogoService;
     constructor(sectionLogoService: SectionLogoService);
     getAllSectionLogos(req: RequestWithUser): Promise<Record<string, SectionLogoConfig>>;
-    getSectionLogo(req: RequestWithUser, section: string): Promise<SectionLogo>;
+    getSectionLogo(req: RequestWithUser, section: string): Promise<any>;
     uploadSectionLogo(req: RequestWithUser, file: Express.Multer.File, section: string, body: any): Promise<import("./section-logo.service").SectionLogoSettings>;
     updateSectionLogoConfig(req: RequestWithUser, section: string, config: Partial<SectionLogoConfig>): Promise<SectionLogoConfig>;
     removeSectionLogo(req: RequestWithUser, section: string): Promise<{

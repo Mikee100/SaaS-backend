@@ -18,7 +18,7 @@ interface RequestWithUser extends Request {
   user: UserPayload;
 }
 
-@Controller('section-logos')
+@Controller('api/tenant/section-logos')
 @UseGuards(AuthGuard('jwt'))
 export class SectionLogoController {
   constructor(private readonly sectionLogoService: SectionLogoService) {}
@@ -33,13 +33,18 @@ export class SectionLogoController {
   async getSectionLogo(
     @Req() req: RequestWithUser,
     @Param('section') section: string
-  ): Promise<SectionLogo> {
+  ): Promise<any> {
     const tenantId = req.user.tenantId;
-    const logo = await this.sectionLogoService.getSectionLogo(tenantId, section);
-    if (!logo) {
-      throw new BadRequestException(`No logo found for section: ${section}`);
+    let logo = await this.sectionLogoService.getSectionLogo(tenantId, section);
+    if (!logo || !logo.url) {
+      logo = {
+        url: '/uploads/section-logos/default-logo.png',
+        altText: `${section} logo`,
+        width: 120,
+        height: 120
+      };
     }
-    return logo;
+    return { sectionLogos: { [section]: logo } };
   }
 
   @Post('upload/:section')
