@@ -18,12 +18,7 @@ export declare class SubscriptionService {
             plan: {
                 id: string;
                 name: string;
-                auditLogs: boolean;
                 description: string;
-                whiteLabel: boolean;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                backupRestore: boolean;
                 price: number;
                 interval: string;
                 isActive: boolean;
@@ -39,24 +34,29 @@ export declare class SubscriptionService {
                 dataExport: boolean;
                 customFields: boolean;
                 advancedSecurity: boolean;
+                whiteLabel: boolean;
                 dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
             };
         } & {
             id: string;
-            tenantId: string;
-            stripeCustomerId: string;
-            userId: string;
-            status: string;
+            planId: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
+            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             trialStart: Date | null;
             trialEnd: Date | null;
-            planId: string;
+            tenantId: string;
+            userId: string;
         };
         proration: {
             credit: number;
@@ -67,12 +67,7 @@ export declare class SubscriptionService {
         plan: {
             id: string;
             name: string;
-            auditLogs: boolean;
             description: string;
-            whiteLabel: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
             price: number;
             interval: string;
             isActive: boolean;
@@ -88,36 +83,36 @@ export declare class SubscriptionService {
             dataExport: boolean;
             customFields: boolean;
             advancedSecurity: boolean;
+            whiteLabel: boolean;
             dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
         };
     } & {
         id: string;
-        tenantId: string;
-        stripeCustomerId: string;
-        userId: string;
-        status: string;
+        planId: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
+        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
+        tenantId: string;
+        userId: string;
     })>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
             plan: {
                 id: string;
                 name: string;
-                auditLogs: boolean;
                 description: string;
-                whiteLabel: boolean;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                backupRestore: boolean;
                 price: number;
                 interval: string;
                 isActive: boolean;
@@ -133,24 +128,29 @@ export declare class SubscriptionService {
                 dataExport: boolean;
                 customFields: boolean;
                 advancedSecurity: boolean;
+                whiteLabel: boolean;
                 dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
             };
         } & {
             id: string;
-            tenantId: string;
-            stripeCustomerId: string;
-            userId: string;
-            status: string;
+            planId: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
+            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             trialStart: Date | null;
             trialEnd: Date | null;
-            planId: string;
+            tenantId: string;
+            userId: string;
         };
         proration: {
             credit: number;
@@ -165,43 +165,26 @@ export declare class SubscriptionService {
     }>;
     cancelSubscription(tenantId: string): Promise<{
         id: string;
-        tenantId: string;
-        stripeCustomerId: string;
-        userId: string;
-        status: string;
+        planId: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
+        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
+        tenantId: string;
+        userId: string;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
-        invoices: {
-            number: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            amount: number;
-            status: string;
-            dueDate: Date | null;
-            paidAt: Date | null;
-            subscriptionId: string | null;
-        }[];
         plan: {
             id: string;
             name: string;
-            auditLogs: boolean;
             description: string;
-            whiteLabel: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
             price: number;
             interval: string;
             isActive: boolean;
@@ -217,33 +200,50 @@ export declare class SubscriptionService {
             dataExport: boolean;
             customFields: boolean;
             advancedSecurity: boolean;
+            whiteLabel: boolean;
             dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
         };
+        invoices: {
+            number: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: string;
+            tenantId: string;
+            amount: number;
+            dueDate: Date | null;
+            paidAt: Date | null;
+            subscriptionId: string | null;
+        }[];
     } & {
         id: string;
-        tenantId: string;
-        stripeCustomerId: string;
-        userId: string;
-        status: string;
+        planId: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
+        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
+        tenantId: string;
+        userId: string;
     })[]>;
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         number: string;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        status: string;
         tenantId: string;
         amount: number;
-        status: string;
         dueDate: Date | null;
         paidAt: Date | null;
         subscriptionId: string | null;

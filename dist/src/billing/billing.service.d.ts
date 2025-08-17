@@ -3,14 +3,10 @@ export declare class BillingService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getPlans(): Promise<{
+        features: string[];
         id: string;
         name: string;
-        auditLogs: boolean;
         description: string;
-        whiteLabel: boolean;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
         price: number;
         interval: string;
         isActive: boolean;
@@ -26,7 +22,12 @@ export declare class BillingService {
         dataExport: boolean;
         customFields: boolean;
         advancedSecurity: boolean;
+        whiteLabel: boolean;
         dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }[] | ({
         id: string;
         name: string;
@@ -35,21 +36,7 @@ export declare class BillingService {
         maxUsers: number;
         maxProducts: number;
         maxSalesPerMonth: number;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
-        bulkOperations: boolean;
-        dataExport: boolean;
-        customFields: boolean;
-        advancedSecurity: boolean;
-        whiteLabel: boolean;
-        dedicatedSupport: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
+        features: string[];
     } | {
         id: string;
         name: string;
@@ -58,21 +45,7 @@ export declare class BillingService {
         maxUsers: null;
         maxProducts: null;
         maxSalesPerMonth: null;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
-        bulkOperations: boolean;
-        dataExport: boolean;
-        customFields: boolean;
-        advancedSecurity: boolean;
-        whiteLabel: boolean;
-        dedicatedSupport: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
+        features: string[];
     })[]>;
     getCurrentSubscription(tenantId: string): Promise<{
         plan: {
@@ -88,12 +61,7 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
-            auditLogs: boolean;
             description: string;
-            whiteLabel: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
             price: number;
             interval: string;
             isActive: boolean;
@@ -109,23 +77,28 @@ export declare class BillingService {
             dataExport: boolean;
             customFields: boolean;
             advancedSecurity: boolean;
+            whiteLabel: boolean;
             dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
         };
         id: string;
-        tenantId: string;
-        stripeCustomerId: string;
-        userId: string;
-        status: string;
+        planId: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
+        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
+        tenantId: string;
+        userId: string;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{

@@ -1,3 +1,4 @@
+
 import { Controller, Post, Get, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -288,4 +289,25 @@ export class PaymentController {
       };
     }
   }
+
+
+    /**
+     * Save a payment method for the user
+     */
+    @Post('methods')
+    async savePaymentMethod(
+      @Body() body: { paymentMethodId: string },
+      @Req() req,
+    ) {
+      try {
+        // Use addPaymentMethod instead of savePaymentMethod
+        await this.paymentService.addPaymentMethod(
+          req.user?.tenantId,
+          body.paymentMethodId,
+        );
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
 } 

@@ -57,9 +57,14 @@ export declare class TenantService {
     getTenantById(tenantId: string): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -86,7 +91,6 @@ export declare class TenantService {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -102,21 +106,22 @@ export declare class TenantService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     } | null>;
     getTenant(tenantId: string): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -143,7 +148,6 @@ export declare class TenantService {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -159,14 +163,10 @@ export declare class TenantService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     } | null>;
     updateTenant(tenantId: string, dto: Partial<{
         name: string;
@@ -214,9 +214,14 @@ export declare class TenantService {
     }>): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -243,7 +248,6 @@ export declare class TenantService {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -259,14 +263,10 @@ export declare class TenantService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     }>;
     createOwnerUser(data: {
         name: string;

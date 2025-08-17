@@ -22,9 +22,9 @@ export declare class PaymentService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        status: string;
         tenantId: string;
         amount: number;
-        status: string;
         dueDate: Date | null;
         paidAt: Date | null;
         subscriptionId: string | null;

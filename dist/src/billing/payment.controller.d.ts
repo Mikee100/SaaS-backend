@@ -43,14 +43,14 @@ export declare class PaymentController {
         invoice: {
             number: string;
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
             amount: number;
             status: string;
             dueDate: Date | null;
             paidAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
             subscriptionId: string | null;
+            tenantId: string;
         };
         error?: undefined;
     } | {
@@ -61,7 +61,7 @@ export declare class PaymentController {
     getPaymentAnalytics(period: "month" | "quarter" | "year" | undefined, req: any): Promise<{
         success: boolean;
         analytics: {
-            period: "month" | "year" | "quarter";
+            period: "month" | "quarter" | "year";
             totalRevenue: number;
             paymentCount: number;
             averagePayment: number;
@@ -158,5 +158,14 @@ export declare class PaymentController {
         error: any;
         paymentId?: undefined;
         status?: undefined;
+    }>;
+    savePaymentMethod(body: {
+        paymentMethodId: string;
+    }, req: any): Promise<{
+        success: boolean;
+        error?: undefined;
+    } | {
+        success: boolean;
+        error: any;
     }>;
 }

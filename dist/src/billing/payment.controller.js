@@ -174,6 +174,15 @@ let PaymentController = class PaymentController {
             };
         }
     }
+    async savePaymentMethod(body, req) {
+        try {
+            await this.paymentService.addPaymentMethod(req.user?.tenantId, body.paymentMethodId);
+            return { success: true };
+        }
+        catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
 };
 exports.PaymentController = PaymentController;
 __decorate([
@@ -266,6 +275,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "getPaymentStatus", null);
+__decorate([
+    (0, common_1.Post)('methods'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "savePaymentMethod", null);
 exports.PaymentController = PaymentController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('payments'),

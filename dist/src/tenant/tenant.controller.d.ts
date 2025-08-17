@@ -8,9 +8,14 @@ export declare class TenantController {
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -37,7 +42,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -53,21 +57,22 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -94,7 +99,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -110,14 +114,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -150,9 +150,14 @@ export declare class TenantController {
     updateBranding(req: any, dto: any): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -179,7 +184,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -195,14 +199,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -213,9 +213,14 @@ export declare class TenantController {
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string | null;
+        currency: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -242,7 +247,6 @@ export declare class TenantController {
         etimsQrUrl: string | null;
         businessLicense: string | null;
         taxId: string | null;
-        currency: string | null;
         timezone: string | null;
         invoiceFooter: string | null;
         credits: number | null;
@@ -258,14 +262,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

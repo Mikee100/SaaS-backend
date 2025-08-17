@@ -8,9 +8,14 @@ export declare class UserController {
             tenant: {
                 id: string;
                 name: string;
+                whiteLabel: boolean;
+                ssoEnabled: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
                 createdAt: Date;
                 updatedAt: Date;
                 stripeCustomerId: string | null;
+                currency: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -37,7 +42,6 @@ export declare class UserController {
                 etimsQrUrl: string | null;
                 businessLicense: string | null;
                 taxId: string | null;
-                currency: string | null;
                 timezone: string | null;
                 invoiceFooter: string | null;
                 credits: number | null;
@@ -53,22 +57,18 @@ export declare class UserController {
                 primaryColor: string | null;
                 secondaryColor: string | null;
                 customDomain: string | null;
-                whiteLabel: boolean;
                 apiKey: string | null;
                 webhookUrl: string | null;
                 rateLimit: number | null;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
-                backupRestore: boolean;
             };
             role: {
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
-                description: string | null;
             };
         } & {
             id: string;
@@ -85,25 +85,25 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            permission: string;
             userId: string;
+            permission: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
         id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
     })[]>;
     getAllUserPermissions(req: any): Promise<{
         id: string;
@@ -138,9 +138,14 @@ export declare class UserController {
             tenant: {
                 id: string;
                 name: string;
+                whiteLabel: boolean;
+                ssoEnabled: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
                 createdAt: Date;
                 updatedAt: Date;
                 stripeCustomerId: string | null;
+                currency: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -167,7 +172,6 @@ export declare class UserController {
                 etimsQrUrl: string | null;
                 businessLicense: string | null;
                 taxId: string | null;
-                currency: string | null;
                 timezone: string | null;
                 invoiceFooter: string | null;
                 credits: number | null;
@@ -183,14 +187,10 @@ export declare class UserController {
                 primaryColor: string | null;
                 secondaryColor: string | null;
                 customDomain: string | null;
-                whiteLabel: boolean;
                 apiKey: string | null;
                 webhookUrl: string | null;
                 rateLimit: number | null;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
-                backupRestore: boolean;
             };
             permissionRef: {
                 id: string;
@@ -200,33 +200,38 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            permission: string;
             userId: string;
+            permission: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
         id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         tenant: {
             id: string;
             name: string;
+            whiteLabel: boolean;
+            ssoEnabled: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
             createdAt: Date;
             updatedAt: Date;
             stripeCustomerId: string | null;
+            currency: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -253,7 +258,6 @@ export declare class UserController {
             etimsQrUrl: string | null;
             businessLicense: string | null;
             taxId: string | null;
-            currency: string | null;
             timezone: string | null;
             invoiceFooter: string | null;
             credits: number | null;
@@ -269,14 +273,10 @@ export declare class UserController {
             primaryColor: string | null;
             secondaryColor: string | null;
             customDomain: string | null;
-            whiteLabel: boolean;
             apiKey: string | null;
             webhookUrl: string | null;
             rateLimit: number | null;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
             auditLogsEnabled: boolean;
-            backupRestore: boolean;
         };
         permissionRef: {
             id: string;
@@ -286,8 +286,8 @@ export declare class UserController {
     } & {
         id: string;
         tenantId: string;
-        permission: string;
         userId: string;
+        permission: string;
         grantedBy: string | null;
         grantedAt: Date;
     })[]>;
@@ -297,18 +297,18 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
     getAllPermissions(): Promise<{
