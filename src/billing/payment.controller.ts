@@ -1,3 +1,4 @@
+ 
 
 import { Controller, Post, Get, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
 import { PaymentService } from './payment.service';
@@ -9,6 +10,51 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 @Controller('payments')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
+
+
+    @Post('methods')
+    async savePaymentMethod(
+      @Body() body: { paymentMethodId: string },
+      @Req() req,
+    ) {
+      console.log('--- /payments/methods API HIT ---');
+      console.log('Body:', body);
+      console.log('User:', req.user);
+      try {
+        await this.paymentService.addPaymentMethod(
+          req.user?.tenantId,
+          body.paymentMethodId,
+        );
+        console.log('Payment method saved successfully');
+        return { success: true };
+      } catch (error) {
+        console.error('Error saving payment method:', error.message);
+        return { success: false, error: error.message };
+      }
+    }
+
+    
+  /**
+   * Get payment methods
+   */
+  @Get('methods')
+  async getPaymentMethods(@Req() req) {
+    try {
+      const methods = await this.paymentService.getPaymentMethods(req.user.tenantId);
+
+      return {
+        success: true,
+        methods,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+
 
   /**
    * Process a one-time payment
@@ -196,27 +242,6 @@ export class PaymentController {
   }
 
   /**
-   * Get payment methods
-   */
-  @Get('methods')
-  @Permissions('view_billing')
-  async getPaymentMethods(@Req() req) {
-    try {
-      const methods = await this.paymentService.getPaymentMethods(req.user.tenantId);
-
-      return {
-        success: true,
-        methods,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
-
-  /**
    * Add a payment method
    */
   @Post('methods')
@@ -291,23 +316,5 @@ export class PaymentController {
   }
 
 
-    /**
-     * Save a payment method for the user
-     */
-    @Post('methods')
-    async savePaymentMethod(
-      @Body() body: { paymentMethodId: string },
-      @Req() req,
-    ) {
-      try {
-        // Use addPaymentMethod instead of savePaymentMethod
-        await this.paymentService.addPaymentMethod(
-          req.user?.tenantId,
-          body.paymentMethodId,
-        );
-        return { success: true };
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
-    }
+    
 } 

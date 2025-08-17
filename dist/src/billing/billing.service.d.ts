@@ -6,7 +6,13 @@ export declare class BillingService {
         features: string[];
         id: string;
         name: string;
+        auditLogs: boolean;
         description: string;
+        whiteLabel: boolean;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        stripePriceId: string | null;
         price: number;
         interval: string;
         isActive: boolean;
@@ -22,12 +28,7 @@ export declare class BillingService {
         dataExport: boolean;
         customFields: boolean;
         advancedSecurity: boolean;
-        whiteLabel: boolean;
         dedicatedSupport: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
     }[] | ({
         id: string;
         name: string;
@@ -61,7 +62,13 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
+            auditLogs: boolean;
             description: string;
+            whiteLabel: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            backupRestore: boolean;
+            stripePriceId: string | null;
             price: number;
             interval: string;
             isActive: boolean;
@@ -77,28 +84,23 @@ export declare class BillingService {
             dataExport: boolean;
             customFields: boolean;
             advancedSecurity: boolean;
-            whiteLabel: boolean;
             dedicatedSupport: boolean;
-            ssoEnabled: boolean;
-            auditLogs: boolean;
-            backupRestore: boolean;
-            customIntegrations: boolean;
         };
         id: string;
-        planId: string;
-        stripeSubscriptionId: string;
+        tenantId: string;
         stripeCustomerId: string;
+        userId: string;
         stripePriceId: string;
-        stripeCurrentPeriodEnd: Date;
         status: string;
+        stripeSubscriptionId: string;
+        stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        tenantId: string;
-        userId: string;
+        planId: string;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{

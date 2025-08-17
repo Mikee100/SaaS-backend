@@ -1,19 +1,27 @@
-import { PrismaService } from '../prisma.service';
-import { BillingService } from './billing.service';
-interface CreateSubscriptionDto {
-    tenantId: string;
-    planId: string;
-    paymentMethodId?: string;
-}
-interface UpdateSubscriptionDto {
-    planId: string;
-    effectiveDate?: Date;
-}
-export declare class SubscriptionService {
-    private prisma;
-    private billingService;
-    constructor(prisma: PrismaService, billingService: BillingService);
-    createSubscription(data: CreateSubscriptionDto): Promise<{
+import { SubscriptionService } from './subscription.service';
+export declare class SubscriptionController {
+    private readonly subscriptionService;
+    constructor(subscriptionService: SubscriptionService);
+    createSubscription(body: {
+        planId: string;
+        paymentMethodId?: string;
+    }, req: any): Promise<{
+        id: string;
+        stripeSubscriptionId: string;
+        stripeCustomerId: string;
+        stripePriceId: string;
+        stripeCurrentPeriodEnd: Date;
+        status: string;
+        canceledAt: Date | null;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
+        cancelAtPeriodEnd: boolean;
+        trialStart: Date | null;
+        trialEnd: Date | null;
+        planId: string;
+        tenantId: string;
+        userId: string;
+    } | {
         subscription: {
             plan: {
                 id: string;
@@ -64,24 +72,11 @@ export declare class SubscriptionService {
             charge: number;
             netCharge: number;
         };
-    } | {
-        id: string;
-        stripeSubscriptionId: string;
-        stripeCustomerId: string;
-        stripePriceId: string;
-        stripeCurrentPeriodEnd: Date;
-        status: string;
-        canceledAt: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
-        cancelAtPeriodEnd: boolean;
-        trialStart: Date | null;
-        trialEnd: Date | null;
-        planId: string;
-        tenantId: string;
-        userId: string;
     }>;
-    updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
+    updateSubscription(body: {
+        planId: string;
+        effectiveDate?: Date;
+    }, req: any): Promise<{
         subscription: {
             plan: {
                 id: string;
@@ -138,7 +133,7 @@ export declare class SubscriptionService {
         currentPlan: any;
         newPlan: any;
     }>;
-    cancelSubscription(tenantId: string): Promise<{
+    cancelSubscription(req: any): Promise<{
         id: string;
         stripeSubscriptionId: string;
         stripeCustomerId: string;
@@ -155,7 +150,7 @@ export declare class SubscriptionService {
         tenantId: string;
         userId: string;
     }>;
-    getSubscriptionHistory(tenantId: string): Promise<({
+    getSubscriptionHistory(req: any): Promise<({
         plan: {
             id: string;
             stripePriceId: string | null;
@@ -212,21 +207,4 @@ export declare class SubscriptionService {
         tenantId: string;
         userId: string;
     })[]>;
-    createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
-        number: string;
-        id: string;
-        status: string;
-        tenantId: string;
-        createdAt: Date;
-        amount: number;
-        dueDate: Date | null;
-        paidAt: Date | null;
-        subscriptionId: string | null;
-        updatedAt: Date;
-    }>;
-    private calculateEndDate;
-    private isPlanUpgrade;
-    private handleUpgrade;
-    private handleDowngrade;
 }
-export {};

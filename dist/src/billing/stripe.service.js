@@ -766,7 +766,7 @@ let StripeService = StripeService_1 = class StripeService {
             await stripe.paymentMethods.attach(paymentMethodId, {
                 customer: customerId,
             });
-            await this.auditLogService.log('system', 'payment_method_attached', {
+            await this.auditLogService.log(null, 'payment_method_attached', {
                 tenantId,
                 customerId,
                 paymentMethodId,

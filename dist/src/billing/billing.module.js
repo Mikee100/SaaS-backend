@@ -10,6 +10,7 @@ exports.BillingModule = void 0;
 const common_1 = require("@nestjs/common");
 const billing_controller_1 = require("./billing.controller");
 const payment_controller_1 = require("./payment.controller");
+const subscription_controller_1 = require("./subscription.controller");
 const billing_service_1 = require("./billing.service");
 const payment_service_1 = require("./payment.service");
 const stripe_service_1 = require("./stripe.service");
@@ -25,7 +26,7 @@ exports.BillingModule = BillingModule;
 exports.BillingModule = BillingModule = __decorate([
     (0, common_1.Module)({
         imports: [user_module_1.UserModule],
-        controllers: [billing_controller_1.BillingController, payment_controller_1.PaymentController],
+        controllers: [billing_controller_1.BillingController, payment_controller_1.PaymentController, subscription_controller_1.SubscriptionController],
         providers: [
             billing_service_1.BillingService,
             payment_service_1.PaymentService,

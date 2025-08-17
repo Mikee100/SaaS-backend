@@ -2,6 +2,33 @@ import { PaymentService } from './payment.service';
 export declare class PaymentController {
     private readonly paymentService;
     constructor(paymentService: PaymentService);
+    savePaymentMethod(body: {
+        paymentMethodId: string;
+    }, req: any): Promise<{
+        success: boolean;
+        error?: undefined;
+    } | {
+        success: boolean;
+        error: any;
+    }>;
+    getPaymentMethods(req: any): Promise<{
+        success: boolean;
+        methods: {
+            id: string;
+            type: string;
+            card: {
+                brand: string;
+                last4: string;
+                expMonth: number;
+                expYear: number;
+            };
+        }[];
+        error?: undefined;
+    } | {
+        success: boolean;
+        error: any;
+        methods?: undefined;
+    }>;
     processPayment(body: {
         amount: number;
         currency: string;
@@ -43,14 +70,14 @@ export declare class PaymentController {
         invoice: {
             number: string;
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             amount: number;
             status: string;
             dueDate: Date | null;
             paidAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
             subscriptionId: string | null;
-            tenantId: string;
         };
         error?: undefined;
     } | {
@@ -61,7 +88,7 @@ export declare class PaymentController {
     getPaymentAnalytics(period: "month" | "quarter" | "year" | undefined, req: any): Promise<{
         success: boolean;
         analytics: {
-            period: "month" | "quarter" | "year";
+            period: "month" | "year" | "quarter";
             totalRevenue: number;
             paymentCount: number;
             averagePayment: number;
@@ -112,24 +139,6 @@ export declare class PaymentController {
         error: any;
         refundId?: undefined;
     }>;
-    getPaymentMethods(req: any): Promise<{
-        success: boolean;
-        methods: {
-            id: string;
-            type: string;
-            card: {
-                brand: string;
-                last4: string;
-                expMonth: number;
-                expYear: number;
-            };
-        }[];
-        error?: undefined;
-    } | {
-        success: boolean;
-        error: any;
-        methods?: undefined;
-    }>;
     addPaymentMethod(body: {
         paymentMethodId: string;
     }, req: any): Promise<{
@@ -158,14 +167,5 @@ export declare class PaymentController {
         error: any;
         paymentId?: undefined;
         status?: undefined;
-    }>;
-    savePaymentMethod(body: {
-        paymentMethodId: string;
-    }, req: any): Promise<{
-        success: boolean;
-        error?: undefined;
-    } | {
-        success: boolean;
-        error: any;
     }>;
 }

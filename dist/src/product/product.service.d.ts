@@ -10,30 +10,30 @@ export declare class ProductService {
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
-        description: string | null;
-        price: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        branchId: string | null;
+        description: string | null;
+        price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         sku: string;
         cost: number;
         stock: number;
+        branchId: string | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
-        description: string | null;
-        price: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        branchId: string | null;
+        description: string | null;
+        price: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
         sku: string;
         cost: number;
         stock: number;
+        branchId: string | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

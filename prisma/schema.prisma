@@ -41,7 +41,7 @@ model Product {
   name         String
   sku          String
   price        Float
-    cost         Float      @default(0)
+  cost         Float       @default(0)
   description  String?
   stock        Int         @default(0)
   tenantId     String
@@ -221,6 +221,7 @@ model Plan {
   maxUsers         Int? // Nullable, no default
   maxProducts      Int? // Nullable, no default
   maxSalesPerMonth Int? // Nullable, no default
+  stripePriceId    String? @unique
 
   // Plan Features
   analyticsEnabled   Boolean @default(false)
@@ -268,7 +269,7 @@ model PlanFeatureOnPlan {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  @@unique([planId, featureId])
+  stripePriceId String? @unique
 }
 
 model Subscription {
