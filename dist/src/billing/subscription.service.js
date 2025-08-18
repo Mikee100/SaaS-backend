@@ -83,7 +83,7 @@ let SubscriptionService = class SubscriptionService {
                     currentPeriodEnd: endDate,
                     stripeSubscriptionId: 'manual_' + Date.now(),
                     stripeCustomerId: 'cust_' + data.tenantId,
-                    stripePriceId: plan.stripePriceId,
+                    stripePriceId: plan.stripePriceId ?? '',
                     stripeCurrentPeriodEnd: endDate,
                     cancelAtPeriodEnd: false,
                     userId: 'system',

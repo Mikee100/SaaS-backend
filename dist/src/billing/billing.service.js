@@ -18,6 +18,65 @@ let BillingService = class BillingService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async getAllTenantSubscriptions() {
+        const tenants = await this.prisma.tenant.findMany({
+            include: {
+                subscriptions: {
+                    include: { plan: true },
+                    orderBy: { currentPeriodStart: 'desc' },
+                },
+            },
+        });
+        return Promise.all(tenants.map(async (tenant) => {
+            const sub = tenant.subscriptions?.[0];
+            const lastInvoice = sub ? await this.prisma.invoice.findFirst({
+                where: { subscriptionId: sub.id },
+                orderBy: { createdAt: 'desc' },
+            }) : null;
+            const lastPayment = await this.prisma.payment.findFirst({
+                where: { tenantId: tenant.id },
+                orderBy: { createdAt: 'desc' },
+            });
+            return {
+                tenantId: tenant.id,
+                clientName: tenant.name,
+                clientEmail: tenant.contactEmail,
+                plan: sub?.plan ? {
+                    name: sub.plan.name,
+                    price: sub.plan.price,
+                    interval: sub.plan.interval,
+                    features: {
+                        maxUsers: sub.plan.maxUsers,
+                        maxProducts: sub.plan.maxProducts,
+                        maxSalesPerMonth: sub.plan.maxSalesPerMonth,
+                        analyticsEnabled: sub.plan.analyticsEnabled,
+                        advancedReports: sub.plan.advancedReports,
+                        prioritySupport: sub.plan.prioritySupport,
+                        customBranding: sub.plan.customBranding,
+                        apiAccess: sub.plan.apiAccess,
+                    },
+                } : null,
+                status: sub?.status || 'none',
+                startDate: sub?.currentPeriodStart,
+                currentPeriodEnd: sub?.currentPeriodEnd,
+                cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
+                lastInvoice: lastInvoice ? {
+                    id: lastInvoice.id,
+                    amount: lastInvoice.amount,
+                    status: lastInvoice.status,
+                    dueDate: lastInvoice.dueDate,
+                    paidAt: lastInvoice.paidAt,
+                } : null,
+                lastPayment: lastPayment ? {
+                    id: lastPayment.id,
+                    amount: lastPayment.amount,
+                    currency: lastPayment.currency,
+                    status: lastPayment.status,
+                    completedAt: lastPayment.completedAt,
+                } : null,
+            };
+        }));
+    }
     async getPlans() {
         try {
             const plans = await this.prisma.plan.findMany({

@@ -5,18 +5,18 @@ export declare class AuditLogController {
     getLogs(limit: string): Promise<({
         user: {
             id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string | null;
             email: string;
             password: string;
-            name: string;
             isSuperadmin: boolean;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
         } | null;
     } & {
         id: string;

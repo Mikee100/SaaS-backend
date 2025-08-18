@@ -5,16 +5,13 @@ export declare class AdminService {
     constructor(prisma: PrismaService);
     getAllTenants(): Promise<({
         _count: {
-            sales: number;
             users: number;
             products: number;
+            sales: number;
         };
     } & {
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -65,6 +62,9 @@ export declare class AdminService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
@@ -88,18 +88,18 @@ export declare class AdminService {
         })[];
     } & {
         id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
         totalTenants: number;
@@ -118,7 +118,6 @@ export declare class AdminService {
     getPlatformLogs(): Promise<({
         user: {
             id: string;
-            email: string;
             name: string;
             userRoles: ({
                 tenant: {
@@ -131,6 +130,7 @@ export declare class AdminService {
                 userId: string;
                 roleId: string;
             })[];
+            email: string;
         } | null;
     } & {
         id: string;
@@ -143,9 +143,6 @@ export declare class AdminService {
     createTenant(tenantData: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -196,13 +193,13 @@ export declare class AdminService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     deleteTenant(id: string): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -253,13 +250,30 @@ export declare class AdminService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getTenantById(id: string): Promise<{
         users: {
             id: string;
-            email: string;
             name: string;
+            email: string;
         }[];
+        products?: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            description: string | null;
+            price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            sku: string;
+            cost: number;
+            stock: number;
+            branchId: string | null;
+        }[] | undefined;
         sales?: {
             id: string;
             createdAt: Date;
@@ -275,28 +289,11 @@ export declare class AdminService {
             vatAmount: number | null;
         }[] | undefined;
         _count?: {
-            sales: number;
             products: number;
+            sales: number;
         } | undefined;
-        products?: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            sku: string;
-            cost: number;
-            stock: number;
-            branchId: string | null;
-        }[] | undefined;
         id?: string | undefined;
         name?: string | undefined;
-        createdAt?: Date | undefined;
-        updatedAt?: Date | undefined;
-        stripeCustomerId?: string | null | undefined;
         businessType?: string | undefined;
         contactEmail?: string | undefined;
         contactPhone?: string | null | undefined;
@@ -347,6 +344,9 @@ export declare class AdminService {
         ssoEnabled?: boolean | undefined;
         auditLogsEnabled?: boolean | undefined;
         backupRestore?: boolean | undefined;
+        stripeCustomerId?: string | null | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
     }>;
     getSystemHealth(): Promise<{
         database: {

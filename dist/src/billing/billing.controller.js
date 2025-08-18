@@ -34,6 +34,9 @@ let BillingController = BillingController_1 = class BillingController {
         this.subscriptionService = subscriptionService;
         this.prisma = prisma;
     }
+    async getAllTenantSubscriptions() {
+        return this.billingService.getAllTenantSubscriptions();
+    }
     async testEndpoint() {
         try {
             const plans = await this.billingService.getPlans();
@@ -246,6 +249,14 @@ let BillingController = BillingController_1 = class BillingController {
     }
 };
 exports.BillingController = BillingController;
+__decorate([
+    (0, common_1.Get)('admin/billing/tenants'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('edit_billing'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BillingController.prototype, "getAllTenantSubscriptions", null);
 __decorate([
     (0, common_1.Get)('test'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),

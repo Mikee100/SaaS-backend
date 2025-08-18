@@ -94,7 +94,7 @@ export class SubscriptionService {
           currentPeriodEnd: endDate,
           stripeSubscriptionId: 'manual_' + Date.now(), // Temp value, will be updated by webhook
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
-          stripePriceId: plan.stripePriceId,
+          stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
           cancelAtPeriodEnd: false,
           userId: 'system', // This should be the admin user ID
