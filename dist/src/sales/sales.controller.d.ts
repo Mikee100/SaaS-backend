@@ -36,9 +36,26 @@ export declare class SalesController {
                 quantity: number;
                 saleId: string;
             }[];
+            user: {
+                id: string;
+                email: string;
+                name: string;
+            };
+            mpesaTransactions: {
+                id: string;
+                createdAt: Date;
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                responseDesc: string | null;
+                transactionId: string | null;
+            }[];
             tenant: {
                 id: string;
                 name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -89,31 +106,14 @@ export declare class SalesController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
-                stripeCustomerId: string | null;
-                createdAt: Date;
-                updatedAt: Date;
-            };
-            mpesaTransactions: {
-                id: string;
-                createdAt: Date;
-                status: string;
-                amount: number;
-                phoneNumber: string;
-                responseDesc: string | null;
-                transactionId: string | null;
-            }[];
-            user: {
-                id: string;
-                name: string;
-                email: string;
             };
             branch: {
                 id: string;
                 name: string;
-                address: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
+                address: string | null;
             } | null;
             id: string;
             createdAt: Date;
@@ -303,9 +303,26 @@ export declare class SalesController {
             quantity: number;
             saleId: string;
         }[];
+        user: {
+            id: string;
+            email: string;
+            name: string;
+        };
+        mpesaTransactions: {
+            id: string;
+            createdAt: Date;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         tenant: {
             id: string;
             name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -356,31 +373,14 @@ export declare class SalesController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
-            stripeCustomerId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-        mpesaTransactions: {
-            id: string;
-            createdAt: Date;
-            status: string;
-            amount: number;
-            phoneNumber: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
-        user: {
-            id: string;
-            name: string;
-            email: string;
         };
         branch: {
             id: string;
             name: string;
-            address: string | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            address: string | null;
         } | null;
         id: string;
         createdAt: Date;

@@ -73,8 +73,8 @@ export declare class PaymentController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             amount: number;
+            status: string;
             dueDate: Date | null;
             paidAt: Date | null;
             subscriptionId: string | null;

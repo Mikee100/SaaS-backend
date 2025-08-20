@@ -42,9 +42,26 @@ export declare class SalesService {
             quantity: number;
             saleId: string;
         }[];
+        user: {
+            id: string;
+            email: string;
+            name: string;
+        };
+        mpesaTransactions: {
+            id: string;
+            createdAt: Date;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         tenant: {
             id: string;
             name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -95,31 +112,14 @@ export declare class SalesService {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
-            stripeCustomerId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-        mpesaTransactions: {
-            id: string;
-            createdAt: Date;
-            status: string;
-            amount: number;
-            phoneNumber: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
-        user: {
-            id: string;
-            name: string;
-            email: string;
         };
         branch: {
             id: string;
             name: string;
-            address: string | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            address: string | null;
         } | null;
         id: string;
         createdAt: Date;
@@ -164,21 +164,36 @@ export declare class SalesService {
                 quantity: number;
                 saleId: string;
             }[];
+            user: {
+                id: string;
+                email: string;
+                password: string;
+                name: string;
+                isSuperadmin: boolean;
+                resetPasswordToken: string | null;
+                resetPasswordExpires: Date | null;
+                notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+                language: string | null;
+                region: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string | null;
+            };
             mpesaTransactions: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 userId: string | null;
-                amount: number;
-                message: string | null;
                 phoneNumber: string;
+                amount: number;
+                status: string;
                 merchantRequestId: string | null;
                 checkoutRequestID: string | null;
                 mpesaReceipt: string | null;
                 responseCode: string | null;
                 responseDesc: string | null;
+                message: string | null;
                 saleId: string | null;
                 saleData: import("@prisma/client/runtime/library").JsonValue | null;
                 transactionId: string | null;
@@ -190,21 +205,6 @@ export declare class SalesService {
                 orgAccountBalance: string | null;
                 thirdPartyTransID: string | null;
             }[];
-            user: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                tenantId: string | null;
-                email: string;
-                password: string;
-                isSuperadmin: boolean;
-                resetPasswordToken: string | null;
-                resetPasswordExpires: Date | null;
-                notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-                language: string | null;
-                region: string | null;
-            };
             id: string;
             createdAt: Date;
             tenantId: string;

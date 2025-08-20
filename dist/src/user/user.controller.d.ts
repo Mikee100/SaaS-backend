@@ -8,6 +8,9 @@ export declare class UserController {
             tenant: {
                 id: string;
                 name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -58,9 +61,6 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
-                stripeCustomerId: string | null;
-                createdAt: Date;
-                updatedAt: Date;
             };
             role: {
                 id: string;
@@ -85,25 +85,25 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
+            userId: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
         email: string;
         password: string;
+        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
     })[]>;
     getAllUserPermissions(req: any): Promise<{
         id: string;
@@ -138,6 +138,9 @@ export declare class UserController {
             tenant: {
                 id: string;
                 name: string;
+                createdAt: Date;
+                updatedAt: Date;
+                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -188,9 +191,6 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
-                stripeCustomerId: string | null;
-                createdAt: Date;
-                updatedAt: Date;
             };
             permissionRef: {
                 id: string;
@@ -200,30 +200,33 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
+            userId: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
     } & {
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
         email: string;
         password: string;
+        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         tenant: {
             id: string;
             name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -274,9 +277,6 @@ export declare class UserController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
-            stripeCustomerId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         permissionRef: {
             id: string;
@@ -286,8 +286,8 @@ export declare class UserController {
     } & {
         id: string;
         tenantId: string;
-        userId: string;
         permission: string;
+        userId: string;
         grantedBy: string | null;
         grantedAt: Date;
     })[]>;
@@ -297,18 +297,18 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
         email: string;
         password: string;
+        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
     getAllPermissions(): Promise<{

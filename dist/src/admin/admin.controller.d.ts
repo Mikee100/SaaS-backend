@@ -36,13 +36,16 @@ export declare class AdminController {
     }[]>;
     getAllTenants(): Promise<({
         _count: {
+            sales: number;
             users: number;
             products: number;
-            sales: number;
         };
     } & {
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -93,9 +96,6 @@ export declare class AdminController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     })[]>;
     getAllUsers(): Promise<({
         userRoles: ({
@@ -119,18 +119,18 @@ export declare class AdminController {
         })[];
     } & {
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
         email: string;
         password: string;
+        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
         totalTenants: number;
@@ -146,6 +146,7 @@ export declare class AdminController {
     getPlatformLogs(): Promise<({
         user: {
             id: string;
+            email: string;
             name: string;
             userRoles: ({
                 tenant: {
@@ -158,7 +159,6 @@ export declare class AdminController {
                 userId: string;
                 roleId: string;
             })[];
-            email: string;
         } | null;
     } & {
         id: string;
@@ -322,6 +322,9 @@ export declare class AdminController {
     createTenant(tenantData: any): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -372,13 +375,13 @@ export declare class AdminController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     deleteTenant(id: string): Promise<{
         id: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -429,30 +432,13 @@ export declare class AdminController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getTenantById(id: string): Promise<{
         users: {
             id: string;
-            name: string;
             email: string;
-        }[];
-        products?: {
-            id: string;
             name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            sku: string;
-            cost: number;
-            stock: number;
-            branchId: string | null;
-        }[] | undefined;
+        }[];
         sales?: {
             id: string;
             createdAt: Date;
@@ -468,11 +454,28 @@ export declare class AdminController {
             vatAmount: number | null;
         }[] | undefined;
         _count?: {
-            products: number;
             sales: number;
+            products: number;
         } | undefined;
+        products?: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            description: string | null;
+            price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            sku: string;
+            cost: number;
+            stock: number;
+            branchId: string | null;
+        }[] | undefined;
         id?: string | undefined;
         name?: string | undefined;
+        createdAt?: Date | undefined;
+        updatedAt?: Date | undefined;
+        stripeCustomerId?: string | null | undefined;
         businessType?: string | undefined;
         contactEmail?: string | undefined;
         contactPhone?: string | null | undefined;
@@ -523,9 +526,6 @@ export declare class AdminController {
         ssoEnabled?: boolean | undefined;
         auditLogsEnabled?: boolean | undefined;
         backupRestore?: boolean | undefined;
-        stripeCustomerId?: string | null | undefined;
-        createdAt?: Date | undefined;
-        updatedAt?: Date | undefined;
     }>;
     getTenantAnalytics(timeRange?: string): Promise<any[]>;
     getTenantComparison(): Promise<{
