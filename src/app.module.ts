@@ -16,6 +16,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AdminModule } from './admin/admin.module';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
 import { SectionLogoModule } from './tenant/section-logo.module';
+import { BranchModule } from './branch.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SectionLogoModule } from './tenant/section-logo.module';
     AnalyticsModule,
     AdminModule,
     SectionLogoModule,
+    BranchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

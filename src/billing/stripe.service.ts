@@ -1005,7 +1005,7 @@ export class StripeService {
         customer: customerId,
       });
 
-      await this.auditLogService.log('system', 'payment_method_attached', {
+  await this.auditLogService.log(null, 'payment_method_attached', {
         tenantId,
         customerId,
         paymentMethodId,

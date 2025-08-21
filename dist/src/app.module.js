@@ -25,6 +25,7 @@ const analytics_module_1 = require("./analytics/analytics.module");
 const admin_module_1 = require("./admin/admin.module");
 const raw_body_middleware_1 = require("./middleware/raw-body.middleware");
 const section_logo_module_1 = require("./tenant/section-logo.module");
+const branch_module_1 = require("./branch.module");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer
@@ -50,6 +51,7 @@ exports.AppModule = AppModule = __decorate([
             analytics_module_1.AnalyticsModule,
             admin_module_1.AdminModule,
             section_logo_module_1.SectionLogoModule,
+            branch_module_1.BranchModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

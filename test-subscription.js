@@ -35,10 +35,14 @@ async function testSubscription() {
         const newSubscription = await prisma.subscription.create({
           data: {
             tenantId,
-            planId: 'basic-plan',
+            planId: 'basic_plan',
             status: 'active',
             currentPeriodStart: new Date(),
             currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            stripeSubscriptionId: 'demo_sub_' + Date.now(),
+            stripeCustomerId: 'demo_cust_' + Date.now(),
+            stripePriceId: 'demo_price_basic',
+            stripeCurrentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           },
           include: { plan: true }
         });

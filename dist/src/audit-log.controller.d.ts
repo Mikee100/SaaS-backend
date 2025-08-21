@@ -17,6 +17,7 @@ export declare class AuditLogController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string | null;
+            branchId: string | null;
         } | null;
     } & {
         id: string;

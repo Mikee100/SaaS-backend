@@ -26,6 +26,33 @@ export class SubscriptionService {
       
       const plan = await this.prisma.plan.findUnique({
         where: { id: data.planId },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          interval: true,
+          isActive: true,
+          maxUsers: true,
+          maxProducts: true,
+          maxSalesPerMonth: true,
+          stripePriceId: true,
+          analyticsEnabled: true,
+          advancedReports: true,
+          prioritySupport: true,
+          customBranding: true,
+          apiAccess: true,
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: true,
+          whiteLabel: true,
+          dedicatedSupport: true,
+          ssoEnabled: true,
+          auditLogs: true,
+          backupRestore: true,
+          customIntegrations: true,
+        },
       });
 
       if (!plan) {
@@ -67,7 +94,7 @@ export class SubscriptionService {
           currentPeriodEnd: endDate,
           stripeSubscriptionId: 'manual_' + Date.now(), // Temp value, will be updated by webhook
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
-          stripePriceId: 'price_' + plan.id, // Temp value
+          stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
           cancelAtPeriodEnd: false,
           userId: 'system', // This should be the admin user ID

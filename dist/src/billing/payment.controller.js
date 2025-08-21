@@ -23,6 +23,35 @@ let PaymentController = class PaymentController {
     constructor(paymentService) {
         this.paymentService = paymentService;
     }
+    async savePaymentMethod(body, req) {
+        console.log('--- /payments/methods API HIT ---');
+        console.log('Body:', body);
+        console.log('User:', req.user);
+        try {
+            await this.paymentService.addPaymentMethod(req.user?.tenantId, body.paymentMethodId);
+            console.log('Payment method saved successfully');
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Error saving payment method:', error.message);
+            return { success: false, error: error.message };
+        }
+    }
+    async getPaymentMethods(req) {
+        try {
+            const methods = await this.paymentService.getPaymentMethods(req.user.tenantId);
+            return {
+                success: true,
+                methods,
+            };
+        }
+        catch (error) {
+            return {
+                success: false,
+                error: error.message,
+            };
+        }
+    }
     async processPayment(body, req) {
         try {
             const result = await this.paymentService.processOneTimePayment(req.user.tenantId, body.amount, body.currency, body.description, body.metadata || {});
@@ -116,21 +145,6 @@ let PaymentController = class PaymentController {
             };
         }
     }
-    async getPaymentMethods(req) {
-        try {
-            const methods = await this.paymentService.getPaymentMethods(req.user.tenantId);
-            return {
-                success: true,
-                methods,
-            };
-        }
-        catch (error) {
-            return {
-                success: false,
-                error: error.message,
-            };
-        }
-    }
     async addPaymentMethod(body, req) {
         try {
             await this.paymentService.addPaymentMethod(req.user.tenantId, body.paymentMethodId);
@@ -176,6 +190,21 @@ let PaymentController = class PaymentController {
     }
 };
 exports.PaymentController = PaymentController;
+__decorate([
+    (0, common_1.Post)('methods'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "savePaymentMethod", null);
+__decorate([
+    (0, common_1.Get)('methods'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "getPaymentMethods", null);
 __decorate([
     (0, common_1.Post)('process'),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
@@ -231,14 +260,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "refundPayment", null);
-__decorate([
-    (0, common_1.Get)('methods'),
-    (0, permissions_decorator_1.Permissions)('view_billing'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], PaymentController.prototype, "getPaymentMethods", null);
 __decorate([
     (0, common_1.Post)('methods'),
     (0, permissions_decorator_1.Permissions)('edit_billing'),

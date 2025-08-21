@@ -10,6 +10,7 @@ export declare class UserController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
+                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -60,7 +61,6 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
-                stripeCustomerId: string | null;
             };
             role: {
                 id: string;
@@ -85,8 +85,8 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
+            userId: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
@@ -104,6 +104,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     })[]>;
     getAllUserPermissions(req: any): Promise<{
         id: string;
@@ -140,6 +141,7 @@ export declare class UserController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
+                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -190,7 +192,6 @@ export declare class UserController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
-                stripeCustomerId: string | null;
             };
             permissionRef: {
                 id: string;
@@ -200,8 +201,8 @@ export declare class UserController {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             permission: string;
+            userId: string;
             grantedBy: string | null;
             grantedAt: Date;
         })[];
@@ -219,6 +220,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         tenant: {
@@ -226,6 +228,7 @@ export declare class UserController {
             name: string;
             createdAt: Date;
             updatedAt: Date;
+            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -276,7 +279,6 @@ export declare class UserController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
-            stripeCustomerId: string | null;
         };
         permissionRef: {
             id: string;
@@ -286,8 +288,8 @@ export declare class UserController {
     } & {
         id: string;
         tenantId: string;
-        userId: string;
         permission: string;
+        userId: string;
         grantedBy: string | null;
         grantedAt: Date;
     })[]>;
@@ -309,6 +311,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
     getAllPermissions(): Promise<{

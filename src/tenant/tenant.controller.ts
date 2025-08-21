@@ -213,7 +213,7 @@ export class TenantController {
       });
       console.log('[TenantController] Tenant creation result:', tenant);
 
-      return { success: true, data: tenant };
+    return { tenant };
     } catch (error) {
       this.logger.error('Error creating tenant:', error);
       console.error('[TenantController] Error during tenant registration:', error);

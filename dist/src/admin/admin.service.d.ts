@@ -100,6 +100,7 @@ export declare class AdminService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
         totalTenants: number;
@@ -264,8 +265,8 @@ export declare class AdminService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -284,13 +285,13 @@ export declare class AdminService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         }[] | undefined;
         id?: string | undefined;
         name?: string | undefined;

@@ -15,6 +15,10 @@ export class InventoryController {
   @Permissions('view_inventory')
   async findAll(@Req() req) {
     const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    if (branchId) {
+      return this.inventoryService.findAllByBranch(tenantId, branchId);
+    }
     return this.inventoryService.findAllByTenant(tenantId);
   }
 
@@ -22,6 +26,7 @@ export class InventoryController {
   @Permissions('create_inventory')
   async create(@Req() req, @Body() dto: CreateInventoryDto) {
     const tenantId = req.user.tenantId;
+    // branchId can be passed in body (dto)
     return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
   }
 
@@ -29,6 +34,7 @@ export class InventoryController {
   @Permissions('edit_inventory')
   async update(@Req() req, @Param('id') id: string, @Body() dto: UpdateInventoryDto) {
     const tenantId = req.user.tenantId;
+    // branchId can be passed in body (dto)
     return this.inventoryService.updateInventory(id, dto, tenantId, req.user.userId, req.ip);
   }
 

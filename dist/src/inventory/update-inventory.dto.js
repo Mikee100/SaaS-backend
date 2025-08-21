@@ -13,6 +13,7 @@ exports.UpdateInventoryDto = void 0;
 const class_validator_1 = require("class-validator");
 class UpdateInventoryDto {
     quantity;
+    branchId;
 }
 exports.UpdateInventoryDto = UpdateInventoryDto;
 __decorate([
@@ -20,4 +21,9 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], UpdateInventoryDto.prototype, "quantity", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateInventoryDto.prototype, "branchId", void 0);
 //# sourceMappingURL=update-inventory.dto.js.map

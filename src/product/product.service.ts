@@ -25,6 +25,12 @@ function findColumnMatch(headers: string[], candidates: string[]): string | unde
 
 @Injectable()
 export class ProductService {
+  async findAllByBranch(branchId: string, tenantId: string) {
+    return this.prisma.product.findMany({
+      where: { branchId, tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,

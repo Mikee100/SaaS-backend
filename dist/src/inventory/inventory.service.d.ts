@@ -8,26 +8,71 @@ export declare class InventoryService {
     private auditLogService;
     private realtimeGateway;
     constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway);
-    findAllByTenant(tenantId: string): Promise<({
+    findAllByBranch(tenantId: string, branchId: string): Promise<({
         product: {
             id: string;
             name: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
+    })[]>;
+    findAllByTenant(tenantId: string): Promise<({
+        branch: {
+            id: string;
+            email: string | null;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            postalCode: string | null;
+            manager: string | null;
+            status: string | null;
+            logo: string | null;
+            street: string | null;
+            phone: string | null;
+            openingHours: string | null;
+            customField: string | null;
+        } | null;
+        product: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            description: string | null;
+            price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            sku: string;
+            cost: number;
+            stock: number;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        branchId: string | null;
         productId: string;
         quantity: number;
     })[]>;

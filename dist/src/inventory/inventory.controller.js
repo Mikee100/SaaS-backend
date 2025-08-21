@@ -27,6 +27,10 @@ let InventoryController = class InventoryController {
     }
     async findAll(req) {
         const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        if (branchId) {
+            return this.inventoryService.findAllByBranch(tenantId, branchId);
+        }
         return this.inventoryService.findAllByTenant(tenantId);
     }
     async create(req, dto) {

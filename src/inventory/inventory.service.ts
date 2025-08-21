@@ -13,10 +13,18 @@ export class InventoryService {
     private realtimeGateway: RealtimeGateway // Inject gateway
   ) {}
 
+  async findAllByBranch(tenantId: string, branchId: string) {
+    return this.prisma.inventory.findMany({
+      where: { tenantId, branchId },
+      include: { product: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   async findAllByTenant(tenantId: string) {
     return this.prisma.inventory.findMany({
       where: { tenantId },
-      include: { product: true },
+      include: { product: true, branch: true },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -29,6 +37,7 @@ export class InventoryService {
         where: {
           productId: dto.productId,
           tenantId: tenantId,
+          branchId: dto.branchId,
         },
       });
 
@@ -37,14 +46,16 @@ export class InventoryService {
         // Update existing inventory record
         inventory = await prisma.inventory.update({
           where: { id: existingInventory.id },
-          data: { quantity: dto.quantity },
+          data: { quantity: dto.quantity, branchId: dto.branchId },
         });
       } else {
         // Create new inventory record
         inventory = await prisma.inventory.create({
           data: {
-            ...dto,
+            productId: dto.productId,
+            quantity: dto.quantity,
             tenantId,
+            branchId: dto.branchId,
           },
         });
       }
@@ -77,7 +88,10 @@ export class InventoryService {
       // Update inventory record
       const inventory = await prisma.inventory.updateMany({
         where: { id, tenantId },
-        data: dto,
+        data: {
+          quantity: dto.quantity,
+          branchId: dto.branchId,
+        },
       });
 
       // Get the inventory record to find the product ID

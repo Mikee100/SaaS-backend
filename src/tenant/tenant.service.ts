@@ -134,6 +134,18 @@ export class TenantService {
         });
         console.log('[TenantService] Tenant created:', tenant);
 
+        // Automatically create a primary branch for this tenant
+        const branchName = tenant.name;
+        const branchAddress = tenant.address || '';
+        const primaryBranch = await prisma.branch.create({
+          data: {
+            name: branchName,
+            address: branchAddress,
+            tenantId: tenant.id,
+          }
+        });
+        console.log('[TenantService] Primary branch created:', primaryBranch);
+
         this.logger.debug('Tenant created successfully, creating owner user', {
           tenantId: tenant.id,
           ownerEmail: data.ownerEmail,
@@ -155,7 +167,8 @@ export class TenantService {
           timestamp: new Date().toISOString(),
         });
 
-        return tenant;
+        // Optionally, return branch info with tenant
+        return { ...tenant, primaryBranch };
       } catch (error) {
         this.logger.error('Error in tenant creation transaction:', {
           error: error.message,

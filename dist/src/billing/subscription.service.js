@@ -25,6 +25,33 @@ let SubscriptionService = class SubscriptionService {
             console.log('Creating subscription with data:', data);
             const plan = await this.prisma.plan.findUnique({
                 where: { id: data.planId },
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    price: true,
+                    interval: true,
+                    isActive: true,
+                    maxUsers: true,
+                    maxProducts: true,
+                    maxSalesPerMonth: true,
+                    stripePriceId: true,
+                    analyticsEnabled: true,
+                    advancedReports: true,
+                    prioritySupport: true,
+                    customBranding: true,
+                    apiAccess: true,
+                    bulkOperations: true,
+                    dataExport: true,
+                    customFields: true,
+                    advancedSecurity: true,
+                    whiteLabel: true,
+                    dedicatedSupport: true,
+                    ssoEnabled: true,
+                    auditLogs: true,
+                    backupRestore: true,
+                    customIntegrations: true,
+                },
             });
             if (!plan) {
                 console.error('Plan not found:', data.planId);
@@ -56,7 +83,7 @@ let SubscriptionService = class SubscriptionService {
                     currentPeriodEnd: endDate,
                     stripeSubscriptionId: 'manual_' + Date.now(),
                     stripeCustomerId: 'cust_' + data.tenantId,
-                    stripePriceId: 'price_' + plan.id,
+                    stripePriceId: plan.stripePriceId ?? '',
                     stripeCurrentPeriodEnd: endDate,
                     cancelAtPeriodEnd: false,
                     userId: 'system',
