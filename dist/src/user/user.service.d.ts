@@ -48,8 +48,8 @@ export declare class UserService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -61,8 +61,8 @@ export declare class UserService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -137,15 +137,15 @@ export declare class UserService {
         })[] | ({
             id: string;
             tenantId: string;
+            branchId: string;
             userId: string;
             roleId: string;
-            branchId: string;
         } | {
             id: string;
             tenantId: string;
+            branchId: string;
             userId: string;
             roleId: string;
-            branchId: string;
         })[] | ({
             id: string;
             tenantId: string;
@@ -216,8 +216,8 @@ export declare class UserService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -260,9 +260,9 @@ export declare class UserService {
         }[] | {
             id: string;
             tenantId: string;
+            branchId: string;
             userId: string;
             roleId: string;
-            branchId: string;
         }[] | {
             id: string;
             tenantId: string;
@@ -307,6 +307,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }) | null>;
     getUserRoles(tenantId: string): Promise<({
         tenant: {
@@ -480,6 +481,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -517,6 +519,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }) | null>;
     getUserPermissions(userId: string): Promise<({
         tenant: {
@@ -674,6 +677,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -693,6 +697,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
@@ -708,6 +713,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{
         name: string;
@@ -858,6 +864,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     updateUserPermissionsByTenant(userId: string, permissions: Array<{
@@ -949,6 +956,7 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }) | null>;
     getAllPermissions(): Promise<{
         name: string;

@@ -14,6 +14,7 @@ const class_validator_1 = require("class-validator");
 class CreateInventoryDto {
     productId;
     quantity;
+    branchId;
 }
 exports.CreateInventoryDto = CreateInventoryDto;
 __decorate([
@@ -25,4 +26,9 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateInventoryDto.prototype, "quantity", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateInventoryDto.prototype, "branchId", void 0);
 //# sourceMappingURL=create-inventory.dto.js.map

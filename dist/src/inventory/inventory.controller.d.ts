@@ -11,19 +11,20 @@ export declare class InventoryController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
+        branchId: string | null;
         productId: string;
         quantity: number;
     })[]>;

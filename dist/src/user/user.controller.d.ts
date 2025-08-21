@@ -104,6 +104,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     })[]>;
     getAllUserPermissions(req: any): Promise<{
         id: string;
@@ -219,6 +220,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }) | null>;
     getUserPermissions(id: string, req: any): Promise<({
         tenant: {
@@ -309,6 +311,7 @@ export declare class UserController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
+        branchId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
     getAllPermissions(): Promise<{
