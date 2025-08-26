@@ -23,10 +23,17 @@ let InventoryService = class InventoryService {
         this.auditLogService = auditLogService;
         this.realtimeGateway = realtimeGateway;
     }
+    async findAllByBranch(tenantId, branchId) {
+        return this.prisma.inventory.findMany({
+            where: { tenantId, branchId },
+            include: { product: true },
+            orderBy: { updatedAt: 'desc' },
+        });
+    }
     async findAllByTenant(tenantId) {
         return this.prisma.inventory.findMany({
             where: { tenantId },
-            include: { product: true },
+            include: { product: true, branch: true },
             orderBy: { updatedAt: 'desc' },
         });
     }
@@ -36,20 +43,23 @@ let InventoryService = class InventoryService {
                 where: {
                     productId: dto.productId,
                     tenantId: tenantId,
+                    branchId: dto.branchId,
                 },
             });
             let inventory;
             if (existingInventory) {
                 inventory = await prisma.inventory.update({
                     where: { id: existingInventory.id },
-                    data: { quantity: dto.quantity },
+                    data: { quantity: dto.quantity, branchId: dto.branchId },
                 });
             }
             else {
                 inventory = await prisma.inventory.create({
                     data: {
-                        ...dto,
+                        productId: dto.productId,
+                        quantity: dto.quantity,
                         tenantId,
+                        branchId: dto.branchId,
                     },
                 });
             }
@@ -74,7 +84,10 @@ let InventoryService = class InventoryService {
         const result = await this.prisma.$transaction(async (prisma) => {
             const inventory = await prisma.inventory.updateMany({
                 where: { id, tenantId },
-                data: dto,
+                data: {
+                    quantity: dto.quantity,
+                    branchId: dto.branchId,
+                },
             });
             const inventoryRecord = await prisma.inventory.findFirst({
                 where: { id, tenantId },

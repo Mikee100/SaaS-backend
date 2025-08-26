@@ -19,6 +19,9 @@ const common_2 = require("@nestjs/common");
 let UserService = UserService_1 = class UserService {
     prisma;
     auditLogService;
+    async findById(id) {
+        return this.prisma.user.findUnique({ where: { id } });
+    }
     logger = new common_2.Logger(UserService_1.name);
     constructor(prisma, auditLogService) {
         this.prisma = prisma;
@@ -277,6 +280,7 @@ let UserService = UserService_1 = class UserService {
             where: { id: userId },
             data: {
                 ...data,
+                ...(data.branchId ? { branchId: data.branchId } : {}),
                 updatedAt: new Date()
             },
         });

@@ -82,6 +82,16 @@ let TenantService = TenantService_1 = class TenantService {
                     data: createData
                 });
                 console.log('[TenantService] Tenant created:', tenant);
+                const branchName = tenant.name;
+                const branchAddress = tenant.address || '';
+                const primaryBranch = await prisma.branch.create({
+                    data: {
+                        name: branchName,
+                        address: branchAddress,
+                        tenantId: tenant.id,
+                    }
+                });
+                console.log('[TenantService] Primary branch created:', primaryBranch);
                 this.logger.debug('Tenant created successfully, creating owner user', {
                     tenantId: tenant.id,
                     ownerEmail: data.ownerEmail,
@@ -100,7 +110,7 @@ let TenantService = TenantService_1 = class TenantService {
                     ownerEmail: data.ownerEmail,
                     timestamp: new Date().toISOString(),
                 });
-                return tenant;
+                return { ...tenant, primaryBranch };
             }
             catch (error) {
                 this.logger.error('Error in tenant creation transaction:', {

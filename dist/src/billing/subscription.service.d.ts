@@ -24,6 +24,7 @@ export declare class SubscriptionService {
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 backupRestore: boolean;
+                stripePriceId: string | null;
                 price: number;
                 interval: string;
                 isActive: boolean;
@@ -46,9 +47,9 @@ export declare class SubscriptionService {
             tenantId: string;
             stripeCustomerId: string;
             userId: string;
+            stripePriceId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -73,6 +74,7 @@ export declare class SubscriptionService {
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
+            stripePriceId: string | null;
             price: number;
             interval: string;
             isActive: boolean;
@@ -95,9 +97,9 @@ export declare class SubscriptionService {
         tenantId: string;
         stripeCustomerId: string;
         userId: string;
+        stripePriceId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -118,6 +120,7 @@ export declare class SubscriptionService {
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 backupRestore: boolean;
+                stripePriceId: string | null;
                 price: number;
                 interval: string;
                 isActive: boolean;
@@ -140,9 +143,9 @@ export declare class SubscriptionService {
             tenantId: string;
             stripeCustomerId: string;
             userId: string;
+            stripePriceId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -168,9 +171,9 @@ export declare class SubscriptionService {
         tenantId: string;
         stripeCustomerId: string;
         userId: string;
+        stripePriceId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -202,6 +205,7 @@ export declare class SubscriptionService {
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
+            stripePriceId: string | null;
             price: number;
             interval: string;
             isActive: boolean;
@@ -224,9 +228,9 @@ export declare class SubscriptionService {
         tenantId: string;
         stripeCustomerId: string;
         userId: string;
+        stripePriceId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

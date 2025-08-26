@@ -25,12 +25,23 @@ let ProductController = class ProductController {
         this.productService = productService;
     }
     async findAll(req) {
+        if (req.user.branchId) {
+            console.log('==============================');
+            console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
+            console.log('==============================');
+            return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
+        }
         return this.productService.findAllByTenant(req.user.tenantId);
     }
     async create(body, req) {
+        let branchId = body.branchId;
+        if (req.user.branchId) {
+            branchId = req.user.branchId;
+        }
         return this.productService.createProduct({
             ...body,
             tenantId: req.user.tenantId,
+            branchId,
         }, req.user.userId, req.ip);
     }
     async bulkUpload(file, req) {

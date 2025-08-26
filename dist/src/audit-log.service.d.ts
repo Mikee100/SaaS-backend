@@ -18,6 +18,7 @@ export declare class AuditLogService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string | null;
+            branchId: string | null;
         } | null;
     } & {
         id: string;

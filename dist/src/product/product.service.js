@@ -33,6 +33,15 @@ let ProductService = class ProductService {
     prisma;
     auditLogService;
     billingService;
+    async findAllByBranch(branchId, tenantId) {
+        console.log('------------------------------');
+        console.log('[ProductService] Filtering products by branchId:', branchId, 'tenantId:', tenantId);
+        console.log('------------------------------');
+        return this.prisma.product.findMany({
+            where: { branchId, tenantId },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
     constructor(prisma, auditLogService, billingService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;

@@ -115,17 +115,29 @@ export declare class SalesService {
         };
         branch: {
             id: string;
+            email: string | null;
             name: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
             address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            postalCode: string | null;
+            manager: string | null;
+            status: string | null;
+            logo: string | null;
+            street: string | null;
+            phone: string | null;
+            openingHours: string | null;
+            customField: string | null;
         } | null;
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -150,13 +162,13 @@ export declare class SalesService {
                     createdAt: Date;
                     updatedAt: Date;
                     tenantId: string;
+                    branchId: string | null;
                     description: string | null;
                     price: number;
                     customFields: import("@prisma/client/runtime/library").JsonValue | null;
                     sku: string;
                     cost: number;
                     stock: number;
-                    branchId: string | null;
                 };
                 id: string;
                 price: number;
@@ -178,6 +190,7 @@ export declare class SalesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
+                branchId: string | null;
             };
             mpesaTransactions: {
                 id: string;
@@ -208,8 +221,8 @@ export declare class SalesService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -274,13 +287,13 @@ export declare class SalesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            branchId: string | null;
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         }[];
     }>;
     getTenantInfo(tenantId: string): Promise<{

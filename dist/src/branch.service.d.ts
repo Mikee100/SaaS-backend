@@ -1,0 +1,67 @@
+import { PrismaService } from './prisma.service';
+export declare class BranchService {
+    private prisma;
+    constructor(prisma: PrismaService);
+    createBranch(data: any): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    }>;
+    findAllByTenant(tenantId: string): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    }[]>;
+    findById(id: string, tenantId: string): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    } | null>;
+    updateBranch(id: string, data: any, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    deleteBranch(id: string, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+}

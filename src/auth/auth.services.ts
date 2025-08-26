@@ -53,6 +53,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         tenantId,
+        branchId: user.branchId || null,
         roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
       };
 
@@ -64,7 +65,7 @@ export class AuthService {
         await this.auditLogService.log(
           user.id,
           'login_success',
-          { email: user.email, tenantId: payload.tenantId },
+          { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId },
           ip
         );
       }
@@ -77,6 +78,7 @@ export class AuthService {
           email: user.email,
           name: user.name,
           tenantId: payload.tenantId,
+          branchId: payload.branchId,
           roles: payload.roles
         }
       };

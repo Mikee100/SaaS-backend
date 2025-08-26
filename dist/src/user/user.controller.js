@@ -54,11 +54,13 @@ let UserController = class UserController {
                 const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
                 permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
             }
+            const userRecord = await this.userService.findById(userId);
             return {
                 id: userId,
                 email: req.user.email,
                 name: req.user.name || null,
                 tenantId,
+                branchId: userRecord?.branchId || null,
                 roles: Array.isArray(req.user.roles) ? req.user.roles : [],
                 permissions
             };
@@ -96,7 +98,11 @@ let UserController = class UserController {
         if (!userId) {
             throw new common_1.BadRequestException('User ID not found in request context');
         }
-        return this.userService.updateUserPreferences(userId, body);
+        const updateData = { ...body };
+        if (body.branchId) {
+            updateData.branchId = body.branchId;
+        }
+        return this.userService.updateUserPreferences(userId, updateData);
     }
     async deleteUser(req, id) {
         const tenantId = req.user.tenantId;

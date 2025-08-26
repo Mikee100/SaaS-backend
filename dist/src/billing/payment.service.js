@@ -30,7 +30,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
             this.logger.log(`Processing one-time payment for tenant: ${tenantId}, amount: ${amount}`);
             const mockPaymentId = `pi_${Date.now()}`;
             const mockClientSecret = `pi_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
-            await this.auditLogService.log('system', 'payment_created', {
+            await this.auditLogService.log(null, 'payment_created', {
                 tenantId,
                 paymentId: mockPaymentId,
                 amount,
@@ -51,7 +51,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
     async confirmPayment(paymentId, paymentIntentId) {
         try {
             this.logger.log(`Confirming payment: ${paymentId}`);
-            await this.auditLogService.log('system', 'payment_confirmed', {
+            await this.auditLogService.log(null, 'payment_confirmed', {
                 paymentId,
                 paymentIntentId,
             });
@@ -82,7 +82,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 },
             });
-            await this.auditLogService.log('system', 'invoice_generated', {
+            await this.auditLogService.log(null, 'invoice_generated', {
                 tenantId: subscription.tenantId,
                 invoiceId: invoice.id,
                 amount,
@@ -117,7 +117,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 ],
                 currency: 'USD'
             };
-            await this.auditLogService.log('system', 'payment_analytics_viewed', {
+            await this.auditLogService.log(null, 'payment_analytics_viewed', {
                 tenantId,
                 period,
             });
@@ -160,7 +160,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     type: 'invoice'
                 }
             ];
-            await this.auditLogService.log('system', 'payment_history_viewed', {
+            await this.auditLogService.log(null, 'payment_history_viewed', {
                 tenantId,
                 limit,
                 offset,
@@ -193,7 +193,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     refundReason: reason,
                 },
             });
-            await this.auditLogService.log('system', 'payment_refunded', {
+            await this.auditLogService.log(null, 'payment_refunded', {
                 tenantId: payment.tenantId,
                 paymentId: payment.id,
                 refundAmount: amount || payment.amount,
@@ -231,7 +231,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     }
                 }
             ];
-            await this.auditLogService.log('system', 'payment_methods_viewed', {
+            await this.auditLogService.log(null, 'payment_methods_viewed', {
                 tenantId,
             });
             return mockMethods;
@@ -243,15 +243,27 @@ let PaymentService = PaymentService_1 = class PaymentService {
     }
     async addPaymentMethod(tenantId, paymentMethodId) {
         try {
-            const tenant = await this.prisma.tenant.findUnique({
+            let tenant = await this.prisma.tenant.findUnique({
                 where: { id: tenantId },
-                select: { stripeCustomerId: true },
+                select: { stripeCustomerId: true, contactEmail: true, name: true },
             });
-            if (!tenant?.stripeCustomerId) {
-                throw new Error('No Stripe customer found for tenant');
+            if (!tenant) {
+                throw new Error('Tenant not found');
             }
-            await this.stripeService.attachPaymentMethod(tenantId, tenant.stripeCustomerId, paymentMethodId);
-            await this.auditLogService.log('system', 'payment_method_added', {
+            let stripeCustomerId = tenant.stripeCustomerId;
+            if (!stripeCustomerId) {
+                const customer = await this.stripeService.createCustomer(tenantId, tenant.contactEmail || '', tenant.name || '');
+                await this.prisma.tenant.update({
+                    where: { id: tenantId },
+                    data: { stripeCustomerId: customer.id },
+                });
+                stripeCustomerId = customer.id;
+            }
+            if (!stripeCustomerId) {
+                throw new Error('Stripe customer ID is missing');
+            }
+            await this.stripeService.attachPaymentMethod(tenantId, stripeCustomerId, paymentMethodId);
+            await this.auditLogService.log(null, 'payment_method_added', {
                 tenantId,
                 paymentMethodId,
             });
@@ -265,7 +277,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
     async removePaymentMethod(tenantId, paymentMethodId) {
         try {
             await this.stripeService.detachPaymentMethod(tenantId, paymentMethodId);
-            await this.auditLogService.log('system', 'payment_method_removed', {
+            await this.auditLogService.log(null, 'payment_method_removed', {
                 tenantId,
                 paymentMethodId,
             });

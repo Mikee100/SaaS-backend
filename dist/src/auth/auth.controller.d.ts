@@ -12,6 +12,7 @@ export declare class AuthController {
             email: string;
             name: string;
             tenantId: string;
+            branchId: string | null;
             roles: any[];
         };
     }>;

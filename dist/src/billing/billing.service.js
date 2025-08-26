@@ -18,12 +18,82 @@ let BillingService = class BillingService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async getAllTenantSubscriptions() {
+        const tenants = await this.prisma.tenant.findMany({
+            include: {
+                subscriptions: {
+                    include: { plan: true },
+                    orderBy: { currentPeriodStart: 'desc' },
+                },
+            },
+        });
+        return Promise.all(tenants.map(async (tenant) => {
+            const sub = tenant.subscriptions?.[0];
+            const lastInvoice = sub ? await this.prisma.invoice.findFirst({
+                where: { subscriptionId: sub.id },
+                orderBy: { createdAt: 'desc' },
+            }) : null;
+            const lastPayment = await this.prisma.payment.findFirst({
+                where: { tenantId: tenant.id },
+                orderBy: { createdAt: 'desc' },
+            });
+            return {
+                tenantId: tenant.id,
+                clientName: tenant.name,
+                clientEmail: tenant.contactEmail,
+                plan: sub?.plan ? {
+                    name: sub.plan.name,
+                    price: sub.plan.price,
+                    interval: sub.plan.interval,
+                    features: {
+                        maxUsers: sub.plan.maxUsers,
+                        maxProducts: sub.plan.maxProducts,
+                        maxSalesPerMonth: sub.plan.maxSalesPerMonth,
+                        analyticsEnabled: sub.plan.analyticsEnabled,
+                        advancedReports: sub.plan.advancedReports,
+                        prioritySupport: sub.plan.prioritySupport,
+                        customBranding: sub.plan.customBranding,
+                        apiAccess: sub.plan.apiAccess,
+                    },
+                } : null,
+                status: sub?.status || 'none',
+                startDate: sub?.currentPeriodStart,
+                currentPeriodEnd: sub?.currentPeriodEnd,
+                cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
+                lastInvoice: lastInvoice ? {
+                    id: lastInvoice.id,
+                    amount: lastInvoice.amount,
+                    status: lastInvoice.status,
+                    dueDate: lastInvoice.dueDate,
+                    paidAt: lastInvoice.paidAt,
+                } : null,
+                lastPayment: lastPayment ? {
+                    id: lastPayment.id,
+                    amount: lastPayment.amount,
+                    currency: lastPayment.currency,
+                    status: lastPayment.status,
+                    completedAt: lastPayment.completedAt,
+                } : null,
+            };
+        }));
+    }
     async getPlans() {
         try {
-            return await this.prisma.plan.findMany({
+            const plans = await this.prisma.plan.findMany({
                 where: { isActive: true },
                 orderBy: { price: 'asc' },
+                include: {
+                    features: {
+                        include: {
+                            feature: true
+                        }
+                    }
+                }
             });
+            return plans.map(plan => ({
+                ...plan,
+                features: plan.features?.filter(f => f.isEnabled).map(f => f.feature.featureName) || []
+            }));
         }
         catch (error) {
             console.error('Error fetching plans:', error);
@@ -36,21 +106,7 @@ let BillingService = class BillingService {
                     maxUsers: 5,
                     maxProducts: 50,
                     maxSalesPerMonth: 100,
-                    analyticsEnabled: false,
-                    advancedReports: false,
-                    prioritySupport: false,
-                    customBranding: false,
-                    apiAccess: false,
-                    bulkOperations: false,
-                    dataExport: false,
-                    customFields: false,
-                    advancedSecurity: false,
-                    whiteLabel: false,
-                    dedicatedSupport: false,
-                    ssoEnabled: false,
-                    auditLogs: false,
-                    backupRestore: false,
-                    customIntegrations: false,
+                    features: ['Basic Usage'],
                 },
                 {
                     id: 'pro-plan',
@@ -60,21 +116,7 @@ let BillingService = class BillingService {
                     maxUsers: 25,
                     maxProducts: 500,
                     maxSalesPerMonth: 1000,
-                    analyticsEnabled: true,
-                    advancedReports: true,
-                    prioritySupport: false,
-                    customBranding: false,
-                    apiAccess: false,
-                    bulkOperations: true,
-                    dataExport: true,
-                    customFields: true,
-                    advancedSecurity: false,
-                    whiteLabel: false,
-                    dedicatedSupport: false,
-                    ssoEnabled: false,
-                    auditLogs: false,
-                    backupRestore: false,
-                    customIntegrations: false,
+                    features: ['Advanced Analytics', 'Data Export'],
                 },
                 {
                     id: 'enterprise-plan',
@@ -84,21 +126,7 @@ let BillingService = class BillingService {
                     maxUsers: null,
                     maxProducts: null,
                     maxSalesPerMonth: null,
-                    analyticsEnabled: true,
-                    advancedReports: true,
-                    prioritySupport: true,
-                    customBranding: true,
-                    apiAccess: true,
-                    bulkOperations: true,
-                    dataExport: true,
-                    customFields: true,
-                    advancedSecurity: true,
-                    whiteLabel: true,
-                    dedicatedSupport: true,
-                    ssoEnabled: true,
-                    auditLogs: true,
-                    backupRestore: true,
-                    customIntegrations: true,
+                    features: ['All Features'],
                 },
             ];
         }

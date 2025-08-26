@@ -271,7 +271,6 @@ export declare class TenantController {
         apiKey: string;
     }>;
     createTenant(createTenantDto: any): Promise<{
-        success: boolean;
-        data: any;
+        tenant: any;
     }>;
 }

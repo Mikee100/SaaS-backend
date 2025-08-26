@@ -18,22 +18,38 @@ declare global {
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('products')
 export class ProductController {
+  // Use console.log for maximum visibility
   constructor(private readonly productService: ProductService) {}
+
 
   @Get()
   @Permissions('view_products')
   async findAll(@Req() req) {
-    // Assuming req.user.tenantId is set by your JWT strategy
+    // If user has branchId, only show products for their branch
+    if (req.user.branchId) {
+      console.log('==============================');
+      console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
+      console.log('==============================');
+      return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
+    }
+    // Tenant-level users see all products for all branches
     return this.productService.findAllByTenant(req.user.tenantId);
   }
+
 
   @Post()
   @Permissions('create_products')
   async create(@Body() body, @Req() req) {
-    // Attach tenantId from the authenticated user
+    // Attach tenantId and branchId from the authenticated user or request body
+    let branchId = body.branchId;
+    // If user is branch-level, force branchId
+    if (req.user.branchId) {
+      branchId = req.user.branchId;
+    }
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
+      branchId,
     }, req.user.userId, req.ip);
   }
 

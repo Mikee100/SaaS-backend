@@ -30,7 +30,7 @@
     "@nestjs/websockets": "^11.1.5",
     "@prisma/client": "^6.12.0",
     "@types/stripe": "^8.0.417",
-    "axios": "^1.10.0",
+    "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.56.5",
     "class-transformer": "^0.5.1",

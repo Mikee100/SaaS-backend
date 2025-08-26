@@ -1,0 +1,67 @@
+import { BranchService } from './branch.service';
+export declare class BranchController {
+    private readonly branchService;
+    constructor(branchService: BranchService);
+    create(body: any, req: any): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    }>;
+    findAll(req: any): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    }[]>;
+    findOne(id: string, req: any): Promise<{
+        id: string;
+        email: string | null;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        manager: string | null;
+        status: string | null;
+        logo: string | null;
+        street: string | null;
+        phone: string | null;
+        openingHours: string | null;
+        customField: string | null;
+    } | null>;
+    update(id: string, body: any, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    remove(id: string, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
+}

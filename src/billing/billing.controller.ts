@@ -19,6 +19,13 @@ export class BillingController {
     private readonly subscriptionService: SubscriptionService,
     private readonly prisma: PrismaService,
   ) {}
+  // ADMIN: Get all tenants and their subscriptions
+  @Get('admin/billing/tenants')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('edit_billing')
+  async getAllTenantSubscriptions() {
+    return this.billingService.getAllTenantSubscriptions();
+  }
 
   @Get('test')
   @UseGuards(AuthGuard('jwt'))
