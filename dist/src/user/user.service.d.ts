@@ -3,6 +3,22 @@ import { AuditLogService } from '../audit-log.service';
 export declare class UserService {
     private prisma;
     private auditLogService;
+    findById(id: string): Promise<{
+        id: string;
+        email: string;
+        password: string;
+        name: string;
+        isSuperadmin: boolean;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string | null;
+        branchId: string | null;
+    } | null>;
     private readonly logger;
     constructor(prisma: PrismaService, auditLogService: AuditLogService);
     getAllUserPermissionsByTenant(tenantId: string): Promise<{
@@ -683,6 +699,7 @@ export declare class UserService {
         notificationPreferences?: any;
         language?: string;
         region?: string;
+        branchId?: string;
     }): Promise<{
         id: string;
         email: string;

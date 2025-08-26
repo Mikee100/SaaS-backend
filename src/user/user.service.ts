@@ -1,3 +1,4 @@
+
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -6,10 +7,15 @@ import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class UserService {
+  async findById(id: string) {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
   private readonly logger = new Logger(UserService.name);
 
   constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
 
+
+   
 
   async getAllUserPermissionsByTenant(tenantId: string) {
     // Get all users for the tenant
@@ -320,11 +326,13 @@ export class UserService {
     });
   }
 
-  async updateUserPreferences(userId: string, data: { notificationPreferences?: any, language?: string, region?: string }) {
+  async updateUserPreferences(userId: string, data: { notificationPreferences?: any, language?: string, region?: string, branchId?: string }) {
+    // Accept branchId in preferences update
     return this.prisma.user.update({
       where: { id: userId },
       data: {
         ...data,
+        ...(data.branchId ? { branchId: data.branchId } : {}),
         updatedAt: new Date()
       },
     });

@@ -18,6 +18,7 @@ declare global {
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('products')
 export class ProductController {
+  // Use console.log for maximum visibility
   constructor(private readonly productService: ProductService) {}
 
 
@@ -26,6 +27,9 @@ export class ProductController {
   async findAll(@Req() req) {
     // If user has branchId, only show products for their branch
     if (req.user.branchId) {
+      console.log('==============================');
+      console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
+      console.log('==============================');
       return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
     }
     // Tenant-level users see all products for all branches

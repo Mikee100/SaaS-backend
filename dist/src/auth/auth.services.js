@@ -56,11 +56,12 @@ let AuthService = class AuthService {
                 email: user.email,
                 name: user.name,
                 tenantId,
+                branchId: user.branchId || null,
                 roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
             };
             const accessToken = this.jwtService.sign(payload);
             if (this.auditLogService) {
-                await this.auditLogService.log(user.id, 'login_success', { email: user.email, tenantId: payload.tenantId }, ip);
+                await this.auditLogService.log(user.id, 'login_success', { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId }, ip);
             }
             return {
                 access_token: accessToken,
@@ -69,6 +70,7 @@ let AuthService = class AuthService {
                     email: user.email,
                     name: user.name,
                     tenantId: payload.tenantId,
+                    branchId: payload.branchId,
                     roles: payload.roles
                 }
             };

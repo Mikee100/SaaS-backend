@@ -62,11 +62,14 @@ export class UserController {
         const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
         permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
       }
+      // Fetch latest user from DB to get up-to-date branchId
+      const userRecord = await this.userService.findById(userId);
       return {
         id: userId,
         email: req.user.email,
         name: req.user.name || null,
         tenantId,
+        branchId: userRecord?.branchId || null,
         roles: Array.isArray(req.user.roles) ? req.user.roles : [],
         permissions
       };
@@ -127,13 +130,18 @@ export class UserController {
 
   @Put('me/preferences')
   @UseGuards(AuthGuard('jwt'))
-  async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {
+  async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string, branchId?: string }) {
     // Robustly extract userId from req.user
     const userId = req.user.userId || req.user.id || req.user.sub;
     if (!userId) {
       throw new BadRequestException('User ID not found in request context');
     }
-    return this.userService.updateUserPreferences(userId, body);
+    // Accept branchId in preferences update
+    const updateData = { ...body };
+    if (body.branchId) {
+      updateData.branchId = body.branchId;
+    }
+    return this.userService.updateUserPreferences(userId, updateData);
   }
 
   @Delete(':id')

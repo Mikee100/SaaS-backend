@@ -26,6 +26,9 @@ let ProductController = class ProductController {
     }
     async findAll(req) {
         if (req.user.branchId) {
+            console.log('==============================');
+            console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
+            console.log('==============================');
             return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
         }
         return this.productService.findAllByTenant(req.user.tenantId);

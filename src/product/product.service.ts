@@ -25,7 +25,11 @@ function findColumnMatch(headers: string[], candidates: string[]): string | unde
 
 @Injectable()
 export class ProductService {
+  // Use console.log for maximum visibility
   async findAllByBranch(branchId: string, tenantId: string) {
+  console.log('------------------------------');
+  console.log('[ProductService] Filtering products by branchId:', branchId, 'tenantId:', tenantId);
+  console.log('------------------------------');
     return this.prisma.product.findMany({
       where: { branchId, tenantId },
       orderBy: { createdAt: 'desc' },

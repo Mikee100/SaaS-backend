@@ -122,6 +122,7 @@ export declare class UserController {
         email: any;
         name: any;
         tenantId: any;
+        branchId: string | null;
         roles: any;
         permissions: string[];
     }>;
@@ -297,6 +298,7 @@ export declare class UserController {
         notificationPreferences?: any;
         language?: string;
         region?: string;
+        branchId?: string;
     }): Promise<{
         id: string;
         email: string;
