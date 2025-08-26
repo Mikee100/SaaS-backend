@@ -13,11 +13,12 @@ export declare class ProductService {
         description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
-        updatedAt: Date;
         sku: string;
+        cost: number;
         stock: number;
         tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
         branchId: string | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
@@ -26,11 +27,12 @@ export declare class ProductService {
         description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
-        updatedAt: Date;
         sku: string;
+        cost: number;
         stock: number;
         tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
         branchId: string | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

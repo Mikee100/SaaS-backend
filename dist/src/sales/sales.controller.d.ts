@@ -13,20 +13,15 @@ export declare class SalesController {
         paymentType: string;
         customerName: string | null;
         customerPhone: string | null;
-        cashier: string | null;
+        cashier: any;
         mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            mpesaReceipt: string | null;
-            message: string | null;
+            phoneNumber: any;
+            amount: any;
+            status: any;
+            mpesaReceipt: any;
+            message: any;
         } | null;
-        items: {
-            productId: string;
-            name: string;
-            price: number;
-            quantity: number;
-        }[];
+        items: any;
     }[]>;
     getAnalytics(req: any): Promise<{
         totalSales: number;
@@ -58,11 +53,12 @@ export declare class SalesController {
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            updatedAt: Date;
             sku: string;
+            cost: number;
             stock: number;
             tenantId: string;
+            createdAt: Date;
+            updatedAt: Date;
             branchId: string | null;
         }[];
     }>;
@@ -73,19 +69,14 @@ export declare class SalesController {
         paymentType: string;
         customerName: string | null;
         customerPhone: string | null;
-        cashier: string | null;
+        cashier: any;
         mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            mpesaReceipt: string | null;
-            message: string | null;
+            phoneNumber: any;
+            amount: any;
+            status: any;
+            mpesaReceipt: any;
+            message: any;
         } | null;
-        items: {
-            productId: string;
-            name: string;
-            price: number;
-            quantity: number;
-        }[];
+        items: any;
     }>;
 }

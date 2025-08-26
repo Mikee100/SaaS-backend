@@ -9,9 +9,10 @@ export declare class AuthService {
     validateUser(email: string, password: string): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         email: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;

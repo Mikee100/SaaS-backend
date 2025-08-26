@@ -5,9 +5,10 @@ export declare class UserController {
     createUser(body: any, req: any): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -23,6 +24,9 @@ export declare class UserController {
                 id: string;
                 name: string;
                 description: string | null;
+                tenantId: string | null;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
@@ -33,9 +37,10 @@ export declare class UserController {
     } & {
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -51,13 +56,14 @@ export declare class UserController {
     };
     getMe(req: any): Promise<{
         permissions: {
-            key: string;
+            key: any;
         }[];
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -76,27 +82,13 @@ export declare class UserController {
             key: string;
             note?: string;
         }[];
-    }, req: any): Promise<({
-        permissions: ({
-            permission: {
-                id: string;
-                description: string | null;
-                key: string;
-            };
-        } & {
-            id: string;
-            permissionId: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date | null;
-            note: string | null;
-        })[];
-    } & {
+    }, req: any): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -105,21 +97,15 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-    }) | null>;
-    getUserPermissions(id: string, req: any): Promise<({
-        permission: {
-            id: string;
-            description: string | null;
-            key: string;
-        };
-    } & {
+    } | null>;
+    getUserPermissions(id: string, req: any): Promise<{
         id: string;
-        permissionId: string;
+        tenantId: string;
+        permission: string;
         userId: string;
         grantedBy: string | null;
-        grantedAt: Date | null;
-        note: string | null;
-    })[]>;
+        grantedAt: Date;
+    }[]>;
     updatePreferences(req: any, body: {
         notificationPreferences?: any;
         language?: string;
@@ -127,9 +113,10 @@ export declare class UserController {
     }): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;

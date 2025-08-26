@@ -11,18 +11,28 @@ export declare class MpesaController {
     mpesaWebhook(body: any, res: Response): Promise<Response<any, Record<string, any>>>;
     getByCheckoutId(checkoutRequestId: string): Promise<{
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
-        mpesaReceipt: string | null;
         merchantRequestId: string | null;
-        checkoutRequestId: string | null;
+        checkoutRequestID: string | null;
+        mpesaReceipt: string | null;
         responseCode: string | null;
         responseDesc: string | null;
         message: string | null;
+        saleId: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
+        transactionId: string | null;
+        transactionType: string | null;
+        transactionTime: Date | null;
+        businessShortCode: string | null;
+        billRefNumber: string | null;
+        invoiceNumber: string | null;
+        orgAccountBalance: string | null;
+        thirdPartyTransID: string | null;
     } | null>;
 }

@@ -15,26 +15,29 @@ export declare class InventoryService {
             description: string | null;
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            updatedAt: Date;
             sku: string;
+            cost: number;
             stock: number;
             tenantId: string;
+            createdAt: Date;
+            updatedAt: Date;
             branchId: string | null;
         };
     } & {
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
+        branchId: string | null;
         productId: string;
         quantity: number;
     })[]>;
     createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<{
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
+        branchId: string | null;
         productId: string;
         quantity: number;
     }>;

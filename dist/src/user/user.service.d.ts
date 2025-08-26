@@ -13,9 +13,10 @@ export declare class UserService {
     }, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -28,9 +29,10 @@ export declare class UserService {
     findByEmail(email: string): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -45,6 +47,9 @@ export declare class UserService {
             id: string;
             name: string;
             description: string | null;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
@@ -58,6 +63,9 @@ export declare class UserService {
                 id: string;
                 name: string;
                 description: string | null;
+                tenantId: string | null;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
@@ -68,9 +76,10 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -87,27 +96,13 @@ export declare class UserService {
     updateUserPermissions(userId: string, permissions: Array<{
         key: string;
         note?: string;
-    }>, grantedBy?: string, ip?: string): Promise<({
-        permissions: ({
-            permission: {
-                id: string;
-                description: string | null;
-                key: string;
-            };
-        } & {
-            id: string;
-            permissionId: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date | null;
-            note: string | null;
-        })[];
-    } & {
+    }>, grantedBy?: string, ip?: string): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -116,28 +111,23 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-    }) | null>;
+    } | null>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
-    getUserPermissions(userId: string): Promise<({
-        permission: {
-            id: string;
-            description: string | null;
-            key: string;
-        };
-    } & {
+    getUserPermissions(userId: string): Promise<{
         id: string;
-        permissionId: string;
+        tenantId: string;
+        permission: string;
         userId: string;
         grantedBy: string | null;
-        grantedAt: Date | null;
-        note: string | null;
-    })[]>;
+        grantedAt: Date;
+    }[]>;
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -154,9 +144,10 @@ export declare class UserService {
     }): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;
@@ -169,9 +160,10 @@ export declare class UserService {
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
         name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        branchId: string | null;
         password: string;
         email: string;
         isSuperadmin: boolean;

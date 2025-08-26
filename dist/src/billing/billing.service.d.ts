@@ -4,12 +4,12 @@ export declare class BillingService {
     constructor(prisma: PrismaService);
     getPlans(): Promise<{
         id: string;
+        stripePriceId: string | null;
         name: string;
-        description: string | null;
+        description: string;
         price: number;
-        currency: string;
         interval: string;
-        features: import("@prisma/client/runtime/library").JsonValue | null;
+        isActive: boolean;
         maxUsers: number | null;
         maxProducts: number | null;
         maxSalesPerMonth: number | null;
@@ -28,9 +28,6 @@ export declare class BillingService {
         auditLogs: boolean;
         backupRestore: boolean;
         customIntegrations: boolean;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }[] | {
         id: string;
         name: string;
@@ -62,12 +59,12 @@ export declare class BillingService {
         status: string;
         plan: {
             id: string;
+            stripePriceId: string | null;
             name: string;
-            description: string | null;
+            description: string;
             price: number;
-            currency: string;
             interval: string;
-            features: import("@prisma/client/runtime/library").JsonValue | null;
+            isActive: boolean;
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
@@ -86,9 +83,6 @@ export declare class BillingService {
             auditLogs: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
         };
         startDate: Date;
         endDate: Date;
@@ -98,14 +92,14 @@ export declare class BillingService {
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{
-        maxUsers: number | null;
-        maxProducts: number | null;
-        maxSalesPerMonth: number | null;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
+        maxUsers: any;
+        maxProducts: any;
+        maxSalesPerMonth: any;
+        analyticsEnabled: any;
+        advancedReports: any;
+        prioritySupport: any;
+        customBranding: any;
+        apiAccess: any;
     }>;
     checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{
         allowed: boolean;
@@ -113,17 +107,15 @@ export declare class BillingService {
         limit: number;
     }>;
     getInvoices(tenantId: string): Promise<{
+        number: string;
         id: string;
-        description: string | null;
-        currency: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         amount: number;
         status: string;
-        subscriptionId: string | null;
-        dueDate: Date;
+        dueDate: Date | null;
         paidAt: Date | null;
-        stripeInvoiceId: string | null;
+        subscriptionId: string | null;
     }[]>;
 }

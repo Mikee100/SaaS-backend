@@ -6,9 +6,10 @@ export declare class AuditLogController {
         user: {
             id: string;
             name: string;
+            tenantId: string | null;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string | null;
+            branchId: string | null;
             password: string;
             email: string;
             isSuperadmin: boolean;

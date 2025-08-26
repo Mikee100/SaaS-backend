@@ -13,19 +13,29 @@ export declare class MpesaService {
         saleData?: any;
     }): Promise<{
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
-        mpesaReceipt: string | null;
         merchantRequestId: string | null;
-        checkoutRequestId: string | null;
+        checkoutRequestID: string | null;
+        mpesaReceipt: string | null;
         responseCode: string | null;
         responseDesc: string | null;
         message: string | null;
+        saleId: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
+        transactionId: string | null;
+        transactionType: string | null;
+        transactionTime: Date | null;
+        businessShortCode: string | null;
+        billRefNumber: string | null;
+        invoiceNumber: string | null;
+        orgAccountBalance: string | null;
+        thirdPartyTransID: string | null;
     }>;
     updateTransaction(checkoutRequestId: string, update: Partial<{
         status: string;
