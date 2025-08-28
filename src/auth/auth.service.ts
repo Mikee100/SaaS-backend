@@ -23,37 +23,69 @@ export class AuthService {
   }
 
   async login(email: string, password: string, ip?: string) {
-    const user = await this.userService.findByEmail(email);
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      if (this.auditLogService) {
-        await this.auditLogService.log(null, 'login_failed', { email }, ip);
+    try {
+      // 1. Find user by email with minimal data
+      const user = await this.userService.findByEmail(email);
+
+  // ...existing code...
+      
+      // 2. Check if user exists and password is correct
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        if (this.auditLogService) {
+          await this.auditLogService.log(null, 'login_failed', { email }, ip);
+        }
+        throw new UnauthorizedException('Invalid credentials');
       }
-      throw new UnauthorizedException('Invalid credentials');
-    }
 
-    const userRoles = await this.userService.getUserRoles(user.id);
-    if (userRoles.length === 0) {
-      throw new UnauthorizedException('User has no assigned roles or tenant.');
-    }
 
-    const payload = {
-      email: user.email,
-      sub: user.id,
-      roles: userRoles.map(ur => ur.role.name),
-      tenantId: userRoles[0].tenantId, // Assuming user belongs to one tenant for now
-    };
-
-    if (this.auditLogService) {
-      await this.auditLogService.log(user.id, 'login_success', { email: user.email }, ip);
-    }
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
+      // 3. Get user's roles and tenant from user.userRoles
+      const userRoles = user.userRoles || [];
+      let tenantId: string | null = null;
+      if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
+        tenantId = (userRoles[0] as any).tenantId;
+      }
+      if (!tenantId) {
+        throw new UnauthorizedException('No tenant assigned to this user. Please contact support.');
+      }
+      // 4. Prepare JWT payload
+      const payload = {
+        sub: user.id,
         email: user.email,
         name: user.name,
-      },
-    };
+        tenantId,
+        branchId: user.branchId || null,
+        roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+      };
+
+      // 5. Generate JWT token
+      const accessToken = this.jwtService.sign(payload);
+
+      // 6. Log successful login
+      if (this.auditLogService) {
+        await this.auditLogService.log(
+          user.id,
+          'login_success',
+          { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId },
+          ip
+        );
+      }
+
+      // 7. Return token and basic user info (without sensitive data)
+      return {
+        access_token: accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          tenantId: payload.tenantId,
+          branchId: payload.branchId,
+          roles: payload.roles
+        }
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   }
 
   async forgotPassword(email: string) {
@@ -75,8 +107,8 @@ export class AuthService {
 
     // TODO: Send email with reset link
     // For now, just log the token (in production, send email)
-    console.log(`Password reset token for ${email}: ${resetToken}`);
-    console.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+  // ...existing code...
+  // ...existing code...
 
     return { message: 'If an account with that email exists, a password reset link has been sent.' };
   }

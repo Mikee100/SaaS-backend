@@ -82,14 +82,15 @@ export class MpesaController {
       // Save transaction as pending
       const userId = (req as any).user?.userId || undefined;
       await this.mpesaService.createTransaction({
-        userId,
-        phoneNumber,
-        amount,
-        status: 'pending',
-        merchantRequestId: stkResponse.data.MerchantRequestID,
-        checkoutRequestId: stkResponse.data.CheckoutRequestID,
-        message: stkResponse.data.ResponseDescription,
-        saleData: saleData || null, // Store sale/cart data if provided
+  userId,
+  phoneNumber,
+  amount,
+  status: 'pending',
+  merchantRequestID: stkResponse.data.MerchantRequestID,
+  checkoutRequestID: stkResponse.data.CheckoutRequestID,
+  message: stkResponse.data.ResponseDescription,
+  saleData: saleData || null, // Store sale/cart data if provided
+  tenantId: body.tenantId || '',
       });
       return res.status(200).json({
         success: true,
@@ -115,7 +116,7 @@ export class MpesaController {
 
   @Post('webhook')
   async mpesaWebhook(@Body() body: any, @Res() res: Response) {
-    console.log('M-Pesa Webhook received:', JSON.stringify(body, null, 2));
+  // ...existing code...
     // Parse webhook and update transaction
     try {
       const result = body.Body?.stkCallback;
@@ -140,7 +141,7 @@ export class MpesaController {
       // Create Sale if payment is successful and no Sale exists
       if (status === 'success') {
         const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-          where: { checkoutRequestId },
+          where: { checkoutRequestID: checkoutRequestId },
           include: { sale: true }
         }) as any;
         if (mpesaTx && !mpesaTx.sale && mpesaTx.saleData) {
@@ -174,6 +175,6 @@ export class MpesaController {
 
   @Get('by-checkout-id/:checkoutRequestId')
   async getByCheckoutId(@Param('checkoutRequestId') checkoutRequestId: string) {
-    return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestId } });
+  return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestID: checkoutRequestId } });
   }
 } 

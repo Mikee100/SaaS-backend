@@ -16,12 +16,17 @@ const user_module_1 = require("./user/user.module");
 const product_module_1 = require("./product/product.module");
 const sales_module_1 = require("./sales/sales.module");
 const tenant_module_1 = require("./tenant/tenant.module");
+const tenant_configuration_module_1 = require("./tenant/tenant-configuration.module");
 const inventory_module_1 = require("./inventory/inventory.module");
 const mpesa_module_1 = require("./mpesa.module");
 const realtime_module_1 = require("./realtime.module");
 const permission_module_1 = require("./permission/permission.module");
 const billing_module_1 = require("./billing/billing.module");
 const analytics_module_1 = require("./analytics/analytics.module");
+const configuration_service_1 = require("./config/configuration.service");
+const branch_module_1 = require("./branch/branch.module");
+const usage_module_1 = require("./usage.module");
+const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-stats.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -34,15 +39,19 @@ exports.AppModule = AppModule = __decorate([
             product_module_1.ProductModule,
             sales_module_1.SalesModule,
             tenant_module_1.TenantModule,
+            tenant_configuration_module_1.TenantConfigurationModule,
             inventory_module_1.InventoryModule,
             mpesa_module_1.MpesaModule,
             realtime_module_1.RealtimeModule,
             permission_module_1.PermissionModule,
             billing_module_1.BillingModule,
             analytics_module_1.AnalyticsModule,
+            branch_module_1.BranchModule,
+            usage_module_1.UsageModule,
+            admin_tenant_stats_module_1.AdminTenantStatsModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        providers: [app_service_1.AppService, configuration_service_1.ConfigurationService],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

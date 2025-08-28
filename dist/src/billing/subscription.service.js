@@ -25,6 +25,33 @@ let SubscriptionService = class SubscriptionService {
             console.log('Creating subscription with data:', data);
             const plan = await this.prisma.plan.findUnique({
                 where: { id: data.planId },
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    price: true,
+                    interval: true,
+                    isActive: true,
+                    maxUsers: true,
+                    maxProducts: true,
+                    maxSalesPerMonth: true,
+                    stripePriceId: true,
+                    analyticsEnabled: true,
+                    advancedReports: true,
+                    prioritySupport: true,
+                    customBranding: true,
+                    apiAccess: true,
+                    bulkOperations: true,
+                    dataExport: true,
+                    customFields: true,
+                    advancedSecurity: true,
+                    whiteLabel: true,
+                    dedicatedSupport: true,
+                    ssoEnabled: true,
+                    auditLogs: true,
+                    backupRestore: true,
+                    customIntegrations: true
+                }
             });
             if (!plan) {
                 console.error('Plan not found:', data.planId);
@@ -34,12 +61,13 @@ let SubscriptionService = class SubscriptionService {
             const existingSubscription = await this.prisma.subscription.findFirst({
                 where: {
                     tenantId: data.tenantId,
-                    status: 'active',
+                },
+                include: {
+                    plan: true,
                 },
             });
             if (existingSubscription) {
-                console.error('Tenant already has active subscription:', data.tenantId);
-                throw new common_1.BadRequestException('Tenant already has an active subscription');
+                return await this.handleUpgrade(existingSubscription, plan);
             }
             const now = new Date();
             const endDate = this.calculateEndDate(plan.interval);
@@ -51,6 +79,11 @@ let SubscriptionService = class SubscriptionService {
                     status: 'active',
                     currentPeriodStart: now,
                     currentPeriodEnd: endDate,
+                    stripeSubscriptionId: 'manual_' + Date.now(),
+                    stripeCustomerId: 'cust_' + data.tenantId,
+                    stripePriceId: plan.stripePriceId ?? '',
+                    stripeCurrentPeriodEnd: endDate,
+                    userId: 'system',
                 },
                 include: {
                     plan: true,
@@ -105,7 +138,7 @@ let SubscriptionService = class SubscriptionService {
             where: { id: subscription.id },
             data: {
                 status: 'cancelled',
-                cancelledAt: new Date(),
+                canceledAt: new Date(),
             },
         });
     }
@@ -119,18 +152,20 @@ let SubscriptionService = class SubscriptionService {
                     take: 10,
                 },
             },
-            orderBy: { createdAt: 'desc' },
         });
     }
-    async createInvoice(subscriptionId, amount) {
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    async createInvoice(subscriptionId, amount, tenantId) {
+        const invoiceNumber = 'INV-' + Date.now();
         return await this.prisma.invoice.create({
             data: {
+                number: invoiceNumber,
                 subscriptionId,
+                tenantId,
                 amount,
-                status: 'pending',
+                status: 'open',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                invoiceNumber,
+                createdAt: new Date(),
+                updatedAt: new Date(),
             },
         });
     }
@@ -164,14 +199,13 @@ let SubscriptionService = class SubscriptionService {
             where: { id: currentSubscription.id },
             data: {
                 planId: newPlan.id,
-                updatedAt: new Date(),
             },
             include: {
                 plan: true,
             },
         });
         if (netCharge > 0) {
-            await this.createInvoice(currentSubscription.id, netCharge);
+            await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
         }
         return {
             subscription: updatedSubscription,

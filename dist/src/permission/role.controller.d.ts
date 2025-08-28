@@ -2,22 +2,16 @@ import { PermissionService } from './permission.service';
 export declare class RoleController {
     private readonly permissionService;
     constructor(permissionService: PermissionService);
+    createRole(body: any): Promise<void>;
     getRoles(): Promise<{
         id: string;
         name: string;
-        description: string | null;
-        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string | null;
+        description: string | null;
     }[]>;
-    createRole(body: any): Promise<{
-        id: string;
-        name: string;
-        description: string | null;
-        tenantId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
+    updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({
         permission: {
             id: string;

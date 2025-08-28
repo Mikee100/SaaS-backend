@@ -9,14 +9,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantModule = void 0;
 const common_1 = require("@nestjs/common");
 const tenant_service_1 = require("./tenant.service");
+const logo_service_1 = require("./logo.service");
 const tenant_controller_1 = require("./tenant.controller");
 const prisma_service_1 = require("../prisma.service");
+const user_module_1 = require("../user/user.module");
 let TenantModule = class TenantModule {
 };
 exports.TenantModule = TenantModule;
 exports.TenantModule = TenantModule = __decorate([
     (0, common_1.Module)({
-        providers: [tenant_service_1.TenantService, prisma_service_1.PrismaService],
+        imports: [user_module_1.UserModule],
+        providers: [tenant_service_1.TenantService, prisma_service_1.PrismaService, logo_service_1.LogoService],
         controllers: [tenant_controller_1.TenantController]
     })
 ], TenantModule);

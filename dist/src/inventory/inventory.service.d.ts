@@ -10,36 +10,36 @@ export declare class InventoryService {
     constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway);
     findAllByTenant(tenantId: string): Promise<({
         product: {
-            id: string;
-            name: string;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            sku: string;
-            cost: number;
-            stock: number;
+            id: string;
             tenantId: string;
+            branchId: string | null;
             createdAt: Date;
             updatedAt: Date;
-            branchId: string | null;
+            name: string;
+            sku: string;
+            price: number;
+            cost: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
-        branchId: string | null;
         productId: string;
         quantity: number;
+        tenantId: string;
+        branchId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
-        branchId: string | null;
         productId: string;
         quantity: number;
+        tenantId: string;
+        branchId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteInventory(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

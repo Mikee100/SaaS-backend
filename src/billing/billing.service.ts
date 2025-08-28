@@ -1,16 +1,95 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class BillingService {
   constructor(private readonly prisma: PrismaService) {}
+  // ADMIN: Get all tenants and their subscriptions
+  async getAllTenantSubscriptions() {
+    // Get all tenants
+    const tenants = await this.prisma.tenant.findMany({
+      include: {
+        subscriptions: {
+          include: { plan: true },
+          orderBy: { currentPeriodStart: 'desc' },
+        },
+      },
+    });
+
+    // Map tenants to subscription info with more billing details
+    return Promise.all(tenants.map(async tenant => {
+  // Get the most recent subscription, even if canceled or expired
+  const sub = tenant.subscriptions?.[0];
+      // Get last invoice
+      const lastInvoice = sub ? await this.prisma.invoice.findFirst({
+        where: { subscriptionId: sub.id },
+        orderBy: { createdAt: 'desc' },
+      }) : null;
+      // Get last payment
+      const lastPayment = await this.prisma.payment.findFirst({
+        where: { tenantId: tenant.id },
+        orderBy: { createdAt: 'desc' },
+      });
+      return {
+        tenantId: tenant.id,
+        clientName: tenant.name,
+        clientEmail: tenant.contactEmail,
+        plan: sub?.plan ? {
+          name: sub.plan.name,
+          price: sub.plan.price,
+          interval: sub.plan.interval,
+          features: {
+            maxUsers: sub.plan.maxUsers,
+            maxProducts: sub.plan.maxProducts,
+            maxSalesPerMonth: sub.plan.maxSalesPerMonth,
+            analyticsEnabled: sub.plan.analyticsEnabled,
+            advancedReports: sub.plan.advancedReports,
+            prioritySupport: sub.plan.prioritySupport,
+            customBranding: sub.plan.customBranding,
+            apiAccess: sub.plan.apiAccess,
+          },
+        } : null,
+        status: sub?.status || 'none',
+        startDate: sub?.currentPeriodStart,
+        currentPeriodEnd: sub?.currentPeriodEnd,
+        cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
+        lastInvoice: lastInvoice ? {
+          id: lastInvoice.id,
+          amount: lastInvoice.amount,
+          status: lastInvoice.status,
+          dueDate: lastInvoice.dueDate,
+          paidAt: lastInvoice.paidAt,
+        } : null,
+        lastPayment: lastPayment ? {
+          id: lastPayment.id,
+          amount: lastPayment.amount,
+          currency: lastPayment.currency,
+          status: lastPayment.status,
+          completedAt: lastPayment.completedAt,
+        } : null,
+      };
+    }));
+  }
 
   async getPlans() {
     try {
-      return await this.prisma.plan.findMany({
+      const plans = await this.prisma.plan.findMany({
         where: { isActive: true },
         orderBy: { price: 'asc' },
+        include: {
+          features: {
+            include: {
+              feature: true
+            }
+          }
+        }
       });
+      // Map features to array of feature names for frontend
+      return plans.map(plan => ({
+        ...plan,
+        features: plan.features?.filter(f => f.isEnabled).map(f => f.feature.featureName) || []
+      }));
     } catch (error) {
       console.error('Error fetching plans:', error);
       // Return default plans if database is not ready
@@ -23,11 +102,7 @@ export class BillingService {
           maxUsers: 5,
           maxProducts: 50,
           maxSalesPerMonth: 100,
-          analyticsEnabled: false,
-          advancedReports: false,
-          prioritySupport: false,
-          customBranding: false,
-          apiAccess: false,
+          features: ['Basic Usage'],
         },
         {
           id: 'pro-plan',
@@ -37,25 +112,17 @@ export class BillingService {
           maxUsers: 25,
           maxProducts: 500,
           maxSalesPerMonth: 1000,
-          analyticsEnabled: true,
-          advancedReports: true,
-          prioritySupport: false,
-          customBranding: false,
-          apiAccess: false,
+          features: ['Advanced Analytics', 'Data Export'],
         },
         {
           id: 'enterprise-plan',
           name: 'Enterprise',
           price: 99,
           interval: 'monthly',
-          maxUsers: 100,
-          maxProducts: 2000,
-          maxSalesPerMonth: 5000,
-          analyticsEnabled: true,
-          advancedReports: true,
-          prioritySupport: true,
-          customBranding: true,
-          apiAccess: true,
+          maxUsers: null,
+          maxProducts: null,
+          maxSalesPerMonth: null,
+          features: ['All Features'],
         },
       ];
     }
@@ -66,37 +133,38 @@ export class BillingService {
       const subscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId,
-          status: 'active',
+          status: { in: ['active', 'past_due', 'trialing'] },
         },
         include: {
           plan: true,
         },
+        orderBy: {
+          currentPeriodStart: 'desc',
+        },
       });
 
-      if (!subscription) {
+      if (!subscription || !subscription.plan) {
         return {
-          plan: { name: 'Basic', price: 0 },
+          plan: { name: 'Basic', price: 0, id: 'free-tier' },
           status: 'none',
           currentPeriodStart: null,
           currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
         };
       }
 
       return {
-        id: subscription.id,
-        status: subscription.status,
+        ...subscription,
         plan: subscription.plan,
-        startDate: subscription.currentPeriodStart,
-        endDate: subscription.currentPeriodEnd,
-        cancelledAt: subscription.cancelledAt,
       };
     } catch (error) {
-      console.error('Error fetching subscription:', error);
+      console.error('Error getting current subscription:', error);
       return {
-        plan: { name: 'Basic', price: 0 },
+        plan: { name: 'Basic', price: 0, id: 'free-tier' },
         status: 'none',
         currentPeriodStart: null,
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
       };
     }
   }
@@ -104,17 +172,22 @@ export class BillingService {
   async hasFeature(tenantId: string, feature: string): Promise<boolean> {
     const subscription = await this.prisma.subscription.findFirst({
       where: { tenantId },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
+      include: { 
+        plan: true 
+      },
+      orderBy: { 
+        currentPeriodStart: 'desc' 
+      },
     });
 
-    if (!subscription) {
+    if (!subscription || !subscription.plan) {
       return false;
     }
 
     const plan = subscription.plan;
     
     switch (feature) {
+      // Core features
       case 'analytics':
         return plan.analyticsEnabled;
       case 'advanced_reports':
@@ -125,42 +198,108 @@ export class BillingService {
         return plan.customBranding;
       case 'api_access':
         return plan.apiAccess;
+      
+      // New granular features
+      case 'bulk_operations':
+        return plan.bulkOperations || false;
+      case 'data_export':
+        return plan.dataExport || false;
+      case 'custom_fields':
+        return plan.customFields || false;
+      case 'advanced_security':
+        return plan.advancedSecurity || false;
+      case 'white_label':
+        return plan.whiteLabel || false;
+      case 'dedicated_support':
+        return plan.dedicatedSupport || false;
+      case 'sso_enabled':
+        return plan.ssoEnabled || false;
+      case 'audit_logs':
+        return plan.auditLogs || false;
+      case 'backup_restore':
+        return plan.backupRestore || false;
+      case 'custom_integrations':
+        return plan.customIntegrations || false;
+      
+      // Enterprise-specific features
+      case 'enterprise_branding':
+        return plan.customBranding && plan.whiteLabel;
+      case 'full_api_access':
+        return plan.apiAccess && plan.customIntegrations;
+      case 'advanced_analytics':
+        return plan.analyticsEnabled && plan.advancedReports;
+      case 'security_audit':
+        return plan.advancedSecurity && plan.auditLogs;
+      
       default:
         return false;
     }
   }
 
   async getPlanLimits(tenantId: string) {
-    const subscription = await this.prisma.subscription.findFirst({
-      where: { tenantId },
-      include: { plan: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    try {
+  // ...existing code...
+      
+      const subscription = await this.prisma.subscription.findFirst({
+        where: { tenantId },
+        include: { 
+          plan: true 
+        },
+        orderBy: { 
+          currentPeriodStart: 'desc' 
+        },
+      });
 
-    if (!subscription) {
+      if (!subscription || !subscription.plan) {
+        return {
+          maxUsers: 3,
+          maxProducts: 100,
+          maxSalesPerMonth: 200,
+          analyticsEnabled: false,
+          advancedReports: false,
+          prioritySupport: false,
+          customBranding: false,
+          apiAccess: false,
+          // New granular features
+          bulkOperations: false,
+          dataExport: false,
+          customFields: false,
+          advancedSecurity: false,
+          whiteLabel: false,
+          dedicatedSupport: false,
+          ssoEnabled: false,
+          auditLogs: false,
+          backupRestore: false,
+          customIntegrations: false,
+        };
+      }
+
+      const plan = subscription.plan;
+      
       return {
-        maxUsers: 3,
-        maxProducts: 100,
-        maxSalesPerMonth: 200,
-        analyticsEnabled: false,
-        advancedReports: false,
-        prioritySupport: false,
-        customBranding: false,
-        apiAccess: false,
+        maxUsers: plan.maxUsers,
+        maxProducts: plan.maxProducts,
+        maxSalesPerMonth: plan.maxSalesPerMonth,
+        analyticsEnabled: plan.analyticsEnabled,
+        advancedReports: plan.advancedReports,
+        prioritySupport: plan.prioritySupport,
+        customBranding: plan.customBranding,
+        apiAccess: plan.apiAccess,
+        // New granular features
+        bulkOperations: plan.bulkOperations || false,
+        dataExport: plan.dataExport || false,
+        customFields: plan.customFields || false,
+        advancedSecurity: plan.advancedSecurity || false,
+        whiteLabel: plan.whiteLabel || false,
+        dedicatedSupport: plan.dedicatedSupport || false,
+        ssoEnabled: plan.ssoEnabled || false,
+        auditLogs: plan.auditLogs || false,
+        backupRestore: plan.backupRestore || false,
+        customIntegrations: plan.customIntegrations || false,
       };
+    } catch (error) {
+      throw error;
     }
-
-    const plan = subscription.plan;
-    return {
-      maxUsers: plan.maxUsers,
-      maxProducts: plan.maxProducts,
-      maxSalesPerMonth: plan.maxSalesPerMonth,
-      analyticsEnabled: plan.analyticsEnabled,
-      advancedReports: plan.advancedReports,
-      prioritySupport: plan.prioritySupport,
-      customBranding: plan.customBranding,
-      apiAccess: plan.apiAccess,
-    };
   }
 
   async checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{ allowed: boolean; current: number; limit: number }> {
@@ -198,30 +337,129 @@ export class BillingService {
     };
   }
 
+  async getEnterpriseFeatures(tenantId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      include: { 
+        plan: true 
+      },
+      orderBy: { 
+        currentPeriodStart: 'desc' 
+      },
+    });
+
+    if (!subscription || !subscription.plan || subscription.plan.name !== 'Enterprise') {
+      return null;
+    }
+
+    return {
+      customBranding: {
+        enabled: subscription.plan.customBranding,
+        features: ['logo', 'colors', 'domain', 'white_label']
+      },
+      apiAccess: {
+        enabled: subscription.plan.apiAccess,
+        features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+      },
+      security: {
+        enabled: subscription.plan.advancedSecurity,
+        features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+      },
+      support: {
+        enabled: subscription.plan.dedicatedSupport,
+        features: ['24_7_support', 'dedicated_manager', 'priority_queue']
+      }
+    };
+  }
+
   async getInvoices(tenantId: string) {
     try {
-      const subscription = await this.prisma.subscription.findFirst({
+      const invoices = await this.prisma.invoice.findMany({
         where: {
           tenantId,
-          status: 'active',
-        },
-      });
-
-      if (!subscription) {
-        return [];
-      }
-
-      return await this.prisma.invoice.findMany({
-        where: {
-          subscriptionId: subscription.id,
+          status: { in: ['paid', 'open', 'void'] },
         },
         orderBy: {
           createdAt: 'desc',
         },
+        include: {
+          subscription: {
+            include: {
+              plan: true,
+            },
+          },
+        },
       });
+
+      return invoices.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.number,
+        amount: invoice.amount,
+        status: invoice.status,
+        dueDate: invoice.dueDate,
+        paidAt: invoice.paidAt,
+        createdAt: invoice.createdAt,
+        subscription: invoice.subscriptionId ? {
+          id: invoice.subscriptionId,
+          plan: invoice.subscription?.plan ? {
+            name: invoice.subscription.plan.name,
+            price: invoice.subscription.plan.price,
+          } : null,
+        } : null,
+      }));
     } catch (error) {
       console.error('Error fetching invoices:', error);
-      return [];
+      throw error;
     }
   }
-} 
+
+  async getPlanFeatures(planId: string) {
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    // Return all plan features directly from the plan
+    return {
+      analyticsEnabled: plan.analyticsEnabled,
+      advancedReports: plan.advancedReports,
+      prioritySupport: plan.prioritySupport,
+      customBranding: plan.customBranding,
+      apiAccess: plan.apiAccess,
+      bulkOperations: plan.bulkOperations,
+      dataExport: plan.dataExport,
+      customFields: plan.customFields,
+      advancedSecurity: plan.advancedSecurity,
+      whiteLabel: plan.whiteLabel,
+      dedicatedSupport: plan.dedicatedSupport,
+      ssoEnabled: plan.ssoEnabled,
+      auditLogs: plan.auditLogs,
+      backupRestore: plan.backupRestore,
+      customIntegrations: plan.customIntegrations,
+    };
+  }
+
+  async getSubscriptionFeatures(subscriptionId: string) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: {
+        plan: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    // Return features directly from the plan
+    return {
+      customBranding: subscription.plan.customBranding,
+      apiAccess: subscription.plan.apiAccess,
+      advancedSecurity: subscription.plan.advancedSecurity,
+      dedicatedSupport: subscription.plan.dedicatedSupport,
+    };
+  }
+}

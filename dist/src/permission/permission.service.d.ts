@@ -14,20 +14,14 @@ export declare class PermissionService {
     }>;
     getAllRoles(): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         description: string | null;
         tenantId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }[]>;
-    createRole(name: string, description?: string): Promise<{
-        id: string;
-        name: string;
-        description: string | null;
-        tenantId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }>;
+    updateRole(name: string, description?: string): Promise<void>;
+    createRole(name: string, description?: string): Promise<void>;
     getRolePermissions(roleId: string): Promise<({
         permission: {
             id: string;

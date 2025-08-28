@@ -18,7 +18,31 @@ let TenantService = class TenantService {
         this.prisma = prisma;
     }
     async createTenant(data) {
-        return this.prisma.tenant.create({ data });
+        const allowedFields = [
+            'name', 'businessType', 'contactEmail', 'contactPhone',
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'credits', 'logoUrl', 'loginLogoUrl', 'favicon', 'receiptLogo', 'watermark',
+            'dashboardLogoUrl', 'emailLogoUrl', 'mobileLogoUrl', 'logoSettings',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogsEnabled', 'backupRestore', 'stripeCustomerId'
+        ];
+        const filtered = {};
+        for (const key of allowedFields) {
+            if (data[key] !== undefined)
+                filtered[key] = data[key];
+        }
+        const tenant = await this.prisma.tenant.create({ data: filtered });
+        const tenantConfigurationService = new (require('../config/tenant-configuration.service').TenantConfigurationService)(this.prisma);
+        await tenantConfigurationService.setTenantConfiguration(tenant.id, 'stockThreshold', '10', {
+            description: 'Default stock threshold',
+            category: 'general',
+            isEncrypted: false,
+            isPublic: true,
+        });
+        return tenant;
     }
     async getAllTenants() {
         return this.prisma.tenant.findMany();

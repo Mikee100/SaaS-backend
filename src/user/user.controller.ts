@@ -7,6 +7,19 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
+  @Put(':id/permissions')
+  @Permissions('edit_users')
+  async updateUserPermissions(@Req() req, @Param('id') id: string, @Body() body: { permissions: string[] }) {
+    // Only allow owners to update permissions for users in their tenant
+    const actorUser = await this.userService.findById(req.user.userId);
+    const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
+    if (!isOwner) throw new ForbiddenException('Only owners can update user permissions');
+    // Check target user is in same tenant
+    const targetUser = await this.userService.findById(id);
+    const sameTenant = targetUser && targetUser.tenantId === req.user.tenantId;
+    if (!sameTenant) throw new ForbiddenException('Can only update users in your tenant');
+    return this.userService.updateUserPermissions(id, body.permissions, req.user.tenantId, req.user.userId, req.ip);
+  }
   constructor(private readonly userService: UserService) {}
 
   @Post()
@@ -19,7 +32,16 @@ export class UserController {
   @Get()
   @Permissions('view_users')
   async getUsers(@Query('tenantId') tenantId: string) {
-    return this.userService.findAllByTenant(tenantId);
+    const users = await this.userService.findAllByTenant(tenantId);
+    // For each user, fetch their effective permissions
+    const usersWithPermissions = await Promise.all(users.map(async user => {
+      const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
+      return {
+        ...user,
+        permissions: permissions.map(p => p.name)
+      };
+    }));
+    return usersWithPermissions;
   }
 
   @Get('protected')
@@ -31,10 +53,10 @@ export class UserController {
   async getMe(@Req() req) {
     const user = await this.userService.findByEmail(req.user.email);
     if (!user) throw new NotFoundException('User not found');
-    const permissions = await this.userService.getUserPermissions(user.id);
+  const permissions = await this.userService.getEffectivePermissions(user.id, req.user.tenantId);
     return {
       ...user,
-      permissions: permissions.map(p => ({ key: p.permission.key }))
+      permissions: permissions.map(p => p.name)
     };
   }
 
@@ -45,17 +67,7 @@ export class UserController {
     return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
   }
 
-  @Put(':id/permissions')
-  @Permissions('edit_users')
-  async updatePermissions(@Param('id') id: string, @Body() body: { permissions: { key: string; note?: string }[] }, @Req() req) {
-    return this.userService.updateUserPermissions(id, body.permissions, req.user.userId, req.ip);
-  }
-
-  @Get(':id/permissions')
-  @Permissions('edit_users')
-  async getUserPermissions(@Param('id') id: string, @Req() req) {
-    return this.userService.getUserPermissions(id);
-  }
+  // ...existing code...
 
   @Put('me/preferences')
   async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {

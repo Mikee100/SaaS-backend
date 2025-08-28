@@ -15,13 +15,10 @@ const socket_io_1 = require("socket.io");
 let RealtimeGateway = class RealtimeGateway {
     server;
     afterInit(server) {
-        console.log('WebSocket gateway initialized');
     }
     handleConnection(client) {
-        console.log('Client connected:', client.id);
     }
     handleDisconnect(client) {
-        console.log('Client disconnected:', client.id);
     }
     emitSalesUpdate(data) {
         this.server.emit('salesUpdate', data);

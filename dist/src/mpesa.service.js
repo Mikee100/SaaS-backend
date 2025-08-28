@@ -18,11 +18,13 @@ let MpesaService = class MpesaService {
         this.prisma = prisma;
     }
     async createTransaction(data) {
-        return this.prisma.mpesaTransaction.create({ data });
+        const { userId, tenantId, ...rest } = data;
+        const createData = userId ? { userId, tenantId, ...rest } : { tenantId, ...rest };
+        return this.prisma.mpesaTransaction.create({ data: createData });
     }
     async updateTransaction(checkoutRequestId, update) {
         return this.prisma.mpesaTransaction.updateMany({
-            where: { checkoutRequestId },
+            where: { checkoutRequestID: checkoutRequestId },
             data: update,
         });
     }

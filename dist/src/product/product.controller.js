@@ -25,16 +25,20 @@ let ProductController = class ProductController {
         this.productService = productService;
     }
     async findAll(req) {
-        return this.productService.findAllByTenant(req.user.tenantId);
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
+        return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
     }
     async create(body, req) {
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.productService.createProduct({
             ...body,
             tenantId: req.user.tenantId,
+            branchId,
         }, req.user.userId, req.ip);
     }
     async bulkUpload(file, req) {
-        return this.productService.bulkUpload(file, req.user);
+        const branchId = req.headers['x-branch-id'];
+        return this.productService.bulkUpload(file, { ...req.user, branchId });
     }
     async getBulkUploadProgress(uploadId) {
         return product_service_1.ProductService.getBulkUploadProgress(uploadId);

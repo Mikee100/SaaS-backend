@@ -7,12 +7,18 @@ import { UserModule } from './user/user.module';
 import { ProductModule } from './product/product.module';
 import { SalesModule } from './sales/sales.module';
 import { TenantModule } from './tenant/tenant.module';
+import { TenantConfigurationModule } from './tenant/tenant-configuration.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { MpesaModule } from './mpesa.module';
 import { RealtimeModule } from './realtime.module';
 import { PermissionModule } from './permission/permission.module';
 import { BillingModule } from './billing/billing.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ConfigurationService } from './config/configuration.service';
+import { BranchModule } from './branch/branch.module';
+import { UsageModule } from './usage.module';
+
+import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
 
 @Module({
   imports: [
@@ -22,14 +28,18 @@ import { AnalyticsModule } from './analytics/analytics.module';
     ProductModule,
     SalesModule,
     TenantModule,
+    TenantConfigurationModule,
     InventoryModule,
     MpesaModule,
     RealtimeModule,
     PermissionModule,
     BillingModule,
     AnalyticsModule,
+    BranchModule,
+    UsageModule,
+  AdminTenantStatsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ConfigurationService],
 })
 export class AppModule {}

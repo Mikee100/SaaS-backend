@@ -14,17 +14,20 @@ export class ProductController {
   @Get()
   @Permissions('view_products')
   async findAll(@Req() req) {
-    // Assuming req.user.tenantId is set by your JWT strategy
-    return this.productService.findAllByTenant(req.user.tenantId);
+    // Get selected branchId from user context or request header
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
   }
 
   @Post()
   @Permissions('edit_products')
   async create(@Body() body, @Req() req) {
-    // Attach tenantId from the authenticated user
+    // Attach tenantId and branchId from the authenticated user or request header
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
+      branchId,
     }, req.user.userId, req.ip);
   }
 
@@ -35,8 +38,10 @@ export class ProductController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req: Request
   ) {
-    // Assume vendor info is in req.user (from auth middleware)
-    return this.productService.bulkUpload(file, req.user);
+    // Extract branchId from header or user context
+  const branchId = req.headers['x-branch-id'];
+  // Pass branchId explicitly to service
+  return this.productService.bulkUpload(file, { ...(req.user as any), branchId });
   }
 
   @Get('bulk-upload-progress/:uploadId')

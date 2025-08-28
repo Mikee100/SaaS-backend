@@ -19,15 +19,20 @@ export declare class SalesService {
         paymentType: string;
         customerName: string | null;
         customerPhone: string | null;
-        cashier: any;
-        mpesaTransaction: {
-            phoneNumber: any;
-            amount: any;
-            status: any;
-            mpesaReceipt: any;
-            message: any;
-        } | null;
-        items: any;
+        cashier: string | null;
+        mpesaTransactions: {
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            mpesaReceipt: string | null;
+            message: string | null;
+        }[];
+        items: {
+            productId: string;
+            name: string;
+            price: number;
+            quantity: number;
+        }[];
     }>;
     listSales(tenantId: string): Promise<{
         saleId: string;
@@ -36,15 +41,20 @@ export declare class SalesService {
         paymentType: string;
         customerName: string | null;
         customerPhone: string | null;
-        cashier: any;
-        mpesaTransaction: {
-            phoneNumber: any;
-            amount: any;
-            status: any;
-            mpesaReceipt: any;
-            message: any;
-        } | null;
-        items: any;
+        cashier: string | null;
+        mpesaTransactions: {
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            mpesaReceipt: string | null;
+            message: string | null;
+        }[];
+        items: {
+            productId: string;
+            name: string;
+            price: number;
+            quantity: number;
+        }[];
     }[]>;
     getAnalytics(tenantId: string): Promise<{
         totalSales: number;
@@ -71,18 +81,18 @@ export declare class SalesService {
         customerSegments: never[];
         paymentBreakdown: Record<string, number>;
         lowStock: {
-            id: string;
-            name: string;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            sku: string;
-            cost: number;
-            stock: number;
+            id: string;
             tenantId: string;
+            branchId: string | null;
             createdAt: Date;
             updatedAt: Date;
-            branchId: string | null;
+            name: string;
+            sku: string;
+            price: number;
+            cost: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
     }>;
 }

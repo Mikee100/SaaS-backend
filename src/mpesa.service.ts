@@ -10,17 +10,21 @@ export class MpesaService {
     phoneNumber: string;
     amount: number;
     status: string;
-    merchantRequestId?: string;
-    checkoutRequestId?: string;
+    merchantRequestID?: string;
+    checkoutRequestID?: string;
     message?: string;
     saleData?: any;
+    tenantId: string;
   }) {
-    return this.prisma.mpesaTransaction.create({ data });
+    // Remove userId if undefined (Prisma expects it to be present or omitted)
+    const { userId, tenantId, ...rest } = data;
+    const createData = userId ? { userId, tenantId, ...rest } : { tenantId, ...rest };
+    return this.prisma.mpesaTransaction.create({ data: createData });
   }
 
   async updateTransaction(checkoutRequestId: string, update: Partial<{ status: string; mpesaReceipt: string; responseCode: string; responseDesc: string; message: string; }>) {
     return this.prisma.mpesaTransaction.updateMany({
-      where: { checkoutRequestId },
+      where: { checkoutRequestID: checkoutRequestId },
       data: update,
     });
   }

@@ -13,13 +13,13 @@ export declare class AuditLogService {
     getLogs(limit?: number): Promise<({
         user: {
             id: string;
-            name: string;
-            tenantId: string | null;
             createdAt: Date;
             updatedAt: Date;
+            name: string;
+            tenantId: string | null;
             branchId: string | null;
-            password: string;
             email: string;
+            password: string;
             isSuperadmin: boolean;
             resetPasswordToken: string | null;
             resetPasswordExpires: Date | null;

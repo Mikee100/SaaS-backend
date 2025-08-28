@@ -26,7 +26,6 @@ let RolesGuard = class RolesGuard {
             return true;
         }
         const { user } = context.switchToHttp().getRequest();
-        console.log('RolesGuard req.user:', user);
         if (!user) {
             return false;
         }

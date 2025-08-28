@@ -122,7 +122,7 @@ export class SalesService {
       include: {
         user: true,
         items: { include: { product: true } },
-        mpesaTransaction: true,
+        mpesaTransactions: true,
       },
     });
     
@@ -138,19 +138,19 @@ export class SalesService {
       customerName: sale.customerName,
       customerPhone: sale.customerPhone,
       cashier: sale.user ? sale.user.name : null,
-      mpesaTransaction: sale.mpesaTransaction ? {
-        phoneNumber: sale.mpesaTransaction.phoneNumber,
-        amount: sale.mpesaTransaction.amount,
-        status: sale.mpesaTransaction.status,
-        mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
-        message: sale.mpesaTransaction.message,
-      } : null,
-      items: sale.items.map(item => ({
+      mpesaTransactions: sale.mpesaTransactions?.map(tx => ({
+        phoneNumber: tx.phoneNumber,
+        amount: tx.amount,
+        status: tx.status,
+        mpesaReceipt: tx.mpesaReceipt,
+        message: tx.message,
+      })) || [],
+      items: sale.items?.map(item => ({
         productId: item.productId,
         name: item.product?.name || '',
         price: item.price,
         quantity: item.quantity,
-      })),
+      })) || [],
     };
   }
 
@@ -161,7 +161,7 @@ export class SalesService {
       include: {
         user: true,
         items: { include: { product: true } },
-        mpesaTransaction: true,
+        mpesaTransactions: true,
       },
     });
     return sales.map(sale => ({
@@ -172,19 +172,19 @@ export class SalesService {
       customerName: sale.customerName,
       customerPhone: sale.customerPhone,
       cashier: sale.user ? sale.user.name : null,
-      mpesaTransaction: sale.mpesaTransaction ? {
-        phoneNumber: sale.mpesaTransaction.phoneNumber,
-        amount: sale.mpesaTransaction.amount,
-        status: sale.mpesaTransaction.status,
-        mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
-        message: sale.mpesaTransaction.message,
-      } : null,
-      items: sale.items.map(item => ({
+      mpesaTransactions: sale.mpesaTransactions?.map(tx => ({
+        phoneNumber: tx.phoneNumber,
+        amount: tx.amount,
+        status: tx.status,
+        mpesaReceipt: tx.mpesaReceipt,
+        message: tx.message,
+      })) || [],
+      items: sale.items?.map(item => ({
         productId: item.productId,
         name: item.product?.name || '',
         price: item.price,
         quantity: item.quantity,
-      })),
+      })) || [],
     }));
   }
 

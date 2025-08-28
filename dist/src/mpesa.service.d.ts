@@ -7,15 +7,16 @@ export declare class MpesaService {
         phoneNumber: string;
         amount: number;
         status: string;
-        merchantRequestId?: string;
-        checkoutRequestId?: string;
+        merchantRequestID?: string;
+        checkoutRequestID?: string;
         message?: string;
         saleData?: any;
+        tenantId: string;
     }): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
         userId: string | null;
         phoneNumber: string;
         amount: number;

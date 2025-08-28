@@ -16,8 +16,8 @@ interface UpdateSubscriptionDto {
 @Injectable()
 export class SubscriptionService {
   constructor(
-    private prisma: PrismaService,
-    private billingService: BillingService,
+    private readonly prisma: PrismaService,
+    private readonly billingService: BillingService
   ) {}
 
   async createSubscription(data: CreateSubscriptionDto) {
@@ -26,6 +26,33 @@ export class SubscriptionService {
       
       const plan = await this.prisma.plan.findUnique({
         where: { id: data.planId },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          interval: true,
+          isActive: true,
+          maxUsers: true,
+          maxProducts: true,
+          maxSalesPerMonth: true,
+          stripePriceId: true,
+          analyticsEnabled: true,
+          advancedReports: true,
+          prioritySupport: true,
+          customBranding: true,
+          apiAccess: true,
+          bulkOperations: true,
+          dataExport: true,
+          customFields: true,
+          advancedSecurity: true,
+          whiteLabel: true,
+          dedicatedSupport: true,
+          ssoEnabled: true,
+          auditLogs: true,
+          backupRestore: true,
+          customIntegrations: true
+        }
       });
 
       if (!plan) {
@@ -39,13 +66,17 @@ export class SubscriptionService {
       const existingSubscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId: data.tenantId,
-          status: 'active',
+        // Removed console.log for existing subscription upgrade
+        },
+        include: {
+          plan: true,
         },
       });
 
       if (existingSubscription) {
-        console.error('Tenant already has active subscription:', data.tenantId);
-        throw new BadRequestException('Tenant already has an active subscription');
+      // Removed console.log for subscription creation dates
+        // Handle upgrade by updating the existing subscription
+        return await this.handleUpgrade(existingSubscription, plan);
       }
 
       const now = new Date();
@@ -61,6 +92,12 @@ export class SubscriptionService {
           status: 'active',
           currentPeriodStart: now,
           currentPeriodEnd: endDate,
+          stripeSubscriptionId: 'manual_' + Date.now(), // Temp value, will be updated by webhook
+          stripeCustomerId: 'cust_' + data.tenantId, // Temp value
+          stripePriceId: plan.stripePriceId ?? '',
+          stripeCurrentPeriodEnd: endDate,
+      // Removed console.log for successful subscription creation
+          userId: 'system', // This should be the admin user ID
         },
         include: {
           plan: true,
@@ -126,7 +163,7 @@ export class SubscriptionService {
       where: { id: subscription.id },
       data: {
         status: 'cancelled',
-        cancelledAt: new Date(),
+        canceledAt: new Date(),
       },
     });
   }
@@ -141,20 +178,24 @@ export class SubscriptionService {
           take: 10,
         },
       },
-      orderBy: { createdAt: 'desc' },
+  // orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createInvoice(subscriptionId: string, amount: number) {
-    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  async createInvoice(subscriptionId: string, amount: number, tenantId: string) {
+    // Generate a unique invoice number
+    const invoiceNumber = 'INV-' + Date.now();
     
     return await this.prisma.invoice.create({
       data: {
+        number: invoiceNumber,
         subscriptionId,
+        tenantId,
         amount,
-        status: 'pending',
+        status: 'open',
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        invoiceNumber,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
   }
@@ -195,7 +236,7 @@ export class SubscriptionService {
       where: { id: currentSubscription.id },
       data: {
         planId: newPlan.id,
-        updatedAt: new Date(),
+        // Prisma will handle the updatedAt field automatically
       },
       include: {
         plan: true,
@@ -204,7 +245,7 @@ export class SubscriptionService {
 
     // Create invoice for the difference
     if (netCharge > 0) {
-      await this.createInvoice(currentSubscription.id, netCharge);
+      await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
     }
 
     return {

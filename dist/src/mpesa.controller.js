@@ -91,10 +91,11 @@ let MpesaController = class MpesaController {
                 phoneNumber,
                 amount,
                 status: 'pending',
-                merchantRequestId: stkResponse.data.MerchantRequestID,
-                checkoutRequestId: stkResponse.data.CheckoutRequestID,
+                merchantRequestID: stkResponse.data.MerchantRequestID,
+                checkoutRequestID: stkResponse.data.CheckoutRequestID,
                 message: stkResponse.data.ResponseDescription,
                 saleData: saleData || null,
+                tenantId: body.tenantId || '',
             });
             return res.status(200).json({
                 success: true,
@@ -119,7 +120,6 @@ let MpesaController = class MpesaController {
         }
     }
     async mpesaWebhook(body, res) {
-        console.log('M-Pesa Webhook received:', JSON.stringify(body, null, 2));
         try {
             const result = body.Body?.stkCallback;
             if (!result)
@@ -143,7 +143,7 @@ let MpesaController = class MpesaController {
             });
             if (status === 'success') {
                 const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-                    where: { checkoutRequestId },
+                    where: { checkoutRequestID: checkoutRequestId },
                     include: { sale: true }
                 });
                 if (mpesaTx && !mpesaTx.sale && mpesaTx.saleData) {
@@ -175,7 +175,7 @@ let MpesaController = class MpesaController {
         }
     }
     async getByCheckoutId(checkoutRequestId) {
-        return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestId } });
+        return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestID: checkoutRequestId } });
     }
 };
 exports.MpesaController = MpesaController;

@@ -2,14 +2,146 @@ import { PrismaService } from '../prisma.service';
 export declare class BillingService {
     private readonly prisma;
     constructor(prisma: PrismaService);
+    getAllTenantSubscriptions(): Promise<{
+        tenantId: string;
+        clientName: string;
+        clientEmail: string;
+        plan: {
+            name: string;
+            price: number;
+            interval: string;
+            features: {
+                maxUsers: number | null;
+                maxProducts: number | null;
+                maxSalesPerMonth: number | null;
+                analyticsEnabled: boolean;
+                advancedReports: boolean;
+                prioritySupport: boolean;
+                customBranding: boolean;
+                apiAccess: boolean;
+            };
+        } | null;
+        status: string;
+        startDate: Date;
+        currentPeriodEnd: Date;
+        cancelAtPeriodEnd: boolean;
+        lastInvoice: {
+            id: string;
+            amount: number;
+            status: string;
+            dueDate: Date | null;
+            paidAt: Date | null;
+        } | null;
+        lastPayment: {
+            id: string;
+            amount: number;
+            currency: string;
+            status: string;
+            completedAt: Date | null;
+        } | null;
+    }[]>;
     getPlans(): Promise<{
+        features: string[];
         id: string;
-        stripePriceId: string | null;
         name: string;
+        whiteLabel: boolean;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        stripePriceId: string | null;
         description: string;
         price: number;
         interval: string;
         isActive: boolean;
+        maxUsers: number | null;
+        maxProducts: number | null;
+        maxSalesPerMonth: number | null;
+        analyticsEnabled: boolean;
+        advancedReports: boolean;
+        prioritySupport: boolean;
+        customBranding: boolean;
+        apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        dedicatedSupport: boolean;
+        auditLogs: boolean;
+    }[] | ({
+        id: string;
+        name: string;
+        price: number;
+        interval: string;
+        maxUsers: number;
+        maxProducts: number;
+        maxSalesPerMonth: number;
+        features: string[];
+    } | {
+        id: string;
+        name: string;
+        price: number;
+        interval: string;
+        maxUsers: null;
+        maxProducts: null;
+        maxSalesPerMonth: null;
+        features: string[];
+    })[]>;
+    getCurrentSubscription(tenantId: string): Promise<{
+        plan: {
+            name: string;
+            price: number;
+            id: string;
+        };
+        status: string;
+        currentPeriodStart: null;
+        currentPeriodEnd: null;
+        cancelAtPeriodEnd: boolean;
+    } | {
+        plan: {
+            id: string;
+            name: string;
+            whiteLabel: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            backupRestore: boolean;
+            stripePriceId: string | null;
+            description: string;
+            price: number;
+            interval: string;
+            isActive: boolean;
+            maxUsers: number | null;
+            maxProducts: number | null;
+            maxSalesPerMonth: number | null;
+            analyticsEnabled: boolean;
+            advancedReports: boolean;
+            prioritySupport: boolean;
+            customBranding: boolean;
+            apiAccess: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            customFields: boolean;
+            advancedSecurity: boolean;
+            dedicatedSupport: boolean;
+            auditLogs: boolean;
+        };
+        id: string;
+        stripeCustomerId: string;
+        currentPeriodStart: Date;
+        tenantId: string;
+        currentPeriodEnd: Date;
+        stripeSubscriptionId: string;
+        stripePriceId: string;
+        stripeCurrentPeriodEnd: Date;
+        status: string;
+        canceledAt: Date | null;
+        cancelAtPeriodEnd: boolean;
+        trialStart: Date | null;
+        trialEnd: Date | null;
+        planId: string;
+        userId: string;
+    }>;
+    hasFeature(tenantId: string, feature: string): Promise<boolean>;
+    getPlanLimits(tenantId: string): Promise<{
         maxUsers: number | null;
         maxProducts: number | null;
         maxSalesPerMonth: number | null;
@@ -28,94 +160,67 @@ export declare class BillingService {
         auditLogs: boolean;
         backupRestore: boolean;
         customIntegrations: boolean;
-    }[] | {
-        id: string;
-        name: string;
-        price: number;
-        interval: string;
-        maxUsers: number;
-        maxProducts: number;
-        maxSalesPerMonth: number;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
-    }[]>;
-    getCurrentSubscription(tenantId: string): Promise<{
-        plan: {
-            name: string;
-            price: number;
-        };
-        status: string;
-        currentPeriodStart: null;
-        currentPeriodEnd: null;
-        id?: undefined;
-        startDate?: undefined;
-        endDate?: undefined;
-        cancelledAt?: undefined;
-    } | {
-        id: string;
-        status: string;
-        plan: {
-            id: string;
-            stripePriceId: string | null;
-            name: string;
-            description: string;
-            price: number;
-            interval: string;
-            isActive: boolean;
-            maxUsers: number | null;
-            maxProducts: number | null;
-            maxSalesPerMonth: number | null;
-            analyticsEnabled: boolean;
-            advancedReports: boolean;
-            prioritySupport: boolean;
-            customBranding: boolean;
-            apiAccess: boolean;
-            bulkOperations: boolean;
-            dataExport: boolean;
-            customFields: boolean;
-            advancedSecurity: boolean;
-            whiteLabel: boolean;
-            dedicatedSupport: boolean;
-            ssoEnabled: boolean;
-            auditLogs: boolean;
-            backupRestore: boolean;
-            customIntegrations: boolean;
-        };
-        startDate: Date;
-        endDate: Date;
-        cancelledAt: any;
-        currentPeriodStart?: undefined;
-        currentPeriodEnd?: undefined;
-    }>;
-    hasFeature(tenantId: string, feature: string): Promise<boolean>;
-    getPlanLimits(tenantId: string): Promise<{
-        maxUsers: any;
-        maxProducts: any;
-        maxSalesPerMonth: any;
-        analyticsEnabled: any;
-        advancedReports: any;
-        prioritySupport: any;
-        customBranding: any;
-        apiAccess: any;
     }>;
     checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{
         allowed: boolean;
         current: number;
         limit: number;
     }>;
+    getEnterpriseFeatures(tenantId: string): Promise<{
+        customBranding: {
+            enabled: boolean;
+            features: string[];
+        };
+        apiAccess: {
+            enabled: boolean;
+            features: string[];
+        };
+        security: {
+            enabled: boolean;
+            features: string[];
+        };
+        support: {
+            enabled: boolean;
+            features: string[];
+        };
+    } | null>;
     getInvoices(tenantId: string): Promise<{
-        number: string;
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
+        number: string;
         amount: number;
         status: string;
         dueDate: Date | null;
         paidAt: Date | null;
-        subscriptionId: string | null;
+        createdAt: Date;
+        subscription: {
+            id: string;
+            plan: {
+                name: string;
+                price: number;
+            } | null;
+        } | null;
     }[]>;
+    getPlanFeatures(planId: string): Promise<{
+        analyticsEnabled: boolean;
+        advancedReports: boolean;
+        prioritySupport: boolean;
+        customBranding: boolean;
+        apiAccess: boolean;
+        bulkOperations: boolean;
+        dataExport: boolean;
+        customFields: boolean;
+        advancedSecurity: boolean;
+        whiteLabel: boolean;
+        dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+    }>;
+    getSubscriptionFeatures(subscriptionId: string): Promise<{
+        customBranding: boolean;
+        apiAccess: boolean;
+        advancedSecurity: boolean;
+        dedicatedSupport: boolean;
+    }>;
 }

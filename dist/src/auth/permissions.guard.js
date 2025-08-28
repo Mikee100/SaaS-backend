@@ -35,11 +35,12 @@ let PermissionsGuard = class PermissionsGuard {
         const userId = user?.userId || user?.sub;
         let userPermissions = [];
         if (tenantId) {
-            userPermissions = await this.userService.getEffectivePermissions(userId, tenantId);
+            const perms = await this.userService.getEffectivePermissions(userId, tenantId);
+            userPermissions = perms.map((p) => p.name);
         }
         else {
-            const direct = await this.userService.getUserPermissions(userId);
-            userPermissions = direct.map((p) => p.permission.key);
+            const direct = await this.userService.getEffectivePermissions(userId, tenantId);
+            userPermissions = direct.map((p) => p.permissionRef?.name);
             if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
                 return true;
             }
