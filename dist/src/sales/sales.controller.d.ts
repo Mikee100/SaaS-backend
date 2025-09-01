@@ -97,26 +97,6 @@ export declare class SalesController {
                 name: string;
                 email: string;
             };
-            branch: {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                tenantId: string;
-                email: string | null;
-                status: string | null;
-                address: string | null;
-                city: string | null;
-                state: string | null;
-                country: string | null;
-                postalCode: string | null;
-                logo: string | null;
-                street: string | null;
-                phone: string | null;
-                manager: string | null;
-                openingHours: string | null;
-                customField: string | null;
-            } | null;
             mpesaTransactions: {
                 id: string;
                 createdAt: Date;
@@ -126,6 +106,26 @@ export declare class SalesController {
                 responseDesc: string | null;
                 transactionId: string | null;
             }[];
+            branch: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                tenantId: string;
+                email: string | null;
+                address: string | null;
+                city: string | null;
+                state: string | null;
+                country: string | null;
+                postalCode: string | null;
+                status: string | null;
+                street: string | null;
+                phone: string | null;
+                manager: string | null;
+                openingHours: string | null;
+                logo: string | null;
+                customField: string | null;
+            } | null;
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -208,10 +208,10 @@ export declare class SalesController {
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             tenantId: string;
+            branchId: string | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
@@ -327,7 +327,6 @@ export declare class SalesController {
             updatedAt: Date;
             name: string;
             tenantId: string | null;
-            branchId: string | null;
             email: string;
             password: string;
             isSuperadmin: boolean;
@@ -336,6 +335,7 @@ export declare class SalesController {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
+            branchId: string | null;
         };
         items: {
             id: string;
@@ -468,26 +468,6 @@ export declare class SalesController {
             name: string;
             email: string;
         };
-        branch: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            tenantId: string;
-            email: string | null;
-            status: string | null;
-            address: string | null;
-            city: string | null;
-            state: string | null;
-            country: string | null;
-            postalCode: string | null;
-            logo: string | null;
-            street: string | null;
-            phone: string | null;
-            manager: string | null;
-            openingHours: string | null;
-            customField: string | null;
-        } | null;
         mpesaTransactions: {
             id: string;
             createdAt: Date;
@@ -497,6 +477,26 @@ export declare class SalesController {
             responseDesc: string | null;
             transactionId: string | null;
         }[];
+        branch: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            tenantId: string;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            postalCode: string | null;
+            status: string | null;
+            street: string | null;
+            phone: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            logo: string | null;
+            customField: string | null;
+        } | null;
         id: string;
         createdAt: Date;
         tenantId: string;

@@ -7,7 +7,32 @@ export declare class AuthService {
     private auditLogService;
     constructor(userService: UserService, jwtService: JwtService, auditLogService: AuditLogService);
     validateUser(email: string, password: string): Promise<{
-        [x: string]: ({
+        [x: string]: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string | null;
+            saleId: string | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[] | ({
             id: string;
             tenantId: string;
             roleId: string;
@@ -31,16 +56,6 @@ export declare class AuthService {
             action: string;
             details: import("@prisma/client/runtime/library").JsonValue | null;
             ip: string | null;
-        })[] | ({
-            id: string;
-            tenantId: string;
-            permissionId: string;
-            userId: string;
-        } | {
-            id: string;
-            tenantId: string;
-            permissionId: string;
-            userId: string;
         })[] | ({
             id: string;
             createdAt: Date;
@@ -73,6 +88,7 @@ export declare class AuthService {
             updatedAt: Date;
             tenantId: string;
             userId: string | null;
+            saleId: string | null;
             phoneNumber: string;
             amount: number;
             status: string;
@@ -82,7 +98,6 @@ export declare class AuthService {
             responseCode: string | null;
             responseDesc: string | null;
             message: string | null;
-            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             transactionId: string | null;
             transactionType: string | null;
@@ -98,6 +113,7 @@ export declare class AuthService {
             updatedAt: Date;
             tenantId: string;
             userId: string | null;
+            saleId: string | null;
             phoneNumber: string;
             amount: number;
             status: string;
@@ -107,7 +123,6 @@ export declare class AuthService {
             responseCode: string | null;
             responseDesc: string | null;
             message: string | null;
-            saleId: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             transactionId: string | null;
             transactionType: string | null;
@@ -135,9 +150,9 @@ export declare class AuthService {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -151,9 +166,9 @@ export declare class AuthService {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -183,6 +198,16 @@ export declare class AuthService {
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
+        } | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
         })[] | {
             id: string;
             tenantId: string;
@@ -197,11 +222,6 @@ export declare class AuthService {
             ip: string | null;
         }[] | {
             id: string;
-            tenantId: string;
-            permissionId: string;
-            userId: string;
-        }[] | {
-            id: string;
             createdAt: Date;
             tenantId: string;
             userId: string;
@@ -215,31 +235,6 @@ export declare class AuthService {
             vatAmount: number | null;
         }[] | {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            userId: string | null;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            merchantRequestId: string | null;
-            checkoutRequestID: string | null;
-            mpesaReceipt: string | null;
-            responseCode: string | null;
-            responseDesc: string | null;
-            message: string | null;
-            saleId: string | null;
-            saleData: import("@prisma/client/runtime/library").JsonValue | null;
-            transactionId: string | null;
-            transactionType: string | null;
-            transactionTime: Date | null;
-            businessShortCode: string | null;
-            billRefNumber: string | null;
-            invoiceNumber: string | null;
-            orgAccountBalance: string | null;
-            thirdPartyTransID: string | null;
-        }[] | {
-            id: string;
             tenantId: string;
             roleId: string;
             userId: string;
@@ -250,9 +245,9 @@ export declare class AuthService {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -271,6 +266,11 @@ export declare class AuthService {
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        }[] | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
         }[];
         [x: number]: never;
         [x: symbol]: never;
@@ -279,7 +279,6 @@ export declare class AuthService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
@@ -287,6 +286,7 @@ export declare class AuthService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     } | null>;
     login(email: string, password: string, ip?: string): Promise<{
         access_token: string;

@@ -40,9 +40,9 @@ export declare class SubscriptionController {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -90,9 +90,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
+        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -139,9 +139,9 @@ export declare class SubscriptionController {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -167,9 +167,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
+        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -224,9 +224,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
+        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

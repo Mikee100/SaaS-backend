@@ -112,9 +112,9 @@ export declare class BillingController {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -228,9 +228,9 @@ export declare class BillingController {
         planId: string;
         tenantId: string;
         userId: string;
+        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
-        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -314,9 +314,9 @@ export declare class BillingController {
                 planId: string;
                 tenantId: string;
                 userId: string;
+                stripeCustomerId: string;
                 status: string;
                 stripeSubscriptionId: string;
-                stripeCustomerId: string;
                 stripeCurrentPeriodEnd: Date;
                 canceledAt: Date | null;
                 currentPeriodStart: Date;
@@ -364,9 +364,9 @@ export declare class BillingController {
             planId: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
-            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -429,9 +429,9 @@ export declare class BillingController {
             updatedAt: Date;
             description: string | null;
             tenantId: string;
+            currency: string;
             amount: number;
             status: string;
-            currency: string;
             stripePaymentIntentId: string | null;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             completedAt: Date | null;

@@ -9,17 +9,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     }>;
     getAllBranches(): Promise<{
@@ -29,17 +29,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     }[]>;
     getBranchesByTenant(tenantId: string): Promise<{
@@ -49,17 +49,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     }[]>;
     getBranchById(id: string): Promise<{
@@ -69,17 +69,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     } | null>;
     updateBranch(id: string, data: any): Promise<{
@@ -89,17 +89,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     }>;
     deleteBranch(id: string): Promise<{
@@ -109,17 +109,17 @@ export declare class BranchService {
         name: string;
         tenantId: string;
         email: string | null;
-        status: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         postalCode: string | null;
-        logo: string | null;
+        status: string | null;
         street: string | null;
         phone: string | null;
         manager: string | null;
         openingHours: string | null;
+        logo: string | null;
         customField: string | null;
     }>;
 }

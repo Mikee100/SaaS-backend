@@ -15,6 +15,7 @@ export declare class MpesaController {
         updatedAt: Date;
         tenantId: string;
         userId: string | null;
+        saleId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -24,7 +25,6 @@ export declare class MpesaController {
         responseCode: string | null;
         responseDesc: string | null;
         message: string | null;
-        saleId: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
         transactionId: string | null;
         transactionType: string | null;
