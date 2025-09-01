@@ -17,8 +17,8 @@ export declare class SubscriptionService {
         subscription: {
             plan: {
                 id: string;
-                stripePriceId: string | null;
                 name: string;
+                stripePriceId: string | null;
                 description: string;
                 price: number;
                 interval: string;
@@ -44,20 +44,20 @@ export declare class SubscriptionService {
             };
         } & {
             id: string;
+            stripePriceId: string;
+            planId: string;
+            tenantId: string;
+            userId: string;
+            status: string;
             stripeSubscriptionId: string;
             stripeCustomerId: string;
-            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
-            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             trialStart: Date | null;
             trialEnd: Date | null;
-            planId: string;
-            tenantId: string;
-            userId: string;
         };
         proration: {
             credit: number;
@@ -67,8 +67,8 @@ export declare class SubscriptionService {
     } | ({
         plan: {
             id: string;
-            stripePriceId: string | null;
             name: string;
+            stripePriceId: string | null;
             description: string;
             price: number;
             interval: string;
@@ -94,27 +94,27 @@ export declare class SubscriptionService {
         };
     } & {
         id: string;
+        stripePriceId: string;
+        planId: string;
+        tenantId: string;
+        userId: string;
+        status: string;
         stripeSubscriptionId: string;
         stripeCustomerId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
-        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
-        tenantId: string;
-        userId: string;
     })>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
             plan: {
                 id: string;
-                stripePriceId: string | null;
                 name: string;
+                stripePriceId: string | null;
                 description: string;
                 price: number;
                 interval: string;
@@ -140,20 +140,20 @@ export declare class SubscriptionService {
             };
         } & {
             id: string;
+            stripePriceId: string;
+            planId: string;
+            tenantId: string;
+            userId: string;
+            status: string;
             stripeSubscriptionId: string;
             stripeCustomerId: string;
-            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
-            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             trialStart: Date | null;
             trialEnd: Date | null;
-            planId: string;
-            tenantId: string;
-            userId: string;
         };
         proration: {
             credit: number;
@@ -168,26 +168,26 @@ export declare class SubscriptionService {
     }>;
     cancelSubscription(tenantId: string): Promise<{
         id: string;
+        stripePriceId: string;
+        planId: string;
+        tenantId: string;
+        userId: string;
+        status: string;
         stripeSubscriptionId: string;
         stripeCustomerId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
-        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
-        tenantId: string;
-        userId: string;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
         plan: {
             id: string;
-            stripePriceId: string | null;
             name: string;
+            stripePriceId: string | null;
             description: string;
             price: number;
             interval: string;
@@ -214,43 +214,43 @@ export declare class SubscriptionService {
         invoices: {
             number: string;
             id: string;
-            status: string;
-            tenantId: string;
             createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             amount: number;
+            status: string;
             dueDate: Date | null;
             paidAt: Date | null;
             subscriptionId: string | null;
-            updatedAt: Date;
         }[];
     } & {
         id: string;
+        stripePriceId: string;
+        planId: string;
+        tenantId: string;
+        userId: string;
+        status: string;
         stripeSubscriptionId: string;
         stripeCustomerId: string;
-        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
-        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
-        tenantId: string;
-        userId: string;
     })[]>;
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         number: string;
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
         amount: number;
+        status: string;
         dueDate: Date | null;
         paidAt: Date | null;
         subscriptionId: string | null;
-        updatedAt: Date;
     }>;
     private calculateEndDate;
     private isPlanUpgrade;

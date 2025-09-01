@@ -58,6 +58,8 @@ let UserController = class UserController {
         const permissions = await this.userService.getEffectivePermissions(user.id, req.user.tenantId);
         return {
             ...user,
+            id: req.user.id ?? user.id,
+            tenantId: req.user.tenantId ?? user.tenantId,
             permissions: permissions.map(p => p.name)
         };
     }

@@ -32,6 +32,7 @@ class CreateSaleDto {
     customerName;
     customerPhone;
     idempotencyKey;
+    branchId;
 }
 exports.CreateSaleDto = CreateSaleDto;
 __decorate([
@@ -62,4 +63,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateSaleDto.prototype, "idempotencyKey", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSaleDto.prototype, "branchId", void 0);
 //# sourceMappingURL=create-sale.dto.js.map

@@ -56,7 +56,7 @@ export class UserService {
   // ...existing code...
 
   async createUser(
-    data: { email: string; password: string; name: string; role: string; tenantId: string },
+    data: { email: string; password: string; name: string; role: string; tenantId: string; branchId?: string },
     actorUserId?: string,
     ip?: string,
     prismaClient?: any
@@ -76,6 +76,7 @@ export class UserService {
         email: data.email,
         password: hashedPassword,
         tenantId: data.tenantId,
+        branchId: data.branchId,
       },
     });
     this.logger.log(`Created user: ${user.id}, tenant: ${data.tenantId}`);

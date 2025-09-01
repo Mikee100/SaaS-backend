@@ -35,8 +35,13 @@ export class PermissionsGuard implements CanActivate {
       }
     }
 
+    // PATCH: Allow access if no permissions are required
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      return true;
+    }
+
     const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
     if (!hasPermission) throw new ForbiddenException('Not allowed');
     return true;
   }
-} 
+}

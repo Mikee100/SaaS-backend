@@ -9,8 +9,14 @@ export declare class TenantController {
     constructor(tenantService: TenantService, userService: UserService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -53,21 +59,21 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -110,16 +116,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -138,8 +138,14 @@ export declare class TenantController {
     }>;
     updateBranding(req: any, dto: any): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -182,16 +188,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -201,8 +201,14 @@ export declare class TenantController {
     }>;
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -245,16 +251,10 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

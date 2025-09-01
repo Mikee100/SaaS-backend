@@ -74,6 +74,7 @@ let UserService = UserService_1 = class UserService {
                 email: data.email,
                 password: hashedPassword,
                 tenantId: data.tenantId,
+                branchId: data.branchId,
             },
         });
         this.logger.log(`Created user: ${user.id}, tenant: ${data.tenantId}`);

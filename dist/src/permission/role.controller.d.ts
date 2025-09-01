@@ -5,11 +5,11 @@ export declare class RoleController {
     createRole(body: any): Promise<void>;
     getRoles(): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
         description: string | null;
+        tenantId: string | null;
     }[]>;
     updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({

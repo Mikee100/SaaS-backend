@@ -9,7 +9,7 @@ import { SalesModule } from './sales/sales.module';
 import { TenantModule } from './tenant/tenant.module';
 import { TenantConfigurationModule } from './tenant/tenant-configuration.module';
 import { InventoryModule } from './inventory/inventory.module';
-import { MpesaModule } from './mpesa.module';
+import { MpesaModule } from './mpesa/mpesa.module'; // <-- PATCHED: Correct import path
 import { RealtimeModule } from './realtime.module';
 import { PermissionModule } from './permission/permission.module';
 import { BillingModule } from './billing/billing.module';
@@ -30,14 +30,14 @@ import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.mo
     TenantModule,
     TenantConfigurationModule,
     InventoryModule,
-    MpesaModule,
+    MpesaModule, 
     RealtimeModule,
     PermissionModule,
     BillingModule,
     AnalyticsModule,
     BranchModule,
     UsageModule,
-  AdminTenantStatsModule,
+    AdminTenantStatsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ConfigurationService],

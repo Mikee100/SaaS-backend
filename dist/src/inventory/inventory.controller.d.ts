@@ -6,36 +6,36 @@ export declare class InventoryController {
     constructor(inventoryService: InventoryService);
     findAll(req: any): Promise<({
         product: {
-            description: string | null;
             id: string;
-            tenantId: string;
-            branchId: string | null;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            sku: string;
+            description: string | null;
             price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            tenantId: string;
+            sku: string;
             cost: number;
             stock: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
         };
     } & {
         id: string;
-        productId: string;
-        quantity: number;
-        tenantId: string;
-        branchId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
     })[]>;
     create(req: any, dto: CreateInventoryDto): Promise<{
         id: string;
-        productId: string;
-        quantity: number;
-        tenantId: string;
-        branchId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
     }>;
     update(req: any, id: string, dto: UpdateInventoryDto): Promise<import(".prisma/client").Prisma.BatchPayload>;
     remove(req: any, id: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

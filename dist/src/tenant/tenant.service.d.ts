@@ -6,8 +6,14 @@ export declare class TenantService {
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -50,21 +56,21 @@ export declare class TenantService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
     updateTenant(tenantId: string, dto: any): Promise<{
         id: string;
-        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -107,15 +113,9 @@ export declare class TenantService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
 }

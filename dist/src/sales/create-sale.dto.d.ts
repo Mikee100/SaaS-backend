@@ -9,5 +9,6 @@ export declare class CreateSaleDto {
     customerName?: string;
     customerPhone?: string;
     idempotencyKey: string;
+    branchId?: string;
 }
 export {};

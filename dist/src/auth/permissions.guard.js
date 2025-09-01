@@ -45,6 +45,9 @@ let PermissionsGuard = class PermissionsGuard {
                 return true;
             }
         }
+        if (!requiredPermissions || requiredPermissions.length === 0) {
+            return true;
+        }
         const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
         if (!hasPermission)
             throw new common_1.ForbiddenException('Not allowed');

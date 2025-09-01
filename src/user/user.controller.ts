@@ -49,16 +49,19 @@ export class UserController {
     return { message: 'You are authenticated!', user: req.user };
   }
 
-  @Get('me')
-  async getMe(@Req() req) {
-    const user = await this.userService.findByEmail(req.user.email);
-    if (!user) throw new NotFoundException('User not found');
+@Get('me')
+async getMe(@Req() req) {
+  const user = await this.userService.findByEmail(req.user.email);
+  if (!user) throw new NotFoundException('User not found');
   const permissions = await this.userService.getEffectivePermissions(user.id, req.user.tenantId);
-    return {
-      ...user,
-      permissions: permissions.map(p => p.name)
-    };
-  }
+
+  return {
+    ...user,
+    id: req.user.id ?? user.id, // Ensure id is present
+    tenantId: req.user.tenantId ?? user.tenantId, // Ensure tenantId is present
+    permissions: permissions.map(p => p.name)
+  };
+}
 
   @Put(':id')
   @Permissions('edit_users')
@@ -67,7 +70,7 @@ export class UserController {
     return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
   }
 
-  // ...existing code...
+
 
   @Put('me/preferences')
   async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {

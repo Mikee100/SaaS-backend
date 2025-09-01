@@ -11,11 +11,23 @@ export declare class UserController {
     getUsers(tenantId: string): Promise<{
         permissions: string[];
         userRoles: ({
-            tenant: {
+            role: {
                 id: string;
-                name: string;
                 createdAt: Date;
                 updatedAt: Date;
+                name: string;
+                description: string | null;
+                tenantId: string | null;
+            };
+            tenant: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                whiteLabel: boolean;
+                ssoEnabled: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
                 stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
@@ -59,64 +71,52 @@ export declare class UserController {
                 primaryColor: string | null;
                 secondaryColor: string | null;
                 customDomain: string | null;
-                whiteLabel: boolean;
                 apiKey: string | null;
                 webhookUrl: string | null;
                 rateLimit: number | null;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
-                backupRestore: boolean;
-            };
-            role: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                tenantId: string | null;
-                description: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        tenantId: string | null;
+        branchId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     }[]>;
     getProtected(req: any): {
         message: string;
         user: any;
     };
     getMe(req: any): Promise<{
+        id: any;
+        tenantId: any;
         permissions: string[];
-        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        branchId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     }>;
     updateUser(req: any, id: string, body: {
         name?: string;
@@ -128,19 +128,19 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        tenantId: string | null;
+        branchId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
 }

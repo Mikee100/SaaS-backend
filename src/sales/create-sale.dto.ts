@@ -32,4 +32,8 @@ export class CreateSaleDto {
 
   @IsString()
   idempotencyKey: string;
-} 
+
+  @IsOptional()
+  @IsString()
+  branchId?: string;
+}

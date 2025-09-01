@@ -7,7 +7,14 @@ export declare class AdminTenantStatsService {
         spaceUsedMB: string;
         productCount: number;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
+        whiteLabel: boolean;
+        ssoEnabled: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
+        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -50,16 +57,9 @@ export declare class AdminTenantStatsService {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
-        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
-        backupRestore: boolean;
-        stripeCustomerId: string | null;
-        createdAt: Date;
-        updatedAt: Date;
     }[]>;
 }

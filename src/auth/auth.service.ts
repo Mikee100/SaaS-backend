@@ -105,10 +105,6 @@ export class AuthService {
       resetPasswordExpires: resetExpires,
     });
 
-    // TODO: Send email with reset link
-    // For now, just log the token (in production, send email)
-  // ...existing code...
-  // ...existing code...
 
     return { message: 'If an account with that email exists, a password reset link has been sent.' };
   }
