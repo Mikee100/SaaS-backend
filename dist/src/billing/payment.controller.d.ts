@@ -70,14 +70,14 @@ export declare class PaymentController {
         invoice: {
             number: string;
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
             amount: number;
             status: string;
             dueDate: Date | null;
             paidAt: Date | null;
             subscriptionId: string | null;
+            tenantId: string;
+            createdAt: Date;
+            updatedAt: Date;
         };
         error?: undefined;
     } | {

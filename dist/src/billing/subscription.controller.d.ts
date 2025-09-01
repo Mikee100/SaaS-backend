@@ -10,7 +10,6 @@ export declare class SubscriptionController {
             plan: {
                 id: string;
                 name: string;
-                stripePriceId: string | null;
                 description: string;
                 price: number;
                 interval: string;
@@ -18,6 +17,7 @@ export declare class SubscriptionController {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                stripePriceId: string | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -40,9 +40,9 @@ export declare class SubscriptionController {
             planId: string;
             tenantId: string;
             userId: string;
-            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -60,7 +60,6 @@ export declare class SubscriptionController {
         plan: {
             id: string;
             name: string;
-            stripePriceId: string | null;
             description: string;
             price: number;
             interval: string;
@@ -68,6 +67,7 @@ export declare class SubscriptionController {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            stripePriceId: string | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -90,9 +90,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
-        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -109,7 +109,6 @@ export declare class SubscriptionController {
             plan: {
                 id: string;
                 name: string;
-                stripePriceId: string | null;
                 description: string;
                 price: number;
                 interval: string;
@@ -117,6 +116,7 @@ export declare class SubscriptionController {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                stripePriceId: string | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -139,9 +139,9 @@ export declare class SubscriptionController {
             planId: string;
             tenantId: string;
             userId: string;
-            stripeCustomerId: string;
             status: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -167,9 +167,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
-        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;
@@ -182,7 +182,6 @@ export declare class SubscriptionController {
         plan: {
             id: string;
             name: string;
-            stripePriceId: string | null;
             description: string;
             price: number;
             interval: string;
@@ -190,6 +189,7 @@ export declare class SubscriptionController {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            stripePriceId: string | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -224,9 +224,9 @@ export declare class SubscriptionController {
         planId: string;
         tenantId: string;
         userId: string;
-        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

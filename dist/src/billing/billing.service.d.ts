@@ -44,7 +44,6 @@ export declare class BillingService {
         features: string[];
         id: string;
         name: string;
-        stripePriceId: string | null;
         description: string;
         price: number;
         interval: string;
@@ -52,6 +51,7 @@ export declare class BillingService {
         maxUsers: number | null;
         maxProducts: number | null;
         maxSalesPerMonth: number | null;
+        stripePriceId: string | null;
         analyticsEnabled: boolean;
         advancedReports: boolean;
         prioritySupport: boolean;
@@ -100,7 +100,6 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
-            stripePriceId: string | null;
             description: string;
             price: number;
             interval: string;
@@ -108,6 +107,7 @@ export declare class BillingService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            stripePriceId: string | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -129,9 +129,9 @@ export declare class BillingService {
         planId: string;
         tenantId: string;
         userId: string;
-        stripeCustomerId: string;
         status: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

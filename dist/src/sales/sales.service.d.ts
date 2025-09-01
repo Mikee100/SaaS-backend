@@ -72,6 +72,7 @@ export declare class SalesService {
             updatedAt: Date;
             name: string;
             tenantId: string | null;
+            branchId: string | null;
             email: string;
             password: string;
             isSuperadmin: boolean;
@@ -80,7 +81,6 @@ export declare class SalesService {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
-            branchId: string | null;
         };
         items: {
             id: string;
@@ -193,6 +193,26 @@ export declare class SalesService {
             name: string;
             email: string;
         };
+        branch: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            tenantId: string;
+            email: string | null;
+            status: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            postalCode: string | null;
+            logo: string | null;
+            street: string | null;
+            phone: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            customField: string | null;
+        } | null;
         mpesaTransactions: {
             id: string;
             createdAt: Date;
@@ -202,26 +222,6 @@ export declare class SalesService {
             responseDesc: string | null;
             transactionId: string | null;
         }[];
-        branch: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            tenantId: string;
-            email: string | null;
-            address: string | null;
-            city: string | null;
-            state: string | null;
-            country: string | null;
-            postalCode: string | null;
-            status: string | null;
-            street: string | null;
-            phone: string | null;
-            manager: string | null;
-            openingHours: string | null;
-            logo: string | null;
-            customField: string | null;
-        } | null;
         id: string;
         createdAt: Date;
         tenantId: string;
@@ -254,10 +254,10 @@ export declare class SalesService {
                     price: number;
                     customFields: import("@prisma/client/runtime/library").JsonValue | null;
                     tenantId: string;
-                    branchId: string | null;
                     sku: string;
                     cost: number;
                     stock: number;
+                    branchId: string | null;
                 };
                 id: string;
                 price: number;
@@ -271,6 +271,7 @@ export declare class SalesService {
                 updatedAt: Date;
                 name: string;
                 tenantId: string | null;
+                branchId: string | null;
                 email: string;
                 password: string;
                 isSuperadmin: boolean;
@@ -279,15 +280,33 @@ export declare class SalesService {
                 notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
                 language: string | null;
                 region: string | null;
-                branchId: string | null;
             };
+            branch: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                tenantId: string;
+                email: string | null;
+                status: string | null;
+                address: string | null;
+                city: string | null;
+                state: string | null;
+                country: string | null;
+                postalCode: string | null;
+                logo: string | null;
+                street: string | null;
+                phone: string | null;
+                manager: string | null;
+                openingHours: string | null;
+                customField: string | null;
+            } | null;
             mpesaTransactions: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
                 userId: string | null;
-                saleId: string | null;
                 phoneNumber: string;
                 amount: number;
                 status: string;
@@ -297,6 +316,7 @@ export declare class SalesService {
                 responseCode: string | null;
                 responseDesc: string | null;
                 message: string | null;
+                saleId: string | null;
                 saleData: import("@prisma/client/runtime/library").JsonValue | null;
                 transactionId: string | null;
                 transactionType: string | null;
@@ -307,26 +327,6 @@ export declare class SalesService {
                 orgAccountBalance: string | null;
                 thirdPartyTransID: string | null;
             }[];
-            branch: {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                tenantId: string;
-                email: string | null;
-                address: string | null;
-                city: string | null;
-                state: string | null;
-                country: string | null;
-                postalCode: string | null;
-                status: string | null;
-                street: string | null;
-                phone: string | null;
-                manager: string | null;
-                openingHours: string | null;
-                logo: string | null;
-                customField: string | null;
-            } | null;
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -399,10 +399,10 @@ export declare class SalesService {
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             tenantId: string;
-            branchId: string | null;
             sku: string;
             cost: number;
             stock: number;
+            branchId: string | null;
         }[];
     }>;
     getTenantInfo(tenantId: string): Promise<{
