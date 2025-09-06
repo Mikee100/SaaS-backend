@@ -9,13 +9,9 @@ export declare class TenantController {
     constructor(tenantService: TenantService, userService: UserService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
         stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
@@ -59,20 +55,20 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
+        backupRestore: boolean;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
         stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
@@ -116,10 +112,14 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
+        backupRestore: boolean;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -138,13 +138,9 @@ export declare class TenantController {
     }>;
     updateBranding(req: any, dto: any): Promise<{
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
         stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
@@ -188,10 +184,14 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
+        backupRestore: boolean;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -201,13 +201,9 @@ export declare class TenantController {
     }>;
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        whiteLabel: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
         stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
@@ -251,10 +247,14 @@ export declare class TenantController {
         primaryColor: string | null;
         secondaryColor: string | null;
         customDomain: string | null;
+        whiteLabel: boolean;
         apiKey: string | null;
         webhookUrl: string | null;
         rateLimit: number | null;
+        customIntegrations: boolean;
+        ssoEnabled: boolean;
         auditLogsEnabled: boolean;
+        backupRestore: boolean;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

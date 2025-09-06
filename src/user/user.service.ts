@@ -203,17 +203,21 @@ export class UserService {
             tenant: true
           }
         },
-  // ...existing code...
       }
     });
   }
 
-  async findByTenantAndBranch(tenantId: string, branchId: string) {
+  async findByTenantAndBranch(tenantId: string, branchId: string | null) {
+    // If branchId is "unassigned" or null, fetch users with branchId IS NULL
+    const where: any = { tenantId };
+    if (branchId === "unassigned" || branchId === null) {
+      where.branchId = null;
+    } else {
+      where.branchId = branchId;
+    }
+
     return this.prisma.user.findMany({
-      where: {
-        tenantId,
-        branchId
-      },
+      where,
       include: {
         userRoles: {
           include: {

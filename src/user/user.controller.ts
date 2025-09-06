@@ -4,11 +4,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @UseGuards(AuthGuard('jwt'))
   @Get('me')
   getMe(@Req() req) {
     const user = req.user;
@@ -49,26 +49,30 @@ export class UserController {
   @Get()
   @Permissions('view_users')
   async getUsers(@Req() req, @Query('branchId') branchId?: string) {
-    const tenantId = req.user.tenantId;
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in token');
+    // Defensive check for req.user and tenantId
+    if (!req.user || !req.user.tenantId) {
+      throw new ForbiddenException('Missing or invalid authentication');
     }
+    const tenantId = req.user.tenantId;
 
-    // Get users for the tenant (and branch if specified)
-    const users = branchId 
-      ? await this.userService.findByTenantAndBranch(tenantId, branchId)
-      : await this.userService.findAllByTenant(tenantId);
-    
-    // For each user, fetch their effective permissions
-    const usersWithPermissions = await Promise.all(users.map(async user => {
-      const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
-      return {
-        ...user,
-        permissions: permissions.map(p => p.name)
-      };
-    }));
-    
-    return usersWithPermissions;
+    try {
+      const users = branchId
+        ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+        : await this.userService.findAllByTenant(tenantId);
+
+      const usersWithPermissions = await Promise.all(users.map(async user => {
+        const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
+        return {
+          ...user,
+          permissions: permissions.map(p => p.name)
+        };
+      }));
+
+      return usersWithPermissions;
+    } catch (err) {
+      console.error('Error in getUsers:', err);
+      throw new Error('Failed to fetch users: ' + err.message);
+    }
   }
 
   @Get('protected')

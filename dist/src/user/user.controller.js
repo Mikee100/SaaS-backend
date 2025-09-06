@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const user_service_1 = require("./user.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -50,21 +51,27 @@ let UserController = class UserController {
         return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
     async getUsers(req, branchId) {
-        const tenantId = req.user.tenantId;
-        if (!tenantId) {
-            throw new Error('Tenant ID not found in token');
+        if (!req.user || !req.user.tenantId) {
+            throw new common_1.ForbiddenException('Missing or invalid authentication');
         }
-        const users = branchId
-            ? await this.userService.findByTenantAndBranch(tenantId, branchId)
-            : await this.userService.findAllByTenant(tenantId);
-        const usersWithPermissions = await Promise.all(users.map(async (user) => {
-            const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
-            return {
-                ...user,
-                permissions: permissions.map(p => p.name)
-            };
-        }));
-        return usersWithPermissions;
+        const tenantId = req.user.tenantId;
+        try {
+            const users = branchId
+                ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+                : await this.userService.findAllByTenant(tenantId);
+            const usersWithPermissions = await Promise.all(users.map(async (user) => {
+                const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
+                return {
+                    ...user,
+                    permissions: permissions.map(p => p.name)
+                };
+            }));
+            return usersWithPermissions;
+        }
+        catch (err) {
+            console.error('Error in getUsers:', err);
+            throw new Error('Failed to fetch users: ' + err.message);
+        }
     }
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
@@ -83,7 +90,6 @@ let UserController = class UserController {
 };
 exports.UserController = UserController;
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('me'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -153,6 +159,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
 exports.UserController = UserController = __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

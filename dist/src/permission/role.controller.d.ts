@@ -6,10 +6,10 @@ export declare class RoleController {
     getRoles(): Promise<{
         id: string;
         createdAt: Date;
-        updatedAt: Date;
         name: string;
-        description: string | null;
+        updatedAt: Date;
         tenantId: string | null;
+        description: string | null;
     }[]>;
     updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({

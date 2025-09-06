@@ -184,11 +184,15 @@ let UserService = UserService_1 = class UserService {
         });
     }
     async findByTenantAndBranch(tenantId, branchId) {
+        const where = { tenantId };
+        if (branchId === "unassigned" || branchId === null) {
+            where.branchId = null;
+        }
+        else {
+            where.branchId = branchId;
+        }
         return this.prisma.user.findMany({
-            where: {
-                tenantId,
-                branchId
-            },
+            where,
             include: {
                 userRoles: {
                     include: {
