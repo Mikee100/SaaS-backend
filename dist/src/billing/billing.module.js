@@ -17,15 +17,20 @@ const stripe_service_1 = require("./stripe.service");
 const subscription_service_1 = require("./subscription.service");
 const billing_logger_service_1 = require("./billing-logger.service");
 const tenant_configuration_service_1 = require("../config/tenant-configuration.service");
-const prisma_service_1 = require("../prisma.service");
 const audit_log_service_1 = require("../audit-log.service");
 const user_module_1 = require("../user/user.module");
+const prisma_module_1 = require("../prisma.module");
+const config_module_1 = require("../config/config.module");
 let BillingModule = class BillingModule {
 };
 exports.BillingModule = BillingModule;
 exports.BillingModule = BillingModule = __decorate([
     (0, common_1.Module)({
-        imports: [user_module_1.UserModule],
+        imports: [
+            (0, common_1.forwardRef)(() => user_module_1.UserModule),
+            prisma_module_1.PrismaModule,
+            config_module_1.ConfigModule,
+        ],
         controllers: [billing_controller_1.BillingController, payment_controller_1.PaymentController, subscription_controller_1.SubscriptionController],
         providers: [
             billing_service_1.BillingService,
@@ -34,10 +39,15 @@ exports.BillingModule = BillingModule = __decorate([
             subscription_service_1.SubscriptionService,
             billing_logger_service_1.BillingLoggerService,
             tenant_configuration_service_1.TenantConfigurationService,
-            prisma_service_1.PrismaService,
-            audit_log_service_1.AuditLogService
+            audit_log_service_1.AuditLogService,
         ],
-        exports: [billing_service_1.BillingService, payment_service_1.PaymentService, stripe_service_1.StripeService, subscription_service_1.SubscriptionService, billing_logger_service_1.BillingLoggerService],
+        exports: [
+            billing_service_1.BillingService,
+            payment_service_1.PaymentService,
+            stripe_service_1.StripeService,
+            subscription_service_1.SubscriptionService,
+            billing_logger_service_1.BillingLoggerService
+        ],
     })
 ], BillingModule);
 //# sourceMappingURL=billing.module.js.map

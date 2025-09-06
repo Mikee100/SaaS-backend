@@ -16,6 +16,8 @@ exports.BranchController = void 0;
 const common_1 = require("@nestjs/common");
 const branch_service_1 = require("./branch.service");
 const passport_1 = require("@nestjs/passport");
+const permissions_decorator_1 = require("../auth/permissions.decorator");
+const permissions_guard_1 = require("../auth/permissions.guard");
 let BranchController = class BranchController {
     branchService;
     constructor(branchService) {
@@ -46,6 +48,21 @@ let BranchController = class BranchController {
     }
     async deleteBranch(id) {
         return this.branchService.deleteBranch(id);
+    }
+    async switchBranch(branchId, req) {
+        const userId = req.user?.id || req.user?.sub;
+        const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+        if (!userId) {
+            throw new common_1.ForbiddenException('User not authenticated');
+        }
+        const branch = await this.branchService.getBranchById(branchId);
+        if (!branch) {
+            throw new common_1.NotFoundException('Branch not found');
+        }
+        if (!userRoles.includes('manager') && !userRoles.includes('admin') && !userRoles.includes('owner')) {
+            throw new common_1.ForbiddenException('Only managers and above can switch branches');
+        }
+        return this.branchService.updateUserBranch(userId, branchId);
     }
 };
 exports.BranchController = BranchController;
@@ -86,9 +103,19 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], BranchController.prototype, "deleteBranch", null);
+__decorate([
+    (0, common_1.Post)('switch/:branchId'),
+    (0, common_1.UseGuards)(permissions_guard_1.PermissionsGuard),
+    (0, permissions_decorator_1.Permissions)('manage_branches'),
+    __param(0, (0, common_1.Param)('branchId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "switchBranch", null);
 exports.BranchController = BranchController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.Controller)('branches'),
+    (0, common_1.Controller)('api/branches'),
     __metadata("design:paramtypes", [branch_service_1.BranchService])
 ], BranchController);
 //# sourceMappingURL=branch.controller.js.map

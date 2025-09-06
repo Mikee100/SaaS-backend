@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalesController = void 0;
 const common_1 = require("@nestjs/common");
 const sales_service_1 = require("./sales.service");
+const create_sale_dto_1 = require("./create-sale.dto");
 const passport_1 = require("@nestjs/passport");
 const common_2 = require("@nestjs/common");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
@@ -89,49 +90,32 @@ let SalesController = class SalesController {
                 customerPhone: sale.customerPhone || 'N/A',
                 items: sale.items.map(item => ({
                     productId: item.productId,
-                    name: item.name || 'Unknown Product',
+                    name: item.product?.name || 'Unknown Product',
                     price: item.price,
-                    quantity: item.quantity,
-                    total: item.price * item.quantity
+                    quantity: item.quantity
                 })),
-                subtotal: sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
                 total: sale.total,
-                vatAmount: sale.vatAmount || 0,
                 paymentMethod: sale.paymentType,
-                amountReceived: sale.total,
-                change: 0,
+                amountReceived: sale.paymentType === 'cash' ? sale.amountReceived : sale.total,
+                change: sale.paymentType === 'cash' ? (sale.amountReceived || 0) - sale.total : 0,
                 businessInfo: {
-                    name: tenant.name || 'Business Name',
-                    address: tenant.address || 'N/A',
-                    phone: tenant.contactPhone || 'N/A',
-                    email: tenant.contactEmail || 'N/A',
+                    name: tenant.name,
+                    address: tenant.address,
+                    phone: tenant.contactPhone,
+                    email: tenant.contactEmail
                 },
-                mpesaTransaction: sale.mpesaTransactions?.[0] ? {
-                    phoneNumber: sale.mpesaTransactions[0].phoneNumber,
-                    amount: sale.mpesaTransactions[0].amount,
-                    status: sale.mpesaTransactions[0].status,
-                    mpesaReceipt: sale.mpesaTransactions[0].transactionId,
-                    message: sale.mpesaTransactions[0].responseDesc || '',
-                    transactionDate: sale.mpesaTransactions[0].createdAt,
-                } : null,
+                branch: sale.branch ? {
+                    id: sale.branch.id,
+                    name: sale.branch.name,
+                    address: sale.branch.address
+                } : null
             };
-            console.log('Receipt generated successfully', { ...logContext, saleId: sale.id });
+            console.log('Sending receipt response', { ...logContext, saleId: response.id });
             return response;
         }
         catch (error) {
-            console.error('Error generating receipt:', {
-                ...logContext,
-                error: error.message,
-                stack: error.stack,
-                errorName: error.name,
-                errorCode: error.status || error.statusCode || 500,
-            });
-            if (error instanceof common_3.BadRequestException ||
-                error instanceof common_3.UnauthorizedException ||
-                error instanceof common_2.NotFoundException) {
-                throw error;
-            }
-            throw new common_3.InternalServerErrorException('Failed to generate receipt. Please try again later.');
+            console.error('Error generating receipt:', { ...logContext, error: error.message });
+            throw new common_3.InternalServerErrorException('Failed to generate receipt');
         }
     }
     async getRecentSales(req) {
@@ -165,10 +149,30 @@ let SalesController = class SalesController {
             return [];
         }
     }
-    async createSale(dto, req) {
-        const userId = req.user?.userId;
-        const tenantId = req.user?.tenantId;
-        return this.salesService.createSale(dto, tenantId, userId);
+    async create(createSaleDto, req) {
+        if (!req.user) {
+            throw new common_3.UnauthorizedException('User not authenticated');
+        }
+        if (!req.user.tenantId) {
+            throw new common_3.BadRequestException('Tenant ID is required');
+        }
+        const branchId = createSaleDto.branchId || req.user.branchId;
+        const saleData = {
+            ...createSaleDto,
+            branchId,
+        };
+        try {
+            const sale = await this.salesService.createSale(saleData, req.user.tenantId, req.user.userId);
+            return {
+                success: true,
+                data: sale,
+                message: 'Sale created successfully',
+            };
+        }
+        catch (error) {
+            console.error('Error creating sale:', error);
+            throw new common_3.InternalServerErrorException('Failed to create sale');
+        }
     }
     async listSales(req) {
         return this.salesService.listSales(req.user.tenantId);
@@ -225,14 +229,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getRecentSales", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.Permissions)('create_sales'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [create_sale_dto_1.CreateSaleDto, Object]),
     __metadata("design:returntype", Promise)
-], SalesController.prototype, "createSale", null);
+], SalesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('view_sales'),

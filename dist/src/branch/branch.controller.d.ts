@@ -102,4 +102,14 @@ export declare class BranchController {
         openingHours: string | null;
         customField: string | null;
     }>;
+    switchBranch(branchId: string, req: any): Promise<{
+        id: string;
+        name: string;
+        email: string;
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
+    }>;
 }

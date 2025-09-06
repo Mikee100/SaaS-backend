@@ -15,6 +15,7 @@ const class_transformer_1 = require("class-transformer");
 class SaleItemDto {
     productId;
     quantity;
+    price;
 }
 __decorate([
     (0, class_validator_1.IsString)(),
@@ -25,6 +26,11 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], SaleItemDto.prototype, "quantity", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], SaleItemDto.prototype, "price", void 0);
 class CreateSaleDto {
     items;
     paymentMethod;
@@ -33,6 +39,9 @@ class CreateSaleDto {
     customerPhone;
     idempotencyKey;
     branchId;
+    total;
+    vatAmount;
+    mpesaTransactionId;
 }
 exports.CreateSaleDto = CreateSaleDto;
 __decorate([
@@ -47,6 +56,7 @@ __decorate([
 ], CreateSaleDto.prototype, "paymentMethod", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], CreateSaleDto.prototype, "amountReceived", void 0);
 __decorate([
@@ -68,4 +78,19 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateSaleDto.prototype, "branchId", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSaleDto.prototype, "total", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSaleDto.prototype, "vatAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateSaleDto.prototype, "mpesaTransactionId", void 0);
 //# sourceMappingURL=create-sale.dto.js.map

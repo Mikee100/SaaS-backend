@@ -122,4 +122,14 @@ export declare class BranchService {
         openingHours: string | null;
         customField: string | null;
     }>;
+    updateUserBranch(userId: string, branchId: string): Promise<{
+        id: string;
+        name: string;
+        email: string;
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
+    }>;
 }

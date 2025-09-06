@@ -6,29 +6,285 @@ export declare class UserService {
     updateUserPermissions(userId: string, permissions: string[], tenantId: string, actorUserId?: string, ip?: string): Promise<{
         success: boolean;
     }>;
-    findById(id: string): Promise<({
-        userRoles: ({
-            role: {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                description: string | null;
-                tenantId: string | null;
-            };
-        } & {
+    findById(id: string, options?: {
+        include?: any;
+    }): Promise<({
+        [x: string]: ({
             id: string;
             tenantId: string;
             roleId: string;
             userId: string;
-        })[];
+        } | {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+            branchId: string;
+        } | {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+            branchId: string;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            userId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            userId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+        })[] | ({
+            id: string;
+            stripePriceId: string;
+            planId: string;
+            tenantId: string;
+            userId: string;
+            status: string;
+            stripeSubscriptionId: string;
+            stripeCustomerId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+        } | {
+            id: string;
+            stripePriceId: string;
+            planId: string;
+            tenantId: string;
+            userId: string;
+            status: string;
+            stripeSubscriptionId: string;
+            stripeCustomerId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            tenantId: string;
+            userId: string | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            tenantId: string;
+            userId: string | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
+        } | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
+        })[] | {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+        }[] | {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+            branchId: string;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            userId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string | null;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+        }[] | {
+            id: string;
+            stripePriceId: string;
+            planId: string;
+            tenantId: string;
+            userId: string;
+            status: string;
+            stripeSubscriptionId: string;
+            stripeCustomerId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            tenantId: string;
+            userId: string | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        }[] | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
+        }[];
+        [x: number]: never;
+        [x: symbol]: never;
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -37,6 +293,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }) | null>;
     private readonly logger;
     constructor(prisma: PrismaService, auditLogService: AuditLogService);
@@ -61,28 +318,16 @@ export declare class UserService {
             userId: string;
         })[] | ({
             id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        })[] | ({
-            id: string;
             tenantId: string;
-            permissionId: string;
+            roleId: string;
             userId: string;
+            branchId: string;
         } | {
             id: string;
             tenantId: string;
-            permissionId: string;
+            roleId: string;
             userId: string;
+            branchId: string;
         })[] | ({
             id: string;
             createdAt: Date;
@@ -91,6 +336,7 @@ export declare class UserService {
             branchId: string | null;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -104,6 +350,7 @@ export declare class UserService {
             branchId: string | null;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -161,16 +408,18 @@ export declare class UserService {
             thirdPartyTransID: string | null;
         })[] | ({
             id: string;
-            tenantId: string;
-            roleId: string;
-            userId: string;
-            branchId: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
         } | {
             id: string;
-            tenantId: string;
-            roleId: string;
-            userId: string;
-            branchId: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
         })[] | ({
             id: string;
             stripePriceId: string;
@@ -225,6 +474,16 @@ export declare class UserService {
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
+        } | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
         })[] | {
             id: string;
             tenantId: string;
@@ -232,16 +491,10 @@ export declare class UserService {
             userId: string;
         }[] | {
             id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        }[] | {
-            id: string;
             tenantId: string;
-            permissionId: string;
+            roleId: string;
             userId: string;
+            branchId: string;
         }[] | {
             id: string;
             createdAt: Date;
@@ -250,6 +503,7 @@ export declare class UserService {
             branchId: string | null;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -282,10 +536,11 @@ export declare class UserService {
             thirdPartyTransID: string | null;
         }[] | {
             id: string;
-            tenantId: string;
-            roleId: string;
-            userId: string;
-            branchId: string;
+            createdAt: Date;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
         }[] | {
             id: string;
             stripePriceId: string;
@@ -313,6 +568,11 @@ export declare class UserService {
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        }[] | {
+            id: string;
+            tenantId: string;
+            permissionId: string;
+            userId: string;
         }[];
         [x: number]: never;
         [x: symbol]: never;
@@ -322,7 +582,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -331,6 +590,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }) | null>;
     getUserRoles(tenantId: string): Promise<({
         rolePermissions: {
@@ -482,7 +742,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -491,6 +750,39 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
+    })[]>;
+    findByTenantAndBranch(tenantId: string, branchId: string): Promise<({
+        userRoles: ({
+            role: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                description: string | null;
+                tenantId: string | null;
+            };
+        } & {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+        })[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        tenantId: string | null;
+        email: string;
+        password: string;
+        isSuperadmin: boolean;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
+        branchId: string | null;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -502,7 +794,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -511,6 +802,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -523,7 +815,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -532,6 +823,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
@@ -539,7 +831,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -548,6 +839,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }>;
     getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{
         name: string;
@@ -690,7 +982,6 @@ export declare class UserService {
         updatedAt: Date;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -699,6 +990,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     getAllPermissions(): Promise<{

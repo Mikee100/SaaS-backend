@@ -11,17 +11,40 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var AuthController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
-const auth_service_1 = require("./auth.service");
-let AuthController = class AuthController {
+const auth_services_1 = require("./auth.services");
+const public_decorator_1 = require("./decorators/public.decorator");
+let AuthController = AuthController_1 = class AuthController {
     authService;
     constructor(authService) {
         this.authService = authService;
     }
+    logger = new common_1.Logger(AuthController_1.name);
     async login(body, req) {
-        return this.authService.login(body.email, body.password, req.ip);
+        this.logger.log(`Login attempt for: ${body.email} from IP: ${req.ip}`);
+        if (!body.email || !body.password) {
+            this.logger.warn('Missing email or password in login request');
+            throw new common_1.BadRequestException('Email and password are required');
+        }
+        try {
+            const result = await this.authService.login(body.email, body.password, req.ip);
+            if (!result || !result.access_token) {
+                this.logger.error('Login failed: No access token in response');
+                throw new common_1.InternalServerErrorException('Authentication failed');
+            }
+            this.logger.log(`Successful login for user: ${body.email}`);
+            return result;
+        }
+        catch (error) {
+            this.logger.error(`Login error for ${body.email}: ${error.message}`, error.stack);
+            if (error instanceof common_1.HttpException) {
+                throw error;
+            }
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
     }
     async forgotPassword(body) {
         return this.authService.forgotPassword(body.email);
@@ -32,6 +55,7 @@ let AuthController = class AuthController {
 };
 exports.AuthController = AuthController;
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -53,8 +77,8 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
-exports.AuthController = AuthController = __decorate([
+exports.AuthController = AuthController = AuthController_1 = __decorate([
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [auth_service_1.AuthService])
+    __metadata("design:paramtypes", [auth_services_1.AuthService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

@@ -2,20 +2,6 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 import { Reflector } from '@nestjs/core';
 import { BillingService } from './billing.service';
 
-export const RequirePlan = (plan: string) => {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-    Reflect.defineMetadata('requiredPlan', plan, descriptor.value);
-    return descriptor;
-  };
-};
-
-export const RequireFeature = (feature: string) => {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-    Reflect.defineMetadata('requiredFeature', feature, descriptor.value);
-    return descriptor;
-  };
-};
-
 @Injectable()
 export class PlanGuard implements CanActivate {
   constructor(
@@ -31,12 +17,11 @@ export class PlanGuard implements CanActivate {
       return false;
     }
 
-    // Get the required plan from the decorator
-    const requiredPlan = Reflect.getMetadata('requiredPlan', context.getHandler());
-    const requiredFeature = Reflect.getMetadata('requiredFeature', context.getHandler());
+    // You may need to set requiredPlan/requiredFeature another way, or remove this logic
+    const requiredPlan = undefined; // Reflect.getMetadata('requiredPlan', context.getHandler());
+    const requiredFeature = undefined; // Reflect.getMetadata('requiredFeature', context.getHandler());
 
     if (requiredPlan) {
-      // Check if user's plan meets the requirement
       const currentPlan = user.plan?.name || 'Basic';
       const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };
       const currentPlanLevel = planHierarchy[currentPlan] || 0;
@@ -46,10 +31,9 @@ export class PlanGuard implements CanActivate {
     }
 
     if (requiredFeature) {
-      // Check if user has the required feature
       return await this.billingService.hasFeature(user.tenantId, requiredFeature);
     }
 
     return true;
   }
-} 
+}

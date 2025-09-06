@@ -1,4 +1,5 @@
 import { SalesService } from './sales.service';
+import { CreateSaleDto } from './create-sale.dto';
 export declare class SalesController {
     private readonly salesService;
     constructor(salesService: SalesService);
@@ -97,6 +98,15 @@ export declare class SalesController {
                 name: string;
                 email: string;
             };
+            mpesaTransactions: {
+                id: string;
+                createdAt: Date;
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                responseDesc: string | null;
+                transactionId: string | null;
+            }[];
             branch: {
                 id: string;
                 createdAt: Date;
@@ -117,15 +127,6 @@ export declare class SalesController {
                 openingHours: string | null;
                 customField: string | null;
             } | null;
-            mpesaTransactions: {
-                id: string;
-                createdAt: Date;
-                phoneNumber: string;
-                amount: number;
-                status: string;
-                responseDesc: string | null;
-                transactionId: string | null;
-            }[];
             id: string;
             createdAt: Date;
             tenantId: string;
@@ -133,6 +134,7 @@ export declare class SalesController {
             branchId: string | null;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -208,10 +210,10 @@ export declare class SalesController {
             price: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             tenantId: string;
+            branchId: string | null;
             sku: string;
             cost: number;
             stock: number;
-            branchId: string | null;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
@@ -225,27 +227,21 @@ export declare class SalesController {
             name: string;
             price: number;
             quantity: number;
-            total: number;
         }[];
-        subtotal: number;
         total: number;
-        vatAmount: number;
         paymentMethod: string;
-        amountReceived: number;
+        amountReceived: number | null;
         change: number;
         businessInfo: {
             name: string;
-            address: string;
-            phone: string;
+            address: string | null;
+            phone: string | null;
             email: string;
         };
-        mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            mpesaReceipt: string | null;
-            message: string;
-            transactionDate: Date;
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
         } | null;
     }>;
     getRecentSales(req: any): Promise<{
@@ -263,100 +259,10 @@ export declare class SalesController {
             total: number;
         }[];
     }[]>;
-    createSale(dto: any, req: any): Promise<{
-        tenant: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            whiteLabel: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
-            customIntegrations: boolean;
-            stripeCustomerId: string | null;
-            businessType: string;
-            contactEmail: string;
-            contactPhone: string | null;
-            businessCategory: string | null;
-            businessSubcategory: string | null;
-            primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            businessDescription: string | null;
-            address: string | null;
-            city: string | null;
-            state: string | null;
-            country: string | null;
-            postalCode: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            foundedYear: number | null;
-            employeeCount: string | null;
-            annualRevenue: string | null;
-            businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-            website: string | null;
-            socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-            kraPin: string | null;
-            vatNumber: string | null;
-            etimsQrUrl: string | null;
-            businessLicense: string | null;
-            taxId: string | null;
-            currency: string | null;
-            timezone: string | null;
-            invoiceFooter: string | null;
-            credits: number | null;
-            logoUrl: string | null;
-            loginLogoUrl: string | null;
-            favicon: string | null;
-            receiptLogo: string | null;
-            watermark: string | null;
-            dashboardLogoUrl: string | null;
-            emailLogoUrl: string | null;
-            mobileLogoUrl: string | null;
-            logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-            primaryColor: string | null;
-            secondaryColor: string | null;
-            customDomain: string | null;
-            apiKey: string | null;
-            webhookUrl: string | null;
-            rateLimit: number | null;
-            auditLogsEnabled: boolean;
-        };
-        user: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            tenantId: string | null;
-            branchId: string | null;
-            email: string;
-            password: string;
-            isSuperadmin: boolean;
-            resetPasswordToken: string | null;
-            resetPasswordExpires: Date | null;
-            notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-            language: string | null;
-            region: string | null;
-        };
-        items: {
-            id: string;
-            price: number;
-            productId: string;
-            quantity: number;
-            saleId: string;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        tenantId: string;
-        userId: string;
-        branchId: string | null;
-        total: number;
-        paymentType: string;
-        customerName: string | null;
-        customerPhone: string | null;
-        mpesaTransactionId: string | null;
-        idempotencyKey: string | null;
-        vatAmount: number | null;
+    create(createSaleDto: CreateSaleDto, req: any): Promise<{
+        success: boolean;
+        data: import("./sale-receipt.dto").SaleReceiptDto;
+        message: string;
     }>;
     listSales(req: any): Promise<{
         saleId: string;
@@ -468,6 +374,15 @@ export declare class SalesController {
             name: string;
             email: string;
         };
+        mpesaTransactions: {
+            id: string;
+            createdAt: Date;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
         branch: {
             id: string;
             createdAt: Date;
@@ -488,15 +403,6 @@ export declare class SalesController {
             openingHours: string | null;
             customField: string | null;
         } | null;
-        mpesaTransactions: {
-            id: string;
-            createdAt: Date;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            responseDesc: string | null;
-            transactionId: string | null;
-        }[];
         id: string;
         createdAt: Date;
         tenantId: string;
@@ -504,6 +410,7 @@ export declare class SalesController {
         branchId: string | null;
         total: number;
         paymentType: string;
+        amountReceived: number | null;
         customerName: string | null;
         customerPhone: string | null;
         mpesaTransactionId: string | null;

@@ -34,18 +34,20 @@ export class UserService {
     }
     return { success: true };
   }
-  async findById(id: string) {
-  return this.prisma.user.findUnique({
-    where: { id },
-    include: {
+  async findById(id: string, options: { include?: any } = {}) {
+    const defaultInclude = {
       userRoles: {
         include: {
           role: true
         }
       }
-    }
-  });
-}
+    };
+    
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: options.include || defaultInclude
+    });
+  }
   private readonly logger = new Logger(UserService.name);
 
   constructor(private prisma: PrismaService, private auditLogService: AuditLogService) {}
@@ -150,15 +152,22 @@ export class UserService {
             tenant: true
           }
         },
-  // ...existing code...
       };
 
-      const finalInclude = include || defaultInclude;
-      
+      // If no custom include is provided, use the default one
+      const queryInclude = include || defaultInclude;
+
+      this.logger.log(`Querying database for user with email: ${email}`);
       const user = await this.prisma.user.findUnique({
         where: { email },
-        include: finalInclude
+        include: queryInclude
       });
+      
+      if (user) {
+        this.logger.log(`Found user: ${user.id} with email: ${email}`);
+      } else {
+        this.logger.warn(`No user found with email: ${email}`);
+      }
 
       if (!user) {
         return null;
@@ -195,6 +204,22 @@ export class UserService {
           }
         },
   // ...existing code...
+      }
+    });
+  }
+
+  async findByTenantAndBranch(tenantId: string, branchId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        tenantId,
+        branchId
+      },
+      include: {
+        userRoles: {
+          include: {
+            role: true
+          }
+        }
       }
     });
   }
@@ -249,12 +274,6 @@ export class UserService {
     
     return result || { count: 1 }; // Return a result object similar to updateMany
   }
-
-  // ...existing code...
-
-  // ...existing code...
-
-  // ...existing code...
 
   async updateUserByEmail(email: string, data: any) {
     return this.prisma.user.update({
@@ -317,32 +336,55 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
       }
     });
     if (!user) return [];
+    
     // Check if user has owner role
-    const isOwner = user.userRoles.some(ur => ur.role.name.toLowerCase() === 'owner');
+    const isOwner = user.userRoles.some(ur => 
+      ur.role?.name?.toLowerCase() === 'owner' || 
+      ur.role?.name?.toLowerCase() === 'admin'
+    );
+    
     if (isOwner) {
       // Return all permissions in the system
       const allPerms = await this.prisma.permission.findMany();
       return allPerms.map(p => ({ name: p.name }));
     }
+    
+    // Prepare where clause for permissions query
+    const permissionWhere: any = { userId };
+    if (tenantId) {
+      permissionWhere.tenantId = tenantId;
+    }
+    
     // Get direct user permissions
     const directUserPermissions = await this.prisma.userPermission.findMany({
-      where: { userId, tenantId },
+      where: permissionWhere,
       include: { permission: true }
     });
+    
     // Get permissions from user's roles
-    const roleIds = user.userRoles.map(ur => ur.role.id);
+    const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
     let rolePermissions: any[] = [];
+    
     if (roleIds.length > 0) {
       rolePermissions = await this.prisma.rolePermission.findMany({
-        where: { roleId: { in: roleIds } },
+        where: { 
+          roleId: { in: roleIds },
+          ...(tenantId && { tenantId }) // Only filter by tenantId if provided
+        },
         include: { permission: true }
       });
     }
+    
     // Combine and deduplicate permissions
     const allPermissions = [
-      ...directUserPermissions.map(up => up.permission?.name),
-      ...rolePermissions.map(rp => rp.permission?.name)
-    ].filter(Boolean);
+      ...directUserPermissions
+        .filter(up => up.permission?.name)
+        .map(up => up.permission.name),
+      ...rolePermissions
+        .filter(rp => rp.permission?.name)
+        .map(rp => rp.permission.name)
+    ];
+    
     const uniquePermissions = Array.from(new Set(allPermissions));
     return uniquePermissions.map(name => ({ name }));
   } catch (error) {

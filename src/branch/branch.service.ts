@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -32,5 +32,55 @@ export class BranchService {
 
   async deleteBranch(id: string) {
     return this.prisma.branch.delete({ where: { id } });
+  }
+
+  async updateUserBranch(userId: string, branchId: string) {
+    // Verify the user exists and get their tenant
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { tenant: true }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.tenantId) {
+      throw new NotFoundException('User is not associated with any tenant');
+    }
+
+    // Verify the branch exists and belongs to the same tenant
+    const branch = await this.prisma.branch.findFirst({
+      where: { 
+        id: branchId,
+        tenantId: user.tenantId 
+      }
+    });
+
+    if (!branch) {
+      throw new NotFoundException('Branch not found or not accessible');
+    }
+
+    // Update user's current branch
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        branch: {
+          connect: { id: branchId }
+        }
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            address: true
+          }
+        }
+      }
+    });
   }
 }

@@ -8,13 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthModule = void 0;
 const common_1 = require("@nestjs/common");
-const auth_service_1 = require("./auth.service");
+const auth_services_1 = require("./auth.services");
 const auth_controller_1 = require("./auth.controller");
 const jwt_1 = require("@nestjs/jwt");
 const user_module_1 = require("../user/user.module");
 const jwt_strategy_1 = require("./jwt.strategy");
 const audit_log_service_1 = require("../audit-log.service");
 const prisma_module_1 = require("../prisma.module");
+const configuration_service_1 = require("../config/configuration.service");
+const passport_1 = require("@nestjs/passport");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -23,12 +25,24 @@ exports.AuthModule = AuthModule = __decorate([
         imports: [
             user_module_1.UserModule,
             prisma_module_1.PrismaModule,
+            passport_1.PassportModule,
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_SECRET,
-                signOptions: { expiresIn: '1d' },
+                secret: process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
+                signOptions: {
+                    expiresIn: '1d',
+                    algorithm: 'HS256',
+                    issuer: 'saas-platform',
+                    audience: 'saas-platform-client',
+                },
+                verifyOptions: {
+                    algorithms: ['HS256'],
+                    ignoreExpiration: false,
+                    issuer: 'saas-platform',
+                    audience: 'saas-platform-client',
+                },
             }),
         ],
-        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, audit_log_service_1.AuditLogService],
+        providers: [auth_services_1.AuthService, jwt_strategy_1.JwtStrategy, audit_log_service_1.AuditLogService, configuration_service_1.ConfigurationService],
         controllers: [auth_controller_1.AuthController],
     })
 ], AuthModule);

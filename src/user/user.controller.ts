@@ -4,9 +4,27 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me')
+  getMe(@Req() req) {
+    const user = req.user;
+    // Return only the fields your frontend expects
+    return {
+      id: user.userId || user.sub,
+      email: user.email,
+      name: user.name,
+      roles: user.roles || [],
+      permissions: user.permissions || [],
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      isSuperadmin: user.isSuperadmin || false,
+    };
+  }
+
   @Put(':id/permissions')
   @Permissions('edit_users')
   async updateUserPermissions(@Req() req, @Param('id') id: string, @Body() body: { permissions: string[] }) {
@@ -20,7 +38,6 @@ export class UserController {
     if (!sameTenant) throw new ForbiddenException('Can only update users in your tenant');
     return this.userService.updateUserPermissions(id, body.permissions, req.user.tenantId, req.user.userId, req.ip);
   }
-  constructor(private readonly userService: UserService) {}
 
   @Post()
   @Permissions('edit_users')
@@ -31,8 +48,17 @@ export class UserController {
 
   @Get()
   @Permissions('view_users')
-  async getUsers(@Query('tenantId') tenantId: string) {
-    const users = await this.userService.findAllByTenant(tenantId);
+  async getUsers(@Req() req, @Query('branchId') branchId?: string) {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in token');
+    }
+
+    // Get users for the tenant (and branch if specified)
+    const users = branchId 
+      ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+      : await this.userService.findAllByTenant(tenantId);
+    
     // For each user, fetch their effective permissions
     const usersWithPermissions = await Promise.all(users.map(async user => {
       const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
@@ -41,6 +67,7 @@ export class UserController {
         permissions: permissions.map(p => p.name)
       };
     }));
+    
     return usersWithPermissions;
   }
 
@@ -48,20 +75,6 @@ export class UserController {
   getProtected(@Req() req) {
     return { message: 'You are authenticated!', user: req.user };
   }
-
-@Get('me')
-async getMe(@Req() req) {
-  const user = await this.userService.findByEmail(req.user.email);
-  if (!user) throw new NotFoundException('User not found');
-  const permissions = await this.userService.getEffectivePermissions(user.id, req.user.tenantId);
-
-  return {
-    ...user,
-    id: req.user.id ?? user.id, // Ensure id is present
-    tenantId: req.user.tenantId ?? user.tenantId, // Ensure tenantId is present
-    permissions: permissions.map(p => p.name)
-  };
-}
 
   @Put(':id')
   @Permissions('edit_users')
@@ -83,4 +96,4 @@ async getMe(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
   }
-} 
+}

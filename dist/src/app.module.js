@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const prisma_module_1 = require("./prisma.module");
+const config_1 = require("@nestjs/config");
 const auth_module_1 = require("./auth/auth.module");
 const user_module_1 = require("./user/user.module");
 const product_module_1 = require("./product/product.module");
@@ -23,7 +24,6 @@ const realtime_module_1 = require("./realtime.module");
 const permission_module_1 = require("./permission/permission.module");
 const billing_module_1 = require("./billing/billing.module");
 const analytics_module_1 = require("./analytics/analytics.module");
-const configuration_service_1 = require("./config/configuration.service");
 const branch_module_1 = require("./branch/branch.module");
 const usage_module_1 = require("./usage.module");
 const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-stats.module");
@@ -33,8 +33,9 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
+            config_1.ConfigModule.forRoot(),
+            prisma_module_1.PrismaModule,
             user_module_1.UserModule,
             product_module_1.ProductModule,
             sales_module_1.SalesModule,
@@ -51,7 +52,7 @@ exports.AppModule = AppModule = __decorate([
             admin_tenant_stats_module_1.AdminTenantStatsModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService, configuration_service_1.ConfigurationService],
+        providers: [app_service_1.AppService]
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

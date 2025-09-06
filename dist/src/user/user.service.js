@@ -44,16 +44,17 @@ let UserService = UserService_1 = class UserService {
         }
         return { success: true };
     }
-    async findById(id) {
-        return this.prisma.user.findUnique({
-            where: { id },
-            include: {
-                userRoles: {
-                    include: {
-                        role: true
-                    }
+    async findById(id, options = {}) {
+        const defaultInclude = {
+            userRoles: {
+                include: {
+                    role: true
                 }
             }
+        };
+        return this.prisma.user.findUnique({
+            where: { id },
+            include: options.include || defaultInclude
         });
     }
     logger = new common_2.Logger(UserService_1.name);
@@ -134,11 +135,18 @@ let UserService = UserService_1 = class UserService {
                     }
                 },
             };
-            const finalInclude = include || defaultInclude;
+            const queryInclude = include || defaultInclude;
+            this.logger.log(`Querying database for user with email: ${email}`);
             const user = await this.prisma.user.findUnique({
                 where: { email },
-                include: finalInclude
+                include: queryInclude
             });
+            if (user) {
+                this.logger.log(`Found user: ${user.id} with email: ${email}`);
+            }
+            else {
+                this.logger.warn(`No user found with email: ${email}`);
+            }
             if (!user) {
                 return null;
             }
@@ -172,6 +180,21 @@ let UserService = UserService_1 = class UserService {
                         tenant: true
                     }
                 },
+            }
+        });
+    }
+    async findByTenantAndBranch(tenantId, branchId) {
+        return this.prisma.user.findMany({
+            where: {
+                tenantId,
+                branchId
+            },
+            include: {
+                userRoles: {
+                    include: {
+                        role: true
+                    }
+                }
             }
         });
     }
@@ -272,27 +295,39 @@ let UserService = UserService_1 = class UserService {
             });
             if (!user)
                 return [];
-            const isOwner = user.userRoles.some(ur => ur.role.name.toLowerCase() === 'owner');
+            const isOwner = user.userRoles.some(ur => ur.role?.name?.toLowerCase() === 'owner' ||
+                ur.role?.name?.toLowerCase() === 'admin');
             if (isOwner) {
                 const allPerms = await this.prisma.permission.findMany();
                 return allPerms.map(p => ({ name: p.name }));
             }
+            const permissionWhere = { userId };
+            if (tenantId) {
+                permissionWhere.tenantId = tenantId;
+            }
             const directUserPermissions = await this.prisma.userPermission.findMany({
-                where: { userId, tenantId },
+                where: permissionWhere,
                 include: { permission: true }
             });
-            const roleIds = user.userRoles.map(ur => ur.role.id);
+            const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
             let rolePermissions = [];
             if (roleIds.length > 0) {
                 rolePermissions = await this.prisma.rolePermission.findMany({
-                    where: { roleId: { in: roleIds } },
+                    where: {
+                        roleId: { in: roleIds },
+                        ...(tenantId && { tenantId })
+                    },
                     include: { permission: true }
                 });
             }
             const allPermissions = [
-                ...directUserPermissions.map(up => up.permission?.name),
-                ...rolePermissions.map(rp => rp.permission?.name)
-            ].filter(Boolean);
+                ...directUserPermissions
+                    .filter(up => up.permission?.name)
+                    .map(up => up.permission.name),
+                ...rolePermissions
+                    .filter(rp => rp.permission?.name)
+                    .map(rp => rp.permission.name)
+            ];
             const uniquePermissions = Array.from(new Set(allPermissions));
             return uniquePermissions.map(name => ({ name }));
         }

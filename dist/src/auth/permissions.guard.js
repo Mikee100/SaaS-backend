@@ -13,50 +13,69 @@ exports.PermissionsGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const user_service_1 = require("../user/user.service");
-let PermissionsGuard = class PermissionsGuard {
+const passport_1 = require("@nestjs/passport");
+const permissions_decorator_1 = require("./decorators/permissions.decorator");
+let PermissionsGuard = class PermissionsGuard extends (0, passport_1.AuthGuard)('jwt') {
     reflector;
     userService;
     constructor(reflector, userService) {
+        super();
         this.reflector = reflector;
         this.userService = userService;
     }
     async canActivate(context) {
-        const req = context.switchToHttp().getRequest();
-        const user = req.user;
-        if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-            console.log('Owner/admin bypass: all permissions granted');
+        const isPublic = this.reflector.get('isPublic', context.getHandler());
+        if (isPublic) {
+            console.log('[PermissionsGuard] isPublic route');
             return true;
         }
-        const requiredPermissions = this.reflector.get('permissions', context.getHandler());
-        console.log('PermissionsGuard user:', user, 'requiredPermissions:', requiredPermissions);
-        if (!user)
-            throw new common_1.ForbiddenException('User not authenticated');
-        const tenantId = user?.tenantId;
-        const userId = user?.userId || user?.sub;
-        let userPermissions = [];
-        if (tenantId) {
-            const perms = await this.userService.getEffectivePermissions(userId, tenantId);
-            userPermissions = perms.map((p) => p.name);
+        const request = context.switchToHttp().getRequest();
+        const user = request.user;
+        console.log('[PermissionsGuard] user:', user);
+        if (!user) {
+            console.log('[PermissionsGuard] No user found');
+            throw new common_1.UnauthorizedException('Authentication required');
         }
-        else {
-            const direct = await this.userService.getEffectivePermissions(userId, tenantId);
-            userPermissions = direct.map((p) => p.permissionRef?.name);
-            if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-                return true;
+        const userId = user.id || user.sub;
+        const tenantId = user.tenantId;
+        console.log('[PermissionsGuard] userId:', userId, 'tenantId:', tenantId);
+        if (!userId) {
+            console.log('[PermissionsGuard] No userId');
+            throw new common_1.ForbiddenException('Invalid user identification in token');
+        }
+        const userRoles = Array.isArray(user.roles) ? user.roles : [];
+        console.log('[PermissionsGuard] userRoles:', userRoles);
+        if (userRoles.includes('owner') || userRoles.includes('admin')) {
+            console.log('[PermissionsGuard] Owner/admin bypass');
+            return true;
+        }
+        const requiredPermissions = this.reflector.getAllAndOverride(permissions_decorator_1.PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
+        console.log('[PermissionsGuard] requiredPermissions:', requiredPermissions);
+        if (!requiredPermissions?.length) {
+            console.log('[PermissionsGuard] No permissions required, allowing');
+            return true;
+        }
+        try {
+            const permissions = await this.userService.getEffectivePermissions(userId, tenantId);
+            const userPermissions = permissions.map(p => p.name).filter(Boolean);
+            const hasPermission = requiredPermissions.some(perm => userPermissions.includes(perm));
+            if (!hasPermission) {
+                throw new common_1.ForbiddenException('Insufficient permissions');
             }
-        }
-        if (!requiredPermissions || requiredPermissions.length === 0) {
             return true;
         }
-        const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
-        if (!hasPermission)
-            throw new common_1.ForbiddenException('Not allowed');
-        return true;
+        catch (error) {
+            if (error instanceof common_1.ForbiddenException) {
+                throw error;
+            }
+            throw new common_1.ForbiddenException('Error checking permissions');
+        }
     }
 };
 exports.PermissionsGuard = PermissionsGuard;
 exports.PermissionsGuard = PermissionsGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [core_1.Reflector, user_service_1.UserService])
+    __metadata("design:paramtypes", [core_1.Reflector,
+        user_service_1.UserService])
 ], PermissionsGuard);
 //# sourceMappingURL=permissions.guard.js.map

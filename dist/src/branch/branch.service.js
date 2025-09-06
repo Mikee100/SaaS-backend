@@ -40,6 +40,47 @@ let BranchService = class BranchService {
     async deleteBranch(id) {
         return this.prisma.branch.delete({ where: { id } });
     }
+    async updateUserBranch(userId, branchId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { tenant: true }
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (!user.tenantId) {
+            throw new common_1.NotFoundException('User is not associated with any tenant');
+        }
+        const branch = await this.prisma.branch.findFirst({
+            where: {
+                id: branchId,
+                tenantId: user.tenantId
+            }
+        });
+        if (!branch) {
+            throw new common_1.NotFoundException('Branch not found or not accessible');
+        }
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                branch: {
+                    connect: { id: branchId }
+                }
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        address: true
+                    }
+                }
+            }
+        });
+    }
 };
 exports.BranchService = BranchService;
 exports.BranchService = BranchService = __decorate([

@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, NotFoundException, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, NotFoundException, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
+import { Permissions } from '../auth/permissions.decorator';
+import { PermissionsGuard } from '../auth/permissions.guard';
 
 @UseGuards(AuthGuard('jwt'))
-@Controller('branches')
+@Controller('api/branches') // <-- change this line
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
 
@@ -43,5 +45,31 @@ export class BranchController {
   @Delete(':id')
   async deleteBranch(@Param('id') id: string) {
     return this.branchService.deleteBranch(id);
+  }
+
+  @Post('switch/:branchId')
+  @UseGuards(PermissionsGuard)
+  @Permissions('manage_branches')
+  async switchBranch(@Param('branchId') branchId: string, @Req() req: any) {
+    const userId = req.user?.id || req.user?.sub;
+    const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+    
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
+    // Verify the branch exists and user has access to it
+    const branch = await this.branchService.getBranchById(branchId);
+    if (!branch) {
+      throw new NotFoundException('Branch not found');
+    }
+
+    // Only allow managers to switch branches
+    if (!userRoles.includes('manager') && !userRoles.includes('admin') && !userRoles.includes('owner')) {
+      throw new ForbiddenException('Only managers and above can switch branches');
+    }
+
+    // Update user's current branch
+    return this.branchService.updateUserBranch(userId, branchId);
   }
 }

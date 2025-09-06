@@ -17,9 +17,24 @@ const common_1 = require("@nestjs/common");
 const user_service_1 = require("./user.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
-const permissions_guard_1 = require("../auth/permissions.guard");
 let UserController = class UserController {
     userService;
+    constructor(userService) {
+        this.userService = userService;
+    }
+    getMe(req) {
+        const user = req.user;
+        return {
+            id: user.userId || user.sub,
+            email: user.email,
+            name: user.name,
+            roles: user.roles || [],
+            permissions: user.permissions || [],
+            tenantId: user.tenantId,
+            branchId: user.branchId,
+            isSuperadmin: user.isSuperadmin || false,
+        };
+    }
     async updateUserPermissions(req, id, body) {
         const actorUser = await this.userService.findById(req.user.userId);
         const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
@@ -31,14 +46,17 @@ let UserController = class UserController {
             throw new common_1.ForbiddenException('Can only update users in your tenant');
         return this.userService.updateUserPermissions(id, body.permissions, req.user.tenantId, req.user.userId, req.ip);
     }
-    constructor(userService) {
-        this.userService = userService;
-    }
     async createUser(body, req) {
         return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
-    async getUsers(tenantId) {
-        const users = await this.userService.findAllByTenant(tenantId);
+    async getUsers(req, branchId) {
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in token');
+        }
+        const users = branchId
+            ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+            : await this.userService.findAllByTenant(tenantId);
         const usersWithPermissions = await Promise.all(users.map(async (user) => {
             const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
             return {
@@ -50,18 +68,6 @@ let UserController = class UserController {
     }
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
-    }
-    async getMe(req) {
-        const user = await this.userService.findByEmail(req.user.email);
-        if (!user)
-            throw new common_1.NotFoundException('User not found');
-        const permissions = await this.userService.getEffectivePermissions(user.id, req.user.tenantId);
-        return {
-            ...user,
-            id: req.user.id ?? user.id,
-            tenantId: req.user.tenantId ?? user.tenantId,
-            permissions: permissions.map(p => p.name)
-        };
     }
     async updateUser(req, id, body) {
         const tenantId = req.user.tenantId;
@@ -76,6 +82,14 @@ let UserController = class UserController {
     }
 };
 exports.UserController = UserController;
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('me'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "getMe", null);
 __decorate([
     (0, common_1.Put)(':id/permissions'),
     (0, permissions_decorator_1.Permissions)('edit_users'),
@@ -98,9 +112,10 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('view_users'),
-    __param(0, (0, common_1.Query)('tenantId')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('branchId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUsers", null);
 __decorate([
@@ -110,13 +125,6 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "getProtected", null);
-__decorate([
-    (0, common_1.Get)('me'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getMe", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, permissions_decorator_1.Permissions)('edit_users'),
@@ -145,7 +153,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
 exports.UserController = UserController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

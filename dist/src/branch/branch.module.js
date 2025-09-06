@@ -11,13 +11,19 @@ const common_1 = require("@nestjs/common");
 const branch_controller_1 = require("./branch.controller");
 const branch_service_1 = require("./branch.service");
 const prisma_service_1 = require("../prisma.service");
+const user_module_1 = require("../user/user.module");
+const auth_module_1 = require("../auth/auth.module");
 let BranchModule = class BranchModule {
 };
 exports.BranchModule = BranchModule;
 exports.BranchModule = BranchModule = __decorate([
     (0, common_1.Module)({
+        imports: [user_module_1.UserModule, auth_module_1.AuthModule],
         controllers: [branch_controller_1.BranchController],
-        providers: [branch_service_1.BranchService, prisma_service_1.PrismaService],
+        providers: [
+            branch_service_1.BranchService,
+            prisma_service_1.PrismaService
+        ],
         exports: [branch_service_1.BranchService],
     })
 ], BranchModule);
