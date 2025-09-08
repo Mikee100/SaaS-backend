@@ -8,16 +8,16 @@ export declare class InventoryController {
         product: {
             id: string;
             createdAt: Date;
-            name: string;
             updatedAt: Date;
+            name: string;
+            description: string | null;
+            price: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             tenantId: string;
             branchId: string | null;
-            description: string | null;
             sku: string;
-            price: number;
             cost: number;
             stock: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;
