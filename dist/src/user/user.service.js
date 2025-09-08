@@ -289,6 +289,7 @@ let UserService = UserService_1 = class UserService {
     }
     async getEffectivePermissions(userId, tenantId) {
         try {
+            this.logger.log(`getEffectivePermissions called for userId=${userId}, tenantId=${tenantId}`);
             const user = await this.prisma.user.findUnique({
                 where: { id: userId },
                 include: {
@@ -297,32 +298,41 @@ let UserService = UserService_1 = class UserService {
                     }
                 }
             });
+            this.logger.log(`User loaded: ${user ? user.id : 'not found'}`);
             if (!user)
                 return [];
             const isOwner = user.userRoles.some(ur => ur.role?.name?.toLowerCase() === 'owner' ||
                 ur.role?.name?.toLowerCase() === 'admin');
+            this.logger.log(`User isOwner/admin: ${isOwner}`);
             if (isOwner) {
                 const allPerms = await this.prisma.permission.findMany();
+                this.logger.log(`Returning all permissions for owner/admin: count=${allPerms.length}`);
                 return allPerms.map(p => ({ name: p.name }));
             }
             const permissionWhere = { userId };
             if (tenantId) {
                 permissionWhere.tenantId = tenantId;
             }
+            this.logger.log(`Direct userPermission where clause: ${JSON.stringify(permissionWhere)}`);
             const directUserPermissions = await this.prisma.userPermission.findMany({
                 where: permissionWhere,
                 include: { permission: true }
             });
+            this.logger.log(`Direct user permissions found: ${directUserPermissions.length}`);
             const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
+            this.logger.log(`User roleIds: ${JSON.stringify(roleIds)}`);
             let rolePermissions = [];
             if (roleIds.length > 0) {
+                const roleWhere = { roleId: { in: roleIds } };
+                if (tenantId) {
+                    roleWhere.role = { tenantId };
+                }
+                this.logger.log(`RolePermission where clause: ${JSON.stringify(roleWhere)}`);
                 rolePermissions = await this.prisma.rolePermission.findMany({
-                    where: {
-                        roleId: { in: roleIds },
-                        ...(tenantId && { tenantId })
-                    },
+                    where: roleWhere,
                     include: { permission: true }
                 });
+                this.logger.log(`Role permissions found: ${rolePermissions.length}`);
             }
             const allPermissions = [
                 ...directUserPermissions
@@ -333,6 +343,7 @@ let UserService = UserService_1 = class UserService {
                     .map(rp => rp.permission.name)
             ];
             const uniquePermissions = Array.from(new Set(allPermissions));
+            this.logger.log(`Unique permissions for user: ${JSON.stringify(uniquePermissions)}`);
             return uniquePermissions.map(name => ({ name }));
         }
         catch (error) {

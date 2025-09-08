@@ -328,8 +328,12 @@ export class UserService {
     });
   }
 
+// ...existing code...
+
 async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{ name: string }>> {
   try {
+    this.logger.log(`getEffectivePermissions called for userId=${userId}, tenantId=${tenantId}`);
+
     // Get user with roles
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -339,6 +343,7 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
         }
       }
     });
+    this.logger.log(`User loaded: ${user ? user.id : 'not found'}`);
     if (!user) return [];
     
     // Check if user has owner role
@@ -346,10 +351,12 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
       ur.role?.name?.toLowerCase() === 'owner' || 
       ur.role?.name?.toLowerCase() === 'admin'
     );
+    this.logger.log(`User isOwner/admin: ${isOwner}`);
     
     if (isOwner) {
       // Return all permissions in the system
       const allPerms = await this.prisma.permission.findMany();
+      this.logger.log(`Returning all permissions for owner/admin: count=${allPerms.length}`);
       return allPerms.map(p => ({ name: p.name }));
     }
     
@@ -358,25 +365,31 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     if (tenantId) {
       permissionWhere.tenantId = tenantId;
     }
+    this.logger.log(`Direct userPermission where clause: ${JSON.stringify(permissionWhere)}`);
     
     // Get direct user permissions
     const directUserPermissions = await this.prisma.userPermission.findMany({
       where: permissionWhere,
       include: { permission: true }
     });
+    this.logger.log(`Direct user permissions found: ${directUserPermissions.length}`);
     
     // Get permissions from user's roles
     const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
+    this.logger.log(`User roleIds: ${JSON.stringify(roleIds)}`);
     let rolePermissions: any[] = [];
     
     if (roleIds.length > 0) {
+      const roleWhere: any = { roleId: { in: roleIds } };
+      if (tenantId) {
+        roleWhere.role = { tenantId };
+      }
+      this.logger.log(`RolePermission where clause: ${JSON.stringify(roleWhere)}`);
       rolePermissions = await this.prisma.rolePermission.findMany({
-        where: { 
-          roleId: { in: roleIds },
-          ...(tenantId && { tenantId }) // Only filter by tenantId if provided
-        },
+        where: roleWhere,
         include: { permission: true }
       });
+      this.logger.log(`Role permissions found: ${rolePermissions.length}`);
     }
     
     // Combine and deduplicate permissions
@@ -390,12 +403,15 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     ];
     
     const uniquePermissions = Array.from(new Set(allPermissions));
+    this.logger.log(`Unique permissions for user: ${JSON.stringify(uniquePermissions)}`);
     return uniquePermissions.map(name => ({ name }));
   } catch (error) {
     this.logger.error(`Error getting effective permissions for user ${userId}:`, error);
     return [];
   }
 }
+
+// ...existing code...
 
   async getUserById(id: string) {
     try {
