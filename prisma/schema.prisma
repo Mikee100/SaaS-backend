@@ -69,7 +69,7 @@ model Sale {
   user               User               @relation(fields: [userId], references: [id])
   total              Float
   paymentType        String
-  amountReceived     Float?             // Amount received from the customer
+  amountReceived     Float? // Amount received from the customer
   items              SaleItem[]
   createdAt          DateTime           @default(now())
   customerName       String?
@@ -77,9 +77,10 @@ model Sale {
   mpesaTransactionId String?            @unique
   mpesaTransactions  MpesaTransaction[]
   idempotencyKey     String?
-  vatAmount          Float?             // KRA VAT amount
+  vatAmount          Float? // KRA VAT amount
   branchId           String?
   branch             Branch?            @relation(fields: [branchId], references: [id])
+  purchases          Purchase[]         @relation("PurchaseToSale")
 
   @@unique([idempotencyKey, userId])
   @@index([tenantId])
@@ -441,6 +442,133 @@ model TenantConfiguration {
   @@index([key])
 }
 
+model Customer {
+  id          String           @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String?          @unique
+  phone       String?          @unique
+  address     String?
+  city        String?
+  country     String?          @default("Kenya")
+  postalCode  String?
+  dateOfBirth DateTime?
+  gender      String?
+  notes       String?
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  purchases   Purchase[]
+  loyalty     CustomerLoyalty?
+  feedbacks   Feedback[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([phone])
+}
+
+model Purchase {
+  id          String   @id @default(uuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id])
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id], name: "PurchaseToSale")
+  totalAmount Float
+  items       Json // Array of items in the purchase
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+  @@index([saleId])
+}
+
+model LoyaltyProgram {
+  id                String            @id @default(uuid())
+  name              String
+  description       String?
+  pointsPerShilling Float             @default(0.01) // Points earned per shilling spent
+  minPointsRedeem   Int               @default(100) // Minimum points needed to redeem
+  rewardAmount      Float             @default(10.0) // Reward amount when points are redeemed
+  isActive          Boolean           @default(true)
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  customerLoyalties CustomerLoyalty[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([tenantId])
+}
+
+model CustomerLoyalty {
+  id                  String         @id @default(uuid())
+  customerId          String         @unique
+  customer            Customer       @relation(fields: [customerId], references: [id])
+  loyaltyProgramId    String
+  loyaltyProgram      LoyaltyProgram @relation(fields: [loyaltyProgramId], references: [id])
+  points              Int            @default(0)
+  totalPointsEarned   Int            @default(0)
+  totalPointsRedeemed Int            @default(0)
+  lastActivityAt      DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([customerId, loyaltyProgramId])
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  rating     Int // 1-5 scale
+  comment    String?
+  response   String? // Staff response to feedback
+  status     String   @default("new") // new, in_review, resolved
+  metadata   Json? // Additional metadata
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model MarketingCampaign {
+  id             String            @id @default(uuid())
+  name           String
+  description    String?
+  type           String // email, sms, push
+  subject        String?
+  content        String
+  status         String            @default("draft") // draft, scheduled, sent, cancelled
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  recipientCount Int               @default(0)
+  openRate       Float? // For email campaigns
+  clickRate      Float? // For email campaigns
+  tenantId       String
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  segments       CampaignSegment[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model CampaignSegment {
+  id              String            @id @default(uuid())
+  campaignId      String
+  campaign        MarketingCampaign @relation(fields: [campaignId], references: [id])
+  segmentType     String // all_customers, specific_segment
+  segmentCriteria Json? // Criteria for the segment
+  recipientCount  Int               @default(0)
+
+  @@index([campaignId])
+}
+
 model Tenant {
   id                  String                @id @default(uuid())
   name                String
@@ -520,7 +648,10 @@ model Tenant {
   userBranchRoles     UserBranchRole[]
   mpesaTransactions   MpesaTransaction[]
   notifications       Notification[]
-  // ...existing code...
+  customers           Customer[]
+  loyaltyPrograms     LoyaltyProgram[]
+  feedbacks           Feedback[]
+  marketingCampaigns  MarketingCampaign[]
   roles               Role[]
   UserPermission      UserPermission[]
 }
