@@ -161,6 +161,14 @@ let ProductService = class ProductService {
         setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000);
         return { summary: results, uploadId };
     }
+    async getProductCount(tenantId, branchId) {
+        return this.prisma.product.count({
+            where: {
+                tenantId,
+                ...(branchId && { branchId })
+            }
+        });
+    }
     static getBulkUploadProgress(uploadId) {
         return bulkUploadProgress[uploadId] || null;
     }

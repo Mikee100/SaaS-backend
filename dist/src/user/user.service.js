@@ -323,9 +323,14 @@ let UserService = UserService_1 = class UserService {
             this.logger.log(`User roleIds: ${JSON.stringify(roleIds)}`);
             let rolePermissions = [];
             if (roleIds.length > 0) {
-                const roleWhere = { roleId: { in: roleIds } };
+                const roleWhere = {
+                    roleId: { in: roleIds }
+                };
                 if (tenantId) {
-                    roleWhere.role = { tenantId };
+                    roleWhere.AND = [
+                        { role: { tenantId } },
+                        { roleId: { in: roleIds } }
+                    ];
                 }
                 this.logger.log(`RolePermission where clause: ${JSON.stringify(roleWhere)}`);
                 rolePermissions = await this.prisma.rolePermission.findMany({

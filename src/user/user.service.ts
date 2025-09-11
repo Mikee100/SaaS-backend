@@ -380,9 +380,14 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     let rolePermissions: any[] = [];
     
     if (roleIds.length > 0) {
-      const roleWhere: any = { roleId: { in: roleIds } };
+      const roleWhere: any = {
+        roleId: { in: roleIds }
+      };
       if (tenantId) {
-        roleWhere.role = { tenantId };
+        roleWhere.AND = [
+          { role: { tenantId } },
+          { roleId: { in: roleIds } }
+        ];
       }
       this.logger.log(`RolePermission where clause: ${JSON.stringify(roleWhere)}`);
       rolePermissions = await this.prisma.rolePermission.findMany({

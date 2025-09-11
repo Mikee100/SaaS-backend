@@ -2,16 +2,16 @@ import { UserService } from './user.service';
 export declare class UserController {
     private readonly userService;
     constructor(userService: UserService);
-    getMe(req: any): {
+    getMe(req: any): Promise<{
         id: any;
         email: any;
         name: any;
         roles: any;
-        permissions: any;
+        permissions: string[];
         tenantId: any;
         branchId: any;
         isSuperadmin: any;
-    };
+    }>;
     updateUserPermissions(req: any, id: string, body: {
         permissions: string[];
     }): Promise<{

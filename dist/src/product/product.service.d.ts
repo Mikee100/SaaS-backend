@@ -47,6 +47,7 @@ export declare class ProductService {
         summary: any[];
         uploadId: string;
     }>;
+    getProductCount(tenantId: string, branchId?: string): Promise<number>;
     static getBulkUploadProgress(uploadId: string): {
         processed: number;
         total: number;

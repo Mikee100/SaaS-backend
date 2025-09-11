@@ -10,15 +10,18 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('me')
-  getMe(@Req() req) {
+  async getMe(@Req() req) {
     const user = req.user;
+    // Get effective permissions for the user
+    const permissions = await this.userService.getEffectivePermissions(user.userId || user.sub, user.tenantId);
+    
     // Return only the fields your frontend expects
     return {
       id: user.userId || user.sub,
       email: user.email,
       name: user.name,
       roles: user.roles || [],
-      permissions: user.permissions || [],
+      permissions: permissions.map(p => p.name), // Convert to array of permission names
       tenantId: user.tenantId,
       branchId: user.branchId,
       isSuperadmin: user.isSuperadmin || false,
@@ -29,6 +32,7 @@ export class UserController {
   @Permissions('edit_users')
   async updateUserPermissions(@Req() req, @Param('id') id: string, @Body() body: { permissions: string[] }) {
     // Only allow owners to update permissions for users in their tenant
+    
     const actorUser = await this.userService.findById(req.user.userId);
     const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
     if (!isOwner) throw new ForbiddenException('Only owners can update user permissions');

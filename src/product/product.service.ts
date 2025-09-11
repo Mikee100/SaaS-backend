@@ -175,6 +175,15 @@ export class ProductService {
     return { summary: results, uploadId };
   }
 
+  async getProductCount(tenantId: string, branchId?: string): Promise<number> {
+    return this.prisma.product.count({
+      where: {
+        tenantId,
+        ...(branchId && { branchId })
+      }
+    });
+  }
+
   static getBulkUploadProgress(uploadId: string) {
     return bulkUploadProgress[uploadId] || null;
   }

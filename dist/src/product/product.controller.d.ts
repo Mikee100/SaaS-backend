@@ -54,4 +54,7 @@ export declare class ProductController {
     getQrCode(id: string, req: any, res: Response): Promise<void>;
     update(id: string, body: any, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
     remove(id: string, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    getProductCount(req: any): Promise<{
+        count: number;
+    }>;
 }

@@ -58,6 +58,11 @@ let ProductController = class ProductController {
     async remove(id, req) {
         return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
     }
+    async getProductCount(req) {
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
+        const count = await this.productService.getProductCount(req.user.tenantId, branchId);
+        return { count };
+    }
 };
 exports.ProductController = ProductController;
 __decorate([
@@ -138,6 +143,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('count'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getProductCount", null);
 exports.ProductController = ProductController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('products'),

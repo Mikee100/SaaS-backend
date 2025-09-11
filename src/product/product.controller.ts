@@ -78,4 +78,12 @@ export class ProductController {
   async remove(@Param('id') id: string, @Req() req) {
     return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
   }
+
+  @Get('count')
+  @Permissions('view_products')
+  async getProductCount(@Req() req) {
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    const count = await this.productService.getProductCount(req.user.tenantId, branchId);
+    return { count };
+  }
 }

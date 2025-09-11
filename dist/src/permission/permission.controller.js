@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PermissionController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PermissionController = void 0;
 const common_1 = require("@nestjs/common");
@@ -18,8 +19,9 @@ const permission_service_1 = require("./permission.service");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
 const passport_1 = require("@nestjs/passport");
-let PermissionController = class PermissionController {
+let PermissionController = PermissionController_1 = class PermissionController {
     permissionService;
+    logger = new common_1.Logger(PermissionController_1.name);
     constructor(permissionService) {
         this.permissionService = permissionService;
     }
@@ -27,9 +29,12 @@ let PermissionController = class PermissionController {
         return this.permissionService.getAllPermissions();
     }
     async createPermission(body) {
+        this.logger.log(`Received createPermission request: ${JSON.stringify(body)}`);
         if (!body.key)
             throw new common_1.BadRequestException('Permission key is required');
-        return this.permissionService.createPermission(body.key, body.description);
+        const result = await this.permissionService.createPermission(body.key, body.description);
+        this.logger.log(`Created permission: ${JSON.stringify(result)}`);
+        return result;
     }
 };
 exports.PermissionController = PermissionController;
@@ -48,7 +53,7 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], PermissionController.prototype, "createPermission", null);
-exports.PermissionController = PermissionController = __decorate([
+exports.PermissionController = PermissionController = PermissionController_1 = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('permissions'),
     __metadata("design:paramtypes", [permission_service_1.PermissionService])

@@ -3,6 +3,7 @@ declare const JwtStrategy_base: new (...args: [opt: import("passport-jwt").Strat
     validate(...args: any[]): unknown;
 };
 export declare class JwtStrategy extends JwtStrategy_base {
+    private readonly logger;
     constructor();
     validate(payload: any): Promise<any>;
 }
