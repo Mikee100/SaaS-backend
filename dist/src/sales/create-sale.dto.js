@@ -35,10 +35,10 @@ class CreateSaleDto {
     items;
     paymentMethod;
     amountReceived;
+    branchId;
     customerName;
     customerPhone;
     idempotencyKey;
-    branchId;
     total;
     vatAmount;
     mpesaTransactionId;
@@ -60,6 +60,11 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateSaleDto.prototype, "amountReceived", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateSaleDto.prototype, "branchId", void 0);
+__decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
@@ -73,11 +78,6 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateSaleDto.prototype, "idempotencyKey", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], CreateSaleDto.prototype, "branchId", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsOptional)(),

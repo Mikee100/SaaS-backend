@@ -82,6 +82,7 @@ export class SalesService {
           customerName: dto.customerName,
           customerPhone: dto.customerPhone,
           idempotencyKey: dto.idempotencyKey,
+          branchId: dto.branchId, // Include branchId from DTO
           items: {
             create: dto.items.map(item => ({
               productId: item.productId,

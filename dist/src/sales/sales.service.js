@@ -86,6 +86,7 @@ let SalesService = class SalesService {
                     customerName: dto.customerName,
                     customerPhone: dto.customerPhone,
                     idempotencyKey: dto.idempotencyKey,
+                    branchId: dto.branchId,
                     items: {
                         create: dto.items.map(item => ({
                             productId: item.productId,

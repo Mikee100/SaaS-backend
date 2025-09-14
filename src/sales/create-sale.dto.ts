@@ -28,6 +28,10 @@ export class CreateSaleDto {
   @IsOptional()
   amountReceived?: number;
 
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
   @IsOptional()
   @IsString()
   customerName?: string;
@@ -38,10 +42,6 @@ export class CreateSaleDto {
 
   @IsString()
   idempotencyKey: string;
-
-  @IsOptional()
-  @IsString()
-  branchId?: string;
 
   // Add missing properties
   @IsNumber()
