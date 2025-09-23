@@ -14,7 +14,7 @@ datasource db {
 }
 
 model Permission {
-<<<<<<< HEAD
+
   id              String           @id @default(uuid())
   name            String           @unique
   description     String?
@@ -42,7 +42,7 @@ model UserPermission {
 
   rolePermissions RolePermission[]
   UserPermission  UserPermission[]
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
+
 }
 
 model Product {
