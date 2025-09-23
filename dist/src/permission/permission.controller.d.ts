@@ -1,6 +1,7 @@
 import { PermissionService } from './permission.service';
 export declare class PermissionController {
     private readonly permissionService;
+    private readonly logger;
     constructor(permissionService: PermissionService);
     getPermissions(): Promise<{
         id: string;

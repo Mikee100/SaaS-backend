@@ -7,15 +7,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   server: Server;
 
   afterInit(server: Server) {
-    console.log('WebSocket gateway initialized');
+  // ...existing code...
   }
 
   handleConnection(client: any) {
-    console.log('Client connected:', client.id);
+  // ...existing code...
   }
 
   handleDisconnect(client: any) {
-    console.log('Client disconnected:', client.id);
+  // ...existing code...
   }
 
   // Emit sales update to all clients

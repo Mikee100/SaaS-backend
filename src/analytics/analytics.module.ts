@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsController } from './analytics.controller';
-import { BillingModule } from '../billing/billing.module';
-import { PrismaModule } from '../prisma.module';
+import { AnalyticsService } from './analytics.service';
+import { PrismaModule } from '../prisma.module'; // <-- Add this import
 
 @Module({
-  imports: [BillingModule, PrismaModule],
+  imports: [PrismaModule], // <-- Add PrismaModule here
   controllers: [AnalyticsController],
+  providers: [AnalyticsService],
+  exports: [AnalyticsService]
 })
-export class AnalyticsModule {} 
+export class AnalyticsModule {}

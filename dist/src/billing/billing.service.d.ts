@@ -44,14 +44,15 @@ export declare class BillingService {
         features: string[];
         id: string;
         name: string;
-        auditLogs: boolean;
+        price: number;
         description: string;
+        customFields: boolean;
+        auditLogs: boolean;
+        stripePriceId: string | null;
         whiteLabel: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         backupRestore: boolean;
-        stripePriceId: string | null;
-        price: number;
         interval: string;
         isActive: boolean;
         maxUsers: number | null;
@@ -64,7 +65,6 @@ export declare class BillingService {
         apiAccess: boolean;
         bulkOperations: boolean;
         dataExport: boolean;
-        customFields: boolean;
         advancedSecurity: boolean;
         dedicatedSupport: boolean;
     }[] | ({
@@ -100,14 +100,15 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
-            auditLogs: boolean;
+            price: number;
             description: string;
+            customFields: boolean;
+            auditLogs: boolean;
+            stripePriceId: string | null;
             whiteLabel: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
-            stripePriceId: string | null;
-            price: number;
             interval: string;
             isActive: boolean;
             maxUsers: number | null;
@@ -120,17 +121,16 @@ export declare class BillingService {
             apiAccess: boolean;
             bulkOperations: boolean;
             dataExport: boolean;
-            customFields: boolean;
             advancedSecurity: boolean;
             dedicatedSupport: boolean;
         };
         id: string;
         tenantId: string;
-        stripeCustomerId: string;
         userId: string;
-        stripePriceId: string;
         status: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
+        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

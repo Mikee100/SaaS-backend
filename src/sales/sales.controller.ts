@@ -87,7 +87,7 @@ export class SalesController {
         throw new NotFoundException('Business information not found');
       }
 
-      // Transform the response to match the expected format
+      // Include branch information in the response
       const response = {
         id: sale.id,
         saleId: sale.id,
@@ -96,58 +96,36 @@ export class SalesController {
         customerPhone: sale.customerPhone || 'N/A',
         items: sale.items.map(item => ({
           productId: item.productId,
-          name: item.name || 'Unknown Product',
+          name: item.product?.name || 'Unknown Product',
           price: item.price,
-          quantity: item.quantity,
-          total: item.price * item.quantity
+          quantity: item.quantity
         })),
-        subtotal: sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         total: sale.total,
-        vatAmount: sale.vatAmount || 0,
         paymentMethod: sale.paymentType,
-        amountReceived: sale.total, // Assuming full payment for now
-        change: 0, // Assuming no change for now
+        amountReceived: sale.paymentType === 'cash' ? sale.amountReceived : sale.total,
+        change: sale.paymentType === 'cash' ? (sale.amountReceived || 0) - sale.total : 0,
         businessInfo: {
-          name: tenant.name || 'Business Name',
-          address: tenant.address || 'N/A',
-          phone: tenant.contactPhone || 'N/A',
-          email: tenant.contactEmail || 'N/A',
-          // vatNumber: tenant.vatNumber || 'N/A',
-          // receiptFooter: tenant.receiptFooter || 'Thank you for your business!'
+          name: tenant.name,
+          address: tenant.address,
+          phone: tenant.contactPhone,
+          email: tenant.contactEmail
         },
-        mpesaTransaction: sale.mpesaTransactions?.[0] ? {
-          phoneNumber: sale.mpesaTransactions[0].phoneNumber,
-          amount: sale.mpesaTransactions[0].amount,
-          status: sale.mpesaTransactions[0].status,
-          mpesaReceipt: sale.mpesaTransactions[0].transactionId,
-          message: sale.mpesaTransactions[0].responseDesc || '',
-          transactionDate: sale.mpesaTransactions[0].createdAt,
-        } : null,
+        branch: sale.branch ? {
+          id: sale.branch.id,
+          name: sale.branch.name,
+          address: sale.branch.address
+        } : null
       };
 
-      console.log('Receipt generated successfully', { ...logContext, saleId: sale.id });
+      console.log('Sending receipt response', { ...logContext, saleId: response.id });
       return response;
-      
     } catch (error) {
-      console.error('Error generating receipt:', {
-        ...logContext,
-        error: error.message,
-        stack: error.stack,
-        errorName: error.name,
-        errorCode: error.status || error.statusCode || 500,
-      });
-
-      // Re-throw with appropriate status code
-      if (error instanceof BadRequestException || 
-          error instanceof UnauthorizedException || 
-          error instanceof NotFoundException) {
-        throw error;
-      }
-      
-      // For unexpected errors, return a 500 with a generic message
-      throw new InternalServerErrorException('Failed to generate receipt. Please try again later.');
+      console.error('Error generating receipt:', { ...logContext, error: error.message });
+      throw new InternalServerErrorException('Failed to generate receipt');
     }
   }
+
+  
 
   @Get('recent')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -192,11 +170,39 @@ export class SalesController {
 
   @Post()
   @Permissions('create_sales')
-  async createSale(@Body() dto: CreateSaleDto & { idempotencyKey: string }, @Req() req) {
-    if (!dto.idempotencyKey) throw new Error('Missing idempotency key');
-    // Attach tenantId and userId from JWT
-    return this.salesService.createSale(dto, req.user.tenantId, req.user.id);
-    
+  async create(@Body() createSaleDto: CreateSaleDto, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    // Add branch ID from the request body or from the user's default branch
+    const branchId = createSaleDto.branchId || req.user.branchId;
+
+    const saleData = {
+      ...createSaleDto,
+      branchId, // Include the branch ID in the sale data
+    };
+
+    try {
+      const sale = await this.salesService.createSale(
+        saleData,
+        req.user.tenantId,
+        req.user.userId
+      );
+      
+      return {
+        success: true,
+        data: sale,
+        message: 'Sale created successfully',
+      };
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      throw new InternalServerErrorException('Failed to create sale');
+    }
   }
 
   @Get()
@@ -211,4 +217,4 @@ export class SalesController {
     // Optionally: check tenant/user permissions
     return this.salesService.getSaleById(id, req.user?.tenantId);
   }
-} 
+}

@@ -20,19 +20,22 @@ const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path = require("path");
 const tenant_service_1 = require("./tenant.service");
-const logo_service_1 = require("./logo.service");
 const common_2 = require("@nestjs/common");
+const user_service_1 = require("../user/user.service");
+const logo_service_1 = require("./logo.service");
 let TenantController = TenantController_1 = class TenantController {
     tenantService;
+    userService;
     logoService;
     logger = new common_2.Logger(TenantController_1.name);
-    constructor(tenantService, logoService) {
+    constructor(tenantService, userService, logoService) {
         this.tenantService = tenantService;
+        this.userService = userService;
         this.logoService = logoService;
     }
     async getMyTenant(req) {
         const tenantId = req.user.tenantId;
-        return this.tenantService.getTenant(tenantId);
+        return this.tenantService.getTenantById(tenantId);
     }
     async updateMyTenant(req, dto) {
         const tenantId = req.user.tenantId;
@@ -43,10 +46,6 @@ let TenantController = TenantController_1 = class TenantController {
             throw new Error('No file uploaded');
         const logoType = body.type || 'main';
         const logoUrl = `/uploads/logos/${file.filename}`;
-        const validation = await this.logoService.validateLogoFile(file, logoType);
-        if (!validation.isValid) {
-            throw new Error(`Logo validation failed: ${validation.errors.join(', ')}`);
-        }
         const updateData = {};
         switch (logoType) {
             case 'main':
@@ -68,19 +67,11 @@ let TenantController = TenantController_1 = class TenantController {
                 updateData.logoUrl = logoUrl;
         }
         await this.tenantService.updateTenant(req.user.tenantId, updateData);
-        return { logoUrl, type: logoType, validation };
+        return { logoUrl, type: logoType };
     }
     async getLogoCompliance(req) {
         const tenantId = req.user.tenantId;
         return this.logoService.enforceLogoCompliance(tenantId);
-    }
-    async validateLogos(req) {
-        const tenantId = req.user.tenantId;
-        return this.logoService.validateTenantLogos(tenantId);
-    }
-    async getLogoUsage(req) {
-        const tenantId = req.user.tenantId;
-        return this.logoService.getLogoUsage(tenantId);
     }
     async getLogoStatistics(req) {
         const tenantId = req.user.tenantId;
@@ -101,7 +92,7 @@ let TenantController = TenantController_1 = class TenantController {
         return this.tenantService.updateTenant(tenantId, data);
     }
     async getApiSettings(req) {
-        const tenant = await this.tenantService.getTenant(req.user.tenantId);
+        const tenant = await this.tenantService.getTenantById(req.user.tenantId);
         if (!tenant) {
             throw new Error('Tenant not found');
         }
@@ -127,21 +118,22 @@ let TenantController = TenantController_1 = class TenantController {
     }
     async createTenant(createTenantDto) {
         this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
-        console.log('[TenantController] Incoming registration payload:', JSON.stringify(createTenantDto));
         try {
-            console.log('[TenantController] Starting tenant creation process...');
             const { ownerName, ownerEmail, ownerPassword, ownerRole = 'owner', ...tenantData } = createTenantDto;
             if (!ownerName || !ownerEmail || !ownerPassword) {
                 throw new common_1.BadRequestException('Missing required owner information');
             }
-            const tenant = await this.tenantService.createTenant({
-                ...tenantData,
-                ownerName,
-                ownerEmail,
-                ownerPassword,
-                ownerRole,
-            });
-            console.log('[TenantController] Tenant creation result:', tenant);
+            const tenant = await this.tenantService.createTenant(tenantData);
+            if (this.userService) {
+                const ownerUser = await this.userService.createUser({
+                    name: ownerName,
+                    email: ownerEmail,
+                    password: ownerPassword,
+                    role: ownerRole,
+                    tenantId: tenant.id,
+                });
+                return { tenant, ownerUser };
+            }
             return { tenant };
         }
         catch (error) {
@@ -212,22 +204,6 @@ __decorate([
 ], TenantController.prototype, "getLogoCompliance", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.Get)('logo/validation'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], TenantController.prototype, "validateLogos", null);
-__decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.Get)('logo/usage'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], TenantController.prototype, "getLogoUsage", null);
-__decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('logo/statistics'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -278,6 +254,7 @@ __decorate([
 exports.TenantController = TenantController = TenantController_1 = __decorate([
     (0, common_1.Controller)('tenant'),
     __metadata("design:paramtypes", [tenant_service_1.TenantService,
+        user_service_1.UserService,
         logo_service_1.LogoService])
 ], TenantController);
 //# sourceMappingURL=tenant.controller.js.map

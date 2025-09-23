@@ -29,7 +29,7 @@ let StripeService = StripeService_1 = class StripeService {
         const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
         if (stripeSecretKey) {
             this.stripe = new stripe_1.default(stripeSecretKey, {
-                apiVersion: '2025-07-30.basil',
+                apiVersion: '2025-08-27.basil',
                 typescript: true,
             });
         }
@@ -43,7 +43,7 @@ let StripeService = StripeService_1 = class StripeService {
             const secretKey = await this.tenantConfigurationService.getStripeSecretKey(tenantId);
             if (secretKey) {
                 return new stripe_1.default(secretKey, {
-                    apiVersion: '2025-07-30.basil',
+                    apiVersion: '2025-08-27.basil',
                     typescript: true,
                 });
             }

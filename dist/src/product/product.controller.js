@@ -25,19 +25,11 @@ let ProductController = class ProductController {
         this.productService = productService;
     }
     async findAll(req) {
-        if (req.user.branchId) {
-            console.log('==============================');
-            console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
-            console.log('==============================');
-            return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
-        }
-        return this.productService.findAllByTenant(req.user.tenantId);
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
+        return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
     }
     async create(body, req) {
-        let branchId = body.branchId;
-        if (req.user.branchId) {
-            branchId = req.user.branchId;
-        }
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.productService.createProduct({
             ...body,
             tenantId: req.user.tenantId,
@@ -45,7 +37,8 @@ let ProductController = class ProductController {
         }, req.user.userId, req.ip);
     }
     async bulkUpload(file, req) {
-        return this.productService.bulkUpload(file, req.user);
+        const branchId = req.headers['x-branch-id'];
+        return this.productService.bulkUpload(file, { ...req.user, branchId });
     }
     async getBulkUploadProgress(uploadId) {
         return product_service_1.ProductService.getBulkUploadProgress(uploadId);
@@ -64,6 +57,11 @@ let ProductController = class ProductController {
     }
     async remove(id, req) {
         return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
+    }
+    async getProductCount(req) {
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
+        const count = await this.productService.getProductCount(req.user.tenantId, branchId);
+        return { count };
     }
 };
 exports.ProductController = ProductController;
@@ -145,6 +143,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('count'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getProductCount", null);
 exports.ProductController = ProductController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('products'),

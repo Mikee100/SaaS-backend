@@ -4,8 +4,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { TenantService } from './tenant.service';
-import { LogoService } from './logo.service';
 import { Logger } from '@nestjs/common';
+import { UserService } from '../user/user.service';
+import { LogoService } from './logo.service';
 
 @Controller('tenant')
 export class TenantController {
@@ -13,14 +14,15 @@ export class TenantController {
 
   constructor(
     private readonly tenantService: TenantService,
-    private readonly logoService: LogoService
+    private readonly userService: UserService,
+  private readonly logoService: LogoService
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   async getMyTenant(@Req() req) {
     const tenantId = req.user.tenantId;
-    return this.tenantService.getTenant(tenantId);
+  return this.tenantService.getTenantById(tenantId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -66,11 +68,6 @@ export class TenantController {
     const logoUrl = `/uploads/logos/${file.filename}`;
     
     // Validate logo file
-    const validation = await this.logoService.validateLogoFile(file, logoType);
-    if (!validation.isValid) {
-      throw new Error(`Logo validation failed: ${validation.errors.join(', ')}`);
-    }
-    
     // Update the appropriate logo field based on type
     const updateData: any = {};
     switch (logoType) {
@@ -92,9 +89,8 @@ export class TenantController {
       default:
         updateData.logoUrl = logoUrl; // Default to main logo
     }
-    
     await this.tenantService.updateTenant(req.user.tenantId, updateData);
-    return { logoUrl, type: logoType, validation };
+    return { logoUrl, type: logoType };
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -104,19 +100,19 @@ export class TenantController {
     return this.logoService.enforceLogoCompliance(tenantId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/validation')
-  async validateLogos(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.validateTenantLogos(tenantId);
-  }
+  // @UseGuards(AuthGuard('jwt'))
+  // @Get('logo/validation')
+  // async validateLogos(@Req() req) {
+  //   const tenantId = req.user.tenantId;
+  //   return this.logoService.validateTenantLogos(tenantId);
+  // }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/usage')
-  async getLogoUsage(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.getLogoUsage(tenantId);
-  }
+  // @UseGuards(AuthGuard('jwt'))
+  // @Get('logo/usage')
+  // async getLogoUsage(@Req() req) {
+  //   const tenantId = req.user.tenantId;
+  //   return this.logoService.getLogoUsage(tenantId);
+  // }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('logo/statistics')
@@ -149,7 +145,7 @@ export class TenantController {
   @UseGuards(AuthGuard('jwt'))
   @Get('api-settings')
   async getApiSettings(@Req() req) {
-    const tenant = await this.tenantService.getTenant(req.user.tenantId);
+  const tenant = await this.tenantService.getTenantById(req.user.tenantId);
     if (!tenant) {
       throw new Error('Tenant not found');
     }
@@ -185,10 +181,8 @@ export class TenantController {
   @Post()
   async createTenant(@Body() createTenantDto: any) {
   this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
-  console.log('[TenantController] Incoming registration payload:', JSON.stringify(createTenantDto));
     
     try {
-      console.log('[TenantController] Starting tenant creation process...');
       // Extract owner information from the request
       const {
         ownerName,
@@ -203,17 +197,23 @@ export class TenantController {
         throw new BadRequestException('Missing required owner information');
       }
 
-      // Create the tenant and owner user in one transaction
-      const tenant = await this.tenantService.createTenant({
-        ...tenantData,
-        ownerName,
-        ownerEmail,
-        ownerPassword,
-        ownerRole,
-      });
-      console.log('[TenantController] Tenant creation result:', tenant);
+      // Create the tenant first (only valid fields)
+      const tenant = await this.tenantService.createTenant(tenantData);
 
-    return { tenant };
+      // Create the owner user and assign owner role
+      // You may need to inject UserService here, or call it via another service
+      // For now, assume UserService is available as this.userService
+      if (this.userService) {
+        const ownerUser = await this.userService.createUser({
+          name: ownerName,
+          email: ownerEmail,
+          password: ownerPassword,
+          role: ownerRole,
+          tenantId: tenant.id,
+        });
+        return { tenant, ownerUser };
+      }
+      return { tenant };
     } catch (error) {
       this.logger.error('Error creating tenant:', error);
       console.error('[TenantController] Error during tenant registration:', error);

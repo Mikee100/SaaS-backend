@@ -24,12 +24,8 @@ let PaymentController = class PaymentController {
         this.paymentService = paymentService;
     }
     async savePaymentMethod(body, req) {
-        console.log('--- /payments/methods API HIT ---');
-        console.log('Body:', body);
-        console.log('User:', req.user);
         try {
             await this.paymentService.addPaymentMethod(req.user?.tenantId, body.paymentMethodId);
-            console.log('Payment method saved successfully');
             return { success: true };
         }
         catch (error) {

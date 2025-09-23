@@ -24,107 +24,31 @@ let TenantService = TenantService_1 = class TenantService {
         this.userService = userService;
     }
     async createTenant(data) {
-        console.log('[TenantService] createTenant called with:', JSON.stringify(data));
-        const requiredFields = [
-            { key: 'name', label: 'Business Name' },
-            { key: 'businessType', label: 'Business Type' },
-            { key: 'contactEmail', label: 'Contact Email' },
-            { key: 'ownerName', label: 'Owner Name' },
-            { key: 'ownerEmail', label: 'Owner Email' },
-            { key: 'ownerPassword', label: 'Owner Password' },
-        ];
-        const missingFields = requiredFields
-            .filter(({ key }) => !data[key])
-            .map(({ label }) => label);
-        if (missingFields.length > 0) {
-            const errorMessage = `Missing required fields: ${missingFields.join(', ')}`;
-            this.logger.error(`Failed to create tenant: ${errorMessage}`, {
-                receivedData: Object.keys(data),
-                missingFields,
-                timestamp: new Date().toISOString(),
-            });
-            console.error('[TenantService] Validation failed:', errorMessage);
-            throw new common_1.BadRequestException(errorMessage);
-        }
-        const loggableData = { ...data };
-        if (loggableData.ownerPassword) {
-            loggableData.ownerPassword = '***';
-        }
-        this.logger.debug('Creating tenant with data:', {
-            ...loggableData,
-            timestamp: new Date().toISOString(),
-        });
-        console.log('[TenantService] Creating tenant with data:', loggableData);
-        const validTenantFields = [
+        const allowedFields = [
             'name', 'businessType', 'contactEmail', 'contactPhone',
-            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts',
-            'businessDescription', 'address', 'city', 'state', 'country', 'postalCode',
-            'latitude', 'longitude', 'foundedYear', 'employeeCount', 'annualRevenue',
-            'businessHours', 'website', 'socialMedia', 'kraPin', 'vatNumber', 'etimsQrUrl',
-            'businessLicense', 'taxId', 'currency', 'timezone', 'invoiceFooter', 'logoUrl',
-            'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor',
-            'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
+            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
+            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
+            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
+            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
+            'currency', 'timezone', 'invoiceFooter', 'credits', 'logoUrl', 'loginLogoUrl', 'favicon', 'receiptLogo', 'watermark',
+            'dashboardLogoUrl', 'emailLogoUrl', 'mobileLogoUrl', 'logoSettings',
+            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
+            'ssoEnabled', 'auditLogsEnabled', 'backupRestore', 'stripeCustomerId'
         ];
-        const createData = {};
-        for (const key of validTenantFields) {
-            if (data[key] !== undefined && data[key] !== null) {
-                createData[key] = data[key];
-            }
+        const filtered = {};
+        for (const key of allowedFields) {
+            if (data[key] !== undefined)
+                filtered[key] = data[key];
         }
-        return await this.prisma.$transaction(async (prisma) => {
-            try {
-                this.logger.debug('Creating tenant with prisma data:', {
-                    tenantData: createData,
-                    timestamp: new Date().toISOString(),
-                });
-                console.log('[TenantService] Creating tenant in DB with:', createData);
-                const tenant = await prisma.tenant.create({
-                    data: createData
-                });
-                console.log('[TenantService] Tenant created:', tenant);
-                const branchName = tenant.name;
-                const branchAddress = tenant.address || '';
-                const primaryBranch = await prisma.branch.create({
-                    data: {
-                        name: branchName,
-                        address: branchAddress,
-                        tenantId: tenant.id,
-                    }
-                });
-                console.log('[TenantService] Primary branch created:', primaryBranch);
-                this.logger.debug('Tenant created successfully, creating owner user', {
-                    tenantId: tenant.id,
-                    ownerEmail: data.ownerEmail,
-                    timestamp: new Date().toISOString(),
-                });
-                const ownerUser = await this.userService.createUser({
-                    name: data.ownerName,
-                    email: data.ownerEmail,
-                    password: data.ownerPassword,
-                    role: data.ownerRole || 'admin',
-                    tenantId: tenant.id,
-                }, undefined, undefined, prisma);
-                console.log('[TenantService] Owner user created:', ownerUser);
-                this.logger.debug('Owner user created successfully', {
-                    tenantId: tenant.id,
-                    ownerEmail: data.ownerEmail,
-                    timestamp: new Date().toISOString(),
-                });
-                return { ...tenant, primaryBranch };
-            }
-            catch (error) {
-                this.logger.error('Error in tenant creation transaction:', {
-                    error: error.message,
-                    stack: error.stack,
-                    timestamp: new Date().toISOString(),
-                });
-                console.error('[TenantService] Error in transaction:', error);
-                throw new common_1.BadRequestException(error.message || 'Failed to create tenant and owner user', {
-                    cause: error,
-                    description: error.response?.message || error.toString(),
-                });
-            }
+        const tenant = await this.prisma.tenant.create({ data: filtered });
+        const tenantConfigurationService = new (require('../config/tenant-configuration.service').TenantConfigurationService)(this.prisma);
+        await tenantConfigurationService.setTenantConfiguration(tenant.id, 'stockThreshold', '10', {
+            description: 'Default stock threshold',
+            category: 'general',
+            isEncrypted: false,
+            isPublic: true,
         });
+        return tenant;
     }
     async getAllTenants() {
         return this.prisma.tenant.findMany();

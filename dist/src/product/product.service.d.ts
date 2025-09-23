@@ -9,45 +9,45 @@ export declare class ProductService {
     findAllByBranch(branchId: string, tenantId: string): Promise<{
         id: string;
         name: string;
+        sku: string;
+        price: number;
+        cost: number;
+        description: string | null;
+        stock: number;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
-        branchId: string | null;
-        description: string | null;
-        price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        sku: string;
-        cost: number;
-        stock: number;
+        branchId: string | null;
     }[]>;
     constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
-    findAllByTenant(tenantId: string): Promise<{
+    findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<{
         id: string;
         name: string;
+        sku: string;
+        price: number;
+        cost: number;
+        description: string | null;
+        stock: number;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
-        branchId: string | null;
-        description: string | null;
-        price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        sku: string;
-        cost: number;
-        stock: number;
+        branchId: string | null;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
+        sku: string;
+        price: number;
+        cost: number;
+        description: string | null;
+        stock: number;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
-        branchId: string | null;
-        description: string | null;
-        price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        sku: string;
-        cost: number;
-        stock: number;
+        branchId: string | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
@@ -61,6 +61,7 @@ export declare class ProductService {
         summary: any[];
         uploadId: string;
     }>;
+    getProductCount(tenantId: string, branchId?: string): Promise<number>;
     static getBulkUploadProgress(uploadId: string): {
         processed: number;
         total: number;

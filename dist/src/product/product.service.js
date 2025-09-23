@@ -47,9 +47,12 @@ let ProductService = class ProductService {
         this.auditLogService = auditLogService;
         this.billingService = billingService;
     }
-    async findAllByTenant(tenantId) {
+    async findAllByTenantAndBranch(tenantId, branchId) {
+        const where = { tenantId };
+        if (branchId)
+            where.branchId = branchId;
         return this.prisma.product.findMany({
-            where: { tenantId },
+            where,
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -149,20 +152,31 @@ let ProductService = class ProductService {
                     description: description || '',
                     stock: stock !== undefined ? parseInt(stock) : 0,
                     tenantId: user.tenantId,
+                    branchId: user.branchId || user.selectedBranchId,
                 };
                 if (Object.keys(customFields).length > 0) {
                     productData.customFields = customFields;
                 }
+                console.log('Creating product:', productData);
                 await this.prisma.product.create({ data: productData });
                 results.push({ row: mappedRow, status: 'success' });
             }
             catch (error) {
+                console.error('Bulk upload error:', error);
                 results.push({ row, status: 'error', error: error.message });
             }
             bulkUploadProgress[uploadId].processed = i + 1;
         }
         setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000);
         return { summary: results, uploadId };
+    }
+    async getProductCount(tenantId, branchId) {
+        return this.prisma.product.count({
+            where: {
+                tenantId,
+                ...(branchId && { branchId })
+            }
+        });
     }
     static getBulkUploadProgress(uploadId) {
         return bulkUploadProgress[uploadId] || null;

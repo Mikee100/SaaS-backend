@@ -47,20 +47,42 @@ export class AuthService {
       if (!tenantId) {
         throw new UnauthorizedException('No tenant assigned to this user. Please contact support.');
       }
-      // 4. Prepare JWT payload
+      // 4. Get user's permissions
+      const userPermissions: string[] = [];
+      try {
+        const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
+        perms.forEach(perm => {
+          if (perm.name) userPermissions.push(perm.name);
+        });
+      } catch (error) {
+        console.error('Error fetching user permissions:', error);
+      }
+
+      // 5. Prepare JWT payload with all necessary user data
+      const roles = userRoles.map(ur => ur.role?.name).filter(Boolean) || [];
       const payload = {
         sub: user.id,
         email: user.email,
-        name: user.name,
-        tenantId,
+        name: user.name || '',
+        tenantId: tenantId,
         branchId: user.branchId || null,
-        roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+        roles: roles,
+        permissions: userPermissions
       };
 
-      // 5. Generate JWT token
-      const accessToken = this.jwtService.sign(payload);
+      console.log('JWT Payload:', JSON.stringify(payload, null, 2));
 
-      // 6. Log successful login
+      // 6. Generate JWT token with all required claims and options
+      const accessToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_SECRET || 'waweru',
+        issuer: 'saas-platform',
+        audience: 'saas-platform-client',
+      });
+
+      console.log('[JWT_SECRET]', process.env.JWT_SECRET);
+      console.log('Generated JWT Token:', accessToken);
+
+      // 7. Log successful login
       if (this.auditLogService) {
         await this.auditLogService.log(
           user.id,
@@ -70,7 +92,7 @@ export class AuthService {
         );
       }
 
-      // 7. Return token and basic user info (without sensitive data)
+      // 8. Return token and user info
       return {
         access_token: accessToken,
         user: {
@@ -79,7 +101,8 @@ export class AuthService {
           name: user.name,
           tenantId: payload.tenantId,
           branchId: payload.branchId,
-          roles: payload.roles
+          roles: payload.roles,
+          permissions: payload.permissions
         }
       };
     } catch (error) {

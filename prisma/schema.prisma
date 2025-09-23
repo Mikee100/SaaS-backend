@@ -14,6 +14,7 @@ datasource db {
 }
 
 model Permission {
+<<<<<<< HEAD
   id              String           @id @default(uuid())
   name            String           @unique
   description     String?
@@ -34,6 +35,14 @@ model UserPermission {
   userPermissions User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
 
   @@unique([userId, permission, tenantId])
+
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  rolePermissions RolePermission[]
+  UserPermission  UserPermission[]
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 }
 
 model Product {
@@ -176,7 +185,7 @@ model AuditLog {
 
 model Role {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

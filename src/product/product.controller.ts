@@ -25,27 +25,17 @@ export class ProductController {
   @Get()
   @Permissions('view_products')
   async findAll(@Req() req) {
-    // If user has branchId, only show products for their branch
-    if (req.user.branchId) {
-      console.log('==============================');
-      console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
-      console.log('==============================');
-      return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
-    }
-    // Tenant-level users see all products for all branches
-    return this.productService.findAllByTenant(req.user.tenantId);
+    // Get selected branchId from user context or request header
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
   }
 
 
   @Post()
   @Permissions('create_products')
   async create(@Body() body, @Req() req) {
-    // Attach tenantId and branchId from the authenticated user or request body
-    let branchId = body.branchId;
-    // If user is branch-level, force branchId
-    if (req.user.branchId) {
-      branchId = req.user.branchId;
-    }
+    // Attach tenantId and branchId from the authenticated user or request header
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
@@ -60,8 +50,10 @@ export class ProductController {
     @UploadedFile() file: Express.Multer.File, // Update type annotation
     @Req() req: Request
   ) {
-    // Assume vendor info is in req.user (from auth middleware)
-    return this.productService.bulkUpload(file, req.user);
+    // Extract branchId from header or user context
+  const branchId = req.headers['x-branch-id'];
+  // Pass branchId explicitly to service
+  return this.productService.bulkUpload(file, { ...(req.user as any), branchId });
   }
 
   @Get('bulk-upload-progress/:uploadId')
@@ -97,5 +89,13 @@ export class ProductController {
   @Permissions('delete_products')
   async remove(@Param('id') id: string, @Req() req) {
     return this.productService.deleteProduct(id, req.user.tenantId, req.user.userId, req.ip);
+  }
+
+  @Get('count')
+  @Permissions('view_products')
+  async getProductCount(@Req() req) {
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    const count = await this.productService.getProductCount(req.user.tenantId, branchId);
+    return { count };
   }
 }

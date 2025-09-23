@@ -1,45 +1,39 @@
-import { PrismaService } from '../prisma.service';
+import { AnalyticsService } from './analytics.service';
 export declare class AnalyticsController {
-    private readonly prisma;
-    constructor(prisma: PrismaService);
+    private analyticsService;
+    constructor(analyticsService: AnalyticsService);
     getBasicAnalytics(req: any): Promise<{
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
-        totalCustomers: number;
-        averageOrderValue: number;
-        salesByMonth: Record<string, number>;
         message: string;
     }>;
-    getAdvancedAnalytics(req: any): Promise<{
-        salesByMonth: {
-            '2024-01': number;
-            '2024-02': number;
-            '2024-03': number;
-            '2024-04': number;
-            '2024-05': number;
-            '2024-06': number;
-        };
+    getDashboardAnalytics(req: any): Promise<{
+        totalSales: number;
+        totalRevenue: number;
+        totalProducts: number;
+        totalCustomers: number;
+        salesByDay: Record<string, number>;
+        salesByWeek: Record<string, number>;
+        salesByMonth: Record<string, number>;
         topProducts: {
             name: string;
-            sales: number;
+            sales: number | null;
             revenue: number;
-            growth: number;
             margin: number;
+            cost: number;
         }[];
-        customerSegments: {
-            segment: string;
-            count: number;
-            revenue: number;
-            avgOrderValue: number;
-            retention: number;
-        }[];
-        predictiveAnalytics: {
-            nextMonthForecast: number;
-            churnRisk: number;
-            growthRate: number;
-            seasonalTrend: number;
-            marketTrend: number;
+        customerRetention: {
+            totalCustomers: number;
+            repeatCustomers: number;
+            retentionRate: number;
+        };
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+            totalStockValue: number;
         };
         performanceMetrics: {
             customerLifetimeValue: number;
@@ -47,15 +41,6 @@ export declare class AnalyticsController {
             returnOnInvestment: number;
             netPromoterScore: number;
         };
-        inventoryAnalytics: {
-            lowStockItems: number;
-            overstockItems: number;
-            inventoryTurnover: number;
-            stockoutRate: number;
-        };
-        message: string;
-    }>;
-    getEnterpriseAnalytics(req: any): Promise<{
         realTimeData: {
             currentUsers: number;
             activeSales: number;
@@ -64,93 +49,89 @@ export declare class AnalyticsController {
             averageSessionDuration: number;
             bounceRate: number;
         };
-        predictiveAnalytics: {
-            nextMonthForecast: number;
-            churnRisk: number;
-            growthRate: number;
-            seasonalTrend: number;
-            marketTrend: number;
-            demandForecast: {
-                'Product A': number;
-                'Product B': number;
-                'Product C': number;
-                'Product D': number;
-            };
-        };
-        advancedSegments: {
-            byLocation: {
-                location: string;
-                revenue: number;
-                customers: number;
-            }[];
-            byAge: {
-                age: string;
-                revenue: number;
-                customers: number;
-            }[];
-            byDevice: {
-                device: string;
-                revenue: number;
-                customers: number;
-            }[];
-        };
-        customReports: {
-            name: string;
-            data: string;
-            lastUpdated: string;
-        }[];
-        aiInsights: {
-            recommendations: string[];
-            anomalies: string[];
-        };
-        message: string;
     }>;
-    getDashboardStats(req: any): Promise<{
+    getAdvancedAnalytics(req: any): Promise<{
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
         totalCustomers: number;
-        averageOrderValue: number;
-        salesTrendDay: Record<string, number>;
-        salesTrendWeek: Record<string, number>;
-        salesTrendMonth: Record<string, number>;
+        salesByDay: Record<string, number>;
+        salesByWeek: Record<string, number>;
         salesByMonth: Record<string, number>;
         topProducts: {
-            id: string;
             name: string;
-            unitsSold: number;
+            sales: number | null;
             revenue: number;
-            cost: number;
             margin: number;
+            cost: number;
         }[];
-        inventoryAnalytics: {
-            lowStockItems: number;
-            overstockItems: number;
-            inventoryTurnover: number;
-            stockoutRate: number;
-        };
-        paymentBreakdown: Record<string, number>;
         customerRetention: {
             totalCustomers: number;
             repeatCustomers: number;
             retentionRate: number;
         };
-        advancedSegments: {
-            byLocation: never[];
-            byAge: never[];
-            byDevice: never[];
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+            totalStockValue: number;
         };
-        salesGrowthRate: number;
-        avgSalesPerCustomer: number;
-        topPaymentMethods: {
-            method: string;
-            total: number;
-        }[];
-        topCustomer: {
+        performanceMetrics: {
+            customerLifetimeValue: number;
+            customerAcquisitionCost: number;
+            returnOnInvestment: number;
+            netPromoterScore: number;
+        };
+        realTimeData: {
+            currentUsers: number;
+            activeSales: number;
+            revenueToday: number;
+            ordersInProgress: number;
+            averageSessionDuration: number;
+            bounceRate: number;
+        };
+    }>;
+    getEnterpriseAnalytics(req: any): Promise<{
+        totalSales: number;
+        totalRevenue: number;
+        totalProducts: number;
+        totalCustomers: number;
+        salesByDay: Record<string, number>;
+        salesByWeek: Record<string, number>;
+        salesByMonth: Record<string, number>;
+        topProducts: {
             name: string;
-            total: number;
-        } | null;
-        salesByHour: number[];
-        message: string;
+            sales: number | null;
+            revenue: number;
+            margin: number;
+            cost: number;
+        }[];
+        customerRetention: {
+            totalCustomers: number;
+            repeatCustomers: number;
+            retentionRate: number;
+        };
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+            totalStockValue: number;
+        };
+        performanceMetrics: {
+            customerLifetimeValue: number;
+            customerAcquisitionCost: number;
+            returnOnInvestment: number;
+            netPromoterScore: number;
+        };
+        realTimeData: {
+            currentUsers: number;
+            activeSales: number;
+            revenueToday: number;
+            ordersInProgress: number;
+            averageSessionDuration: number;
+            bounceRate: number;
+        };
     }>;
 }

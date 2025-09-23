@@ -16,8 +16,8 @@ interface UpdateSubscriptionDto {
 @Injectable()
 export class SubscriptionService {
   constructor(
-    private prisma: PrismaService,
-    private billingService: BillingService,
+    private readonly prisma: PrismaService,
+    private readonly billingService: BillingService
   ) {}
 
   async createSubscription(data: CreateSubscriptionDto) {
@@ -51,8 +51,8 @@ export class SubscriptionService {
           ssoEnabled: true,
           auditLogs: true,
           backupRestore: true,
-          customIntegrations: true,
-        },
+          customIntegrations: true
+        }
       });
 
       if (!plan) {
@@ -66,7 +66,7 @@ export class SubscriptionService {
       const existingSubscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId: data.tenantId,
-          status: 'active',
+        // Removed console.log for existing subscription upgrade
         },
         include: {
           plan: true,
@@ -74,7 +74,7 @@ export class SubscriptionService {
       });
 
       if (existingSubscription) {
-        console.log('Tenant has existing subscription, upgrading to new plan');
+      // Removed console.log for subscription creation dates
         // Handle upgrade by updating the existing subscription
         return await this.handleUpgrade(existingSubscription, plan);
       }
@@ -96,7 +96,7 @@ export class SubscriptionService {
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
           stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
-          cancelAtPeriodEnd: false,
+      // Removed console.log for successful subscription creation
           userId: 'system', // This should be the admin user ID
         },
         include: {

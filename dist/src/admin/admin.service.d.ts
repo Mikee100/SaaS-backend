@@ -5,9 +5,9 @@ export declare class AdminService {
     constructor(prisma: PrismaService);
     getAllTenants(): Promise<({
         _count: {
+            products: number;
             sales: number;
             users: number;
-            products: number;
         };
     } & {
         id: string;
@@ -75,32 +75,32 @@ export declare class AdminService {
             role: {
                 id: string;
                 name: string;
+                description: string | null;
+                tenantId: string | null;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string | null;
-                description: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     } & {
         id: string;
+        name: string;
+        tenantId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     })[]>;
     getPlatformStats(): Promise<{
         totalTenants: number;
@@ -119,7 +119,6 @@ export declare class AdminService {
     getPlatformLogs(): Promise<({
         user: {
             id: string;
-            email: string;
             name: string;
             userRoles: ({
                 tenant: {
@@ -129,9 +128,10 @@ export declare class AdminService {
             } & {
                 id: string;
                 tenantId: string;
-                userId: string;
                 roleId: string;
+                userId: string;
             })[];
+            email: string;
         } | null;
     } & {
         id: string;
@@ -258,40 +258,41 @@ export declare class AdminService {
     getTenantById(id: string): Promise<{
         users: {
             id: string;
-            email: string;
             name: string;
+            email: string;
         }[];
+        _count?: {
+            products: number;
+            sales: number;
+        } | undefined;
+        products?: {
+            id: string;
+            name: string;
+            sku: string;
+            price: number;
+            cost: number;
+            description: string | null;
+            stock: number;
+            tenantId: string;
+            createdAt: Date;
+            updatedAt: Date;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            branchId: string | null;
+        }[] | undefined;
         sales?: {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             branchId: string | null;
             userId: string;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
-        }[] | undefined;
-        _count?: {
-            sales: number;
-            products: number;
-        } | undefined;
-        products?: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            branchId: string | null;
-            description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            sku: string;
-            cost: number;
-            stock: number;
         }[] | undefined;
         id?: string | undefined;
         name?: string | undefined;

@@ -50,8 +50,8 @@ let SubscriptionService = class SubscriptionService {
                     ssoEnabled: true,
                     auditLogs: true,
                     backupRestore: true,
-                    customIntegrations: true,
-                },
+                    customIntegrations: true
+                }
             });
             if (!plan) {
                 console.error('Plan not found:', data.planId);
@@ -61,14 +61,12 @@ let SubscriptionService = class SubscriptionService {
             const existingSubscription = await this.prisma.subscription.findFirst({
                 where: {
                     tenantId: data.tenantId,
-                    status: 'active',
                 },
                 include: {
                     plan: true,
                 },
             });
             if (existingSubscription) {
-                console.log('Tenant has existing subscription, upgrading to new plan');
                 return await this.handleUpgrade(existingSubscription, plan);
             }
             const now = new Date();
@@ -85,7 +83,6 @@ let SubscriptionService = class SubscriptionService {
                     stripeCustomerId: 'cust_' + data.tenantId,
                     stripePriceId: plan.stripePriceId ?? '',
                     stripeCurrentPeriodEnd: endDate,
-                    cancelAtPeriodEnd: false,
                     userId: 'system',
                 },
                 include: {

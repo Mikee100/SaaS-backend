@@ -1,16 +1,15 @@
 import { TenantService } from './tenant.service';
+import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
 export declare class TenantController {
     private readonly tenantService;
+    private readonly userService;
     private readonly logoService;
     private readonly logger;
-    constructor(tenantService: TenantService, logoService: LogoService);
+    constructor(tenantService: TenantService, userService: UserService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -61,13 +60,13 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -118,28 +117,18 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
         type: any;
-        validation: import("./logo.service").LogoValidation;
     }>;
     getLogoCompliance(req: any): Promise<{
         compliant: boolean;
         missing: string[];
         recommendations: string[];
-    }>;
-    validateLogos(req: any): Promise<{
-        requirements: import("./logo.service").LogoRequirements;
-        missing: string[];
-        compliance: boolean;
-    }>;
-    getLogoUsage(req: any): Promise<{
-        mainLogo: string | null;
-        favicon: string | null;
-        receiptLogo: string | null;
-        etimsQrCode: string | null;
-        watermark: string | null;
     }>;
     getLogoStatistics(req: any): Promise<{
         totalLogos: number;
@@ -150,9 +139,6 @@ export declare class TenantController {
     updateBranding(req: any, dto: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -203,6 +189,9 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -213,9 +202,6 @@ export declare class TenantController {
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -266,11 +252,18 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;
     }>;
     createTenant(createTenantDto: any): Promise<{
         tenant: any;
+        ownerUser: any;
+    } | {
+        tenant: any;
+        ownerUser?: undefined;
     }>;
 }
