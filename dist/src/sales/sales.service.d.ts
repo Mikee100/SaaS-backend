@@ -100,8 +100,8 @@ export declare class SalesService {
             stripeCustomerId: string | null;
         };
         user: {
-            id: string;
             email: string;
+            id: string;
             name: string;
         };
         mpesaTransactions: {
@@ -114,10 +114,10 @@ export declare class SalesService {
             transactionId: string | null;
         }[];
         branch: {
+            email: string | null;
             id: string;
             tenantId: string;
             createdAt: Date;
-            email: string | null;
             name: string;
             updatedAt: Date;
             status: string | null;
@@ -178,11 +178,11 @@ export declare class SalesService {
                 quantity: number;
             }[];
             user: {
+                email: string;
                 id: string;
                 tenantId: string | null;
                 createdAt: Date;
                 branchId: string | null;
-                email: string;
                 password: string;
                 name: string;
                 isSuperadmin: boolean;

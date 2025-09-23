@@ -94,8 +94,8 @@ export declare class SalesController {
                 stripeCustomerId: string | null;
             };
             user: {
-                id: string;
                 email: string;
+                id: string;
                 name: string;
             };
             mpesaTransactions: {
@@ -108,10 +108,10 @@ export declare class SalesController {
                 transactionId: string | null;
             }[];
             branch: {
+                email: string | null;
                 id: string;
                 tenantId: string;
                 createdAt: Date;
-                email: string | null;
                 name: string;
                 updatedAt: Date;
                 status: string | null;
@@ -370,8 +370,8 @@ export declare class SalesController {
             stripeCustomerId: string | null;
         };
         user: {
-            id: string;
             email: string;
+            id: string;
             name: string;
         };
         mpesaTransactions: {
@@ -384,10 +384,10 @@ export declare class SalesController {
             transactionId: string | null;
         }[];
         branch: {
+            email: string | null;
             id: string;
             tenantId: string;
             createdAt: Date;
-            email: string | null;
             name: string;
             updatedAt: Date;
             status: string | null;

@@ -11,7 +11,10 @@ export declare class MpesaController {
     mpesaWebhook(body: any, res: Response): Promise<Response<any, Record<string, any>>>;
     getByCheckoutId(checkoutRequestId: string): Promise<{
         id: string;
+        tenantId: string;
         userId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -31,8 +34,5 @@ export declare class MpesaController {
         invoiceNumber: string | null;
         orgAccountBalance: string | null;
         thirdPartyTransID: string | null;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
     } | null>;
 }
