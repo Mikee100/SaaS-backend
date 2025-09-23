@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -25,17 +26,17 @@ export class AdminTenantStatsService {
       let rows;
       if (table === 'User') {
         // User.tenantId is nullable, filter out nulls
-        rows = await this.prisma.$queryRawUnsafe<any[]>(`
+        rows = await this.prisma.$queryRaw<Array<{ tenantId: string | null; bytes_used: string }>>(Prisma.sql`
           SELECT "tenantId", SUM(pg_column_size(t)) AS bytes_used
           FROM "User" t
           WHERE "tenantId" IS NOT NULL
-          GROUP BY "tenantId";
+          GROUP BY "tenantId"
         `);
       } else {
-        rows = await this.prisma.$queryRawUnsafe<any[]>(`
+        rows = await this.prisma.$queryRaw<Array<{ tenantId: string | null; bytes_used: string }>>(Prisma.sql`
           SELECT "tenantId", SUM(pg_column_size(t)) AS bytes_used
-          FROM "${table}" t
-          GROUP BY "tenantId";
+          FROM "${Prisma.raw(table)}" t
+          GROUP BY "tenantId"
         `);
       }
       for (const row of rows) {
@@ -46,10 +47,10 @@ export class AdminTenantStatsService {
     }
 
     // Fetch product counts per tenant
-    const productCounts = await this.prisma.$queryRawUnsafe<any[]>(`
+    const productCounts = await this.prisma.$queryRaw<Array<{ tenantId: string | null; product_count: bigint }>>(Prisma.sql`
       SELECT "tenantId", COUNT(*) AS product_count
       FROM "Product"
-      GROUP BY "tenantId";
+      GROUP BY "tenantId"
     `);
     const productCountMap: Record<string, number> = {};
     for (const row of productCounts) {
