@@ -20,14 +20,14 @@ export declare class PaymentService {
     generateInvoice(subscriptionId: string, amount: number, currency?: string): Promise<{
         number: string;
         id: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         amount: number;
         status: string;
+        subscriptionId: string | null;
         dueDate: Date | null;
         paidAt: Date | null;
-        subscriptionId: string | null;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
         period: "month" | "year" | "quarter";

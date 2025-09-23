@@ -15,7 +15,7 @@ export declare class AppController {
                 amount: number;
                 customer: string;
                 date: Date;
-                user: string;
+                user: any;
             }[];
             products: {
                 id: string;

@@ -3,29 +3,12 @@ export declare class AuditLogService {
     private prisma;
     constructor(prisma: PrismaService);
     log(userId: string | null, action: string, details: any, ip?: string, prismaClient?: any): Promise<any>;
-    getLogs(limit?: number): Promise<({
-        user: {
-            id: string;
-            name: string;
-            tenantId: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            branchId: string | null;
-            email: string;
-            password: string;
-            isSuperadmin: boolean;
-            resetPasswordToken: string | null;
-            resetPasswordExpires: Date | null;
-            notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-            language: string | null;
-            region: string | null;
-        } | null;
-    } & {
+    getLogs(limit?: number): Promise<{
         id: string;
         createdAt: Date;
         userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;
-    })[]>;
+    }[]>;
 }

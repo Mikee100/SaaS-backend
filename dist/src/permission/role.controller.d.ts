@@ -3,34 +3,24 @@ export declare class RoleController {
     private readonly permissionService;
     constructor(permissionService: PermissionService);
     createRole(body: any): Promise<void>;
-    getRoles(): Promise<({
-        rolePermissions: ({
-            permission: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
-        } & {
-            id: string;
-            roleId: string;
-            permissionId: string;
-        })[];
-    } & {
+    getRoles(): Promise<{
         id: string;
         name: string;
         description: string | null;
-        tenantId: string | null;
+        isSystemRole: boolean;
         createdAt: Date;
+        tenantId: string | null;
         updatedAt: Date;
-    })[]>;
+    }[]>;
     updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({
         role: {
             id: string;
             name: string;
             description: string | null;
-            tenantId: string | null;
+            isSystemRole: boolean;
             createdAt: Date;
+            tenantId: string | null;
             updatedAt: Date;
         };
         permission: {
@@ -48,8 +38,9 @@ export declare class RoleController {
             id: string;
             name: string;
             description: string | null;
-            tenantId: string | null;
+            isSystemRole: boolean;
             createdAt: Date;
+            tenantId: string | null;
             updatedAt: Date;
         };
         permission: {

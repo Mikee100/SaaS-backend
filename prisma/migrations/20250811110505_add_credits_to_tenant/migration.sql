@@ -42,8 +42,6 @@
   - Made the column `grantedBy` on table `UserPermission` required. This step will fail if there are existing NULL values in that column.
 
 */
--- DropForeignKey
-ALTER TABLE "Sale" DROP CONSTRAINT "Sale_mpesaTransactionId_fkey";
 
 -- DropForeignKey
 ALTER TABLE "UserPermission" DROP CONSTRAINT "UserPermission_grantedBy_fkey";

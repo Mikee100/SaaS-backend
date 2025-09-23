@@ -8,25 +8,28 @@ export declare class InventoryController {
         product: {
             id: string;
             name: string;
+            description: string | null;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            branchId: string | null;
+            isActive: boolean;
             sku: string;
             price: number;
-            cost: number;
-            description: string | null;
-            stock: number;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
-            branchId: string | null;
+            cost: number | null;
+            barcode: string | null;
+            quantity: number;
+            minStock: number;
+            categoryId: string | null;
         };
     } & {
         id: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        productId: string;
         quantity: number;
+        productId: string;
     })[]>;
     create(req: any, dto: CreateInventoryDto): Promise<any>;
     update(req: any, id: string, dto: UpdateInventoryDto): Promise<import(".prisma/client").Prisma.BatchPayload>;

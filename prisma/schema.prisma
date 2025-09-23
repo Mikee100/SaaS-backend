@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,439 +7,121 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Permission {
+model User {
+  id                      String             @id @default(uuid())
+  email                   String             @unique
+  password                String
+  name                    String
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  resetPasswordExpires    DateTime?
+  resetPasswordToken      String?
+  language                String?
+  notificationPreferences Json?
+  region                  String?
+  branchId                String?
+  isSuperadmin            Boolean            @default(false)
+  tenantId                String?
+  isActive                Boolean            @default(true)
+  emailVerificationToken  String?            @unique
+  emailVerified           Boolean            @default(false)
+  failedLoginAttempts     Int                @default(0)
+  accountLocked           Boolean            @default(false)
+  lastLogin               DateTime?
+  refreshTokens           RefreshToken[]
+  sessions                Session[]
+  AuditLog                AuditLog[]
+  MpesaTransaction        MpesaTransaction[]
+  Notification            Notification[]
+  Sale                    Sale[]
+  Subscription            Subscription[]
+  Branch                  Branch?            @relation("UserBranch", fields: [branchId], references: [id])
+  tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
+  UserBranchRole          UserBranchRole[]   @relation("UserUserBranchRoles")
+  userPermissions         UserPermission[]   @relation("UserUserPermissions")
+  grantedPermissions      UserPermission[]   @relation("UserPermissions")
+  userRoles               UserRole[]         @relation("UserUserRoles")
+  branchPermissions       BranchPermission[] @relation("UserBranchPermissions")
 
-  id              String           @id @default(uuid())
-  name            String           @unique
-  description     String?
-  userPermissions UserPermission[]
-  rolePermissions RolePermission[]
-}
-
-model UserPermission {
-  id              String     @id @default(uuid())
-  userId          String
-  user            User       @relation("Permission", fields: [userId], references: [id])
-  permission      String
-  permissionRef   Permission @relation(fields: [permission], references: [name])
-  grantedBy       String?
-  grantedAt       DateTime   @default(now())
-  tenant          Tenant     @relation(fields: [tenantId], references: [id])
-  tenantId        String
-  userPermissions User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
-
-  @@unique([userId, permission, tenantId])
-
-  id          String  @id @default(uuid())
-  name        String  @unique
-  description String?
-
-  rolePermissions RolePermission[]
-  UserPermission  UserPermission[]
-
-}
-
-model Product {
-  id           String      @id @default(uuid())
-  name         String
-  sku          String
-  price        Float
-  cost         Float       @default(0)
-  description  String?
-  stock        Int         @default(0)
-  tenantId     String
-  tenant       Tenant      @relation(fields: [tenantId], references: [id])
-  inventory    Inventory[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  saleItems    SaleItem[]
-  customFields Json?
-  branchId     String?
-  branch       Branch?     @relation(fields: [branchId], references: [id])
-
-  @@index([tenantId])
+  @@index([email])
   @@index([branchId])
-}
-
-model Inventory {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  quantity  Int
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId])
-  @@index([productId])
-  @@index([branchId])
-}
-
-model Sale {
-  id                 String             @id @default(uuid())
-  tenantId           String
-  tenant             Tenant             @relation(fields: [tenantId], references: [id])
-  userId             String
-  user               User               @relation(fields: [userId], references: [id])
-  total              Float
-  paymentType        String
-  items              SaleItem[]
-  createdAt          DateTime           @default(now())
-  customerName       String?
-  customerPhone      String?
-  mpesaTransactionId String?            @unique
-  mpesaTransactions  MpesaTransaction[]
-  idempotencyKey     String?
-  vatAmount          Float? // KRA VAT amount
-  branchId           String?
-  branch             Branch?            @relation(fields: [branchId], references: [id])
-
-  @@unique([idempotencyKey, userId])
-  @@index([tenantId])
-  @@index([userId])
-  @@index([branchId])
-}
-
-model SaleItem {
-  id        String  @id @default(uuid())
-  saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id])
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Int
-  price     Float
-
-  @@index([productId])
-}
-
-model Module {
-  id          String         @id @default(uuid())
-  name        String         @unique
-  description String?
-  tenants     TenantModule[]
-}
-
-model TenantModule {
-  id       String  @id @default(uuid())
-  tenantId String
-  moduleId String
-  enabled  Boolean @default(true)
-  tenant   Tenant  @relation(fields: [tenantId], references: [id])
-  module   Module  @relation(fields: [moduleId], references: [id])
-}
-
-model MpesaTransaction {
-  id                String    @id @default(uuid())
-  userId            String?
-  user              User?     @relation(fields: [userId], references: [id])
-  phoneNumber       String
-  amount            Float
-  status            String    @default("pending")
-  merchantRequestId String?
-  checkoutRequestID String?   @unique
-  mpesaReceipt      String?
-  responseCode      String?
-  responseDesc      String?
-  message           String?
-  saleId            String?
-  sale              Sale?     @relation(fields: [saleId], references: [id])
-  saleData          Json?
-  transactionId     String?   @unique
-  transactionType   String?
-  transactionTime   DateTime?
-  businessShortCode String?
-  billRefNumber     String?
-  invoiceNumber     String?
-  orgAccountBalance String?
-  thirdPartyTransID String?
-  tenantId          String
-  tenant            Tenant    @relation(fields: [tenantId], references: [id])
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([userId])
-  @@index([saleId])
-  @@index([tenantId])
-  @@index([checkoutRequestID])
-  @@index([mpesaReceipt])
-}
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  details   Json?
-  ip        String?
-  createdAt DateTime @default(now())
+  @@index([resetPasswordToken])
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  rolePermissions RolePermission[]
-  userRoles       UserRole[]
-  userBranchRoles UserBranchRole[]
-  tenant          Tenant?          @relation(fields: [tenantId], references: [id])
-  tenantId        String?
+  id                String             @id @default(uuid())
+  name              String
+  description       String?
+  isSystemRole      Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  tenantId          String?
+  updatedAt         DateTime           @updatedAt
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id])
+  permissions       RolePermission[]
+  UserBranchRole    UserBranchRole[]   @relation("RoleUserBranchRoles")
+  userRoles         UserRole[]         @relation("RoleUserRoles")
+  branchPermissions BranchPermission[] @relation("RoleBranchPermissions")
 
   @@unique([name, tenantId])
+}
+
+model Permission {
+  id                String             @id @default(uuid())
+  name              String             @unique
+  description       String?
+  rolePermissions   RolePermission[]
+  userPermissions   UserPermission[]   @relation("PermissionUserPermissions")
+  branchPermissions BranchPermission[] @relation("PermissionBranchPermissions")
 }
 
 model RolePermission {
   id           String     @id @default(uuid())
   roleId       String
-  role         Role       @relation(fields: [roleId], references: [id])
   permissionId String
   permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
 }
 
 model UserRole {
-  id       String @id @default(uuid())
-  user     User   @relation(fields: [userId], references: [id])
-  userId   String
-  role     Role   @relation(fields: [roleId], references: [id])
-  roleId   String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-  tenantId String
-
-  @@unique([userId, roleId, tenantId])
-  @@index([userId])
-  @@index([roleId])
-  @@index([tenantId])
-}
-
-model Plan {
-  id               String  @id @default(uuid())
-  name             String
-  description      String
-  price            Float
-  interval         String // 'month' or 'year'
-  isActive         Boolean @default(true)
-  maxUsers         Int? // Nullable, no default
-  maxProducts      Int? // Nullable, no default
-  maxSalesPerMonth Int? // Nullable, no default
-  stripePriceId    String? @unique
-
-  // Plan Features
-  analyticsEnabled   Boolean @default(false)
-  advancedReports    Boolean @default(false)
-  prioritySupport    Boolean @default(false)
-  customBranding     Boolean @default(false)
-  apiAccess          Boolean @default(false)
-  bulkOperations     Boolean @default(false)
-  dataExport         Boolean @default(false)
-  customFields       Boolean @default(false)
-  advancedSecurity   Boolean @default(false)
-  whiteLabel         Boolean @default(false)
-  dedicatedSupport   Boolean @default(false)
-  ssoEnabled         Boolean @default(false)
-  auditLogs          Boolean @default(false)
-  backupRestore      Boolean @default(false)
-  customIntegrations Boolean @default(false)
-
-  // Relations
-  subscriptions Subscription[]
-  features      PlanFeatureOnPlan[]
-
-  @@index([name])
-  @@index([isActive])
-}
-
-model PlanFeature {
-  id                 String              @id @default(uuid())
-  featureKey         String              @unique
-  featureName        String
-  featureDescription String?
-  isEnabled          Boolean             @default(true)
-  plans              PlanFeatureOnPlan[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-}
-
-model PlanFeatureOnPlan {
-  id        String      @id @default(uuid())
-  planId    String
-  plan      Plan        @relation(fields: [planId], references: [id])
-  featureId String
-  feature   PlanFeature @relation(fields: [featureId], references: [id])
-  isEnabled Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  stripePriceId String? @unique
-}
-
-model Subscription {
-  id                     String    @id @default(uuid())
-  stripeSubscriptionId   String    @unique
-  stripeCustomerId       String
-  stripePriceId          String
-  stripeCurrentPeriodEnd DateTime
-  status                 String // 'active', 'past_due', 'canceled', 'unpaid', 'incomplete', 'incomplete_expired', 'trialing'
-  canceledAt             DateTime? // When the subscription was canceled
-  currentPeriodStart     DateTime
-  currentPeriodEnd       DateTime
-  cancelAtPeriodEnd      Boolean   @default(false)
-  trialStart             DateTime?
-  trialEnd               DateTime?
-
-  // Relations
-  planId   String
-  plan     Plan      @relation(fields: [planId], references: [id])
-  tenantId String
-  tenant   Tenant    @relation("TenantSubscriptions", fields: [tenantId], references: [id])
-  userId   String
-  user     User      @relation("UserSubscriptions", fields: [userId], references: [id])
-  invoices Invoice[]
-
-  @@index([stripeSubscriptionId])
-  @@index([stripeCustomerId])
-  @@index([status])
-  @@index([tenantId])
-  @@index([userId])
-}
-
-model Invoice {
-  id             String        @id @default(uuid())
-  number         String        @unique
-  amount         Float
-  status         String // 'draft', 'open', 'paid', 'void', 'uncollectible'
-  dueDate        DateTime?
-  paidAt         DateTime?
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  tenantId       String
-  tenant         Tenant        @relation(fields: [tenantId], references: [id])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@index([tenantId])
-  @@index([subscriptionId])
-}
-
-model Payment {
-  id                    String    @id @default(uuid())
-  tenantId              String
-  tenant                Tenant    @relation(fields: [tenantId], references: [id])
-  stripePaymentIntentId String?   @unique
-  amount                Float
-  currency              String    @default("USD")
-  status                String // pending, completed, failed, canceled
-  description           String?
-  metadata              Json?
-  completedAt           DateTime?
-  refundedAt            DateTime?
-  refundAmount          Float?
-  refundReason          String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  @@index([tenantId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model PaymentMethod {
   id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  branchId  String? // Optional branch ID for branch-specific roles
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  type      String // card, bank_account, mpesa
-  last4     String?
-  brand     String? // visa, mastercard, etc.
-  expMonth  Int?
-  expYear   Int?
-  isDefault Boolean  @default(false)
-  metadata  Json?
+  role      Role     @relation("RoleUserRoles", fields: [roleId], references: [id])
+  branch    Branch?  @relation("BranchUserRoles", fields: [branchId], references: [id])
+  tenant    Tenant   @relation("TenantUserRoles", fields: [tenantId], references: [id])
+  user      User     @relation("UserUserRoles", fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([userId, roleId, branchId, tenantId])
+  @@index([roleId])
+  @@index([branchId])
   @@index([tenantId])
+  @@index([userId])
 }
 
-model Branch {
-  id           String           @id @default(uuid())
-  name         String
-  address      String?
-  street       String?
-  city         String?
-  state        String?
-  country      String?
-  postalCode   String?
-  phone        String?
-  email        String?
-  manager      String? // Could be a userId if you want a relation
-  openingHours String?
-  status       String? // 'active' or 'inactive'
-  logo         String?
-  customField  String?
-  tenantId     String
-  tenant       Tenant           @relation(fields: [tenantId], references: [id])
-  users        UserBranchRole[]
-  products     Product[] // If you want branch-specific products/inventory
-  sales        Sale[] // If you want branch-specific sales
-  inventories  Inventory[]
-  branchUsers  User[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+// Branch-specific permissions
+model BranchPermission {
+  id           String   @id @default(uuid())
+  branchId     String
+  permissionId String
+  roleId       String?
+  userId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@index([tenantId])
-}
+  branch     Branch     @relation("BranchPermissions", fields: [branchId], references: [id])
+  permission Permission @relation("PermissionBranchPermissions", fields: [permissionId], references: [id])
+  role       Role?      @relation("RoleBranchPermissions", fields: [roleId], references: [id])
+  user       User?      @relation("UserBranchPermissions", fields: [userId], references: [id])
 
-model UserBranchRole {
-  id       String @id @default(uuid())
-  userId   String
-  user     User   @relation(fields: [userId], references: [id])
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-  roleId   String
-  role     Role   @relation(fields: [roleId], references: [id])
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-  tenantId String
-
-  @@unique([userId, branchId, roleId])
-}
-
-model SystemConfiguration {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  value       String
-  description String?
-  category    String // 'security', 'api', 'external_services', 'email', 'general'
-  isEncrypted Boolean  @default(false)
-  isPublic    Boolean  @default(false) // Whether this can be exposed to frontend
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([category])
-  @@index([key])
-}
-
-model TenantConfiguration {
-  id          String   @id @default(uuid())
-  tenantId    String
-  key         String
-  value       String
-  description String?
-  category    String // 'stripe', 'payment', 'billing', 'general'
-  isEncrypted Boolean  @default(false)
-  isPublic    Boolean  @default(false) // Whether this can be exposed to frontend
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, key])
-  @@index([tenantId])
-  @@index([category])
-  @@index([key])
+  @@unique([branchId, permissionId, roleId, userId], name: "branch_permission_unique")
+  @@index([branchId])
+  @@index([permissionId])
+  @@index([roleId])
+  @@index([userId])
 }
 
 model Tenant {
@@ -454,128 +130,650 @@ model Tenant {
   businessType        String
   contactEmail        String
   contactPhone        String?
-  // Enhanced business information
-  businessCategory    String?
-  businessSubcategory String?
-  primaryProducts     Json?
-  secondaryProducts   Json?
-  businessDescription String?
-  // Location information
-  address             String?
-  city                String?
-  state               String?
-  country             String?
-  postalCode          String?
-  latitude            Float?
-  longitude           Float?
-  // Business details
-  foundedYear         Int?
-  employeeCount       String?
-  annualRevenue       String?
-  businessHours       Json?
-  website             String?
-  socialMedia         Json?
-  // Legal and compliance
-  kraPin              String?
-  vatNumber           String?
-  etimsQrUrl          String?
-  businessLicense     String?
-  taxId               String?
-  // Financial settings
-  currency            String?               @default("KES")
-  timezone            String?               @default("Africa/Nairobi")
-  invoiceFooter       String?
-  credits             Float?                @default(0) // Account balance for one-time payments
-  logoUrl             String?
-  loginLogoUrl        String? // URL for login page logo
-  favicon             String?
-  receiptLogo         String?
-  watermark           String?
-  dashboardLogoUrl    String?
-  emailLogoUrl        String?
-  mobileLogoUrl       String?
-  logoSettings        Json?
-  // Enterprise features
-  primaryColor        String?
-  secondaryColor      String?
-  customDomain        String?
-  whiteLabel          Boolean               @default(false)
-  apiKey              String?
-  webhookUrl          String?
-  rateLimit           Int?
-  customIntegrations  Boolean               @default(false)
-  ssoEnabled          Boolean               @default(false)
-  auditLogsEnabled    Boolean               @default(false) // Renamed to avoid conflict
-  backupRestore       Boolean               @default(false)
-  stripeCustomerId    String?               @unique
-  // Timestamps
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
-  // Relations
-  users               User[]
-  products            Product[]
-  inventory           Inventory[]
-  sales               Sale[]
-  modules             TenantModule[]
-  subscriptions       Subscription[]        @relation("TenantSubscriptions")
-  invoices            Invoice[]
-  payments            Payment[]
-  paymentMethods      PaymentMethod[]
-  branches            Branch[]
-  configurations      TenantConfiguration[]
-  userRoles           UserRole[]
-  userBranchRoles     UserBranchRole[]
-  mpesaTransactions   MpesaTransaction[]
-  notifications       Notification[]
-  userPermissions     UserPermission[]
+  address             String?
+  currency            String?               @default("KES")
+  invoiceFooter       String?
+  logoUrl             String?
+  timezone            String?               @default("Africa/Nairobi")
+  etimsQrUrl          String?
+  kraPin              String?
+  vatNumber           String?
+  annualRevenue       String?
+  apiKey              String?
+  auditLogsEnabled    Boolean               @default(false)
+  backupRestore       Boolean               @default(false)
+  businessCategory    String?
+  businessDescription String?
+  businessHours       Json?
+  businessLicense     String?
+  businessSubcategory String?
+  city                String?
+  country             String?
+  credits             Float?                @default(0)
+  customDomain        String?
+  customIntegrations  Boolean               @default(false)
+  dashboardLogoUrl    String?
+  emailLogoUrl        String?
+  employeeCount       String?
+  favicon             String?
+  foundedYear         Int?
+  latitude            Float?
+  loginLogoUrl        String?
+  logoSettings        Json?
+  longitude           Float?
+  mobileLogoUrl       String?
+  postalCode          String?
+  primaryColor        String?
+  primaryProducts     Json?
+  rateLimit           Int?
+  receiptLogo         String?
+  secondaryColor      String?
+  secondaryProducts   Json?
+  socialMedia         Json?
+  ssoEnabled          Boolean               @default(false)
+  state               String?
+  stripeCustomerId    String?               @unique
+  taxId               String?
+  watermark           String?
+  webhookUrl          String?
+  website             String?
+  whiteLabel          Boolean               @default(false)
+  Branch              Branch[]
+  Customer            Customer[]
+  Feedback            Feedback[]
+  Inventory           Inventory[]
+  Invoice             Invoice[]
+  LoyaltyProgram      LoyaltyProgram[]
+  MarketingCampaign   MarketingCampaign[]
+  MpesaTransaction    MpesaTransaction[]
+  Notification        Notification[]
+  Payment             Payment[]
+  PaymentMethod       PaymentMethod[]
   roles               Role[]
+  Sale                Sale[]
+  Subscription        Subscription[]
+  TenantConfiguration TenantConfiguration[]
+  TenantModule        TenantModule[]
+  users               User[]
+  UserBranchRole      UserBranchRole[]      @relation("TenantUserBranchRoles")
+  userRoles           UserRole[]            @relation("TenantUserRoles")
+  categories          Category[]            @relation("TenantCategories")
+  userPermissions     UserPermission[]      @relation("TenantUserPermissions")
+  products            Product[]             @relation(name: "TenantProducts")
+
+  @@index([name])
 }
 
-model User {
-  id                      String           @id @default(uuid())
-  email                   String           @unique
-  password                String
-  name                    String
-  isSuperadmin            Boolean          @default(false)
-  resetPasswordToken      String?
-  resetPasswordExpires    DateTime?
-  notificationPreferences Json?
-  language                String?
-  region                  String?
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  // Relations
-  userRoles               UserRole[]
-  userPermissions         UserPermission[] @relation("Permission")
-  permissions             UserPermission[] @relation("UserPermissions")
+model AuditLog {
+  id        String   @id
+  userId    String?
+  action    String
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+}
 
+model Branch {
+  id                String             @id @default(uuid())
+  name              String
+  address           String?
+  city              String?
+  isMainBranch      Boolean            @default(false)
+  state             String?
+  country           String?
+  postalCode        String?
+  phone             String?
+  email             String?
+  isActive          Boolean            @default(true)
+  tenantId          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  users             User[]             @relation("UserBranch")
+  userRoles         UserRole[]         @relation("BranchUserRoles")
+  branchPermissions BranchPermission[] @relation("BranchPermissions")
   sales             Sale[]
-  mpesaTransactions MpesaTransaction[]
-  auditLogs         AuditLog[]
-  userBranchRoles   UserBranchRole[]
-  tenant            Tenant?            @relation(fields: [tenantId], references: [id])
-  tenantId          String?
-  branchId          String?
-  branch            Branch?            @relation(fields: [branchId], references: [id])
-  subscriptions     Subscription[]     @relation("UserSubscriptions")
-  notifications     Notification[]     @relation("UserNotifications")
+  inventories       Inventory[]
+  products          Product[]          @relation("BranchProducts")
+  UserBranchRole    UserBranchRole[]   @relation("BranchUserBranchRoles")
+
+  @@index([tenantId])
+}
+
+model CampaignSegment {
+  id                String            @id
+  campaignId        String
+  segmentType       String
+  segmentCriteria   Json?
+  recipientCount    Int               @default(0)
+  MarketingCampaign MarketingCampaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+}
+
+model Customer {
+  id              String           @id
+  firstName       String
+  lastName        String
+  email           String?          @unique
+  phone           String?          @unique
+  address         String?
+  city            String?
+  country         String?          @default("Kenya")
+  postalCode      String?
+  dateOfBirth     DateTime?
+  gender          String?
+  notes           String?
+  tenantId        String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  Tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  CustomerLoyalty CustomerLoyalty?
+  Feedback        Feedback[]
+  Purchase        Purchase[]
 
   @@index([email])
-  @@index([resetPasswordToken])
+  @@index([phone])
+  @@index([tenantId])
+}
+
+model CustomerLoyalty {
+  id                  String         @id
+  customerId          String         @unique
+  loyaltyProgramId    String
+  points              Int            @default(0)
+  totalPointsEarned   Int            @default(0)
+  totalPointsRedeemed Int            @default(0)
+  lastActivityAt      DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime
+  Customer            Customer       @relation(fields: [customerId], references: [id])
+  LoyaltyProgram      LoyaltyProgram @relation(fields: [loyaltyProgramId], references: [id])
+
+  @@index([customerId, loyaltyProgramId])
+}
+
+model Feedback {
+  id         String   @id
+  customerId String
+  rating     Int
+  comment    String?
+  response   String?
+  status     String   @default("new")
+  metadata   Json?
+  tenantId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  Customer   Customer @relation(fields: [customerId], references: [id])
+  Tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([customerId])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Inventory {
+  id        String   @id
+  productId String
+  quantity  Int
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  product   Product  @relation("ProductInventory", fields: [productId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
   @@index([branchId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model Invoice {
+  id             String        @id
+  subscriptionId String?
+  amount         Float
+  status         String
+  dueDate        DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  number         String        @unique
+  tenantId       String
+  Subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  Tenant         Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([tenantId])
+}
+
+model LoyaltyProgram {
+  id                String            @id
+  name              String
+  description       String?
+  pointsPerShilling Float             @default(0.01)
+  minPointsRedeem   Int               @default(100)
+  rewardAmount      Float             @default(10.0)
+  isActive          Boolean           @default(true)
+  tenantId          String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  CustomerLoyalty   CustomerLoyalty[]
+  Tenant            Tenant            @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model MarketingCampaign {
+  id              String            @id
+  name            String
+  description     String?
+  type            String
+  subject         String?
+  content         String
+  status          String            @default("draft")
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  recipientCount  Int               @default(0)
+  openRate        Float?
+  clickRate       Float?
+  tenantId        String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  CampaignSegment CampaignSegment[]
+  Tenant          Tenant            @relation(fields: [tenantId], references: [id])
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model Module {
+  id           String         @id
+  name         String         @unique
+  description  String?
+  TenantModule TenantModule[]
+}
+
+model MpesaTransaction {
+  id                String    @id
+  userId            String?
+  phoneNumber       String
+  amount            Float
+  status            String    @default("pending")
+  mpesaReceipt      String?
+  merchantRequestId String?
+  responseCode      String?
+  responseDesc      String?
+  message           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  saleData          Json?
+  billRefNumber     String?
+  businessShortCode String?
+  checkoutRequestID String?   @unique
+  invoiceNumber     String?
+  orgAccountBalance String?
+  saleId            String?
+  tenantId          String
+  thirdPartyTransID String?
+  transactionId     String?   @unique
+  transactionTime   DateTime?
+  transactionType   String?
+  sale              Sale?    
+  Tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  User              User?     @relation(fields: [userId], references: [id])
+
+  @@index([checkoutRequestID])
+  @@index([mpesaReceipt])
+  @@index([saleId])
+  @@index([tenantId])
+  @@index([userId])
 }
 
 model Notification {
-  id        String    @id @default(uuid())
-  type      String // e.g., 'system', 'payment', 'subscription'
+  id        String    @id
+  type      String
   title     String
   message   String
   isRead    Boolean   @default(false)
-  data      Json? // Additional data for the notification
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  data      Json?
   tenantId  String
-  user      User?     @relation("UserNotifications", fields: [userId], references: [id])
   userId    String?
   createdAt DateTime  @default(now())
   readAt    DateTime?
+  Tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  User      User?     @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id                    String    @id
+  tenantId              String
+  stripePaymentIntentId String?   @unique
+  amount                Float
+  currency              String    @default("USD")
+  status                String
+  description           String?
+  metadata              Json?
+  completedAt           DateTime?
+  refundedAt            DateTime?
+  refundAmount          Float?
+  refundReason          String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+  Tenant                Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([tenantId])
+}
+
+model PaymentMethod {
+  id        String   @id
+  tenantId  String
+  type      String
+  last4     String?
+  brand     String?
+  expMonth  Int?
+  expYear   Int?
+  isDefault Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Plan {
+  id                 String              @id
+  name               String
+  description        String
+  price              Float
+  interval           String
+  maxUsers           Int?
+  maxProducts        Int?
+  maxSalesPerMonth   Int?
+  analyticsEnabled   Boolean             @default(false)
+  advancedReports    Boolean             @default(false)
+  prioritySupport    Boolean             @default(false)
+  customBranding     Boolean             @default(false)
+  apiAccess          Boolean             @default(false)
+  isActive           Boolean             @default(true)
+  advancedSecurity   Boolean             @default(false)
+  auditLogs          Boolean             @default(false)
+  backupRestore      Boolean             @default(false)
+  bulkOperations     Boolean             @default(false)
+  customFields       Boolean             @default(false)
+  customIntegrations Boolean             @default(false)
+  dataExport         Boolean             @default(false)
+  dedicatedSupport   Boolean             @default(false)
+  ssoEnabled         Boolean             @default(false)
+  stripePriceId      String?             @unique
+  whiteLabel         Boolean             @default(false)
+  PlanFeatureOnPlan  PlanFeatureOnPlan[]
+  Subscription       Subscription[]
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model PlanFeature {
+  id                 String              @id
+  featureKey         String              @unique
+  featureName        String
+  featureDescription String?
+  isEnabled          Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime
+  PlanFeatureOnPlan  PlanFeatureOnPlan[]
+}
+
+model PlanFeatureOnPlan {
+  id            String      @id
+  planId        String
+  featureId     String
+  isEnabled     Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime
+  stripePriceId String?     @unique
+  PlanFeature   PlanFeature @relation(fields: [featureId], references: [id])
+  Plan          Plan        @relation(fields: [planId], references: [id])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String
+  parentId    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]  @relation("CategoryProducts")
+  tenant   Tenant     @relation("TenantCategories", fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([parentId])
+}
+
+model Product {
+  id          String      @id
+  name        String
+  sku         String
+  price       Float
+  cost        Float?
+  description String?
+  barcode     String?     @unique
+  quantity    Int         @default(0)
+  minStock    Int         @default(0)
+  isActive    Boolean     @default(true)
+  categoryId  String?
+  branchId    String?
+  tenantId    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  category    Category?   @relation("CategoryProducts", fields: [categoryId], references: [id])
+  branch      Branch?     @relation("BranchProducts", fields: [branchId], references: [id])
+  tenant      Tenant      @relation(name: "TenantProducts", fields: [tenantId], references: [id])
+  inventory   Inventory[] @relation("ProductInventory")
+  saleItems   SaleItem[]  @relation("ProductSaleItems")
+
+  @@index([branchId])
+  @@index([tenantId])
+  @@index([categoryId])
+}
+
+model Purchase {
+  id          String   @id
+  customerId  String
+  saleId      String
+  totalAmount Float
+  items       Json
+  createdAt   DateTime @default(now())
+  Customer    Customer @relation(fields: [customerId], references: [id])
+  Sale        Sale     @relation(fields: [saleId], references: [id])
+
+  @@index([customerId])
+  @@index([saleId])
+}
+
+model Sale {
+  id                 String           @id
+  tenantId           String
+  userId             String
+  total              Float
+  paymentType        String
+  createdAt          DateTime         @default(now())
+  customerName       String?
+  customerPhone      String?
+  mpesaTransactionId String?          @unique
+  mpesaTransaction   MpesaTransaction? @relation(fields: [mpesaTransactionId], references: [id])
+  idempotencyKey     String?
+  vatAmount          Float?
+  branchId           String?
+  amountReceived     Float?
+  Purchase           Purchase[]
+  Branch             Branch?          @relation(fields: [branchId], references: [id])
+  Tenant             Tenant           @relation(fields: [tenantId], references: [id])
+  User               User             @relation(fields: [userId], references: [id])
+  SaleItem           SaleItem[]
+
+  @@unique([idempotencyKey, userId])
+  @@index([branchId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([mpesaTransactionId])
+}
+
+model SaleItem {
+  id        String  @id
+  saleId    String
+  productId String
+  quantity  Int
+  price     Float
+  product   Product @relation("ProductSaleItems", fields: [productId], references: [id])
+  sale      Sale    @relation(fields: [saleId], references: [id])
+
+  @@index([productId])
+  @@index([saleId])
+}
+
+model Subscription {
+  id                     String    @id
+  tenantId               String
+  planId                 String
+  status                 String
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean   @default(false)
+  trialEnd               DateTime?
+  canceledAt             DateTime?
+  stripeCurrentPeriodEnd DateTime
+  stripeCustomerId       String
+  stripePriceId          String
+  stripeSubscriptionId   String    @unique
+  trialStart             DateTime?
+  userId                 String
+  Invoice                Invoice[]
+  Plan                   Plan      @relation(fields: [planId], references: [id])
+  Tenant                 Tenant    @relation(fields: [tenantId], references: [id])
+  User                   User      @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model SystemConfiguration {
+  id          String   @id
+  key         String   @unique
+  value       String
+  description String?
+  category    String
+  isEncrypted Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([category])
+  @@index([key])
+}
+
+model TenantConfiguration {
+  id          String   @id
+  tenantId    String
+  key         String
+  value       String
+  description String?
+  category    String
+  isEncrypted Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([category])
+  @@index([key])
+  @@index([tenantId])
+}
+
+model RefreshToken {
+  id             String   @id @default(uuid())
+  token          String   @unique
+  userId         String
+  userAgent      String?
+  ipAddress      String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt      DateTime
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token          String   @unique
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  lastActivityAt DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([token])
+  @@index([userId])
+}
+
+model TenantModule {
+  id       String  @id
+  tenantId String
+  moduleId String
+  enabled  Boolean @default(true)
+  Module   Module  @relation(fields: [moduleId], references: [id])
+  Tenant   Tenant  @relation(fields: [tenantId], references: [id])
+}
+
+model UserBranchRole {
+  id       String @id
+  userId   String
+  branchId String
+  roleId   String
+  tenantId String
+  Branch   Branch @relation("BranchUserBranchRoles", fields: [branchId], references: [id])
+  Role     Role   @relation("RoleUserBranchRoles", fields: [roleId], references: [id])
+  Tenant   Tenant @relation("TenantUserBranchRoles", fields: [tenantId], references: [id])
+  User     User   @relation("UserUserBranchRoles", fields: [userId], references: [id])
+
+  @@unique([userId, branchId, roleId])
+}
+
+model UserPermission {
+  id            String     @id @default(uuid())
+  userId        String
+  user          User       @relation("UserUserPermissions", fields: [userId], references: [id])
+  permission    String
+  permissionRef Permission @relation("PermissionUserPermissions", fields: [permission], references: [name])
+  grantedBy     String?
+  grantedAt     DateTime   @default(now())
+  tenant        Tenant     @relation("TenantUserPermissions", fields: [tenantId], references: [id])
+  tenantId      String
+  grantedByUser User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
+
+  @@unique([userId, permission, tenantId])
 }

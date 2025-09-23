@@ -7,24 +7,24 @@ export declare class BillingService {
         clientName: string;
         clientEmail: string;
         plan: {
-            name: string;
-            price: number;
-            interval: string;
+            name: any;
+            price: any;
+            interval: any;
             features: {
-                maxUsers: number | null;
-                maxProducts: number | null;
-                maxSalesPerMonth: number | null;
-                analyticsEnabled: boolean;
-                advancedReports: boolean;
-                prioritySupport: boolean;
-                customBranding: boolean;
-                apiAccess: boolean;
+                maxUsers: any;
+                maxProducts: any;
+                maxSalesPerMonth: any;
+                analyticsEnabled: any;
+                advancedReports: any;
+                prioritySupport: any;
+                customBranding: any;
+                apiAccess: any;
             };
         } | null;
-        status: string;
-        startDate: Date;
-        currentPeriodEnd: Date;
-        cancelAtPeriodEnd: boolean;
+        status: any;
+        startDate: any;
+        currentPeriodEnd: any;
+        cancelAtPeriodEnd: any;
         lastInvoice: {
             id: string;
             amount: number;
@@ -41,20 +41,18 @@ export declare class BillingService {
         } | null;
     }[]>;
     getPlans(): Promise<{
-        features: string[];
+        features: any;
         id: string;
         name: string;
-        price: number;
         description: string;
-        customFields: boolean;
-        auditLogs: boolean;
+        isActive: boolean;
+        price: number;
         stripePriceId: string | null;
-        whiteLabel: boolean;
+        backupRestore: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
-        backupRestore: boolean;
+        whiteLabel: boolean;
         interval: string;
-        isActive: boolean;
         maxUsers: number | null;
         maxProducts: number | null;
         maxSalesPerMonth: number | null;
@@ -63,9 +61,11 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
-        bulkOperations: boolean;
-        dataExport: boolean;
         advancedSecurity: boolean;
+        auditLogs: boolean;
+        bulkOperations: boolean;
+        customFields: boolean;
+        dataExport: boolean;
         dedicatedSupport: boolean;
     }[] | ({
         id: string;
@@ -97,69 +97,43 @@ export declare class BillingService {
         currentPeriodEnd: null;
         cancelAtPeriodEnd: boolean;
     } | {
-        plan: {
-            id: string;
-            name: string;
-            price: number;
-            description: string;
-            customFields: boolean;
-            auditLogs: boolean;
-            stripePriceId: string | null;
-            whiteLabel: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
-            interval: string;
-            isActive: boolean;
-            maxUsers: number | null;
-            maxProducts: number | null;
-            maxSalesPerMonth: number | null;
-            analyticsEnabled: boolean;
-            advancedReports: boolean;
-            prioritySupport: boolean;
-            customBranding: boolean;
-            apiAccess: boolean;
-            bulkOperations: boolean;
-            dataExport: boolean;
-            advancedSecurity: boolean;
-            dedicatedSupport: boolean;
-        };
+        plan: any;
         id: string;
         tenantId: string;
         userId: string;
         status: string;
-        stripeSubscriptionId: string;
-        stripeCustomerId: string;
-        stripePriceId: string;
-        stripeCurrentPeriodEnd: Date;
-        canceledAt: Date | null;
+        planId: string;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        trialStart: Date | null;
         trialEnd: Date | null;
-        planId: string;
+        canceledAt: Date | null;
+        stripeCurrentPeriodEnd: Date;
+        stripeCustomerId: string;
+        stripePriceId: string;
+        stripeSubscriptionId: string;
+        trialStart: Date | null;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{
-        maxUsers: number | null;
-        maxProducts: number | null;
-        maxSalesPerMonth: number | null;
-        analyticsEnabled: boolean;
-        advancedReports: boolean;
-        prioritySupport: boolean;
-        customBranding: boolean;
-        apiAccess: boolean;
-        bulkOperations: boolean;
-        dataExport: boolean;
-        customFields: boolean;
-        advancedSecurity: boolean;
-        whiteLabel: boolean;
-        dedicatedSupport: boolean;
-        ssoEnabled: boolean;
-        auditLogs: boolean;
-        backupRestore: boolean;
-        customIntegrations: boolean;
+        maxUsers: any;
+        maxProducts: any;
+        maxSalesPerMonth: any;
+        analyticsEnabled: any;
+        advancedReports: any;
+        prioritySupport: any;
+        customBranding: any;
+        apiAccess: any;
+        bulkOperations: any;
+        dataExport: any;
+        customFields: any;
+        advancedSecurity: any;
+        whiteLabel: any;
+        dedicatedSupport: any;
+        ssoEnabled: any;
+        auditLogs: any;
+        backupRestore: any;
+        customIntegrations: any;
     }>;
     checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{
         allowed: boolean;
@@ -168,19 +142,19 @@ export declare class BillingService {
     }>;
     getEnterpriseFeatures(tenantId: string): Promise<{
         customBranding: {
-            enabled: boolean;
+            enabled: any;
             features: string[];
         };
         apiAccess: {
-            enabled: boolean;
+            enabled: any;
             features: string[];
         };
         security: {
-            enabled: boolean;
+            enabled: any;
             features: string[];
         };
         support: {
-            enabled: boolean;
+            enabled: any;
             features: string[];
         };
     } | null>;
@@ -195,8 +169,8 @@ export declare class BillingService {
         subscription: {
             id: string;
             plan: {
-                name: string;
-                price: number;
+                name: any;
+                price: any;
             } | null;
         } | null;
     }[]>;
@@ -218,9 +192,9 @@ export declare class BillingService {
         customIntegrations: boolean;
     }>;
     getSubscriptionFeatures(subscriptionId: string): Promise<{
-        customBranding: boolean;
-        apiAccess: boolean;
-        advancedSecurity: boolean;
-        dedicatedSupport: boolean;
+        customBranding: any;
+        apiAccess: any;
+        advancedSecurity: any;
+        dedicatedSupport: any;
     }>;
 }
