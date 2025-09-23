@@ -87,7 +87,11 @@ export class SalesController {
         throw new NotFoundException('Business information not found');
       }
 
+<<<<<<< HEAD
       // Transform the response to match the expected format
+=======
+      // Include branch information in the response
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
       const response = {
         id: sale.id,
         saleId: sale.id,
@@ -96,6 +100,7 @@ export class SalesController {
         customerPhone: sale.customerPhone || 'N/A',
         items: sale.items.map(item => ({
           productId: item.productId,
+<<<<<<< HEAD
           name: item.name || 'Unknown Product',
           price: item.price,
           quantity: item.quantity,
@@ -149,6 +154,39 @@ export class SalesController {
     }
   }
 
+=======
+          name: item.product?.name || 'Unknown Product',
+          price: item.price,
+          quantity: item.quantity
+        })),
+        total: sale.total,
+        paymentMethod: sale.paymentType,
+        amountReceived: sale.paymentType === 'cash' ? sale.amountReceived : sale.total,
+        change: sale.paymentType === 'cash' ? (sale.amountReceived || 0) - sale.total : 0,
+        businessInfo: {
+          name: tenant.name,
+          address: tenant.address,
+          phone: tenant.contactPhone,
+          email: tenant.contactEmail
+        },
+        branch: sale.branch ? {
+          id: sale.branch.id,
+          name: sale.branch.name,
+          address: sale.branch.address
+        } : null
+      };
+
+      console.log('Sending receipt response', { ...logContext, saleId: response.id });
+      return response;
+    } catch (error) {
+      console.error('Error generating receipt:', { ...logContext, error: error.message });
+      throw new InternalServerErrorException('Failed to generate receipt');
+    }
+  }
+
+  
+
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   @Get('recent')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
@@ -192,11 +230,47 @@ export class SalesController {
 
   @Post()
   @Permissions('create_sales')
+<<<<<<< HEAD
   async createSale(@Body() dto: CreateSaleDto & { idempotencyKey: string }, @Req() req) {
     if (!dto.idempotencyKey) throw new Error('Missing idempotency key');
     // Attach tenantId and userId from JWT
     return this.salesService.createSale(dto, req.user.tenantId, req.user.id);
     
+=======
+  async create(@Body() createSaleDto: CreateSaleDto, @Req() req) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    // Add branch ID from the request body or from the user's default branch
+    const branchId = createSaleDto.branchId || req.user.branchId;
+
+    const saleData = {
+      ...createSaleDto,
+      branchId, // Include the branch ID in the sale data
+    };
+
+    try {
+      const sale = await this.salesService.createSale(
+        saleData,
+        req.user.tenantId,
+        req.user.userId
+      );
+      
+      return {
+        success: true,
+        data: sale,
+        message: 'Sale created successfully',
+      };
+    } catch (error) {
+      console.error('Error creating sale:', error);
+      throw new InternalServerErrorException('Failed to create sale');
+    }
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @Get()
@@ -211,4 +285,4 @@ export class SalesController {
     // Optionally: check tenant/user permissions
     return this.salesService.getSaleById(id, req.user?.tenantId);
   }
-} 
+}

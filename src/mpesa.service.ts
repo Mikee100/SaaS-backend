@@ -41,6 +41,7 @@ export interface MpesaTransactionUpdate extends Partial<MpesaTransactionData> {
 export class MpesaService {
   private readonly logger = new Logger(MpesaService.name);
 
+<<<<<<< HEAD
   constructor(private readonly prisma: PrismaService) {}
 
   async createTransaction(data: MpesaTransactionData) {
@@ -105,6 +106,29 @@ export class MpesaService {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: limit,
+=======
+  async createTransaction(data: {
+    userId?: string;
+    phoneNumber: string;
+    amount: number;
+    status: string;
+    merchantRequestID?: string;
+    checkoutRequestID?: string;
+    message?: string;
+    saleData?: any;
+    tenantId: string;
+  }) {
+    // Remove userId if undefined (Prisma expects it to be present or omitted)
+    const { userId, tenantId, ...rest } = data;
+    const createData = userId ? { userId, tenantId, ...rest } : { tenantId, ...rest };
+    return this.prisma.mpesaTransaction.create({ data: createData });
+  }
+
+  async updateTransaction(checkoutRequestId: string, update: Partial<{ status: string; mpesaReceipt: string; responseCode: string; responseDesc: string; message: string; }>) {
+    return this.prisma.mpesaTransaction.updateMany({
+      where: { checkoutRequestID: checkoutRequestId },
+      data: update,
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
     });
   }
 

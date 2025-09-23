@@ -1,5 +1,6 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+<<<<<<< HEAD
 import { RequirePlan } from '../billing/plan.guard';
 import { PlanGuard } from '../billing/plan.guard';
 import { PrismaService } from '../prisma.service';
@@ -41,12 +42,60 @@ export class AnalyticsController {
       // You can add more real analytics here as needed
       message: 'Basic analytics with real data'
     };
+=======
+import { AnalyticsService } from './analytics.service';
+
+@Controller('analytics')
+export class AnalyticsController {
+  constructor(private analyticsService: AnalyticsService) {}
+  
+  @Get('basic')
+  @UseGuards(AuthGuard('jwt'))
+  async getBasicAnalytics(@Req() req: any) {
+    // Get the tenant ID from the authenticated user
+    const tenantId = req.user.tenantId;
+    
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+    
+    try {
+      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      return {
+        totalSales: data.totalSales,
+        totalRevenue: data.totalRevenue,
+        totalProducts: data.totalProducts,
+        message: 'Basic analytics available to all plans'
+      };
+    } catch (error) {
+      console.error('Error fetching basic analytics:', error);
+      throw new Error('Failed to fetch basic analytics');
+    }
+  }
+
+  @Get('dashboard')
+  @UseGuards(AuthGuard('jwt'))
+  async getDashboardAnalytics(@Req() req: any) {
+    // Get the tenant ID from the authenticated user
+    const tenantId = req.user.tenantId;
+    
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+    
+    try {
+      return await this.analyticsService.getDashboardAnalytics(tenantId);
+    } catch (error) {
+      console.error('Error fetching dashboard analytics:', error);
+      throw new Error('Failed to fetch dashboard data');
+    }
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @Get('advanced')
-  @UseGuards(AuthGuard('jwt'), PlanGuard)
-  @RequirePlan('Pro')
+  @UseGuards(AuthGuard('jwt'))
   async getAdvancedAnalytics(@Req() req: any) {
+<<<<<<< HEAD
     // Only available to Pro+ plans
     return {
       salesByMonth: {
@@ -89,12 +138,30 @@ export class AnalyticsController {
       },
       message: 'Advanced analytics available to Pro+ plans'
     };
+=======
+    const tenantId = req.user.tenantId;
+    
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+    
+    try {
+      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      return {
+        ...data,
+        // Add any advanced metrics here
+      };
+    } catch (error) {
+      console.error('Error fetching advanced analytics:', error);
+      throw new Error('Failed to fetch advanced analytics');
+    }
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @Get('enterprise')
-  @UseGuards(AuthGuard('jwt'), PlanGuard)
-  @RequirePlan('Enterprise')
+  @UseGuards(AuthGuard('jwt'))
   async getEnterpriseAnalytics(@Req() req: any) {
+<<<<<<< HEAD
     // Only available to Enterprise plans
     return {
       realTimeData: {
@@ -325,3 +392,23 @@ export class AnalyticsController {
     };
   }
 }
+=======
+    const tenantId = req.user.tenantId;
+    
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+    
+    try {
+      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      return {
+        ...data,
+        // Add any enterprise-specific metrics here
+      };
+    } catch (error) {
+      console.error('Error fetching enterprise analytics:', error);
+      throw new Error('Failed to fetch enterprise analytics');
+    }
+  }
+}
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1

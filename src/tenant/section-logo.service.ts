@@ -427,4 +427,8 @@ export class SectionLogoService {
       recommendations
     };
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1

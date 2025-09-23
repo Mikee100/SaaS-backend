@@ -16,8 +16,8 @@ interface UpdateSubscriptionDto {
 @Injectable()
 export class SubscriptionService {
   constructor(
-    private prisma: PrismaService,
-    private billingService: BillingService,
+    private readonly prisma: PrismaService,
+    private readonly billingService: BillingService
   ) {}
 
   async createSubscription(data: CreateSubscriptionDto) {
@@ -51,8 +51,13 @@ export class SubscriptionService {
           ssoEnabled: true,
           auditLogs: true,
           backupRestore: true,
+<<<<<<< HEAD
           customIntegrations: true,
         },
+=======
+          customIntegrations: true
+        }
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
       });
 
       if (!plan) {
@@ -66,7 +71,10 @@ export class SubscriptionService {
       const existingSubscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId: data.tenantId,
-          status: 'active',
+        // Removed console.log for existing subscription upgrade
+        },
+        include: {
+          plan: true,
         },
         include: {
           plan: true,
@@ -74,7 +82,11 @@ export class SubscriptionService {
       });
 
       if (existingSubscription) {
+<<<<<<< HEAD
         console.log('Tenant has existing subscription, upgrading to new plan');
+=======
+      // Removed console.log for subscription creation dates
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
         // Handle upgrade by updating the existing subscription
         return await this.handleUpgrade(existingSubscription, plan);
       }
@@ -96,7 +108,11 @@ export class SubscriptionService {
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
           stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
+<<<<<<< HEAD
           cancelAtPeriodEnd: false,
+=======
+      // Removed console.log for successful subscription creation
+>>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
           userId: 'system', // This should be the admin user ID
         },
         include: {

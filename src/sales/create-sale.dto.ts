@@ -8,6 +8,11 @@ class SaleItemDto {
   @IsNumber()
   @Min(1)
   quantity: number;
+
+  // Add price property
+  @IsNumber()
+  @IsOptional()
+  price?: number;
 }
 
 export class CreateSaleDto {
@@ -20,7 +25,12 @@ export class CreateSaleDto {
   paymentMethod: string;
 
   @IsNumber()
-  amountReceived: number;
+  @IsOptional()
+  amountReceived?: number;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
 
   @IsOptional()
   @IsString()
@@ -32,4 +42,17 @@ export class CreateSaleDto {
 
   @IsString()
   idempotencyKey: string;
-} 
+
+  // Add missing properties
+  @IsNumber()
+  @IsOptional()
+  total?: number;
+
+  @IsNumber()
+  @IsOptional()
+  vatAmount?: number;
+
+  @IsString()
+  @IsOptional()
+  mpesaTransactionId?: string;
+}
