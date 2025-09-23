@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
+interface TenantSpaceRow {
+  tenantId: string | null;
+  bytes_used: string;
+}
+
+interface ProductCountRow {
+  tenantId: string | null;
+  product_count: bigint;
+}
+
 @Injectable()
 export class AdminTenantStatsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -26,18 +36,18 @@ export class AdminTenantStatsService {
       let rows;
       if (table === 'User') {
         // User.tenantId is nullable, filter out nulls
-        rows = await this.prisma.$queryRaw<Array<{ tenantId: string | null; bytes_used: string }>>(Prisma.sql`
-          SELECT "tenantId", SUM(pg_column_size(t)) AS bytes_used
+        rows = await this.prisma.$queryRaw<TenantSpaceRow[]>(
+          Prisma.sql`SELECT "tenantId", SUM(pg_column_size(t)) AS "bytes_used"
           FROM "User" t
           WHERE "tenantId" IS NOT NULL
-          GROUP BY "tenantId"
-        `);
+          GROUP BY "tenantId"`
+        );
       } else {
-        rows = await this.prisma.$queryRaw<Array<{ tenantId: string | null; bytes_used: string }>>(Prisma.sql`
-          SELECT "tenantId", SUM(pg_column_size(t)) AS bytes_used
+        rows = await this.prisma.$queryRaw<TenantSpaceRow[]>(
+          Prisma.sql`SELECT "tenantId", SUM(pg_column_size(t)) AS "bytes_used"
           FROM "${Prisma.raw(table)}" t
-          GROUP BY "tenantId"
-        `);
+          GROUP BY "tenantId"`
+        );
       }
       for (const row of rows) {
         if (!row.tenantId) continue;
@@ -47,11 +57,11 @@ export class AdminTenantStatsService {
     }
 
     // Fetch product counts per tenant
-    const productCounts = await this.prisma.$queryRaw<Array<{ tenantId: string | null; product_count: bigint }>>(Prisma.sql`
-      SELECT "tenantId", COUNT(*) AS product_count
+    const productCounts = await this.prisma.$queryRaw<ProductCountRow[]>(
+      Prisma.sql`SELECT "tenantId", COUNT(*) AS "product_count"
       FROM "Product"
-      GROUP BY "tenantId"
-    `);
+      GROUP BY "tenantId"`
+    );
     const productCountMap: Record<string, number> = {};
     for (const row of productCounts) {
       if (!row.tenantId) continue;
