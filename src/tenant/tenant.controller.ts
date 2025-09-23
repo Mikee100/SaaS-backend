@@ -4,14 +4,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import { TenantService } from './tenant.service';
-<<<<<<< HEAD
-import { LogoService } from './logo.service';
-import { Logger } from '@nestjs/common';
-=======
 import { Logger } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
 @Controller('tenant')
 export class TenantController {
@@ -19,23 +14,15 @@ export class TenantController {
 
   constructor(
     private readonly tenantService: TenantService,
-<<<<<<< HEAD
-    private readonly logoService: LogoService
-=======
     private readonly userService: UserService,
   private readonly logoService: LogoService
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
   async getMyTenant(@Req() req) {
     const tenantId = req.user.tenantId;
-<<<<<<< HEAD
-    return this.tenantService.getTenant(tenantId);
-=======
   return this.tenantService.getTenantById(tenantId);
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -81,14 +68,6 @@ export class TenantController {
     const logoUrl = `/uploads/logos/${file.filename}`;
     
     // Validate logo file
-<<<<<<< HEAD
-    const validation = await this.logoService.validateLogoFile(file, logoType);
-    if (!validation.isValid) {
-      throw new Error(`Logo validation failed: ${validation.errors.join(', ')}`);
-    }
-    
-=======
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
     // Update the appropriate logo field based on type
     const updateData: any = {};
     switch (logoType) {
@@ -110,138 +89,8 @@ export class TenantController {
       default:
         updateData.logoUrl = logoUrl; // Default to main logo
     }
-<<<<<<< HEAD
-    
-    await this.tenantService.updateTenant(req.user.tenantId, updateData);
-    return { logoUrl, type: logoType, validation };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/compliance')
-  async getLogoCompliance(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.enforceLogoCompliance(tenantId);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/validation')
-  async validateLogos(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.validateTenantLogos(tenantId);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/usage')
-  async getLogoUsage(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.getLogoUsage(tenantId);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Get('logo/statistics')
-  async getLogoStatistics(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.logoService.getLogoStatistics(tenantId);
-  }
-
-  // Enterprise branding endpoints
-  @UseGuards(AuthGuard('jwt'))
-  @Put('branding')
-  async updateBranding(@Req() req, @Body() dto: any) {
-    const tenantId = req.user.tenantId;
-    const allowedFields = [
-      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
-      'logoUrl', 'favicon', 'receiptLogo', 'watermark'
-    ];
-    
-    const data: any = {};
-    for (const key of allowedFields) {
-      if (dto[key] !== undefined) {
-        data[key] = dto[key];
-      }
-    }
-    
-    return this.tenantService.updateTenant(tenantId, data);
-  }
-
-  // Enterprise API endpoints
-  @UseGuards(AuthGuard('jwt'))
-  @Get('api-settings')
-  async getApiSettings(@Req() req) {
-    const tenant = await this.tenantService.getTenant(req.user.tenantId);
-    if (!tenant) {
-      throw new Error('Tenant not found');
-    }
-    return {
-      apiKey: tenant.apiKey,
-      webhookUrl: tenant.webhookUrl,
-      rateLimit: tenant.rateLimit || 1000,
-      customIntegrations: tenant.customIntegrations || false,
-    };
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Put('api-settings')
-  async updateApiSettings(@Req() req, @Body() apiSettings: any) {
-    const tenantId = req.user.tenantId;
-    return this.tenantService.updateTenant(tenantId, {
-      webhookUrl: apiSettings.webhookUrl,
-      rateLimit: apiSettings.rateLimit,
-  // customIntegrations: apiSettings.customIntegrations,
-    });
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Post('generate-api-key')
-  async generateApiKey(@Req() req) {
-    const tenantId = req.user.tenantId;
-    const apiKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    await this.tenantService.updateTenant(tenantId, { apiKey });
-    return { apiKey };
-  }
-
-  // Public endpoint for business registration
-  @Post()
-  async createTenant(@Body() createTenantDto: any) {
-  this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
-  console.log('[TenantController] Incoming registration payload:', JSON.stringify(createTenantDto));
-    
-    try {
-      console.log('[TenantController] Starting tenant creation process...');
-      // Extract owner information from the request
-      const {
-        ownerName,
-        ownerEmail,
-        ownerPassword,
-        ownerRole = 'owner',
-        ...tenantData
-      } = createTenantDto;
-
-      // Validate required fields
-      if (!ownerName || !ownerEmail || !ownerPassword) {
-        throw new BadRequestException('Missing required owner information');
-      }
-
-      // Create the tenant and owner user in one transaction
-      const tenant = await this.tenantService.createTenant({
-        ...tenantData,
-        ownerName,
-        ownerEmail,
-        ownerPassword,
-        ownerRole,
-      });
-      console.log('[TenantController] Tenant creation result:', tenant);
-
-    return { tenant };
-    } catch (error) {
-      this.logger.error('Error creating tenant:', error);
-      console.error('[TenantController] Error during tenant registration:', error);
-      throw error;
-    }
-=======
     await this.tenantService.updateTenant(req.user.tenantId, updateData);
     return { logoUrl, type: logoType };
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @UseGuards(AuthGuard('jwt'))

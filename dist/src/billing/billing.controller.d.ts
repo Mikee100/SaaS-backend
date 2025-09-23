@@ -82,16 +82,10 @@ export declare class BillingController {
         } | {
             plan: {
                 id: string;
+                stripePriceId: string | null;
                 name: string;
-                auditLogs: boolean;
                 description: string;
                 price: number;
-                customFields: boolean;
-                whiteLabel: boolean;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                backupRestore: boolean;
-                stripePriceId: string | null;
                 interval: string;
                 isActive: boolean;
                 maxUsers: number | null;
@@ -104,17 +98,21 @@ export declare class BillingController {
                 apiAccess: boolean;
                 bulkOperations: boolean;
                 dataExport: boolean;
+                customFields: boolean;
                 advancedSecurity: boolean;
+                whiteLabel: boolean;
                 dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
             };
             id: string;
-            userId: string;
-            tenantId: string;
-            status: string;
-            stripeCustomerId: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
+            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
@@ -122,6 +120,8 @@ export declare class BillingController {
             trialStart: Date | null;
             trialEnd: Date | null;
             planId: string;
+            tenantId: string;
+            userId: string;
         };
         timestamp: string;
         error?: undefined;
@@ -142,16 +142,10 @@ export declare class BillingController {
     getPlans(): Promise<{
         features: string[];
         id: string;
+        stripePriceId: string | null;
         name: string;
-        auditLogs: boolean;
         description: string;
         price: number;
-        customFields: boolean;
-        whiteLabel: boolean;
-        customIntegrations: boolean;
-        ssoEnabled: boolean;
-        backupRestore: boolean;
-        stripePriceId: string | null;
         interval: string;
         isActive: boolean;
         maxUsers: number | null;
@@ -164,8 +158,14 @@ export declare class BillingController {
         apiAccess: boolean;
         bulkOperations: boolean;
         dataExport: boolean;
+        customFields: boolean;
         advancedSecurity: boolean;
+        whiteLabel: boolean;
         dedicatedSupport: boolean;
+        ssoEnabled: boolean;
+        auditLogs: boolean;
+        backupRestore: boolean;
+        customIntegrations: boolean;
     }[] | ({
         id: string;
         name: string;
@@ -198,16 +198,10 @@ export declare class BillingController {
     } | {
         plan: {
             id: string;
+            stripePriceId: string | null;
             name: string;
-            auditLogs: boolean;
             description: string;
             price: number;
-            customFields: boolean;
-            whiteLabel: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            backupRestore: boolean;
-            stripePriceId: string | null;
             interval: string;
             isActive: boolean;
             maxUsers: number | null;
@@ -220,17 +214,21 @@ export declare class BillingController {
             apiAccess: boolean;
             bulkOperations: boolean;
             dataExport: boolean;
+            customFields: boolean;
             advancedSecurity: boolean;
+            whiteLabel: boolean;
             dedicatedSupport: boolean;
+            ssoEnabled: boolean;
+            auditLogs: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
         };
         id: string;
-        userId: string;
-        tenantId: string;
-        status: string;
-        stripeCustomerId: string;
         stripeSubscriptionId: string;
+        stripeCustomerId: string;
         stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
+        status: string;
         canceledAt: Date | null;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
@@ -238,6 +236,8 @@ export declare class BillingController {
         trialStart: Date | null;
         trialEnd: Date | null;
         planId: string;
+        tenantId: string;
+        userId: string;
     }>;
     getPlanLimits(req: any): Promise<{
         maxUsers: number | null;
@@ -283,16 +283,10 @@ export declare class BillingController {
             subscription: {
                 plan: {
                     id: string;
+                    stripePriceId: string | null;
                     name: string;
-                    auditLogs: boolean;
                     description: string;
                     price: number;
-                    customFields: boolean;
-                    whiteLabel: boolean;
-                    customIntegrations: boolean;
-                    ssoEnabled: boolean;
-                    backupRestore: boolean;
-                    stripePriceId: string | null;
                     interval: string;
                     isActive: boolean;
                     maxUsers: number | null;
@@ -305,18 +299,22 @@ export declare class BillingController {
                     apiAccess: boolean;
                     bulkOperations: boolean;
                     dataExport: boolean;
+                    customFields: boolean;
                     advancedSecurity: boolean;
+                    whiteLabel: boolean;
                     dedicatedSupport: boolean;
+                    ssoEnabled: boolean;
+                    auditLogs: boolean;
+                    backupRestore: boolean;
+                    customIntegrations: boolean;
                 };
             } & {
                 id: string;
-                userId: string;
-                tenantId: string;
-                status: string;
-                stripeCustomerId: string;
                 stripeSubscriptionId: string;
+                stripeCustomerId: string;
                 stripePriceId: string;
                 stripeCurrentPeriodEnd: Date;
+                status: string;
                 canceledAt: Date | null;
                 currentPeriodStart: Date;
                 currentPeriodEnd: Date;
@@ -324,6 +322,8 @@ export declare class BillingController {
                 trialStart: Date | null;
                 trialEnd: Date | null;
                 planId: string;
+                tenantId: string;
+                userId: string;
             };
             proration: {
                 credit: number;
@@ -333,16 +333,10 @@ export declare class BillingController {
         } | ({
             plan: {
                 id: string;
+                stripePriceId: string | null;
                 name: string;
-                auditLogs: boolean;
                 description: string;
                 price: number;
-                customFields: boolean;
-                whiteLabel: boolean;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                backupRestore: boolean;
-                stripePriceId: string | null;
                 interval: string;
                 isActive: boolean;
                 maxUsers: number | null;
@@ -355,18 +349,22 @@ export declare class BillingController {
                 apiAccess: boolean;
                 bulkOperations: boolean;
                 dataExport: boolean;
+                customFields: boolean;
                 advancedSecurity: boolean;
+                whiteLabel: boolean;
                 dedicatedSupport: boolean;
+                ssoEnabled: boolean;
+                auditLogs: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
             };
         } & {
             id: string;
-            userId: string;
-            tenantId: string;
-            status: string;
-            stripeCustomerId: string;
             stripeSubscriptionId: string;
+            stripeCustomerId: string;
             stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
+            status: string;
             canceledAt: Date | null;
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
@@ -374,6 +372,8 @@ export declare class BillingController {
             trialStart: Date | null;
             trialEnd: Date | null;
             planId: string;
+            tenantId: string;
+            userId: string;
         });
     }>;
     createCheckoutSession(body: {
@@ -425,12 +425,12 @@ export declare class BillingController {
         success: boolean;
         payment: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
+            status: string;
             tenantId: string;
             description: string | null;
+            createdAt: Date;
             amount: number;
-            status: string;
+            updatedAt: Date;
             currency: string;
             stripePaymentIntentId: string | null;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;

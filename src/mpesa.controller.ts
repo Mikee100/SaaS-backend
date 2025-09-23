@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 import { Controller, Post, Body, Res, Req, Get, Param } from '@nestjs/common';
 import axios from 'axios';
 import { Response, Request } from 'express';
@@ -180,4 +178,3 @@ export class MpesaController {
   return this.mpesaService.prisma.mpesaTransaction.findFirst({ where: { checkoutRequestID: checkoutRequestId } });
   }
 } 
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1

@@ -23,13 +23,18 @@ let RoleController = class RoleController {
     constructor(permissionService) {
         this.permissionService = permissionService;
     }
-    async getRoles() {
-        return this.permissionService.getAllRoles();
-    }
     async createRole(body) {
         if (!body.name)
             throw new common_1.BadRequestException('Role name is required');
         return this.permissionService.createRole(body.name, body.description);
+    }
+    async getRoles() {
+        return this.permissionService.getAllRoles();
+    }
+    async updateRole(body) {
+        if (!body.name)
+            throw new common_1.BadRequestException('Role name is required');
+        return this.permissionService.updateRole(body.name, body.description);
     }
     async getRolePermissions(id) {
         return this.permissionService.getRolePermissions(id);
@@ -41,6 +46,14 @@ let RoleController = class RoleController {
     }
 };
 exports.RoleController = RoleController;
+__decorate([
+    (0, common_1.Post)(),
+    (0, permissions_decorator_1.Permissions)('edit_roles'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], RoleController.prototype, "createRole", null);
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('edit_roles'),
@@ -55,7 +68,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], RoleController.prototype, "createRole", null);
+], RoleController.prototype, "updateRole", null);
 __decorate([
     (0, common_1.Get)(':id/permissions'),
     (0, permissions_decorator_1.Permissions)('edit_roles'),

@@ -87,11 +87,7 @@ export class SalesController {
         throw new NotFoundException('Business information not found');
       }
 
-<<<<<<< HEAD
-      // Transform the response to match the expected format
-=======
       // Include branch information in the response
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
       const response = {
         id: sale.id,
         saleId: sale.id,
@@ -100,61 +96,6 @@ export class SalesController {
         customerPhone: sale.customerPhone || 'N/A',
         items: sale.items.map(item => ({
           productId: item.productId,
-<<<<<<< HEAD
-          name: item.name || 'Unknown Product',
-          price: item.price,
-          quantity: item.quantity,
-          total: item.price * item.quantity
-        })),
-        subtotal: sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        total: sale.total,
-        vatAmount: sale.vatAmount || 0,
-        paymentMethod: sale.paymentType,
-        amountReceived: sale.total, // Assuming full payment for now
-        change: 0, // Assuming no change for now
-        businessInfo: {
-          name: tenant.name || 'Business Name',
-          address: tenant.address || 'N/A',
-          phone: tenant.contactPhone || 'N/A',
-          email: tenant.contactEmail || 'N/A',
-          // vatNumber: tenant.vatNumber || 'N/A',
-          // receiptFooter: tenant.receiptFooter || 'Thank you for your business!'
-        },
-        mpesaTransaction: sale.mpesaTransactions?.[0] ? {
-          phoneNumber: sale.mpesaTransactions[0].phoneNumber,
-          amount: sale.mpesaTransactions[0].amount,
-          status: sale.mpesaTransactions[0].status,
-          mpesaReceipt: sale.mpesaTransactions[0].transactionId,
-          message: sale.mpesaTransactions[0].responseDesc || '',
-          transactionDate: sale.mpesaTransactions[0].createdAt,
-        } : null,
-      };
-
-      console.log('Receipt generated successfully', { ...logContext, saleId: sale.id });
-      return response;
-      
-    } catch (error) {
-      console.error('Error generating receipt:', {
-        ...logContext,
-        error: error.message,
-        stack: error.stack,
-        errorName: error.name,
-        errorCode: error.status || error.statusCode || 500,
-      });
-
-      // Re-throw with appropriate status code
-      if (error instanceof BadRequestException || 
-          error instanceof UnauthorizedException || 
-          error instanceof NotFoundException) {
-        throw error;
-      }
-      
-      // For unexpected errors, return a 500 with a generic message
-      throw new InternalServerErrorException('Failed to generate receipt. Please try again later.');
-    }
-  }
-
-=======
           name: item.product?.name || 'Unknown Product',
           price: item.price,
           quantity: item.quantity
@@ -186,7 +127,6 @@ export class SalesController {
 
   
 
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   @Get('recent')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
@@ -230,13 +170,6 @@ export class SalesController {
 
   @Post()
   @Permissions('create_sales')
-<<<<<<< HEAD
-  async createSale(@Body() dto: CreateSaleDto & { idempotencyKey: string }, @Req() req) {
-    if (!dto.idempotencyKey) throw new Error('Missing idempotency key');
-    // Attach tenantId and userId from JWT
-    return this.salesService.createSale(dto, req.user.tenantId, req.user.id);
-    
-=======
   async create(@Body() createSaleDto: CreateSaleDto, @Req() req) {
     if (!req.user) {
       throw new UnauthorizedException('User not authenticated');
@@ -270,7 +203,6 @@ export class SalesController {
       console.error('Error creating sale:', error);
       throw new InternalServerErrorException('Failed to create sale');
     }
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
   @Get()

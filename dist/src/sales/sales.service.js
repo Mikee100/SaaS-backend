@@ -43,8 +43,8 @@ let SalesService = class SalesService {
                 total: existing.total,
                 vatAmount: existing.vatAmount ?? 0,
                 paymentMethod: existing.paymentType,
-                amountReceived: dto.amountReceived,
-                change: dto.amountReceived - existing.total,
+                amountReceived: dto.amountReceived ?? 0,
+                change: (dto.amountReceived ?? 0) - existing.total,
                 customerName: existing.customerName || undefined,
                 customerPhone: existing.customerPhone || undefined,
             };
@@ -89,6 +89,7 @@ let SalesService = class SalesService {
                     customerName: dto.customerName,
                     customerPhone: dto.customerPhone,
                     idempotencyKey: dto.idempotencyKey,
+                    branchId: dto.branchId,
                     items: {
                         create: dto.items.map(item => ({
                             productId: item.productId,
@@ -114,8 +115,8 @@ let SalesService = class SalesService {
             total,
             vatAmount,
             paymentMethod: dto.paymentMethod,
-            amountReceived: dto.amountReceived,
-            change: dto.amountReceived - total,
+            amountReceived: dto.amountReceived ?? 0,
+            change: (dto.amountReceived ?? 0) - total,
             customerName: dto.customerName,
             customerPhone: dto.customerPhone,
         };
@@ -344,9 +345,8 @@ let SalesService = class SalesService {
         }));
         let customerSegments = [];
         try {
-            if (customerInput.length > 0) {
-                const aiServiceUrl = await this.configurationService.getAiServiceUrl();
-                const res = await axios_1.default.post(`${aiServiceUrl}/customer_segments`, {
+            if (customerInput.length > 0 && process.env.AI_SERVICE_URL) {
+                const res = await axios_1.default.post(`${process.env.AI_SERVICE_URL}/customer_segments`, {
                     customers: customerInput,
                 });
                 customerSegments = res.data;
@@ -358,13 +358,14 @@ let SalesService = class SalesService {
         const salesValues = Object.values(salesByMonth);
         let forecast = { forecast_months: [], forecast_sales: [] };
         try {
-            const aiServiceUrl = await this.configurationService.getAiServiceUrl();
-            const res = await axios_1.default.post(`${aiServiceUrl}/forecast`, {
-                months,
-                sales: salesValues,
-                periods: 4,
-            });
-            forecast = res.data;
+            if (process.env.AI_SERVICE_URL) {
+                const res = await axios_1.default.post(`${process.env.AI_SERVICE_URL}/forecast`, {
+                    months,
+                    sales: salesValues,
+                    periods: 4,
+                });
+                forecast = res.data;
+            }
         }
         catch (e) {
         }

@@ -23,21 +23,24 @@ export declare class UserController {
         userRoles: ({
             role: {
                 id: string;
-                createdAt: Date;
                 name: string;
-                updatedAt: Date;
-                tenantId: string | null;
                 description: string | null;
+                tenantId: string | null;
+                createdAt: Date;
+                updatedAt: Date;
             };
         } & {
             id: string;
-            userId: string;
             tenantId: string;
             roleId: string;
+            userId: string;
         })[];
         id: string;
-        createdAt: Date;
         name: string;
+        tenantId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -46,9 +49,6 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     }[]>;
     getProtected(req: any): {
         message: string;
@@ -64,8 +64,11 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
+        tenantId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         isSuperadmin: boolean;
@@ -74,9 +77,6 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
 }

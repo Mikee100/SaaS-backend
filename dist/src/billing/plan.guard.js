@@ -9,24 +9,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlanGuard = exports.RequireFeature = exports.RequirePlan = void 0;
+exports.PlanGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const billing_service_1 = require("./billing.service");
-const RequirePlan = (plan) => {
-    return (target, propertyKey, descriptor) => {
-        Reflect.defineMetadata('requiredPlan', plan, descriptor.value);
-        return descriptor;
-    };
-};
-exports.RequirePlan = RequirePlan;
-const RequireFeature = (feature) => {
-    return (target, propertyKey, descriptor) => {
-        Reflect.defineMetadata('requiredFeature', feature, descriptor.value);
-        return descriptor;
-    };
-};
-exports.RequireFeature = RequireFeature;
 let PlanGuard = class PlanGuard {
     reflector;
     billingService;
@@ -40,8 +26,8 @@ let PlanGuard = class PlanGuard {
         if (!user) {
             return false;
         }
-        const requiredPlan = Reflect.getMetadata('requiredPlan', context.getHandler());
-        const requiredFeature = Reflect.getMetadata('requiredFeature', context.getHandler());
+        const requiredPlan = undefined;
+        const requiredFeature = undefined;
         if (requiredPlan) {
             const currentPlan = user.plan?.name || 'Basic';
             const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };

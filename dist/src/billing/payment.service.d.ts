@@ -20,9 +20,9 @@ export declare class PaymentService {
     generateInvoice(subscriptionId: string, amount: number, currency?: string): Promise<{
         number: string;
         id: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         amount: number;
         status: string;
         dueDate: Date | null;
@@ -30,7 +30,7 @@ export declare class PaymentService {
         subscriptionId: string | null;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
-        period: "month" | "quarter" | "year";
+        period: "month" | "year" | "quarter";
         totalRevenue: number;
         paymentCount: number;
         averagePayment: number;

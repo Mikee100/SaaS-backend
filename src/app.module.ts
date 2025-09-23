@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma.module';
@@ -16,13 +16,15 @@ import { RealtimeModule } from './realtime.module';
 import { PermissionModule } from './permission/permission.module';
 import { BillingModule } from './billing/billing.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { BranchModule } from './branch/branch.module';
+import { UsageModule } from './usage.module';
+import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
 
 @Module({
   imports: [
     AuthModule,
     ConfigModule.forRoot(),
     PrismaModule,
-    AuthModule,
     UserModule,
     ProductModule,
     SalesModule,
@@ -34,14 +36,12 @@ import { AnalyticsModule } from './analytics/analytics.module';
     PermissionModule,
     BillingModule,
     AnalyticsModule,
+    BranchModule,
+    UsageModule,
+    AdminTenantStatsModule,
+   
   ],
   controllers: [AppController],
   providers: [AppService]
 })
-export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(RawBodyMiddleware)
-      .forRoutes({ path: '/billing/webhook', method: RequestMethod.POST });
-  }
-}
+export class AppModule {}

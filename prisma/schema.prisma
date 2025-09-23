@@ -35,7 +35,7 @@ model UserPermission {
   userPermissions User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
 
   @@unique([userId, permission, tenantId])
-=======
+
   id          String  @id @default(uuid())
   name        String  @unique
   description String?
@@ -92,10 +92,6 @@ model Sale {
   user               User               @relation(fields: [userId], references: [id])
   total              Float
   paymentType        String
-<<<<<<< HEAD
-=======
-  amountReceived     Float? // Amount received from the customer
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   items              SaleItem[]
   createdAt          DateTime           @default(now())
   customerName       String?
@@ -106,10 +102,6 @@ model Sale {
   vatAmount          Float? // KRA VAT amount
   branchId           String?
   branch             Branch?            @relation(fields: [branchId], references: [id])
-<<<<<<< HEAD
-=======
-  purchases          Purchase[]         @relation("PurchaseToSale")
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
   @@unique([idempotencyKey, userId])
   @@index([tenantId])
@@ -206,24 +198,6 @@ model Role {
   tenantId        String?
 
   @@unique([name, tenantId])
-<<<<<<< HEAD
-=======
-}
-
-model UserPermission {
-  id           String     @id @default(uuid())
-  user         User       @relation(fields: [userId], references: [id])
-  userId       String
-  permission   Permission @relation(fields: [permissionId], references: [id])
-  permissionId String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id])
-  tenantId     String
-
-  @@unique([userId, permissionId, tenantId])
-  @@index([userId])
-  @@index([permissionId])
-  @@index([tenantId])
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 }
 
 model RolePermission {
@@ -474,136 +448,6 @@ model TenantConfiguration {
   @@index([key])
 }
 
-<<<<<<< HEAD
-=======
-model Customer {
-  id          String           @id @default(uuid())
-  firstName   String
-  lastName    String
-  email       String?          @unique
-  phone       String?          @unique
-  address     String?
-  city        String?
-  country     String?          @default("Kenya")
-  postalCode  String?
-  dateOfBirth DateTime?
-  gender      String?
-  notes       String?
-  tenantId    String
-  tenant      Tenant           @relation(fields: [tenantId], references: [id])
-  purchases   Purchase[]
-  loyalty     CustomerLoyalty?
-  feedbacks   Feedback[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  @@index([tenantId])
-  @@index([email])
-  @@index([phone])
-}
-
-model Purchase {
-  id          String   @id @default(uuid())
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id])
-  saleId      String
-  sale        Sale     @relation(fields: [saleId], references: [id], name: "PurchaseToSale")
-  totalAmount Float
-  items       Json // Array of items in the purchase
-  createdAt   DateTime @default(now())
-
-  @@index([customerId])
-  @@index([saleId])
-}
-
-model LoyaltyProgram {
-  id                String            @id @default(uuid())
-  name              String
-  description       String?
-  pointsPerShilling Float             @default(0.01) // Points earned per shilling spent
-  minPointsRedeem   Int               @default(100) // Minimum points needed to redeem
-  rewardAmount      Float             @default(10.0) // Reward amount when points are redeemed
-  isActive          Boolean           @default(true)
-  tenantId          String
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
-  customerLoyalties CustomerLoyalty[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  @@index([tenantId])
-}
-
-model CustomerLoyalty {
-  id                  String         @id @default(uuid())
-  customerId          String         @unique
-  customer            Customer       @relation(fields: [customerId], references: [id])
-  loyaltyProgramId    String
-  loyaltyProgram      LoyaltyProgram @relation(fields: [loyaltyProgramId], references: [id])
-  points              Int            @default(0)
-  totalPointsEarned   Int            @default(0)
-  totalPointsRedeemed Int            @default(0)
-  lastActivityAt      DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-
-  @@index([customerId, loyaltyProgramId])
-}
-
-model Feedback {
-  id         String   @id @default(uuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
-  rating     Int // 1-5 scale
-  comment    String?
-  response   String? // Staff response to feedback
-  status     String   @default("new") // new, in_review, resolved
-  metadata   Json? // Additional metadata
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([customerId])
-  @@index([tenantId])
-  @@index([status])
-}
-
-model MarketingCampaign {
-  id             String            @id @default(uuid())
-  name           String
-  description    String?
-  type           String // email, sms, push
-  subject        String?
-  content        String
-  status         String            @default("draft") // draft, scheduled, sent, cancelled
-  scheduledAt    DateTime?
-  sentAt         DateTime?
-  recipientCount Int               @default(0)
-  openRate       Float? // For email campaigns
-  clickRate      Float? // For email campaigns
-  tenantId       String
-  tenant         Tenant            @relation(fields: [tenantId], references: [id])
-  segments       CampaignSegment[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  @@index([tenantId])
-  @@index([status])
-  @@index([scheduledAt])
-}
-
-model CampaignSegment {
-  id              String            @id @default(uuid())
-  campaignId      String
-  campaign        MarketingCampaign @relation(fields: [campaignId], references: [id])
-  segmentType     String // all_customers, specific_segment
-  segmentCriteria Json? // Criteria for the segment
-  recipientCount  Int               @default(0)
-
-  @@index([campaignId])
-}
-
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 model Tenant {
   id                  String                @id @default(uuid())
   name                String
@@ -683,7 +527,6 @@ model Tenant {
   userBranchRoles     UserBranchRole[]
   mpesaTransactions   MpesaTransaction[]
   notifications       Notification[]
-<<<<<<< HEAD
   userPermissions     UserPermission[]
   roles               Role[]
 }
@@ -694,41 +537,17 @@ model User {
   password                String
   name                    String
   isSuperadmin            Boolean          @default(false)
-=======
-  customers           Customer[]
-  loyaltyPrograms     LoyaltyProgram[]
-  feedbacks           Feedback[]
-  marketingCampaigns  MarketingCampaign[]
-  roles               Role[]
-  UserPermission      UserPermission[]
-}
-
-model User {
-  id                      String     @id @default(uuid())
-  email                   String     @unique
-  password                String
-  name                    String
-  isSuperadmin            Boolean    @default(false)
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   resetPasswordToken      String?
   resetPasswordExpires    DateTime?
   notificationPreferences Json?
   language                String?
   region                  String?
-<<<<<<< HEAD
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
   // Relations
   userRoles               UserRole[]
   userPermissions         UserPermission[] @relation("Permission")
   permissions             UserPermission[] @relation("UserPermissions")
-=======
-  createdAt               DateTime   @default(now())
-  updatedAt               DateTime   @updatedAt
-  // Relations
-  userRoles               UserRole[]
-  // ...existing code...
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
   sales             Sale[]
   mpesaTransactions MpesaTransaction[]
@@ -740,10 +559,6 @@ model User {
   branch            Branch?            @relation(fields: [branchId], references: [id])
   subscriptions     Subscription[]     @relation("UserSubscriptions")
   notifications     Notification[]     @relation("UserNotifications")
-<<<<<<< HEAD
-=======
-  UserPermission    UserPermission[]
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
   @@index([email])
   @@index([resetPasswordToken])

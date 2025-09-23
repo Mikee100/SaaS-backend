@@ -4,18 +4,18 @@ export declare class AuditLogService {
     constructor(prisma: PrismaService);
     log(userId: string | null, action: string, details: any, ip?: string): Promise<{
         id: string;
+        createdAt: Date;
         userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;
-        createdAt: Date;
     }>;
     getLogs(userId?: string, action?: string, limit?: number): Promise<{
         id: string;
+        createdAt: Date;
         userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;
-        createdAt: Date;
     }[]>;
 }

@@ -20,41 +20,31 @@ let PermissionsGuard = class PermissionsGuard {
         this.reflector = reflector;
         this.userService = userService;
     }
-    async canActivate(context) {
-        const req = context.switchToHttp().getRequest();
-        const user = req.user;
-        if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
+    canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        const user = request.user;
+        console.log('[PermissionsGuard] user:', JSON.stringify(user));
+        const roles = Array.isArray(user.roles)
+            ? user.roles.map(r => typeof r === 'string' ? r : r.name)
+            : [];
+        if (roles.includes('owner') || roles.includes('admin')) {
+            console.log('[PermissionsGuard] Owner/admin bypass');
             return true;
         }
         const requiredPermissions = this.reflector.get('permissions', context.getHandler());
-        if (!user)
-            throw new common_1.ForbiddenException('User not authenticated');
-        if (!Array.isArray(requiredPermissions) || requiredPermissions.length === 0) {
-            throw new common_1.ForbiddenException('No permissions specified for this action');
+        if (!requiredPermissions)
+            return true;
+        const hasAll = requiredPermissions.every(permission => user.permissions && user.permissions.includes(permission));
+        if (!hasAll) {
+            console.warn('[PermissionsGuard] Missing permissions:', requiredPermissions, 'User has:', user.permissions);
         }
-        const tenantId = user?.tenantId;
-        const userId = user?.userId || user?.sub;
-        let userPermissions = [];
-        if (tenantId) {
-            const permissions = await this.userService.getEffectivePermissions(userId, tenantId);
-            userPermissions = permissions.map(p => p.name);
-        }
-        else {
-            const direct = await this.userService.getEffectivePermissions(userId);
-            userPermissions = direct.map((p) => p.permission?.key || p.permission?.name || '');
-            if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
-                return true;
-            }
-        }
-        const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
-        if (!hasPermission)
-            throw new common_1.ForbiddenException('Not allowed');
-        return true;
+        return hasAll;
     }
 };
 exports.PermissionsGuard = PermissionsGuard;
 exports.PermissionsGuard = PermissionsGuard = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [core_1.Reflector, user_service_1.UserService])
+    __metadata("design:paramtypes", [core_1.Reflector,
+        user_service_1.UserService])
 ], PermissionsGuard);
 //# sourceMappingURL=permissions.guard.js.map

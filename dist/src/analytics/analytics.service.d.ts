@@ -1,30 +1,54 @@
 import { PrismaService } from '../prisma.service';
-export interface SalesAnalytics {
-    totalSales: number;
-    totalRevenue: number;
-    averageOrderValue: number;
-    salesTrend: Array<{
-        date: string;
-        amount: number;
-    }>;
-    topProducts: Array<{
-        id: string;
-        name: string;
-        revenue: number;
-        quantity: number;
-        cost: number;
-        margin: number;
-    }>;
-}
-export interface InventoryAnalytics {
-    totalProducts: number;
-    totalValue: number;
-    lowStockItems: number;
-    outOfStockItems: number;
-}
 export declare class AnalyticsService {
     private prisma;
     constructor(prisma: PrismaService);
-    getSalesAnalytics(tenantId: string): Promise<SalesAnalytics>;
-    getInventoryAnalytics(tenantId: string): Promise<InventoryAnalytics>;
+    getDashboardAnalytics(tenantId: string): Promise<{
+        totalSales: number;
+        totalRevenue: number;
+        totalProducts: number;
+        totalCustomers: number;
+        salesByDay: Record<string, number>;
+        salesByWeek: Record<string, number>;
+        salesByMonth: Record<string, number>;
+        topProducts: {
+            name: string;
+            sales: number | null;
+            revenue: number;
+            margin: number;
+            cost: number;
+        }[];
+        customerRetention: {
+            totalCustomers: number;
+            repeatCustomers: number;
+            retentionRate: number;
+        };
+        inventoryAnalytics: {
+            lowStockItems: number;
+            overstockItems: number;
+            inventoryTurnover: number;
+            stockoutRate: number;
+            totalStockValue: number;
+        };
+        performanceMetrics: {
+            customerLifetimeValue: number;
+            customerAcquisitionCost: number;
+            returnOnInvestment: number;
+            netPromoterScore: number;
+        };
+        realTimeData: {
+            currentUsers: number;
+            activeSales: number;
+            revenueToday: number;
+            ordersInProgress: number;
+            averageSessionDuration: number;
+            bounceRate: number;
+        };
+    }>;
+    private getSalesByTimePeriod;
+    private getTopProducts;
+    private getInventoryAnalytics;
+    private getCostOfGoodsSold;
+    private getRepeatCustomers;
+    private calculatePerformanceMetrics;
+    private getRealTimeData;
 }

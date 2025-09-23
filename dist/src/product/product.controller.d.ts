@@ -12,31 +12,31 @@ export declare class ProductController {
     constructor(productService: ProductService);
     findAll(req: any): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
-        tenantId: string;
-        branchId: string | null;
-        description: string | null;
         sku: string;
         price: number;
         cost: number;
+        description: string | null;
         stock: number;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
-        tenantId: string;
-        branchId: string | null;
-        description: string | null;
         sku: string;
         price: number;
         cost: number;
+        description: string | null;
         stock: number;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{
         summary: {
@@ -61,4 +61,7 @@ export declare class ProductController {
     getQrCode(id: string, req: any, res: Response): Promise<void>;
     update(id: string, body: any, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
     remove(id: string, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    getProductCount(req: any): Promise<{
+        count: number;
+    }>;
 }

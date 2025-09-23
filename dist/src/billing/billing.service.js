@@ -229,7 +229,6 @@ let BillingService = class BillingService {
     }
     async getPlanLimits(tenantId) {
         try {
-            console.log('Getting plan limits for tenant:', tenantId);
             const subscription = await this.prisma.subscription.findFirst({
                 where: { tenantId },
                 include: {

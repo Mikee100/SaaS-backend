@@ -364,14 +364,8 @@ export class SalesService {
     }));
     let customerSegments = [];
     try {
-<<<<<<< HEAD
-      if (customerInput.length > 0) {
-        const aiServiceUrl = await this.configurationService.getAiServiceUrl();
-        const res = await axios.post(`${aiServiceUrl}/customer_segments`, {
-=======
       if (customerInput.length > 0 && process.env.AI_SERVICE_URL) {
         const res = await axios.post(`${process.env.AI_SERVICE_URL}/customer_segments`, {
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
           customers: customerInput,
         });
         customerSegments = res.data;
@@ -384,15 +378,6 @@ export class SalesService {
     const salesValues = Object.values(salesByMonth);
     let forecast = { forecast_months: [], forecast_sales: [] };
     try {
-<<<<<<< HEAD
-      const aiServiceUrl = await this.configurationService.getAiServiceUrl();
-      const res = await axios.post(`${aiServiceUrl}/forecast`, {
-        months,
-        sales: salesValues,
-        periods: 4, // predict next 4 months
-      });
-      forecast = res.data;
-=======
       if (process.env.AI_SERVICE_URL) {
         const res = await axios.post(`${process.env.AI_SERVICE_URL}/forecast`, {
           months,
@@ -401,7 +386,6 @@ export class SalesService {
         });
         forecast = res.data;
       }
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
     } catch (e) {
       // Forecasting service not available or error
     }

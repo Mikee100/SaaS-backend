@@ -5,60 +5,11 @@ export declare class TenantService {
     private userService;
     private readonly logger;
     constructor(prisma: PrismaService, userService: UserService);
-    createTenant(data: {
-        name: string;
-        businessType: string;
-        contactEmail: string;
-        contactPhone?: string;
-        businessCategory?: string;
-        businessSubcategory?: string;
-        primaryProducts?: any;
-        secondaryProducts?: any;
-        businessDescription?: string;
-        address?: string;
-        city?: string;
-        state?: string;
-        country?: string;
-        postalCode?: string;
-        latitude?: number;
-        longitude?: number;
-        foundedYear?: number;
-        employeeCount?: string;
-        annualRevenue?: string;
-        businessHours?: any;
-        website?: string;
-        socialMedia?: any;
-        kraPin?: string;
-        vatNumber?: string;
-        etimsQrUrl?: string;
-        businessLicense?: string;
-        taxId?: string;
-        currency?: string;
-        timezone?: string;
-        invoiceFooter?: string;
-        logoUrl?: string;
-        favicon?: string;
-        receiptLogo?: string;
-        watermark?: string;
-        primaryColor?: string;
-        secondaryColor?: string;
-        customDomain?: string;
-        whiteLabel?: boolean;
-        apiKey?: string;
-        webhookUrl?: string;
-        rateLimit?: number;
-        stripeCustomerId?: string;
-        ownerName: string;
-        ownerEmail: string;
-        ownerPassword: string;
-        ownerRole?: string;
-    }): Promise<any>;
+    createTenant(data: any): Promise<any>;
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -110,12 +61,12 @@ export declare class TenantService {
         auditLogsEnabled: boolean;
         backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     } | null>;
     getTenant(tenantId: string): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -167,6 +118,8 @@ export declare class TenantService {
         auditLogsEnabled: boolean;
         backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     } | null>;
     updateTenant(tenantId: string, dto: Partial<{
         name: string;
@@ -213,9 +166,7 @@ export declare class TenantService {
         stripeCustomerId: string | null;
     }>): Promise<{
         id: string;
-        createdAt: Date;
         name: string;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -267,6 +218,8 @@ export declare class TenantService {
         auditLogsEnabled: boolean;
         backupRestore: boolean;
         stripeCustomerId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     createOwnerUser(data: {
         name: string;

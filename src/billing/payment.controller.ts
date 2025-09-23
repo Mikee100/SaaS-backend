@@ -17,21 +17,11 @@ export class PaymentController {
       @Body() body: { paymentMethodId: string },
       @Req() req,
     ) {
-<<<<<<< HEAD
-      console.log('--- /payments/methods API HIT ---');
-      console.log('Body:', body);
-      console.log('User:', req.user);
-=======
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
       try {
         await this.paymentService.addPaymentMethod(
           req.user?.tenantId,
           body.paymentMethodId,
         );
-<<<<<<< HEAD
-        console.log('Payment method saved successfully');
-=======
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
         return { success: true };
       } catch (error) {
         console.error('Error saving payment method:', error.message);

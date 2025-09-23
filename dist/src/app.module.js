@@ -11,55 +11,48 @@ const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const prisma_module_1 = require("./prisma.module");
+const config_1 = require("@nestjs/config");
 const auth_module_1 = require("./auth/auth.module");
 const user_module_1 = require("./user/user.module");
 const product_module_1 = require("./product/product.module");
 const sales_module_1 = require("./sales/sales.module");
 const tenant_module_1 = require("./tenant/tenant.module");
+const tenant_configuration_module_1 = require("./tenant/tenant-configuration.module");
 const inventory_module_1 = require("./inventory/inventory.module");
-const mpesa_module_1 = require("./mpesa.module");
+const mpesa_module_1 = require("./mpesa/mpesa.module");
 const realtime_module_1 = require("./realtime.module");
 const permission_module_1 = require("./permission/permission.module");
 const billing_module_1 = require("./billing/billing.module");
 const analytics_module_1 = require("./analytics/analytics.module");
-const admin_module_1 = require("./admin/admin.module");
-const raw_body_middleware_1 = require("./middleware/raw-body.middleware");
-const section_logo_module_1 = require("./tenant/section-logo.module");
-const branch_module_1 = require("./branch.module");
-const config_1 = require("@nestjs/config");
+const branch_module_1 = require("./branch/branch.module");
+const usage_module_1 = require("./usage.module");
+const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-stats.module");
 let AppModule = class AppModule {
-    configure(consumer) {
-        consumer
-            .apply(raw_body_middleware_1.RawBodyMiddleware)
-            .forRoutes({ path: '/billing/webhook', method: common_1.RequestMethod.POST });
-    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            prisma_module_1.PrismaModule,
-            config_1.ConfigModule.forRoot({
-                isGlobal: true,
-                envFilePath: '.env',
-            }),
             auth_module_1.AuthModule,
+            config_1.ConfigModule.forRoot(),
+            prisma_module_1.PrismaModule,
             user_module_1.UserModule,
             product_module_1.ProductModule,
             sales_module_1.SalesModule,
             tenant_module_1.TenantModule,
+            tenant_configuration_module_1.TenantConfigurationModule,
             inventory_module_1.InventoryModule,
             mpesa_module_1.MpesaModule,
             realtime_module_1.RealtimeModule,
             permission_module_1.PermissionModule,
             billing_module_1.BillingModule,
             analytics_module_1.AnalyticsModule,
-            admin_module_1.AdminModule,
-            section_logo_module_1.SectionLogoModule,
             branch_module_1.BranchModule,
+            usage_module_1.UsageModule,
+            admin_tenant_stats_module_1.AdminTenantStatsModule,
         ],
         controllers: [app_controller_1.AppController],
-        providers: [app_service_1.AppService],
+        providers: [app_service_1.AppService]
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

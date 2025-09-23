@@ -51,13 +51,8 @@ export class SubscriptionService {
           ssoEnabled: true,
           auditLogs: true,
           backupRestore: true,
-<<<<<<< HEAD
-          customIntegrations: true,
-        },
-=======
           customIntegrations: true
         }
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
       });
 
       if (!plan) {
@@ -76,17 +71,10 @@ export class SubscriptionService {
         include: {
           plan: true,
         },
-        include: {
-          plan: true,
-        },
       });
 
       if (existingSubscription) {
-<<<<<<< HEAD
-        console.log('Tenant has existing subscription, upgrading to new plan');
-=======
       // Removed console.log for subscription creation dates
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
         // Handle upgrade by updating the existing subscription
         return await this.handleUpgrade(existingSubscription, plan);
       }
@@ -108,11 +96,7 @@ export class SubscriptionService {
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
           stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
-<<<<<<< HEAD
-          cancelAtPeriodEnd: false,
-=======
       // Removed console.log for successful subscription creation
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
           userId: 'system', // This should be the admin user ID
         },
         include: {

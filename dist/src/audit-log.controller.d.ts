@@ -5,8 +5,11 @@ export declare class AuditLogController {
     getLogs(limit: string): Promise<({
         user: {
             id: string;
-            createdAt: Date;
             name: string;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            branchId: string | null;
             email: string;
             password: string;
             isSuperadmin: boolean;
@@ -15,16 +18,13 @@ export declare class AuditLogController {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             language: string | null;
             region: string | null;
-            updatedAt: Date;
-            tenantId: string | null;
-            branchId: string | null;
         } | null;
     } & {
         id: string;
+        createdAt: Date;
         userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;
-        createdAt: Date;
     })[]>;
 }

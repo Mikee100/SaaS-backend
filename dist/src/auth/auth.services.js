@@ -51,15 +51,35 @@ let AuthService = class AuthService {
             if (!tenantId) {
                 throw new common_1.UnauthorizedException('No tenant assigned to this user. Please contact support.');
             }
+            const userPermissions = [];
+            try {
+                const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
+                perms.forEach(perm => {
+                    if (perm.name)
+                        userPermissions.push(perm.name);
+                });
+            }
+            catch (error) {
+                console.error('Error fetching user permissions:', error);
+            }
+            const roles = userRoles.map(ur => ur.role?.name).filter(Boolean) || [];
             const payload = {
                 sub: user.id,
                 email: user.email,
-                name: user.name,
-                tenantId,
+                name: user.name || '',
+                tenantId: tenantId,
                 branchId: user.branchId || null,
-                roles: userRoles.map(ur => ur.role?.name).filter(Boolean) || []
+                roles: roles,
+                permissions: userPermissions
             };
-            const accessToken = this.jwtService.sign(payload);
+            console.log('JWT Payload:', JSON.stringify(payload, null, 2));
+            const accessToken = this.jwtService.sign(payload, {
+                secret: process.env.JWT_SECRET || 'waweru',
+                issuer: 'saas-platform',
+                audience: 'saas-platform-client',
+            });
+            console.log('[JWT_SECRET]', process.env.JWT_SECRET);
+            console.log('Generated JWT Token:', accessToken);
             if (this.auditLogService) {
                 await this.auditLogService.log(user.id, 'login_success', { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId }, ip);
             }
@@ -71,7 +91,8 @@ let AuthService = class AuthService {
                     name: user.name,
                     tenantId: payload.tenantId,
                     branchId: payload.branchId,
-                    roles: payload.roles
+                    roles: payload.roles,
+                    permissions: payload.permissions
                 }
             };
         }

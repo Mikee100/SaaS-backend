@@ -15,275 +15,75 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
-const plan_guard_1 = require("../billing/plan.guard");
-const plan_guard_2 = require("../billing/plan.guard");
-const prisma_service_1 = require("../prisma.service");
-const common_2 = require("@nestjs/common");
+const analytics_service_1 = require("./analytics.service");
 let AnalyticsController = class AnalyticsController {
-    prisma;
-    constructor(prisma) {
-        this.prisma = prisma;
+    analyticsService;
+    constructor(analyticsService) {
+        this.analyticsService = analyticsService;
     }
     async getBasicAnalytics(req) {
-        const [totalSales, totalRevenue, totalProducts, totalCustomers, sales] = await Promise.all([
-            this.prisma.sale.count(),
-            this.prisma.sale.aggregate({ _sum: { total: true } }),
-            this.prisma.product.count(),
-            this.prisma.user.count(),
-            this.prisma.sale.findMany({ select: { total: true, createdAt: true } })
-        ]);
-        const avgOrderValue = totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0;
-        const salesByMonth = {};
-        sales.forEach(sale => {
-            const month = sale.createdAt.toISOString().slice(0, 7);
-            salesByMonth[month] = (salesByMonth[month] || 0) + (sale.total || 0);
-        });
-        return {
-            totalSales,
-            totalRevenue: totalRevenue._sum.total || 0,
-            totalProducts,
-            totalCustomers,
-            averageOrderValue: avgOrderValue,
-            salesByMonth,
-            message: 'Basic analytics with real data'
-        };
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+            return {
+                totalSales: data.totalSales,
+                totalRevenue: data.totalRevenue,
+                totalProducts: data.totalProducts,
+                message: 'Basic analytics available to all plans'
+            };
+        }
+        catch (error) {
+            console.error('Error fetching basic analytics:', error);
+            throw new Error('Failed to fetch basic analytics');
+        }
+    }
+    async getDashboardAnalytics(req) {
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            return await this.analyticsService.getDashboardAnalytics(tenantId);
+        }
+        catch (error) {
+            console.error('Error fetching dashboard analytics:', error);
+            throw new Error('Failed to fetch dashboard data');
+        }
     }
     async getAdvancedAnalytics(req) {
-        return {
-            salesByMonth: {
-                '2024-01': 12000,
-                '2024-02': 15000,
-                '2024-03': 18000,
-                '2024-04': 21000,
-                '2024-05': 19500,
-                '2024-06': 22000
-            },
-            topProducts: [
-                { name: 'Product A', sales: 234, revenue: 2340, growth: 0.15, margin: 0.25 },
-                { name: 'Product B', sales: 189, revenue: 1890, growth: 0.08, margin: 0.30 },
-                { name: 'Product C', sales: 156, revenue: 1560, growth: 0.22, margin: 0.20 },
-                { name: 'Product D', sales: 134, revenue: 1340, growth: -0.05, margin: 0.35 }
-            ],
-            customerSegments: [
-                { segment: 'VIP', count: 15, revenue: 25000, avgOrderValue: 166.67, retention: 0.95 },
-                { segment: 'Regular', count: 85, revenue: 20000, avgOrderValue: 235.29, retention: 0.78 },
-                { segment: 'New', count: 20, revenue: 600, avgOrderValue: 30.00, retention: 0.45 }
-            ],
-            predictiveAnalytics: {
-                nextMonthForecast: 22000,
-                churnRisk: 0.05,
-                growthRate: 0.15,
-                seasonalTrend: 0.08,
-                marketTrend: 0.12
-            },
-            performanceMetrics: {
-                customerLifetimeValue: 450,
-                customerAcquisitionCost: 25,
-                returnOnInvestment: 0.18,
-                netPromoterScore: 8.2
-            },
-            inventoryAnalytics: {
-                lowStockItems: 8,
-                overstockItems: 3,
-                inventoryTurnover: 4.2,
-                stockoutRate: 0.03
-            },
-            message: 'Advanced analytics available to Pro+ plans'
-        };
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+            return {
+                ...data,
+            };
+        }
+        catch (error) {
+            console.error('Error fetching advanced analytics:', error);
+            throw new Error('Failed to fetch advanced analytics');
+        }
     }
     async getEnterpriseAnalytics(req) {
-        return {
-            realTimeData: {
-                currentUsers: 45,
-                activeSales: 12,
-                revenueToday: 3400,
-                ordersInProgress: 8,
-                averageSessionDuration: 15.5,
-                bounceRate: 0.23
-            },
-            predictiveAnalytics: {
-                nextMonthForecast: 22000,
-                churnRisk: 0.05,
-                growthRate: 0.15,
-                seasonalTrend: 0.08,
-                marketTrend: 0.12,
-                demandForecast: {
-                    'Product A': 280,
-                    'Product B': 220,
-                    'Product C': 190,
-                    'Product D': 150
-                }
-            },
-            advancedSegments: {
-                byLocation: [
-                    { location: 'Nairobi', revenue: 18000, customers: 45 },
-                    { location: 'Mombasa', revenue: 12000, customers: 32 },
-                    { location: 'Kisumu', revenue: 8000, customers: 28 },
-                    { location: 'Other', revenue: 7600, customers: 15 }
-                ],
-                byAge: [
-                    { age: '18-25', revenue: 8000, customers: 25 },
-                    { age: '26-35', revenue: 15000, customers: 40 },
-                    { age: '36-45', revenue: 12000, customers: 35 },
-                    { age: '45+', revenue: 10600, customers: 20 }
-                ],
-                byDevice: [
-                    { device: 'Mobile', revenue: 25000, customers: 80 },
-                    { device: 'Desktop', revenue: 15000, customers: 30 },
-                    { device: 'Tablet', revenue: 5600, customers: 10 }
-                ]
-            },
-            customReports: [
-                { name: 'Executive Summary', data: '...', lastUpdated: '2024-01-15' },
-                { name: 'Department Performance', data: '...', lastUpdated: '2024-01-14' },
-                { name: 'Market Analysis', data: '...', lastUpdated: '2024-01-13' },
-                { name: 'Competitive Intelligence', data: '...', lastUpdated: '2024-01-12' }
-            ],
-            aiInsights: {
-                recommendations: [
-                    'Increase inventory for Product A due to high demand',
-                    'Consider discounting Product D to improve sales',
-                    'Focus marketing efforts on mobile users',
-                    'VIP customers show high retention - increase engagement'
-                ],
-                anomalies: [
-                    'Unusual spike in Product C sales on weekends',
-                    'Mobile conversion rate 15% higher than average',
-                    'Customer segment "New" showing declining engagement'
-                ]
-            },
-            message: 'Enterprise analytics with real-time data, AI insights, and advanced predictions'
-        };
-    }
-    async getDashboardStats(req) {
         const tenantId = req.user.tenantId;
-        const products = await this.prisma.product.findMany({ where: { tenantId }, select: { id: true, name: true, cost: true, stock: true } });
-        const allSales = await this.prisma.sale.findMany({ where: { tenantId }, include: { items: { include: { product: true } } } });
-        const totalSales = allSales.length;
-        const totalRevenue = allSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
-        const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
-        const totalProducts = products.length;
-        const customerNames = await this.prisma.sale.findMany({ where: { tenantId, customerName: { not: null } }, select: { customerName: true }, distinct: ['customerName'] });
-        const totalCustomers = customerNames.length;
-        const salesTrendDay = {};
-        const salesTrendWeek = {};
-        const salesTrendMonth = {};
-        allSales.forEach(sale => {
-            const day = sale.createdAt.toISOString().split('T')[0];
-            const week = `${sale.createdAt.getFullYear()}-W${Math.ceil((sale.createdAt.getDate()) / 7)}`;
-            const month = sale.createdAt.toISOString().slice(0, 7);
-            salesTrendDay[day] = (salesTrendDay[day] || 0) + (sale.total || 0);
-            salesTrendWeek[week] = (salesTrendWeek[week] || 0) + (sale.total || 0);
-            salesTrendMonth[month] = (salesTrendMonth[month] || 0) + (sale.total || 0);
-        });
-        let salesGrowthRate = 0;
-        let avgSalesPerCustomer = 0;
-        let topPaymentMethods = [];
-        let topCustomer = null;
-        let salesByHour = Array(24).fill(0);
-        const monthKeys = Object.keys(salesTrendMonth).sort();
-        if (monthKeys.length >= 2) {
-            const lastMonth = salesTrendMonth[monthKeys[monthKeys.length - 1]];
-            const prevMonth = salesTrendMonth[monthKeys[monthKeys.length - 2]];
-            if (prevMonth > 0) {
-                salesGrowthRate = ((lastMonth - prevMonth) / prevMonth) * 100;
-            }
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
         }
-        avgSalesPerCustomer = totalCustomers > 0 ? totalSales / totalCustomers : 0;
-        const paymentMethodTotals = {};
-        allSales.forEach(sale => {
-            if (sale.paymentType) {
-                paymentMethodTotals[sale.paymentType] = (paymentMethodTotals[sale.paymentType] || 0) + sale.total;
-            }
-        });
-        topPaymentMethods = Object.entries(paymentMethodTotals)
-            .sort((a, b) => b[1] - a[1])
-            .map(([method, total]) => ({ method, total }));
-        if (allSales.length > 0) {
-            const customerTotals = {};
-            allSales.forEach(sale => {
-                if (sale.customerName) {
-                    customerTotals[sale.customerName] = (customerTotals[sale.customerName] || 0) + sale.total;
-                }
-            });
-            const sortedCustomers = Object.entries(customerTotals).sort((a, b) => b[1] - a[1]);
-            if (sortedCustomers.length > 0) {
-                topCustomer = { name: sortedCustomers[0][0], total: sortedCustomers[0][1] };
-            }
+        try {
+            const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+            return {
+                ...data,
+            };
         }
-        allSales.forEach(sale => {
-            const hour = sale.createdAt.getHours();
-            salesByHour[hour] += sale.total || 0;
-        });
-        const productSalesMap = {};
-        allSales.forEach(sale => {
-            sale.items.forEach(item => {
-                if (!productSalesMap[item.productId]) {
-                    productSalesMap[item.productId] = { unitsSold: 0, revenue: 0 };
-                }
-                productSalesMap[item.productId].unitsSold += item.quantity;
-                productSalesMap[item.productId].revenue += item.quantity * item.price;
-            });
-        });
-        const topProducts = products.map(p => {
-            const salesData = productSalesMap[p.id] || { unitsSold: 0, revenue: 0 };
-            const margin = salesData.revenue > 0 ? (salesData.revenue - (p.cost * salesData.unitsSold)) / salesData.revenue : 0;
-            return { id: p.id, name: p.name, unitsSold: salesData.unitsSold, revenue: salesData.revenue, cost: p.cost ?? 0, margin };
-        }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
-        const lowStockItems = products.filter(p => (p.stock ?? 0) <= 10 && (p.stock ?? 0) > 0).length;
-        const overstockItems = products.filter(p => (p.stock ?? 0) > 100).length;
-        const inventoryTurnover = totalProducts > 0 ? totalSales / totalProducts : 0;
-        const stockoutRate = totalProducts > 0 ? products.filter(p => (p.stock ?? 0) === 0).length / totalProducts : 0;
-        const paymentBreakdown = {};
-        allSales.forEach(sale => {
-            if (sale.paymentType) {
-                paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
-            }
-        });
-        const customerSales = {};
-        allSales.forEach(sale => {
-            if (sale.customerName) {
-                customerSales[sale.customerName] = (customerSales[sale.customerName] || 0) + 1;
-            }
-        });
-        const repeatCustomers = Object.values(customerSales).filter(count => count > 1).length;
-        const retentionRate = totalCustomers > 0 ? repeatCustomers / totalCustomers : 0;
-        const advancedSegments = {
-            byLocation: [],
-            byAge: [],
-            byDevice: []
-        };
-        return {
-            totalSales,
-            totalRevenue,
-            totalProducts,
-            totalCustomers,
-            averageOrderValue,
-            salesTrendDay,
-            salesTrendWeek,
-            salesTrendMonth,
-            salesByMonth: salesTrendMonth,
-            topProducts,
-            inventoryAnalytics: {
-                lowStockItems,
-                overstockItems,
-                inventoryTurnover,
-                stockoutRate
-            },
-            paymentBreakdown,
-            customerRetention: {
-                totalCustomers,
-                repeatCustomers,
-                retentionRate
-            },
-            advancedSegments,
-            salesGrowthRate,
-            avgSalesPerCustomer,
-            topPaymentMethods,
-            topCustomer,
-            salesByHour,
-            message: 'Dashboard analytics with real business data and advanced KPIs'
-        };
+        catch (error) {
+            console.error('Error fetching enterprise analytics:', error);
+            throw new Error('Failed to fetch enterprise analytics');
+        }
     }
 };
 exports.AnalyticsController = AnalyticsController;
@@ -296,9 +96,16 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getBasicAnalytics", null);
 __decorate([
+    (0, common_1.Get)('dashboard'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getDashboardAnalytics", null);
+__decorate([
     (0, common_1.Get)('advanced'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), plan_guard_2.PlanGuard),
-    (0, plan_guard_1.RequirePlan)('Pro'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -306,24 +113,14 @@ __decorate([
 ], AnalyticsController.prototype, "getAdvancedAnalytics", null);
 __decorate([
     (0, common_1.Get)('enterprise'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), plan_guard_2.PlanGuard),
-    (0, plan_guard_1.RequirePlan)('Enterprise'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], AnalyticsController.prototype, "getEnterpriseAnalytics", null);
-__decorate([
-    (0, common_1.Get)('dashboard'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], AnalyticsController.prototype, "getDashboardStats", null);
+], AnalyticsController.prototype, "getEnterpriseAnalytics", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
-    __param(0, (0, common_2.Inject)(prisma_service_1.PrismaService)),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [analytics_service_1.AnalyticsService])
 ], AnalyticsController);
 //# sourceMappingURL=analytics.controller.js.map

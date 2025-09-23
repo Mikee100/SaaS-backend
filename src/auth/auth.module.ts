@@ -7,10 +7,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { AuditLogService } from '../audit-log.service';
 import { PrismaModule } from '../prisma.module';
 import { ConfigurationService } from '../config/configuration.service';
-<<<<<<< HEAD
-=======
 import { PassportModule } from '@nestjs/passport';
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
 @Module({
   imports: [

@@ -33,22 +33,8 @@ export declare class SalesController {
                     price: number;
                 };
                 id: string;
-                quantity: number;
                 saleId: string;
-            }[];
-            user: {
-                id: string;
-                name: string;
-                email: string;
-            };
-            mpesaTransactions: {
-                id: string;
-                createdAt: Date;
-                phoneNumber: string;
-                amount: number;
-                status: string;
-                responseDesc: string | null;
-                transactionId: string | null;
+                quantity: number;
             }[];
             tenant: {
                 id: string;
@@ -107,13 +93,27 @@ export declare class SalesController {
                 backupRestore: boolean;
                 stripeCustomerId: string | null;
             };
-            branch: {
+            user: {
+                id: string;
+                email: string;
+                name: string;
+            };
+            mpesaTransactions: {
                 id: string;
                 createdAt: Date;
-                name: string;
-                email: string | null;
-                updatedAt: Date;
+                phoneNumber: string;
+                amount: number;
+                status: string;
+                responseDesc: string | null;
+                transactionId: string | null;
+            }[];
+            branch: {
+                id: string;
                 tenantId: string;
+                createdAt: Date;
+                email: string | null;
+                name: string;
+                updatedAt: Date;
                 status: string | null;
                 address: string | null;
                 city: string | null;
@@ -128,18 +128,18 @@ export declare class SalesController {
                 customField: string | null;
             } | null;
             id: string;
-            userId: string;
-            createdAt: Date;
             tenantId: string;
-            branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             amountReceived: number | null;
+            createdAt: Date;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
             idempotencyKey: string | null;
             vatAmount: number | null;
+            branchId: string | null;
         };
         error?: undefined;
     } | {
@@ -203,15 +203,15 @@ export declare class SalesController {
         paymentBreakdown: Record<string, number>;
         lowStock: {
             id: string;
+            tenantId: string;
             createdAt: Date;
+            branchId: string | null;
             name: string;
             updatedAt: Date;
-            tenantId: string;
-            branchId: string | null;
-            description: string | null;
             sku: string;
             price: number;
             cost: number;
+            description: string | null;
             stock: number;
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
@@ -227,27 +227,21 @@ export declare class SalesController {
             name: string;
             price: number;
             quantity: number;
-            total: number;
         }[];
-        subtotal: number;
         total: number;
-        vatAmount: number;
         paymentMethod: string;
-        amountReceived: number;
+        amountReceived: number | null;
         change: number;
         businessInfo: {
             name: string;
-            address: string;
-            phone: string;
+            address: string | null;
+            phone: string | null;
             email: string;
         };
-        mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            mpesaReceipt: string | null;
-            message: string;
-            transactionDate: Date;
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
         } | null;
     }>;
     getRecentSales(req: any): Promise<{
@@ -265,9 +259,11 @@ export declare class SalesController {
             total: number;
         }[];
     }[]>;
-    createSale(dto: CreateSaleDto & {
-        idempotencyKey: string;
-    }, req: any): Promise<import("./sale-receipt.dto").SaleReceiptDto>;
+    create(createSaleDto: CreateSaleDto, req: any): Promise<{
+        success: boolean;
+        data: import("./sale-receipt.dto").SaleReceiptDto;
+        message: string;
+    }>;
     listSales(req: any): Promise<{
         saleId: string;
         date: Date;
@@ -313,22 +309,8 @@ export declare class SalesController {
                 price: number;
             };
             id: string;
-            quantity: number;
             saleId: string;
-        }[];
-        user: {
-            id: string;
-            name: string;
-            email: string;
-        };
-        mpesaTransactions: {
-            id: string;
-            createdAt: Date;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            responseDesc: string | null;
-            transactionId: string | null;
+            quantity: number;
         }[];
         tenant: {
             id: string;
@@ -387,13 +369,27 @@ export declare class SalesController {
             backupRestore: boolean;
             stripeCustomerId: string | null;
         };
-        branch: {
+        user: {
+            id: string;
+            email: string;
+            name: string;
+        };
+        mpesaTransactions: {
             id: string;
             createdAt: Date;
-            name: string;
-            email: string | null;
-            updatedAt: Date;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            responseDesc: string | null;
+            transactionId: string | null;
+        }[];
+        branch: {
+            id: string;
             tenantId: string;
+            createdAt: Date;
+            email: string | null;
+            name: string;
+            updatedAt: Date;
             status: string | null;
             address: string | null;
             city: string | null;
@@ -408,17 +404,17 @@ export declare class SalesController {
             customField: string | null;
         } | null;
         id: string;
-        userId: string;
-        createdAt: Date;
         tenantId: string;
-        branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         amountReceived: number | null;
+        createdAt: Date;
         customerName: string | null;
         customerPhone: string | null;
         mpesaTransactionId: string | null;
         idempotencyKey: string | null;
         vatAmount: number | null;
+        branchId: string | null;
     }>;
 }

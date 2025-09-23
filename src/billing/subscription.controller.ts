@@ -30,8 +30,4 @@ export class SubscriptionController {
   async getSubscriptionHistory(@Req() req) {
     return await this.subscriptionService.getSubscriptionHistory(req.user.tenantId);
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1

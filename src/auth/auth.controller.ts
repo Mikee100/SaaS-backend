@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-import { Controller, Post, Body, Req } from '@nestjs/common';
-import { AuthService } from './auth.services';
-=======
 import { 
   Controller, 
   Post, 
@@ -15,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.services';
 import { Public } from './decorators/public.decorator';
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
 
 @Controller('auth')
 export class AuthController {

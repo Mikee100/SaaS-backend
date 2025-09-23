@@ -25,38 +25,17 @@ export class ProductController {
   @Get()
   @Permissions('view_products')
   async findAll(@Req() req) {
-<<<<<<< HEAD
-    // If user has branchId, only show products for their branch
-    if (req.user.branchId) {
-      console.log('==============================');
-      console.log('[ProductController] Branch switch detected. Fetching products for branchId:', req.user.branchId, 'tenantId:', req.user.tenantId);
-      console.log('==============================');
-      return this.productService.findAllByBranch(req.user.branchId, req.user.tenantId);
-    }
-    // Tenant-level users see all products for all branches
-    return this.productService.findAllByTenant(req.user.tenantId);
-=======
     // Get selected branchId from user context or request header
     const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
   }
 
 
   @Post()
   @Permissions('create_products')
   async create(@Body() body, @Req() req) {
-<<<<<<< HEAD
-    // Attach tenantId and branchId from the authenticated user or request body
-    let branchId = body.branchId;
-    // If user is branch-level, force branchId
-    if (req.user.branchId) {
-      branchId = req.user.branchId;
-    }
-=======
     // Attach tenantId and branchId from the authenticated user or request header
     const branchId = req.headers['x-branch-id'] || req.user.branchId;
->>>>>>> a9ab4d8c5762126916fa97fc22de1f53d95703c1
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
