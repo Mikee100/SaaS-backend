@@ -7,10 +7,9 @@ export declare class TenantController {
     constructor(tenantService: TenantService, logoService: LogoService);
     getMyTenant(req: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -61,13 +60,13 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     } | null>;
     updateMyTenant(req: any, dto: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -118,6 +117,7 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     }>;
     uploadLogo(req: any, file: Express.Multer.File, body: any): Promise<{
         logoUrl: string;
@@ -149,10 +149,9 @@ export declare class TenantController {
     }>;
     updateBranding(req: any, dto: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -203,6 +202,7 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     }>;
     getApiSettings(req: any): Promise<{
         apiKey: string | null;
@@ -212,10 +212,9 @@ export declare class TenantController {
     }>;
     updateApiSettings(req: any, apiSettings: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -266,6 +265,7 @@ export declare class TenantController {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     }>;
     generateApiKey(req: any): Promise<{
         apiKey: string;

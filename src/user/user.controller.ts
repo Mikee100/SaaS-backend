@@ -1,15 +1,49 @@
-import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException, InternalServerErrorException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards, Req, Put, Delete, Param, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @Get('me')
+  async getMe(@Req() req) {
+    const user = req.user;
+    // Get effective permissions for the user
+    const permissions = await this.userService.getEffectivePermissions(user.userId || user.sub, user.tenantId);
+    
+    // Return only the fields your frontend expects
+    return {
+      id: user.userId || user.sub,
+      email: user.email,
+      name: user.name,
+      roles: user.roles || [],
+      permissions: permissions.map(p => p.name), // Convert to array of permission names
+      tenantId: user.tenantId,
+      branchId: user.branchId,
+      isSuperadmin: user.isSuperadmin || false,
+    };
+  }
+
+  @Put(':id/permissions')
+  @Permissions('edit_users')
+  async updateUserPermissions(@Req() req, @Param('id') id: string, @Body() body: { permissions: string[] }) {
+    // Only allow owners to update permissions for users in their tenant
+    
+    const actorUser = await this.userService.findById(req.user.userId);
+    const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
+    if (!isOwner) throw new ForbiddenException('Only owners can update user permissions');
+    // Check target user is in same tenant
+    const targetUser = await this.userService.findById(id);
+    const sameTenant = targetUser && targetUser.tenantId === req.user.tenantId;
+    if (!sameTenant) throw new ForbiddenException('Can only update users in your tenant');
+    return this.userService.updateUserPermissions(id, body.permissions, req.user.tenantId, req.user.userId, req.ip);
+  }
+
   @Post()
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async createUser(@Body() body: any, @Req() req) {
     // Use the current tenant from JWT
@@ -17,146 +51,57 @@ export class UserController {
   }
 
   @Get()
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_users')
-  async getUsers(@Req() req) {
-    // Use the tenantId from the JWT token
+  async getUsers(@Req() req, @Query('branchId') branchId?: string) {
+    // Defensive check for req.user and tenantId
+    if (!req.user || !req.user.tenantId) {
+      throw new ForbiddenException('Missing or invalid authentication');
+    }
     const tenantId = req.user.tenantId;
-    console.log(`Fetching users for tenant: ${tenantId}`);
-    const users = await this.userService.findAllByTenant(tenantId);
-    console.log(`Found ${users.length} users for tenant: ${tenantId}`);
-    return users;
-  }
 
+    try {
+      const users = branchId
+        ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+        : await this.userService.findAllByTenant(tenantId);
 
-  @Get('permissions')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('view_users')
-  async getAllUserPermissions(@Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.userService.getAllUserPermissionsByTenant(tenantId);
+      const usersWithPermissions = await Promise.all(users.map(async user => {
+        const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
+        return {
+          ...user,
+          permissions: permissions.map(p => p.name)
+        };
+      }));
+
+      return usersWithPermissions;
+    } catch (err) {
+      console.error('Error in getUsers:', err);
+      throw new Error('Failed to fetch users: ' + err.message);
+    }
   }
 
   @Get('protected')
-  @UseGuards(AuthGuard('jwt'))
   getProtected(@Req() req) {
     return { message: 'You are authenticated!', user: req.user };
   }
 
-  // In user.controller.ts
-  @Get('me')
-  @UseGuards(AuthGuard('jwt'))
-  async getMe(@Req() req) {
-    console.log('=== getMe called ===');
-    try {
-      if (!req.user) {
-        console.error('No user object in request');
-        throw new UnauthorizedException('No authentication data found');
-      }
-      // Fetch permissions for the user and tenant
-      const userId = req.user.id || req.user.sub;
-      const tenantId = req.user.tenantId || null;
-      let permissions: string[] = [];
-      if (userId && tenantId) {
-        // Get permissions for this user and tenant
-        const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
-        permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
-      }
-      // Fetch latest user from DB to get up-to-date branchId
-      const userRecord = await this.userService.findById(userId);
-      return {
-        id: userId,
-        email: req.user.email,
-        name: req.user.name || null,
-        tenantId,
-        branchId: userRecord?.branchId || null,
-        roles: Array.isArray(req.user.roles) ? req.user.roles : [],
-        permissions
-      };
-    } catch (error) {
-      console.error('Error in getMe:', error);
-      throw new InternalServerErrorException({
-        statusCode: 500,
-        message: 'Error retrieving user data',
-        error: error.message
-      });
-    }
-  }
-
-
-
   @Put(':id')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async updateUser(@Req() req, @Param('id') id: string, @Body() body: { name?: string; role?: string }) {
     const tenantId = req.user.tenantId;
     return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
   }
 
-  @Put(':id/permissions')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('manage_users')
-  async updateUserPermissions(
-    @Param('id') id: string,
-    @Body() body: { permissions: Array<{ name: string; note?: string }> },
-    @Req() req: any
-  ) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      throw new UnauthorizedException('No tenant ID found in user object');
-    }
-    // Transform permissions to match expected format
-    const formattedPermissions = body.permissions.map(p => ({
-      name: p.name,
-      note: p.note
-    }));
-    // Call the service method (to be implemented if missing)
-    return this.userService.updateUserPermissionsByTenant(
-      id,
-      formattedPermissions,
-      tenantId,
-      req.user.userId,
-      req.ip
-    );
-  }
 
-  @Get(':id/permissions')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('edit_users')
-  async getUserPermissions(@Param('id') id: string, @Req() req) {
-    const tenantId = req.user.tenantId;
-    return this.userService.getUserPermissionsByTenant(id, tenantId);
-  }
 
   @Put('me/preferences')
-  @UseGuards(AuthGuard('jwt'))
-  async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string, branchId?: string }) {
-    // Robustly extract userId from req.user
-    const userId = req.user.userId || req.user.id || req.user.sub;
-    if (!userId) {
-      throw new BadRequestException('User ID not found in request context');
-    }
-    // Accept branchId in preferences update
-    const updateData = { ...body };
-    if (body.branchId) {
-      updateData.branchId = body.branchId;
-    }
-    return this.userService.updateUserPreferences(userId, updateData);
+  async updatePreferences(@Req() req, @Body() body: { notificationPreferences?: any, language?: string, region?: string }) {
+    return this.userService.updateUserPreferences(req.user.userId, body);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_users')
   async deleteUser(@Req() req, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
-  }
-
-  @Get('permissions/all')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
-  @Permissions('view_users')
-  async getAllPermissions() {
-    // Return all permission names from the Permission table
-    return this.userService.getAllPermissions();
   }
 }

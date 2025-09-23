@@ -38,8 +38,8 @@ export declare class SalesController {
             }[];
             user: {
                 id: string;
-                email: string;
                 name: string;
+                email: string;
             };
             mpesaTransactions: {
                 id: string;
@@ -52,10 +52,9 @@ export declare class SalesController {
             }[];
             tenant: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -106,34 +105,36 @@ export declare class SalesController {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             branch: {
                 id: string;
-                email: string | null;
-                name: string;
                 createdAt: Date;
+                name: string;
+                email: string | null;
                 updatedAt: Date;
                 tenantId: string;
+                status: string | null;
                 address: string | null;
                 city: string | null;
                 state: string | null;
                 country: string | null;
                 postalCode: string | null;
-                manager: string | null;
-                status: string | null;
-                logo: string | null;
                 street: string | null;
                 phone: string | null;
+                manager: string | null;
                 openingHours: string | null;
+                logo: string | null;
                 customField: string | null;
             } | null;
             id: string;
+            userId: string;
             createdAt: Date;
             tenantId: string;
             branchId: string | null;
-            userId: string;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -202,17 +203,17 @@ export declare class SalesController {
         paymentBreakdown: Record<string, number>;
         lowStock: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string;
             branchId: string | null;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
+            price: number;
             cost: number;
             stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         }[];
     }>;
     getReceipt(id: string, req: any): Promise<{
@@ -317,8 +318,8 @@ export declare class SalesController {
         }[];
         user: {
             id: string;
-            email: string;
             name: string;
+            email: string;
         };
         mpesaTransactions: {
             id: string;
@@ -331,10 +332,9 @@ export declare class SalesController {
         }[];
         tenant: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -385,34 +385,36 @@ export declare class SalesController {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
+            stripeCustomerId: string | null;
         };
         branch: {
             id: string;
-            email: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            email: string | null;
             updatedAt: Date;
             tenantId: string;
+            status: string | null;
             address: string | null;
             city: string | null;
             state: string | null;
             country: string | null;
             postalCode: string | null;
-            manager: string | null;
-            status: string | null;
-            logo: string | null;
             street: string | null;
             phone: string | null;
+            manager: string | null;
             openingHours: string | null;
+            logo: string | null;
             customField: string | null;
         } | null;
         id: string;
+        userId: string;
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        userId: string;
         total: number;
         paymentType: string;
+        amountReceived: number | null;
         customerName: string | null;
         customerPhone: string | null;
         mpesaTransactionId: string | null;

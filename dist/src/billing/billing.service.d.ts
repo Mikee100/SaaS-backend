@@ -46,12 +46,13 @@ export declare class BillingService {
         name: string;
         auditLogs: boolean;
         description: string;
+        price: number;
+        customFields: boolean;
         whiteLabel: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         backupRestore: boolean;
         stripePriceId: string | null;
-        price: number;
         interval: string;
         isActive: boolean;
         maxUsers: number | null;
@@ -64,7 +65,6 @@ export declare class BillingService {
         apiAccess: boolean;
         bulkOperations: boolean;
         dataExport: boolean;
-        customFields: boolean;
         advancedSecurity: boolean;
         dedicatedSupport: boolean;
     }[] | ({
@@ -102,12 +102,13 @@ export declare class BillingService {
             name: string;
             auditLogs: boolean;
             description: string;
+            price: number;
+            customFields: boolean;
             whiteLabel: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             backupRestore: boolean;
             stripePriceId: string | null;
-            price: number;
             interval: string;
             isActive: boolean;
             maxUsers: number | null;
@@ -120,17 +121,16 @@ export declare class BillingService {
             apiAccess: boolean;
             bulkOperations: boolean;
             dataExport: boolean;
-            customFields: boolean;
             advancedSecurity: boolean;
             dedicatedSupport: boolean;
         };
         id: string;
-        tenantId: string;
-        stripeCustomerId: string;
         userId: string;
-        stripePriceId: string;
+        tenantId: string;
         status: string;
+        stripeCustomerId: string;
         stripeSubscriptionId: string;
+        stripePriceId: string;
         stripeCurrentPeriodEnd: Date;
         canceledAt: Date | null;
         currentPeriodStart: Date;

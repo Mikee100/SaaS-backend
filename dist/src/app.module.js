@@ -26,6 +26,7 @@ const admin_module_1 = require("./admin/admin.module");
 const raw_body_middleware_1 = require("./middleware/raw-body.middleware");
 const section_logo_module_1 = require("./tenant/section-logo.module");
 const branch_module_1 = require("./branch.module");
+const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer
@@ -38,6 +39,10 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             prisma_module_1.PrismaModule,
+            config_1.ConfigModule.forRoot({
+                isGlobal: true,
+                envFilePath: '.env',
+            }),
             auth_module_1.AuthModule,
             user_module_1.UserModule,
             product_module_1.ProductModule,

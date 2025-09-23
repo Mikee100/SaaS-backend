@@ -23,99 +23,92 @@ let UserController = class UserController {
     constructor(userService) {
         this.userService = userService;
     }
+    async getMe(req) {
+        const user = req.user;
+        const permissions = await this.userService.getEffectivePermissions(user.userId || user.sub, user.tenantId);
+        return {
+            id: user.userId || user.sub,
+            email: user.email,
+            name: user.name,
+            roles: user.roles || [],
+            permissions: permissions.map(p => p.name),
+            tenantId: user.tenantId,
+            branchId: user.branchId,
+            isSuperadmin: user.isSuperadmin || false,
+        };
+    }
+    async updateUserPermissions(req, id, body) {
+        const actorUser = await this.userService.findById(req.user.userId);
+        const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
+        if (!isOwner)
+            throw new common_1.ForbiddenException('Only owners can update user permissions');
+        const targetUser = await this.userService.findById(id);
+        const sameTenant = targetUser && targetUser.tenantId === req.user.tenantId;
+        if (!sameTenant)
+            throw new common_1.ForbiddenException('Can only update users in your tenant');
+        return this.userService.updateUserPermissions(id, body.permissions, req.user.tenantId, req.user.userId, req.ip);
+    }
     async createUser(body, req) {
         return this.userService.createUser({ ...body, tenantId: req.user.tenantId }, req.user.userId, req.ip);
     }
-    async getUsers(req) {
+    async getUsers(req, branchId) {
+        if (!req.user || !req.user.tenantId) {
+            throw new common_1.ForbiddenException('Missing or invalid authentication');
+        }
         const tenantId = req.user.tenantId;
-        console.log(`Fetching users for tenant: ${tenantId}`);
-        const users = await this.userService.findAllByTenant(tenantId);
-        console.log(`Found ${users.length} users for tenant: ${tenantId}`);
-        return users;
-    }
-    async getAllUserPermissions(req) {
-        const tenantId = req.user.tenantId;
-        return this.userService.getAllUserPermissionsByTenant(tenantId);
+        try {
+            const users = branchId
+                ? await this.userService.findByTenantAndBranch(tenantId, branchId)
+                : await this.userService.findAllByTenant(tenantId);
+            const usersWithPermissions = await Promise.all(users.map(async (user) => {
+                const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
+                return {
+                    ...user,
+                    permissions: permissions.map(p => p.name)
+                };
+            }));
+            return usersWithPermissions;
+        }
+        catch (err) {
+            console.error('Error in getUsers:', err);
+            throw new Error('Failed to fetch users: ' + err.message);
+        }
     }
     getProtected(req) {
         return { message: 'You are authenticated!', user: req.user };
-    }
-    async getMe(req) {
-        console.log('=== getMe called ===');
-        try {
-            if (!req.user) {
-                console.error('No user object in request');
-                throw new common_1.UnauthorizedException('No authentication data found');
-            }
-            const userId = req.user.id || req.user.sub;
-            const tenantId = req.user.tenantId || null;
-            let permissions = [];
-            if (userId && tenantId) {
-                const perms = await this.userService.getUserPermissionsByTenant(userId, tenantId);
-                permissions = perms.map(p => p.permissionRef?.name).filter(Boolean);
-            }
-            const userRecord = await this.userService.findById(userId);
-            return {
-                id: userId,
-                email: req.user.email,
-                name: req.user.name || null,
-                tenantId,
-                branchId: userRecord?.branchId || null,
-                roles: Array.isArray(req.user.roles) ? req.user.roles : [],
-                permissions
-            };
-        }
-        catch (error) {
-            console.error('Error in getMe:', error);
-            throw new common_1.InternalServerErrorException({
-                statusCode: 500,
-                message: 'Error retrieving user data',
-                error: error.message
-            });
-        }
     }
     async updateUser(req, id, body) {
         const tenantId = req.user.tenantId;
         return this.userService.updateUser(id, body, tenantId, req.user.userId, req.ip);
     }
-    async updateUserPermissions(id, body, req) {
-        const tenantId = req.user?.tenantId;
-        if (!tenantId) {
-            throw new common_1.UnauthorizedException('No tenant ID found in user object');
-        }
-        const formattedPermissions = body.permissions.map(p => ({
-            name: p.name,
-            note: p.note
-        }));
-        return this.userService.updateUserPermissionsByTenant(id, formattedPermissions, tenantId, req.user.userId, req.ip);
-    }
-    async getUserPermissions(id, req) {
-        const tenantId = req.user.tenantId;
-        return this.userService.getUserPermissionsByTenant(id, tenantId);
-    }
     async updatePreferences(req, body) {
-        const userId = req.user.userId || req.user.id || req.user.sub;
-        if (!userId) {
-            throw new common_1.BadRequestException('User ID not found in request context');
-        }
-        const updateData = { ...body };
-        if (body.branchId) {
-            updateData.branchId = body.branchId;
-        }
-        return this.userService.updateUserPreferences(userId, updateData);
+        return this.userService.updateUserPreferences(req.user.userId, body);
     }
     async deleteUser(req, id) {
         const tenantId = req.user.tenantId;
         return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
     }
-    async getAllPermissions() {
-        return this.userService.getAllPermissions();
-    }
 };
 exports.UserController = UserController;
 __decorate([
+    (0, common_1.Get)('me'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getMe", null);
+__decorate([
+    (0, common_1.Put)(':id/permissions'),
+    (0, permissions_decorator_1.Permissions)('edit_users'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "updateUserPermissions", null);
+__decorate([
     (0, common_1.Post)(),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -125,41 +118,22 @@ __decorate([
 ], UserController.prototype, "createUser", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('view_users'),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('branchId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getUsers", null);
 __decorate([
-    (0, common_1.Get)('permissions'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
-    (0, permissions_decorator_1.Permissions)('view_users'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getAllUserPermissions", null);
-__decorate([
     (0, common_1.Get)('protected'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "getProtected", null);
 __decorate([
-    (0, common_1.Get)('me'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getMe", null);
-__decorate([
     (0, common_1.Put)(':id'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -169,29 +143,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "updateUser", null);
 __decorate([
-    (0, common_1.Put)(':id/permissions'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
-    (0, permissions_decorator_1.Permissions)('manage_users'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __param(2, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "updateUserPermissions", null);
-__decorate([
-    (0, common_1.Get)(':id/permissions'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
-    (0, permissions_decorator_1.Permissions)('edit_users'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getUserPermissions", null);
-__decorate([
     (0, common_1.Put)('me/preferences'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -200,7 +152,6 @@ __decorate([
 ], UserController.prototype, "updatePreferences", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -208,15 +159,8 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
-__decorate([
-    (0, common_1.Get)('permissions/all'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
-    (0, permissions_decorator_1.Permissions)('view_users'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], UserController.prototype, "getAllPermissions", null);
 exports.UserController = UserController = __decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

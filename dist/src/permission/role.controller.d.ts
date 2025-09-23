@@ -16,16 +16,16 @@ export declare class RoleController {
         })[];
     } & {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
         tenantId: string | null;
         description: string | null;
     })[]>;
     createRole(body: any): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
         tenantId: string | null;
         description: string | null;
@@ -33,8 +33,8 @@ export declare class RoleController {
     getRolePermissions(id: string): Promise<({
         role: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string | null;
             description: string | null;

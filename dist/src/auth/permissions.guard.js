@@ -40,7 +40,7 @@ let PermissionsGuard = class PermissionsGuard {
             userPermissions = permissions.map(p => p.name);
         }
         else {
-            const direct = await this.userService.getUserPermissions(userId);
+            const direct = await this.userService.getEffectivePermissions(userId);
             userPermissions = direct.map((p) => p.permission?.key || p.permission?.name || '');
             if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {
                 return true;

@@ -39,10 +39,10 @@ export declare class MpesaService {
     constructor(prisma: PrismaService);
     createTransaction(data: MpesaTransactionData): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -65,10 +65,10 @@ export declare class MpesaService {
     }>;
     updateTransaction(id: string, data: MpesaTransactionUpdate): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -91,10 +91,10 @@ export declare class MpesaService {
     }>;
     getTransactionById(id: string): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -117,10 +117,10 @@ export declare class MpesaService {
     }>;
     getTransactionByCheckoutId(checkoutRequestID: string): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -143,10 +143,10 @@ export declare class MpesaService {
     }>;
     getTransactionsByUserId(userId: string, limit?: number): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -169,10 +169,10 @@ export declare class MpesaService {
     }[]>;
     getTransactionsByTenant(tenantId: string, limit?: number): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -195,10 +195,10 @@ export declare class MpesaService {
     }[]>;
     getPendingTransactions(limit?: number): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;
@@ -221,10 +221,10 @@ export declare class MpesaService {
     }[]>;
     cancelTransaction(checkoutRequestID: string): Promise<{
         id: string;
+        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         phoneNumber: string;
         amount: number;
         status: string;

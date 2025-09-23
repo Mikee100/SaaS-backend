@@ -29,7 +29,9 @@ export class PermissionsGuard implements CanActivate {
       userPermissions = permissions.map(p => p.name);
     } else {
       // Global endpoints: check direct user permissions (not via roles)
-      const direct = await this.userService.getUserPermissions(userId);
+      // In permissions.guard.ts
+// In permissions.guard.ts, update the line to:
+const direct = await this.userService.getEffectivePermissions(userId);
       userPermissions = direct.map((p: any) => p.permission?.key || p.permission?.name || '');
       // Allow all permissions for owners/admins
       if (user?.roles?.includes('owner') || user?.roles?.includes('admin')) {

@@ -3,95 +3,392 @@ import { AuditLogService } from '../audit-log.service';
 export declare class UserService {
     private prisma;
     private auditLogService;
-    findById(id: string): Promise<{
+    updateUserPermissions(userId: string, permissions: string[], tenantId: string, actorUserId?: string, ip?: string): Promise<{
+        success: boolean;
+    }>;
+    findById(id: string, options?: {
+        include?: any;
+    }): Promise<({
+        [x: string]: {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[] | ({
+            id: string;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        } | {
+            id: string;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        })[] | ({
+            id: string;
+            userId: string;
+            createdAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        } | {
+            id: string;
+            userId: string;
+            createdAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        })[] | ({
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        } | {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            branchId: string;
+            roleId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            branchId: string;
+            roleId: string;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            status: string;
+            stripeCustomerId: string;
+            stripeSubscriptionId: string;
+            stripePriceId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+            planId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            status: string;
+            stripeCustomerId: string;
+            stripeSubscriptionId: string;
+            stripePriceId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+            planId: string;
+        })[] | ({
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            tenantId: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        } | {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            tenantId: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
+        })[] | {
+            id: string;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        }[] | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        }[] | {
+            id: string;
+            userId: string;
+            createdAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        }[] | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            branchId: string;
+            roleId: string;
+        }[] | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            status: string;
+            stripeCustomerId: string;
+            stripeSubscriptionId: string;
+            stripePriceId: string;
+            stripeCurrentPeriodEnd: Date;
+            canceledAt: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            trialStart: Date | null;
+            trialEnd: Date | null;
+            planId: string;
+        }[] | {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            tenantId: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
+            message: string;
+            type: string;
+            title: string;
+            isRead: boolean;
+            readAt: Date | null;
+        }[] | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
+        }[];
+        [x: number]: never;
+        [x: symbol]: never;
+    } & {
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
-    } | null>;
+    }) | null>;
     private readonly logger;
     constructor(prisma: PrismaService, auditLogService: AuditLogService);
-    getAllUserPermissionsByTenant(tenantId: string): Promise<{
-        id: string;
-        name: string;
-        email: string;
-        roles: string[];
-        permissions: string[];
-    }[]>;
     createUser(data: {
         email: string;
         password: string;
         name: string;
         role: string;
         tenantId: string;
+        branchId?: string;
     }, actorUserId?: string, ip?: string, prismaClient?: any): Promise<any>;
     findByEmail(email: string, include?: any): Promise<({
-        [x: string]: ({
+        [x: string]: {
             id: string;
-            tenantId: string;
-            userId: string;
-            roleId: string;
-        } | {
-            id: string;
-            tenantId: string;
-            userId: string;
-            roleId: string;
-        })[] | ({
-            id: string;
-            tenantId: string;
-            permission: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
-        } | {
-            id: string;
-            tenantId: string;
-            permission: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
-        })[] | ({
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            branchId: string | null;
-            userId: string;
-            total: number;
-            paymentType: string;
-            customerName: string | null;
-            customerPhone: string | null;
-            mpesaTransactionId: string | null;
-            idempotencyKey: string | null;
-            vatAmount: number | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            branchId: string | null;
-            userId: string;
-            total: number;
-            paymentType: string;
-            customerName: string | null;
-            customerPhone: string | null;
-            mpesaTransactionId: string | null;
-            idempotencyKey: string | null;
-            vatAmount: number | null;
-        })[] | ({
-            id: string;
+            userId: string | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
+            phoneNumber: string;
+            amount: number;
+            status: string;
+            merchantRequestId: string | null;
+            checkoutRequestID: string | null;
+            mpesaReceipt: string | null;
+            responseCode: string | null;
+            responseDesc: string | null;
+            message: string | null;
+            saleId: string | null;
+            saleData: import("@prisma/client/runtime/library").JsonValue | null;
+            transactionId: string | null;
+            transactionType: string | null;
+            transactionTime: Date | null;
+            businessShortCode: string | null;
+            billRefNumber: string | null;
+            invoiceNumber: string | null;
+            orgAccountBalance: string | null;
+            thirdPartyTransID: string | null;
+        }[] | ({
+            id: string;
             userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        } | {
+            id: string;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        })[] | ({
+            id: string;
+            userId: string;
+            createdAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        } | {
+            id: string;
+            userId: string;
+            createdAt: Date;
+            tenantId: string;
+            branchId: string | null;
+            total: number;
+            paymentType: string;
+            amountReceived: number | null;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        })[] | ({
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             phoneNumber: string;
             amount: number;
             status: string;
@@ -113,10 +410,10 @@ export declare class UserService {
             thirdPartyTransID: string | null;
         } | {
             id: string;
+            userId: string | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string | null;
             phoneNumber: string;
             amount: number;
             status: string;
@@ -138,38 +435,24 @@ export declare class UserService {
             thirdPartyTransID: string | null;
         })[] | ({
             id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        })[] | ({
-            id: string;
+            userId: string;
             tenantId: string;
             branchId: string;
-            userId: string;
             roleId: string;
         } | {
             id: string;
+            userId: string;
             tenantId: string;
             branchId: string;
-            userId: string;
             roleId: string;
         })[] | ({
             id: string;
-            tenantId: string;
-            stripeCustomerId: string;
             userId: string;
-            stripePriceId: string;
+            tenantId: string;
             status: string;
+            stripeCustomerId: string;
             stripeSubscriptionId: string;
+            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -180,12 +463,12 @@ export declare class UserService {
             planId: string;
         } | {
             id: string;
-            tenantId: string;
-            stripeCustomerId: string;
             userId: string;
-            stripePriceId: string;
+            tenantId: string;
             status: string;
+            stripeCustomerId: string;
             stripeSubscriptionId: string;
+            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -196,9 +479,9 @@ export declare class UserService {
             planId: string;
         })[] | ({
             id: string;
+            userId: string | null;
             createdAt: Date;
             tenantId: string;
-            userId: string | null;
             data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
@@ -207,35 +490,46 @@ export declare class UserService {
             readAt: Date | null;
         } | {
             id: string;
+            userId: string | null;
             createdAt: Date;
             tenantId: string;
-            userId: string | null;
             data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        })[] | ({
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
+        } | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
         })[] | {
             id: string;
-            tenantId: string;
+            userId: string | null;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+            createdAt: Date;
+        }[] | {
+            id: string;
             userId: string;
+            tenantId: string;
             roleId: string;
         }[] | {
             id: string;
-            tenantId: string;
-            permission: string;
             userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
-        }[] | {
-            id: string;
             createdAt: Date;
             tenantId: string;
             branchId: string | null;
-            userId: string;
             total: number;
             paymentType: string;
+            amountReceived: number | null;
             customerName: string | null;
             customerPhone: string | null;
             mpesaTransactionId: string | null;
@@ -243,50 +537,18 @@ export declare class UserService {
             vatAmount: number | null;
         }[] | {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            userId: string | null;
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            merchantRequestId: string | null;
-            checkoutRequestID: string | null;
-            mpesaReceipt: string | null;
-            responseCode: string | null;
-            responseDesc: string | null;
-            message: string | null;
-            saleId: string | null;
-            saleData: import("@prisma/client/runtime/library").JsonValue | null;
-            transactionId: string | null;
-            transactionType: string | null;
-            transactionTime: Date | null;
-            businessShortCode: string | null;
-            billRefNumber: string | null;
-            invoiceNumber: string | null;
-            orgAccountBalance: string | null;
-            thirdPartyTransID: string | null;
-        }[] | {
-            id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        }[] | {
-            id: string;
+            userId: string;
             tenantId: string;
             branchId: string;
-            userId: string;
             roleId: string;
         }[] | {
             id: string;
-            tenantId: string;
-            stripeCustomerId: string;
             userId: string;
-            stripePriceId: string;
+            tenantId: string;
             status: string;
+            stripeCustomerId: string;
             stripeSubscriptionId: string;
+            stripePriceId: string;
             stripeCurrentPeriodEnd: Date;
             canceledAt: Date | null;
             currentPeriodStart: Date;
@@ -297,30 +559,35 @@ export declare class UserService {
             planId: string;
         }[] | {
             id: string;
+            userId: string | null;
             createdAt: Date;
             tenantId: string;
-            userId: string | null;
             data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
+        }[] | {
+            id: string;
+            userId: string;
+            tenantId: string;
+            permissionId: string;
         }[];
         [x: number]: never;
         [x: symbol]: never;
     } & {
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
@@ -328,10 +595,9 @@ export declare class UserService {
     getUserRoles(tenantId: string): Promise<({
         tenant: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -382,6 +648,7 @@ export declare class UserService {
             ssoEnabled: boolean;
             auditLogsEnabled: boolean;
             backupRestore: boolean;
+            stripeCustomerId: string | null;
         } | null;
         rolePermissions: {
             id: string;
@@ -390,8 +657,8 @@ export declare class UserService {
         }[];
     } & {
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
         tenantId: string | null;
         description: string | null;
@@ -400,10 +667,9 @@ export declare class UserService {
         userRoles: ({
             tenant: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -454,47 +720,66 @@ export declare class UserService {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             role: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
                 tenantId: string | null;
                 description: string | null;
             };
         } & {
             id: string;
-            tenantId: string;
             userId: string;
+            tenantId: string;
             roleId: string;
-        })[];
-        userPermissions: ({
-            permissionRef: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
-        } & {
-            id: string;
-            tenantId: string;
-            permission: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
         })[];
     } & {
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
+        updatedAt: Date;
+        tenantId: string | null;
+        branchId: string | null;
+    })[]>;
+    findByTenantAndBranch(tenantId: string, branchId: string | null): Promise<({
+        userRoles: ({
+            role: {
+                id: string;
+                createdAt: Date;
+                name: string;
+                updatedAt: Date;
+                tenantId: string | null;
+                description: string | null;
+            };
+        } & {
+            id: string;
+            userId: string;
+            tenantId: string;
+            roleId: string;
+        })[];
+    } & {
+        id: string;
         createdAt: Date;
+        name: string;
+        email: string;
+        password: string;
+        isSuperadmin: boolean;
+        resetPasswordToken: string | null;
+        resetPasswordExpires: Date | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        language: string | null;
+        region: string | null;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
@@ -503,194 +788,18 @@ export declare class UserService {
         name?: string;
         role?: string;
     }, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
-    updateUserPermissions(userId: string, tenantId: string, permissions: Array<{
-        name: string;
-        note?: string;
-    }>, grantedBy?: string, ip?: string): Promise<({
-        userPermissions: ({
-            permissionRef: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
-        } & {
-            id: string;
-            tenantId: string;
-            permission: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
-        })[];
-    } & {
-        id: string;
-        email: string;
-        password: string;
-        name: string;
-        isSuperadmin: boolean;
-        resetPasswordToken: string | null;
-        resetPasswordExpires: Date | null;
-        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-        language: string | null;
-        region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
-    }) | null>;
-    getUserPermissions(userId: string): Promise<({
-        tenant: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            stripeCustomerId: string | null;
-            businessType: string;
-            contactEmail: string;
-            contactPhone: string | null;
-            businessCategory: string | null;
-            businessSubcategory: string | null;
-            primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            businessDescription: string | null;
-            address: string | null;
-            city: string | null;
-            state: string | null;
-            country: string | null;
-            postalCode: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            foundedYear: number | null;
-            employeeCount: string | null;
-            annualRevenue: string | null;
-            businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-            website: string | null;
-            socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-            kraPin: string | null;
-            vatNumber: string | null;
-            etimsQrUrl: string | null;
-            businessLicense: string | null;
-            taxId: string | null;
-            currency: string | null;
-            timezone: string | null;
-            invoiceFooter: string | null;
-            credits: number | null;
-            logoUrl: string | null;
-            loginLogoUrl: string | null;
-            favicon: string | null;
-            receiptLogo: string | null;
-            watermark: string | null;
-            dashboardLogoUrl: string | null;
-            emailLogoUrl: string | null;
-            mobileLogoUrl: string | null;
-            logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-            primaryColor: string | null;
-            secondaryColor: string | null;
-            customDomain: string | null;
-            whiteLabel: boolean;
-            apiKey: string | null;
-            webhookUrl: string | null;
-            rateLimit: number | null;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            auditLogsEnabled: boolean;
-            backupRestore: boolean;
-        };
-        permissionRef: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
-    } & {
-        id: string;
-        tenantId: string;
-        permission: string;
-        userId: string;
-        grantedBy: string | null;
-        grantedAt: Date;
-    })[]>;
-    getUserPermissionsByTenant(userId: string, tenantId: string): Promise<({
-        tenant: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            stripeCustomerId: string | null;
-            businessType: string;
-            contactEmail: string;
-            contactPhone: string | null;
-            businessCategory: string | null;
-            businessSubcategory: string | null;
-            primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            businessDescription: string | null;
-            address: string | null;
-            city: string | null;
-            state: string | null;
-            country: string | null;
-            postalCode: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            foundedYear: number | null;
-            employeeCount: string | null;
-            annualRevenue: string | null;
-            businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-            website: string | null;
-            socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-            kraPin: string | null;
-            vatNumber: string | null;
-            etimsQrUrl: string | null;
-            businessLicense: string | null;
-            taxId: string | null;
-            currency: string | null;
-            timezone: string | null;
-            invoiceFooter: string | null;
-            credits: number | null;
-            logoUrl: string | null;
-            loginLogoUrl: string | null;
-            favicon: string | null;
-            receiptLogo: string | null;
-            watermark: string | null;
-            dashboardLogoUrl: string | null;
-            emailLogoUrl: string | null;
-            mobileLogoUrl: string | null;
-            logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-            primaryColor: string | null;
-            secondaryColor: string | null;
-            customDomain: string | null;
-            whiteLabel: boolean;
-            apiKey: string | null;
-            webhookUrl: string | null;
-            rateLimit: number | null;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            auditLogsEnabled: boolean;
-            backupRestore: boolean;
-        };
-        permissionRef: {
-            id: string;
-            name: string;
-            description: string | null;
-        };
-    } & {
-        id: string;
-        tenantId: string;
-        permission: string;
-        userId: string;
-        grantedBy: string | null;
-        grantedAt: Date;
-    })[]>;
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
@@ -702,32 +811,32 @@ export declare class UserService {
         branchId?: string;
     }): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
@@ -739,10 +848,9 @@ export declare class UserService {
         roles: {
             tenant: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -793,10 +901,11 @@ export declare class UserService {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string | null;
             description: string | null;
@@ -804,10 +913,9 @@ export declare class UserService {
         userRoles: {
             tenant: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -858,123 +966,33 @@ export declare class UserService {
                 ssoEnabled: boolean;
                 auditLogsEnabled: boolean;
                 backupRestore: boolean;
+                stripeCustomerId: string | null;
             };
             role: {
                 id: string;
-                name: string;
                 createdAt: Date;
+                name: string;
                 updatedAt: Date;
                 tenantId: string | null;
                 description: string | null;
             };
         }[];
         id: string;
+        createdAt: Date;
+        name: string;
         email: string;
         password: string;
-        name: string;
         isSuperadmin: boolean;
         resetPasswordToken: string | null;
         resetPasswordExpires: Date | null;
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         language: string | null;
         region: string | null;
-        createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
         branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
-    updateUserPermissionsByTenant(userId: string, permissions: Array<{
-        name: string;
-        note?: string;
-    }>, tenantId: string, grantedBy?: string, ip?: string): Promise<({
-        userPermissions: ({
-            tenant: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                stripeCustomerId: string | null;
-                businessType: string;
-                contactEmail: string;
-                contactPhone: string | null;
-                businessCategory: string | null;
-                businessSubcategory: string | null;
-                primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-                secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-                businessDescription: string | null;
-                address: string | null;
-                city: string | null;
-                state: string | null;
-                country: string | null;
-                postalCode: string | null;
-                latitude: number | null;
-                longitude: number | null;
-                foundedYear: number | null;
-                employeeCount: string | null;
-                annualRevenue: string | null;
-                businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-                website: string | null;
-                socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-                kraPin: string | null;
-                vatNumber: string | null;
-                etimsQrUrl: string | null;
-                businessLicense: string | null;
-                taxId: string | null;
-                currency: string | null;
-                timezone: string | null;
-                invoiceFooter: string | null;
-                credits: number | null;
-                logoUrl: string | null;
-                loginLogoUrl: string | null;
-                favicon: string | null;
-                receiptLogo: string | null;
-                watermark: string | null;
-                dashboardLogoUrl: string | null;
-                emailLogoUrl: string | null;
-                mobileLogoUrl: string | null;
-                logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-                primaryColor: string | null;
-                secondaryColor: string | null;
-                customDomain: string | null;
-                whiteLabel: boolean;
-                apiKey: string | null;
-                webhookUrl: string | null;
-                rateLimit: number | null;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                auditLogsEnabled: boolean;
-                backupRestore: boolean;
-            };
-            permissionRef: {
-                id: string;
-                name: string;
-                description: string | null;
-            };
-        } & {
-            id: string;
-            tenantId: string;
-            permission: string;
-            userId: string;
-            grantedBy: string | null;
-            grantedAt: Date;
-        })[];
-    } & {
-        id: string;
-        email: string;
-        password: string;
-        name: string;
-        isSuperadmin: boolean;
-        resetPasswordToken: string | null;
-        resetPasswordExpires: Date | null;
-        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-        language: string | null;
-        region: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string | null;
-        branchId: string | null;
-    }) | null>;
     getAllPermissions(): Promise<{
         name: string;
     }[]>;

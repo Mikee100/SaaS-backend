@@ -11,17 +11,17 @@ export declare class InventoryService {
     findAllByBranch(tenantId: string, branchId: string): Promise<({
         product: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string;
             branchId: string | null;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
+            price: number;
             cost: number;
             stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;
@@ -35,37 +35,37 @@ export declare class InventoryService {
     findAllByTenant(tenantId: string): Promise<({
         branch: {
             id: string;
-            email: string | null;
-            name: string;
             createdAt: Date;
+            name: string;
+            email: string | null;
             updatedAt: Date;
             tenantId: string;
+            status: string | null;
             address: string | null;
             city: string | null;
             state: string | null;
             country: string | null;
             postalCode: string | null;
-            manager: string | null;
-            status: string | null;
-            logo: string | null;
             street: string | null;
             phone: string | null;
+            manager: string | null;
             openingHours: string | null;
+            logo: string | null;
             customField: string | null;
         } | null;
         product: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string;
             branchId: string | null;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
+            price: number;
             cost: number;
             stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;

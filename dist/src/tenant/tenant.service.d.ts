@@ -56,10 +56,9 @@ export declare class TenantService {
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -110,13 +109,13 @@ export declare class TenantService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     } | null>;
     getTenant(tenantId: string): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -167,6 +166,7 @@ export declare class TenantService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     } | null>;
     updateTenant(tenantId: string, dto: Partial<{
         name: string;
@@ -213,10 +213,9 @@ export declare class TenantService {
         stripeCustomerId: string | null;
     }>): Promise<{
         id: string;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -267,6 +266,7 @@ export declare class TenantService {
         ssoEnabled: boolean;
         auditLogsEnabled: boolean;
         backupRestore: boolean;
+        stripeCustomerId: string | null;
     }>;
     createOwnerUser(data: {
         name: string;

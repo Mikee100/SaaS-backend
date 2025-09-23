@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -7,8 +6,47 @@ import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class UserService {
-  async findById(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
+  async updateUserPermissions(userId: string, permissions: string[], tenantId: string, actorUserId?: string, ip?: string) {
+  // ...existing code...
+    // Remove all direct user permissions for this user in this tenant
+    await this.prisma.userPermission.deleteMany({
+      where: { userId, tenantId }
+    });
+    // Add new permissions
+    for (const permKey of permissions) {
+      if (!permKey) {
+        this.logger.warn(`Skipped empty permission key for user ${userId}`);
+        continue;
+      }
+      const perm = await this.prisma.permission.findFirst({ where: { name: permKey } });
+      if (perm) {
+        this.logger.log(`Assigning permission '${permKey}' (id: ${perm.id}) to user ${userId} for tenant ${tenantId}`);
+        await this.prisma.userPermission.create({
+          data: { userId, permissionId: perm.id, tenantId }
+        });
+      } else {
+        this.logger.warn(`Permission '${permKey}' not found in Permission table for user ${userId}`);
+      }
+    }
+    // Log the action
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'user_permissions_updated', { userId, permissions }, ip);
+    }
+    return { success: true };
+  }
+  async findById(id: string, options: { include?: any } = {}) {
+    const defaultInclude = {
+      userRoles: {
+        include: {
+          role: true
+        }
+      }
+    };
+    
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: options.include || defaultInclude
+    });
   }
   private readonly logger = new Logger(UserService.name);
 
@@ -17,37 +55,10 @@ export class UserService {
 
    
 
-  async getAllUserPermissionsByTenant(tenantId: string) {
-    // Get all users for the tenant
-    const users = await this.prisma.user.findMany({
-      where: {
-        userRoles: {
-          some: { tenantId }
-        }
-      },
-      include: {
-        userPermissions: {
-          where: { tenantId },
-          include: { permissionRef: true }
-        },
-        userRoles: {
-          where: { tenantId },
-          include: { role: true }
-        }
-      }
-    });
-    // Format output: [{ id, name, email, permissions: [...] }]
-    return users.map(u => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      roles: u.userRoles.map(ur => ur.role.name),
-      permissions: u.userPermissions.map(up => up.permissionRef?.name)
-    }));
-  }
+  // ...existing code...
 
   async createUser(
-    data: { email: string; password: string; name: string; role: string; tenantId: string },
+    data: { email: string; password: string; name: string; role: string; tenantId: string; branchId?: string },
     actorUserId?: string,
     ip?: string,
     prismaClient?: any
@@ -66,26 +77,50 @@ export class UserService {
         name: data.name,
         email: data.email,
         password: hashedPassword,
+        tenantId: data.tenantId,
+        branchId: data.branchId,
       },
     });
+    this.logger.log(`Created user: ${user.id}, tenant: ${data.tenantId}`);
 
-    // Find the role
-    const role = await prisma.role.findUnique({ 
-      where: { name: data.role } 
-    });
-
+    // Find the role for this tenant using composite unique constraint
+    let role = await prisma.role.findUnique({ where: { name_tenantId: { name: data.role, tenantId: data.tenantId } } });
     if (!role) {
-      throw new BadRequestException(`Role '${data.role}' not found`);
+      // Create the role if it doesn't exist
+      role = await prisma.role.create({
+        data: {
+          name: data.role,
+          description: `${data.role.charAt(0).toUpperCase() + data.role.slice(1)} role`,
+          tenantId: data.tenantId,
+        }
+      });
+      this.logger.log(`Created role: ${role.id}, name: ${role.name}, tenant: ${data.tenantId}`);
     }
-
     // Assign role to user
-    await prisma.userRole.create({
+    const userRole = await prisma.userRole.create({
       data: {
         userId: user.id,
         roleId: role.id,
         tenantId: data.tenantId,
       },
     });
+    this.logger.log(`Assigned role to user: userRoleId=${userRole.id}, userId=${user.id}, roleId=${role.id}, tenantId=${data.tenantId}`);
+
+    // Automatically assign all permissions to owner role
+    if (role.name === 'owner') {
+      const permissions = await prisma.permission.findMany();
+      for (const perm of permissions) {
+        const exists = await prisma.rolePermission.findFirst({ where: { roleId: role.id, permissionId: perm.id } });
+        if (!exists) {
+          await prisma.rolePermission.create({
+            data: {
+              roleId: role.id,
+              permissionId: perm.id,
+            }
+          });
+        }
+      }
+    }
 
     // Log the action
     if (this.auditLogService) {
@@ -117,19 +152,22 @@ export class UserService {
             tenant: true
           }
         },
-        userPermissions: {
-          include: {
-            permissionRef: true
-          }
-        }
       };
 
-      const finalInclude = include || defaultInclude;
-      
+      // If no custom include is provided, use the default one
+      const queryInclude = include || defaultInclude;
+
+      this.logger.log(`Querying database for user with email: ${email}`);
       const user = await this.prisma.user.findUnique({
         where: { email },
-        include: finalInclude
+        include: queryInclude
       });
+      
+      if (user) {
+        this.logger.log(`Found user: ${user.id} with email: ${email}`);
+      } else {
+        this.logger.warn(`No user found with email: ${email}`);
+      }
 
       if (!user) {
         return null;
@@ -165,9 +203,25 @@ export class UserService {
             tenant: true
           }
         },
-        userPermissions: {
-          include: { 
-            permissionRef: true 
+      }
+    });
+  }
+
+  async findByTenantAndBranch(tenantId: string, branchId: string | null) {
+    // If branchId is "unassigned" or null, fetch users with branchId IS NULL
+    const where: any = { tenantId };
+    if (branchId === "unassigned" || branchId === null) {
+      where.branchId = null;
+    } else {
+      where.branchId = branchId;
+    }
+
+    return this.prisma.user.findMany({
+      where,
+      include: {
+        userRoles: {
+          include: {
+            role: true
           }
         }
       }
@@ -177,11 +231,10 @@ export class UserService {
   async updateUser(id: string, data: { name?: string; role?: string }, tenantId: string, actorUserId?: string, ip?: string) {
     // If role is being updated, handle role assignment
     if (data.role) {
-      const role = await this.prisma.role.findUnique({ where: { name: data.role } });
+      const role = await this.prisma.role.findUnique({ where: { name_tenantId: { name: data.role, tenantId } } });
       if (!role) {
-        throw new NotFoundException(`Role '${data.role}' not found`);
+        throw new NotFoundException(`Role '${data.role}' not found for tenant ${tenantId}`);
       }
-      console.log("role: ",role)
       // Update or create user role
       await this.prisma.userRole.upsert({
         where: {
@@ -198,7 +251,6 @@ export class UserService {
           tenantId: tenantId
         }
       });
-
       // Remove role from data to prevent updating it directly
       delete data.role;
     }
@@ -225,95 +277,6 @@ export class UserService {
     }
     
     return result || { count: 1 }; // Return a result object similar to updateMany
-  }
-
-  async updateUserPermissions(userId: string, tenantId:string , permissions: Array<{ name: string; note?: string }>, grantedBy?: string, ip?: string) {
-    // Get all permissions from the Permission table
-
-    console.log("tried updating the perm:  ")
-    const permissionNames = permissions.map(p => p.name);
-    const allPerms = await this.prisma.permission.findMany({ 
-      where: { name: { in: permissionNames } } 
-    });
-    
-    // Remove all current permissions for the user
-    await this.prisma.userPermission.deleteMany({ 
-      where: { userId } 
-    });
-    
-    // Add new permissions with notes, grantedBy, grantedAt
-    await Promise.all(
-       permissions.map(async (p) => {
-         const perm = allPerms.find(ap => ap.name === p.name);
-         if (perm) {
-         await this.prisma.userPermission.create({
-             data: {
-               userId,
-              permission: perm.name,
-              grantedBy: grantedBy || 'system',
-              grantedAt: new Date(),
-              tenantId, // Global permissions have null tenantId
-           
-          },
-           });
-         }
-       })
-     );
-    
-    if (this.auditLogService) {
-      await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions }, ip);
-    }
-    
-    // Return updated user with permissions
-    return this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { 
-        userPermissions: { 
-          include: { 
-            permissionRef: true 
-          } 
-        } 
-      },
-    });
-  }
-
-  async getUserPermissions(userId: string) {
-    console.log("userId: ",userId)
-    return this.prisma.userPermission.findMany({
-      where: { userId },
-      include: { 
-        permissionRef: true,
-        tenant: true
-      },
-      
-    });
-  }
-
-  async getUserPermissionsByTenant(userId: string, tenantId: string) {
-    // First verify the user belongs to the tenant
-    const userInTenant = await this.prisma.userRole.findFirst({
-      where: { userId, tenantId }
-    });
-    
-    console.log("userInTenat: ",userInTenant)
-    if (!userInTenant) {
-      throw new NotFoundException('User not found in tenant');
-    }
-    
-    
-    return this.prisma.userPermission.findMany({
-      where: { 
-        userId,
-        OR: [
-          { tenantId },
-          
-        ]
-      },
-      include: { 
-        permissionRef: true,
-        tenant: true
-      },
-    });
   }
 
   async updateUserByEmail(email: string, data: any) {
@@ -365,15 +328,95 @@ export class UserService {
     });
   }
 
-  async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{ name: string }>> {
-    try {
-      // Return empty array to fix compilation issues
-      return [];
-    } catch (error) {
-      this.logger.error(`Error getting effective permissions for user ${userId}:`, error);
-      return [];
+// ...existing code...
+
+async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{ name: string }>> {
+  try {
+    this.logger.log(`getEffectivePermissions called for userId=${userId}, tenantId=${tenantId}`);
+
+    // Get user with roles
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: {
+          include: { role: true }
+        }
+      }
+    });
+    this.logger.log(`User loaded: ${user ? user.id : 'not found'}`);
+    if (!user) return [];
+    
+    // Check if user has owner role
+    const isOwner = user.userRoles.some(ur => 
+      ur.role?.name?.toLowerCase() === 'owner' || 
+      ur.role?.name?.toLowerCase() === 'admin'
+    );
+    this.logger.log(`User isOwner/admin: ${isOwner}`);
+    
+    if (isOwner) {
+      // Return all permissions in the system
+      const allPerms = await this.prisma.permission.findMany();
+      this.logger.log(`Returning all permissions for owner/admin: count=${allPerms.length}`);
+      return allPerms.map(p => ({ name: p.name }));
     }
+    
+    // Prepare where clause for permissions query
+    const permissionWhere: any = { userId };
+    if (tenantId) {
+      permissionWhere.tenantId = tenantId;
+    }
+    this.logger.log(`Direct userPermission where clause: ${JSON.stringify(permissionWhere)}`);
+    
+    // Get direct user permissions
+    const directUserPermissions = await this.prisma.userPermission.findMany({
+      where: permissionWhere,
+      include: { permission: true }
+    });
+    this.logger.log(`Direct user permissions found: ${directUserPermissions.length}`);
+    
+    // Get permissions from user's roles
+    const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
+    this.logger.log(`User roleIds: ${JSON.stringify(roleIds)}`);
+    let rolePermissions: any[] = [];
+    
+    if (roleIds.length > 0) {
+      const roleWhere: any = {
+        roleId: { in: roleIds }
+      };
+      if (tenantId) {
+        roleWhere.AND = [
+          { role: { tenantId } },
+          { roleId: { in: roleIds } }
+        ];
+      }
+      this.logger.log(`RolePermission where clause: ${JSON.stringify(roleWhere)}`);
+      rolePermissions = await this.prisma.rolePermission.findMany({
+        where: roleWhere,
+        include: { permission: true }
+      });
+      this.logger.log(`Role permissions found: ${rolePermissions.length}`);
+    }
+    
+    // Combine and deduplicate permissions
+    const allPermissions = [
+      ...directUserPermissions
+        .filter(up => up.permission?.name)
+        .map(up => up.permission.name),
+      ...rolePermissions
+        .filter(rp => rp.permission?.name)
+        .map(rp => rp.permission.name)
+    ];
+    
+    const uniquePermissions = Array.from(new Set(allPermissions));
+    this.logger.log(`Unique permissions for user: ${JSON.stringify(uniquePermissions)}`);
+    return uniquePermissions.map(name => ({ name }));
+  } catch (error) {
+    this.logger.error(`Error getting effective permissions for user ${userId}:`, error);
+    return [];
   }
+}
+
+// ...existing code...
 
   async getUserById(id: string) {
     try {
@@ -444,76 +487,6 @@ export class UserService {
     return result;
   }
 
-  async updateUserPermissionsByTenant(userId: string, permissions: Array<{ name: string; note?: string }>, tenantId: string, grantedBy?: string, ip?: string) {
-    // Filter out undefined or empty permission names
-    this.logger.log(`Updating permissions for userId=${userId}, tenantId=${tenantId}`);
-    this.logger.log(`Requested permissions: ${JSON.stringify(permissions)}`);
-    const permissionNames = permissions.map(p => p.name).filter((n): n is string => !!n);
-    if (permissionNames.length === 0) {
-      this.logger.warn('No valid permission names provided');
-      throw new BadRequestException('No valid permission names provided');
-    }
-    // Fetch all valid permissions from DB
-    const allPerms = await this.prisma.permission.findMany({
-      where: { name: { in: permissionNames } }
-    });
-    const foundNames = allPerms.map(p => p.name);
-    const missing = permissionNames.filter(n => !foundNames.includes(n));
-    if (missing.length > 0) {
-      this.logger.warn(`Some permissions do not exist: ${missing.join(', ')}`);
-      throw new BadRequestException(`Permissions not found: ${missing.join(', ')}`);
-    }
-    // Remove all current permissions for the user in this tenant
-    await this.prisma.userPermission.deleteMany({
-      where: { userId, tenantId }
-    });
-    // Add new permissions for this tenant
-    for (const p of permissions) {
-      const perm = allPerms.find(ap => ap.name === p.name);
-      if (!perm) {
-        this.logger.error(`Permission ${p.name} not found in DB, skipping.`);
-        continue;
-      }
-      let grantedByUserId: string | undefined = undefined;
-      if (grantedBy) {
-        const userExists = await this.prisma.user.findUnique({ where: { id: grantedBy } });
-        if (userExists) {
-          grantedByUserId = grantedBy;
-        }
-      }
-      const data: any = {
-        userId,
-        permission: perm.name,
-        grantedAt: new Date(),
-        tenantId,
-        // note: p.note || null, // Uncomment if note is supported in schema
-      };
-      if (grantedByUserId !== undefined) {
-        data.grantedBy = grantedByUserId;
-      }
-      try {
-        await this.prisma.userPermission.create({ data });
-        this.logger.log(`Assigned permission ${perm.name} to user ${userId} for tenant ${tenantId}`);
-      } catch (err) {
-        this.logger.error(`Failed to assign permission ${perm.name} to user ${userId}: ${err.message}`);
-      }
-    }
-    if (this.auditLogService) {
-      await this.auditLogService.log(grantedBy || null, 'permissions_updated', { userId, newPermissions: permissions, tenantId }, ip);
-    }
-    // Return updated user with permissions for this tenant
-    const updatedUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        userPermissions: {
-          where: { tenantId },
-          include: { permissionRef: true, tenant: true }
-        }
-      }
-    });
-    this.logger.log(`Updated permissions for user ${userId}: ${JSON.stringify(updatedUser?.userPermissions)}`);
-    return updatedUser;
-  }
 
   async getAllPermissions() {
     return this.prisma.permission.findMany({

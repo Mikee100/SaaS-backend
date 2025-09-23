@@ -7,17 +7,17 @@ export declare class InventoryController {
     findAll(req: any): Promise<({
         product: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
             tenantId: string;
             branchId: string | null;
             description: string | null;
-            price: number;
-            customFields: import("@prisma/client/runtime/library").JsonValue | null;
             sku: string;
+            price: number;
             cost: number;
             stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
         };
     } & {
         id: string;

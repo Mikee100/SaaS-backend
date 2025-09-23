@@ -17,10 +17,15 @@ import { AdminModule } from './admin/admin.module';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
 import { SectionLogoModule } from './tenant/section-logo.module';
 import { BranchModule } from './branch.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
     PrismaModule,
+    ConfigModule.forRoot({
+      isGlobal: true,  // Makes ConfigService available app-wide
+      envFilePath: '.env',
+    }),
     AuthModule,
     UserModule,
     ProductModule,

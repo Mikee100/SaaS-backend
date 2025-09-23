@@ -45,7 +45,12 @@ let PermissionService = class PermissionService {
         });
     }
     async createRole(name, description) {
-        const existing = await this.prisma.role.findUnique({ where: { name } });
+        const existing = await this.prisma.role.findFirst({
+            where: {
+                name: name,
+                tenantId: null
+            }
+        });
         if (existing)
             throw new common_1.BadRequestException('Role already exists');
         return this.prisma.role.create({
