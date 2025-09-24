@@ -92,7 +92,7 @@ async function bootstrap() {
             maxAge: 86400,
         });
         const configService = app.get(config_1.ConfigService);
-        const port = 80;
+        const port = configService.get('PORT', 9000);
         const nodeEnv = configService.get('NODE_ENV', 'development');
         app.use((0, express_1.json)({ limit: '10mb' }));
         app.use((0, express_1.urlencoded)({ extended: true, limit: '10mb' }));
@@ -113,7 +113,7 @@ async function bootstrap() {
             logger.warn('⚠️ Stripe secret key not found - billing features will be disabled');
         }
         console.log('Signing JWT with secret:', process.env.JWT_SECRET);
-        await app.listen(80, '0.0.0.0');
+        await app.listen(9000, '0.0.0.0');
         logger.log(`🚀 Application is running on: http://localhost:${port}`);
         const dbUrl = configService.get('DATABASE_URL');
         if (dbUrl) {
