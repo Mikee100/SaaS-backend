@@ -12,7 +12,6 @@ export declare class TenantService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -53,6 +52,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;
@@ -69,7 +69,6 @@ export declare class TenantService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -110,6 +109,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;
@@ -169,7 +169,6 @@ export declare class TenantService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
-        stripeCustomerId: string | null;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
@@ -210,6 +209,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;

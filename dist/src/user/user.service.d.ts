@@ -147,6 +147,7 @@ export declare class UserService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -156,13 +157,13 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         } | {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -172,7 +173,6 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         })[] | ({
@@ -260,6 +260,7 @@ export declare class UserService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -269,7 +270,6 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         }[] | {
@@ -447,6 +447,7 @@ export declare class UserService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -456,13 +457,13 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         } | {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -472,7 +473,6 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         })[] | ({
@@ -560,6 +560,7 @@ export declare class UserService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -569,7 +570,6 @@ export declare class UserService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         }[] | {
@@ -612,7 +612,6 @@ export declare class UserService {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -653,6 +652,7 @@ export declare class UserService {
             socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
             ssoEnabled: boolean;
             state: string | null;
+            stripeCustomerId: string | null;
             watermark: string | null;
             webhookUrl: string | null;
             whiteLabel: boolean;
@@ -692,7 +692,6 @@ export declare class UserService {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -733,6 +732,7 @@ export declare class UserService {
                 socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
                 ssoEnabled: boolean;
                 state: string | null;
+                stripeCustomerId: string | null;
                 watermark: string | null;
                 webhookUrl: string | null;
                 whiteLabel: boolean;
@@ -865,7 +865,6 @@ export declare class UserService {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -906,6 +905,7 @@ export declare class UserService {
                 socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
                 ssoEnabled: boolean;
                 state: string | null;
+                stripeCustomerId: string | null;
                 watermark: string | null;
                 webhookUrl: string | null;
                 whiteLabel: boolean;
@@ -938,7 +938,6 @@ export declare class UserService {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -979,6 +978,7 @@ export declare class UserService {
                 socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
                 ssoEnabled: boolean;
                 state: string | null;
+                stripeCustomerId: string | null;
                 watermark: string | null;
                 webhookUrl: string | null;
                 whiteLabel: boolean;

@@ -147,7 +147,7 @@ async function bootstrap() {
     console.log('Signing JWT with secret:', process.env.JWT_SECRET);
 
     // Start the application
-    await app.listen(9000);
+    await app.listen(9000, '0.0.0.0');
     
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);

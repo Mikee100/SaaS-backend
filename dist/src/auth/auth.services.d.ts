@@ -145,6 +145,7 @@ export declare class AuthService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -154,13 +155,13 @@ export declare class AuthService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         } | {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -170,7 +171,6 @@ export declare class AuthService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         })[] | ({
@@ -258,6 +258,7 @@ export declare class AuthService {
             id: string;
             tenantId: string;
             userId: string;
+            stripeCustomerId: string;
             status: string;
             planId: string;
             currentPeriodStart: Date;
@@ -267,7 +268,6 @@ export declare class AuthService {
             stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
         }[] | {

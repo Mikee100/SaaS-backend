@@ -44,12 +44,12 @@ export declare class SalesController {
                 tenantId: string;
                 updatedAt: Date;
                 email: string | null;
-                status: string | null;
                 address: string | null;
                 city: string | null;
                 country: string | null;
                 postalCode: string | null;
                 state: string | null;
+                status: string | null;
                 logo: string | null;
                 customField: string | null;
                 manager: string | null;
@@ -62,7 +62,6 @@ export declare class SalesController {
                 name: string;
                 createdAt: Date;
                 updatedAt: Date;
-                stripeCustomerId: string | null;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
@@ -103,6 +102,7 @@ export declare class SalesController {
                 socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
                 ssoEnabled: boolean;
                 state: string | null;
+                stripeCustomerId: string | null;
                 watermark: string | null;
                 webhookUrl: string | null;
                 whiteLabel: boolean;
@@ -317,12 +317,12 @@ export declare class SalesController {
             tenantId: string;
             updatedAt: Date;
             email: string | null;
-            status: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            status: string | null;
             logo: string | null;
             customField: string | null;
             manager: string | null;
@@ -335,7 +335,6 @@ export declare class SalesController {
             name: string;
             createdAt: Date;
             updatedAt: Date;
-            stripeCustomerId: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
@@ -376,6 +375,7 @@ export declare class SalesController {
             socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
             ssoEnabled: boolean;
             state: string | null;
+            stripeCustomerId: string | null;
             watermark: string | null;
             webhookUrl: string | null;
             whiteLabel: boolean;

@@ -33,6 +33,26 @@ export declare class InventoryService {
         quantity: number;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            status: string | null;
+            logo: string | null;
+            customField: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            street: string | null;
+        } | null;
         product: {
             id: string;
             name: string;
@@ -47,26 +67,6 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
         };
-        branch: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            tenantId: string;
-            updatedAt: Date;
-            email: string | null;
-            status: string | null;
-            address: string | null;
-            city: string | null;
-            country: string | null;
-            postalCode: string | null;
-            state: string | null;
-            logo: string | null;
-            customField: string | null;
-            manager: string | null;
-            openingHours: string | null;
-            phone: string | null;
-            street: string | null;
-        } | null;
     } & {
         id: string;
         createdAt: Date;
