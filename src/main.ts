@@ -107,7 +107,7 @@ async function bootstrap() {
 
     // Get config service
     const configService = app.get(ConfigService);
-    const port = configService.get<number>('PORT', 9000);
+    const port = 80; // Force port 80 regardless of environment variable
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
 
@@ -147,8 +147,8 @@ async function bootstrap() {
     console.log('Signing JWT with secret:', process.env.JWT_SECRET);
 
     // Start the application
-    await app.listen(9000, '0.0.0.0');
-    
+    await app.listen(80, '0.0.0.0');
+
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);
 
