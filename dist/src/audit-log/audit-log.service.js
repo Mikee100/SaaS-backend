@@ -19,7 +19,13 @@ let AuditLogService = class AuditLogService {
     }
     async log(userId, action, details, ip) {
         return this.prisma.auditLog.create({
-            data: { userId, action, details, ip },
+            data: {
+                id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                userId,
+                action,
+                details,
+                ip,
+            },
         });
     }
     async getLogs(userId, action, limit = 100) {

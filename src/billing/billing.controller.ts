@@ -331,6 +331,7 @@ export class BillingController {
       }
 
       // Record the payment in your database
+      const now = new Date();
       const payment = await this.prisma.payment.create({
         data: {
           id: paymentId,
@@ -339,12 +340,14 @@ export class BillingController {
           status: paymentIntent.status,
           description,
           metadata: {
-            ...metadata,
-            userId: req.user.userId, // Store user ID in metadata instead
+            ...(metadata || {}),
+            userId: req.user.userId, // Store user ID in metadata
             stripe_payment_intent_id: paymentIntent.id,
           },
-          tenantId: req.user.tenantId,
           stripePaymentIntentId: paymentIntent.id,
+          tenantId: req.user.tenantId,
+          createdAt: now,
+          updatedAt: now,
         },
       });
 

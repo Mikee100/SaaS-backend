@@ -32,7 +32,7 @@ let UserService = UserService_1 = class UserService {
             if (perm) {
                 this.logger.log(`Assigning permission '${permKey}' (id: ${perm.id}) to user ${userId} for tenant ${tenantId}`);
                 await this.prisma.userPermission.create({
-                    data: { userId, permissionId: perm.id, tenantId }
+                    data: { userId, tenantId, permission: perm.id }
                 });
             }
             else {
@@ -48,7 +48,7 @@ let UserService = UserService_1 = class UserService {
         const defaultInclude = {
             userRoles: {
                 include: {
-                    role: true
+                    Role: true
                 }
             }
         };
@@ -124,33 +124,54 @@ let UserService = UserService_1 = class UserService {
                     include: {
                         role: {
                             include: {
-                                rolePermissions: {
+                                permissions: {
                                     include: {
-                                        permission: true
+                                        Permission: true
                                     }
                                 }
                             }
                         },
-                        tenant: true
+                        Tenant: true
                     }
                 },
             };
             const queryInclude = include || defaultInclude;
             this.logger.log(`Querying database for user with email: ${email}`);
-            const user = await this.prisma.user.findUnique({
-                where: { email },
-                include: queryInclude
-            });
-            if (user) {
-                this.logger.log(`Found user: ${user.id} with email: ${email}`);
+            try {
+                const user = await this.prisma.user.findUnique({
+                    where: { email },
+                    include: queryInclude
+                });
+                if (user) {
+                    this.logger.log(`Found user: ${user.id} with email: ${email}`);
+                    return user;
+                }
+                else {
+                    this.logger.warn(`No user found with email: ${email}`);
+                    return null;
+                }
             }
-            else {
-                this.logger.warn(`No user found with email: ${email}`);
+            catch (error) {
+                if (error.code === 'P2022' && error.meta?.column === 'User.isActive') {
+                    this.logger.warn('isActive column not found, falling back to basic user query');
+                    const basicUser = await this.prisma.user.findUnique({
+                        where: { email },
+                        select: {
+                            id: true,
+                            email: true,
+                            name: true,
+                            password: true,
+                            tenantId: true,
+                            branchId: true,
+                        }
+                    });
+                    if (basicUser) {
+                        return { ...basicUser, isActive: true };
+                    }
+                    return null;
+                }
+                throw error;
             }
-            if (!user) {
-                return null;
-            }
-            return user;
         }
         catch (error) {
             console.error(`Error in findByEmail for ${email}:`, error);
@@ -161,7 +182,7 @@ let UserService = UserService_1 = class UserService {
         return this.prisma.role.findMany({
             where: { tenantId },
             include: {
-                rolePermissions: true,
+                permissions: true,
                 tenant: true
             },
         });
@@ -216,7 +237,9 @@ let UserService = UserService_1 = class UserService {
                         tenantId: tenantId
                     }
                 },
-                update: {},
+                update: {
+                    roleId: role.id
+                },
                 create: {
                     userId: id,
                     roleId: role.id,
@@ -316,7 +339,7 @@ let UserService = UserService_1 = class UserService {
             this.logger.log(`Direct userPermission where clause: ${JSON.stringify(permissionWhere)}`);
             const directUserPermissions = await this.prisma.userPermission.findMany({
                 where: permissionWhere,
-                include: { permission: true }
+                include: { permissionRef: true }
             });
             this.logger.log(`Direct user permissions found: ${directUserPermissions.length}`);
             const roleIds = user.userRoles.map(ur => ur.role?.id).filter(Boolean);
@@ -341,8 +364,8 @@ let UserService = UserService_1 = class UserService {
             }
             const allPermissions = [
                 ...directUserPermissions
-                    .filter(up => up.permission?.name)
-                    .map(up => up.permission.name),
+                    .filter(up => up.permissionRef?.name)
+                    .map(up => up.permissionRef.name),
                 ...rolePermissions
                     .filter(rp => rp.permission?.name)
                     .map(rp => rp.permission.name)

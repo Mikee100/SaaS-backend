@@ -35,7 +35,22 @@ let AuthService = class AuthService {
     }
     async login(email, password, ip) {
         try {
-            const user = await this.userService.findByEmail(email);
+            const user = await this.userService.findByEmail(email, {
+                userRoles: {
+                    include: {
+                        role: {
+                            include: {
+                                permissions: {
+                                    include: {
+                                        permission: true
+                                    }
+                                }
+                            }
+                        },
+                        tenant: true
+                    }
+                }
+            });
             console.log('the user: ', user);
             if (!user || !(await bcrypt.compare(password, user.password))) {
                 if (this.auditLogService) {
@@ -43,7 +58,8 @@ let AuthService = class AuthService {
                 }
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
-            const userRoles = user.userRoles || [];
+            const userWithRoles = user;
+            const userRoles = userWithRoles.userRoles || [];
             let tenantId = null;
             if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
                 tenantId = userRoles[0].tenantId;

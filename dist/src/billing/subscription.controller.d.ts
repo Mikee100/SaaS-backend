@@ -6,6 +6,85 @@ export declare class SubscriptionController {
         planId: string;
         paymentMethodId?: string;
     }, req: any): Promise<{
+        subscription: {
+            Plan: {
+                id: string;
+                name: string;
+                description: string;
+                price: number;
+                customFields: boolean;
+                stripePriceId: string | null;
+                isActive: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
+                ssoEnabled: boolean;
+                whiteLabel: boolean;
+                interval: string;
+                maxUsers: number | null;
+                maxProducts: number | null;
+                maxSalesPerMonth: number | null;
+                analyticsEnabled: boolean;
+                advancedReports: boolean;
+                prioritySupport: boolean;
+                customBranding: boolean;
+                apiAccess: boolean;
+                advancedSecurity: boolean;
+                auditLogs: boolean;
+                bulkOperations: boolean;
+                dataExport: boolean;
+                dedicatedSupport: boolean;
+            };
+        } & {
+            id: string;
+            tenantId: string;
+            userId: string;
+            status: string;
+            planId: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripePriceId: string;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            stripeCustomerId: string;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        };
+        proration: {
+            credit: number;
+            charge: number;
+            netCharge: number;
+        };
+    } | ({
+        Plan: {
+            id: string;
+            name: string;
+            description: string;
+            price: number;
+            customFields: boolean;
+            stripePriceId: string | null;
+            isActive: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            whiteLabel: boolean;
+            interval: string;
+            maxUsers: number | null;
+            maxProducts: number | null;
+            maxSalesPerMonth: number | null;
+            analyticsEnabled: boolean;
+            advancedReports: boolean;
+            prioritySupport: boolean;
+            customBranding: boolean;
+            apiAccess: boolean;
+            advancedSecurity: boolean;
+            auditLogs: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            dedicatedSupport: boolean;
+        };
+    } & {
         id: string;
         tenantId: string;
         userId: string;
@@ -14,42 +93,47 @@ export declare class SubscriptionController {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        trialEnd: Date | null;
         canceledAt: Date | null;
-        stripeCurrentPeriodEnd: Date;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeSubscriptionId: string;
+        stripeCurrentPeriodEnd: Date;
+        stripeCustomerId: string;
+        trialEnd: Date | null;
         trialStart: Date | null;
-    } | {
-        subscription: {
-            id: string;
-            tenantId: string;
-            userId: string;
-            status: string;
-            planId: string;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            trialEnd: Date | null;
-            canceledAt: Date | null;
-            stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            trialStart: Date | null;
-        };
-        proration: {
-            credit: number;
-            charge: number;
-            netCharge: number;
-        };
-    }>;
+    })>;
     updateSubscription(body: {
         planId: string;
         effectiveDate?: Date;
     }, req: any): Promise<{
         subscription: {
+            Plan: {
+                id: string;
+                name: string;
+                description: string;
+                price: number;
+                customFields: boolean;
+                stripePriceId: string | null;
+                isActive: boolean;
+                backupRestore: boolean;
+                customIntegrations: boolean;
+                ssoEnabled: boolean;
+                whiteLabel: boolean;
+                interval: string;
+                maxUsers: number | null;
+                maxProducts: number | null;
+                maxSalesPerMonth: number | null;
+                analyticsEnabled: boolean;
+                advancedReports: boolean;
+                prioritySupport: boolean;
+                customBranding: boolean;
+                apiAccess: boolean;
+                advancedSecurity: boolean;
+                auditLogs: boolean;
+                bulkOperations: boolean;
+                dataExport: boolean;
+                dedicatedSupport: boolean;
+            };
+        } & {
             id: string;
             tenantId: string;
             userId: string;
@@ -58,12 +142,12 @@ export declare class SubscriptionController {
             currentPeriodStart: Date;
             currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
-            trialEnd: Date | null;
             canceledAt: Date | null;
-            stripeCurrentPeriodEnd: Date;
-            stripeCustomerId: string;
             stripePriceId: string;
             stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            stripeCustomerId: string;
+            trialEnd: Date | null;
             trialStart: Date | null;
         };
         proration: {
@@ -86,15 +170,55 @@ export declare class SubscriptionController {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        trialEnd: Date | null;
         canceledAt: Date | null;
-        stripeCurrentPeriodEnd: Date;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeSubscriptionId: string;
+        stripeCurrentPeriodEnd: Date;
+        stripeCustomerId: string;
+        trialEnd: Date | null;
         trialStart: Date | null;
     }>;
-    getSubscriptionHistory(req: any): Promise<{
+    getSubscriptionHistory(req: any): Promise<({
+        Invoice: {
+            number: string;
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            amount: number;
+            status: string;
+            subscriptionId: string | null;
+            dueDate: Date | null;
+            paidAt: Date | null;
+        }[];
+        Plan: {
+            id: string;
+            name: string;
+            description: string;
+            price: number;
+            customFields: boolean;
+            stripePriceId: string | null;
+            isActive: boolean;
+            backupRestore: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            whiteLabel: boolean;
+            interval: string;
+            maxUsers: number | null;
+            maxProducts: number | null;
+            maxSalesPerMonth: number | null;
+            analyticsEnabled: boolean;
+            advancedReports: boolean;
+            prioritySupport: boolean;
+            customBranding: boolean;
+            apiAccess: boolean;
+            advancedSecurity: boolean;
+            auditLogs: boolean;
+            bulkOperations: boolean;
+            dataExport: boolean;
+            dedicatedSupport: boolean;
+        };
+    } & {
         id: string;
         tenantId: string;
         userId: string;
@@ -103,12 +227,12 @@ export declare class SubscriptionController {
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
-        trialEnd: Date | null;
         canceledAt: Date | null;
-        stripeCurrentPeriodEnd: Date;
-        stripeCustomerId: string;
         stripePriceId: string;
         stripeSubscriptionId: string;
+        stripeCurrentPeriodEnd: Date;
+        stripeCustomerId: string;
+        trialEnd: Date | null;
         trialStart: Date | null;
-    }[]>;
+    })[]>;
 }

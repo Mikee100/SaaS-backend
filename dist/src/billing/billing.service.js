@@ -21,14 +21,16 @@ let BillingService = class BillingService {
     async getAllTenantSubscriptions() {
         const tenants = await this.prisma.tenant.findMany({
             include: {
-                subscriptions: {
-                    include: { plan: true },
+                Subscription: {
+                    include: {
+                        Plan: true
+                    },
                     orderBy: { currentPeriodStart: 'desc' },
                 },
             },
         });
         return Promise.all(tenants.map(async (tenant) => {
-            const sub = tenant.subscriptions?.[0];
+            const sub = tenant.Subscription?.[0];
             const lastInvoice = sub ? await this.prisma.invoice.findFirst({
                 where: { subscriptionId: sub.id },
                 orderBy: { createdAt: 'desc' },
@@ -41,19 +43,19 @@ let BillingService = class BillingService {
                 tenantId: tenant.id,
                 clientName: tenant.name,
                 clientEmail: tenant.contactEmail,
-                plan: sub?.plan ? {
-                    name: sub.plan.name,
-                    price: sub.plan.price,
-                    interval: sub.plan.interval,
+                plan: sub?.Plan ? {
+                    name: sub.Plan.name,
+                    price: sub.Plan.price,
+                    interval: sub.Plan.interval,
                     features: {
-                        maxUsers: sub.plan.maxUsers,
-                        maxProducts: sub.plan.maxProducts,
-                        maxSalesPerMonth: sub.plan.maxSalesPerMonth,
-                        analyticsEnabled: sub.plan.analyticsEnabled,
-                        advancedReports: sub.plan.advancedReports,
-                        prioritySupport: sub.plan.prioritySupport,
-                        customBranding: sub.plan.customBranding,
-                        apiAccess: sub.plan.apiAccess,
+                        maxUsers: sub.Plan.maxUsers,
+                        maxProducts: sub.Plan.maxProducts,
+                        maxSalesPerMonth: sub.Plan.maxSalesPerMonth,
+                        analyticsEnabled: sub.Plan.analyticsEnabled,
+                        advancedReports: sub.Plan.advancedReports,
+                        prioritySupport: sub.Plan.prioritySupport,
+                        customBranding: sub.Plan.customBranding,
+                        apiAccess: sub.Plan.apiAccess,
                     },
                 } : null,
                 status: sub?.status || 'none',
@@ -83,16 +85,19 @@ let BillingService = class BillingService {
                 where: { isActive: true },
                 orderBy: { price: 'asc' },
                 include: {
-                    features: {
+                    PlanFeatureOnPlan: {
                         include: {
-                            feature: true
-                        }
+                            PlanFeature: true
+                        },
+                        where: { isEnabled: true }
                     }
                 }
             });
             return plans.map(plan => ({
                 ...plan,
-                features: plan.features?.filter(f => f.isEnabled).map(f => f.feature.featureName) || []
+                features: plan.PlanFeatureOnPlan
+                    ?.map(f => f.PlanFeature?.featureName)
+                    .filter((featureName) => Boolean(featureName)) || []
             }));
         }
         catch (error) {
@@ -139,13 +144,13 @@ let BillingService = class BillingService {
                     status: { in: ['active', 'past_due', 'trialing'] },
                 },
                 include: {
-                    plan: true,
+                    Plan: true,
                 },
                 orderBy: {
                     currentPeriodStart: 'desc',
                 },
             });
-            if (!subscription || !subscription.plan) {
+            if (!subscription || !subscription.Plan) {
                 return {
                     plan: { name: 'Basic', price: 0, id: 'free-tier' },
                     status: 'none',
@@ -156,7 +161,7 @@ let BillingService = class BillingService {
             }
             return {
                 ...subscription,
-                plan: subscription.plan,
+                plan: subscription.Plan,
             };
         }
         catch (error) {
@@ -174,16 +179,16 @@ let BillingService = class BillingService {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
             include: {
-                plan: true
+                Plan: true
             },
             orderBy: {
                 currentPeriodStart: 'desc'
             },
         });
-        if (!subscription || !subscription.plan) {
+        if (!subscription || !subscription.Plan) {
             return false;
         }
-        const plan = subscription.plan;
+        const plan = subscription.Plan;
         switch (feature) {
             case 'analytics':
                 return plan.analyticsEnabled;
@@ -232,13 +237,13 @@ let BillingService = class BillingService {
             const subscription = await this.prisma.subscription.findFirst({
                 where: { tenantId },
                 include: {
-                    plan: true
+                    Plan: true
                 },
                 orderBy: {
                     currentPeriodStart: 'desc'
                 },
             });
-            if (!subscription || !subscription.plan) {
+            if (!subscription || !subscription.Plan) {
                 return {
                     maxUsers: 3,
                     maxProducts: 100,
@@ -260,7 +265,7 @@ let BillingService = class BillingService {
                     customIntegrations: false,
                 };
             }
-            const plan = subscription.plan;
+            const plan = subscription.Plan;
             return {
                 maxUsers: plan.maxUsers,
                 maxProducts: plan.maxProducts,
@@ -321,30 +326,30 @@ let BillingService = class BillingService {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
             include: {
-                plan: true
+                Plan: true
             },
             orderBy: {
                 currentPeriodStart: 'desc'
             },
         });
-        if (!subscription || !subscription.plan || subscription.plan.name !== 'Enterprise') {
+        if (!subscription || !subscription.Plan || subscription.Plan.name !== 'Enterprise') {
             return null;
         }
         return {
             customBranding: {
-                enabled: subscription.plan.customBranding,
+                enabled: subscription.Plan.customBranding,
                 features: ['logo', 'colors', 'domain', 'white_label']
             },
             apiAccess: {
-                enabled: subscription.plan.apiAccess,
+                enabled: subscription.Plan.apiAccess,
                 features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
             },
             security: {
-                enabled: subscription.plan.advancedSecurity,
+                enabled: subscription.Plan.advancedSecurity,
                 features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
             },
             support: {
-                enabled: subscription.plan.dedicatedSupport,
+                enabled: subscription.Plan.dedicatedSupport,
                 features: ['24_7_support', 'dedicated_manager', 'priority_queue']
             }
         };
@@ -359,30 +364,38 @@ let BillingService = class BillingService {
                 orderBy: {
                     createdAt: 'desc',
                 },
-                include: {
-                    subscription: {
-                        include: {
-                            plan: true,
-                        },
-                    },
-                },
             });
-            return invoices.map((invoice) => ({
-                id: invoice.id,
-                number: invoice.number,
-                amount: invoice.amount,
-                status: invoice.status,
-                dueDate: invoice.dueDate,
-                paidAt: invoice.paidAt,
-                createdAt: invoice.createdAt,
-                subscription: invoice.subscriptionId ? {
-                    id: invoice.subscriptionId,
-                    plan: invoice.subscription?.plan ? {
-                        name: invoice.subscription.plan.name,
-                        price: invoice.subscription.plan.price,
-                    } : null,
-                } : null,
+            const invoicesWithDetails = await Promise.all(invoices.map(async (invoice) => {
+                let subscriptionDetails = null;
+                if (invoice.subscriptionId) {
+                    const subscription = await this.prisma.subscription.findUnique({
+                        where: { id: invoice.subscriptionId },
+                        include: {
+                            Plan: true
+                        }
+                    });
+                    if (subscription && subscription.Plan) {
+                        subscriptionDetails = {
+                            id: subscription.id,
+                            plan: {
+                                name: subscription.Plan.name,
+                                price: subscription.Plan.price,
+                            },
+                        };
+                    }
+                }
+                return {
+                    id: invoice.id,
+                    number: invoice.number,
+                    amount: invoice.amount,
+                    status: invoice.status,
+                    dueDate: invoice.dueDate,
+                    paidAt: invoice.paidAt,
+                    createdAt: invoice.createdAt,
+                    subscription: subscriptionDetails,
+                };
             }));
+            return invoicesWithDetails;
         }
         catch (error) {
             console.error('Error fetching invoices:', error);
@@ -418,17 +431,17 @@ let BillingService = class BillingService {
         const subscription = await this.prisma.subscription.findUnique({
             where: { id: subscriptionId },
             include: {
-                plan: true,
+                Plan: true,
             },
         });
-        if (!subscription) {
-            throw new common_2.NotFoundException('Subscription not found');
+        if (!subscription || !subscription.Plan) {
+            throw new common_2.NotFoundException('Subscription or associated plan not found');
         }
         return {
-            customBranding: subscription.plan.customBranding,
-            apiAccess: subscription.plan.apiAccess,
-            advancedSecurity: subscription.plan.advancedSecurity,
-            dedicatedSupport: subscription.plan.dedicatedSupport,
+            customBranding: subscription.Plan.customBranding,
+            apiAccess: subscription.Plan.apiAccess,
+            advancedSecurity: subscription.Plan.advancedSecurity,
+            dedicatedSupport: subscription.Plan.dedicatedSupport,
         };
     }
 };

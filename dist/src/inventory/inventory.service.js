@@ -56,10 +56,12 @@ let InventoryService = class InventoryService {
             else {
                 inventory = await prisma.inventory.create({
                     data: {
+                        id: `inv_${Date.now()}`,
                         productId: dto.productId,
                         quantity: dto.quantity,
                         tenantId,
                         branchId: dto.branchId,
+                        updatedAt: new Date(),
                     },
                 });
             }

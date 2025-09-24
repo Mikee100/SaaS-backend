@@ -17,14 +17,11 @@ export declare class InventoryService {
             tenantId: string;
             updatedAt: Date;
             branchId: string | null;
-            isActive: boolean;
             sku: string;
             price: number;
-            cost: number | null;
-            barcode: string | null;
-            quantity: number;
-            minStock: number;
-            categoryId: string | null;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
         };
     } & {
         id: string;
@@ -32,26 +29,10 @@ export declare class InventoryService {
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        quantity: number;
         productId: string;
+        quantity: number;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
-        branch: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            tenantId: string;
-            updatedAt: Date;
-            email: string | null;
-            isActive: boolean;
-            address: string | null;
-            city: string | null;
-            country: string | null;
-            postalCode: string | null;
-            state: string | null;
-            isMainBranch: boolean;
-            phone: string | null;
-        } | null;
         product: {
             id: string;
             name: string;
@@ -60,23 +41,40 @@ export declare class InventoryService {
             tenantId: string;
             updatedAt: Date;
             branchId: string | null;
-            isActive: boolean;
             sku: string;
             price: number;
-            cost: number | null;
-            barcode: string | null;
-            quantity: number;
-            minStock: number;
-            categoryId: string | null;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
         };
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            status: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            logo: string | null;
+            customField: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            street: string | null;
+        } | null;
     } & {
         id: string;
         createdAt: Date;
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        quantity: number;
         productId: string;
+        quantity: number;
     })[]>;
     createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

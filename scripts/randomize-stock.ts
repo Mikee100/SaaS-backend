@@ -12,8 +12,21 @@ async function main() {
           data: { quantity: randomStock },
         });
       } else {
+        const now = new Date();
+        const inventoryData: any = {
+          id: `inv-${product.id}-${now.getTime()}`,
+          productId: product.id, 
+          quantity: randomStock, 
+          tenantId: product.tenantId,
+          updatedAt: now,
+        };
+        
+        if (product.branchId) {
+          inventoryData.branchId = product.branchId;
+        }
+        
         await prisma.inventory.create({
-          data: { productId: product.id, quantity: randomStock, tenantId: product.tenantId },
+          data: inventoryData,
         });
       }
       console.log(`Set stock for ${product.name} to ${randomStock}`);

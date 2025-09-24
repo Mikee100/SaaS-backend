@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditLogService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("./prisma.service");
+const uuid_1 = require("uuid");
 let AuditLogService = class AuditLogService {
     prisma;
     constructor(prisma) {
@@ -20,14 +21,21 @@ let AuditLogService = class AuditLogService {
     async log(userId, action, details, ip, prismaClient) {
         const prisma = prismaClient || this.prisma;
         return prisma.auditLog.create({
-            data: { userId, action, details, ip },
+            data: {
+                id: (0, uuid_1.v4)(),
+                userId,
+                action,
+                details,
+                ip,
+                createdAt: new Date()
+            },
         });
     }
     async getLogs(limit = 100) {
         return this.prisma.auditLog.findMany({
             orderBy: { createdAt: 'desc' },
             take: limit,
-            include: { user: true },
+            include: { User: true },
         });
     }
 };

@@ -13,14 +13,11 @@ export declare class InventoryController {
             tenantId: string;
             updatedAt: Date;
             branchId: string | null;
-            isActive: boolean;
             sku: string;
             price: number;
-            cost: number | null;
-            barcode: string | null;
-            quantity: number;
-            minStock: number;
-            categoryId: string | null;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
         };
     } & {
         id: string;
@@ -28,8 +25,8 @@ export declare class InventoryController {
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        quantity: number;
         productId: string;
+        quantity: number;
     })[]>;
     create(req: any, dto: CreateInventoryDto): Promise<any>;
     update(req: any, id: string, dto: UpdateInventoryDto): Promise<import(".prisma/client").Prisma.BatchPayload>;

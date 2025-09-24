@@ -24,8 +24,23 @@ export class AuthService {
 
   async login(email: string, password: string, ip?: string) {
     try {
-      // 1. Find user by email with minimal data
-      const user = await this.userService.findByEmail(email);
+      // 1. Find user by email with roles included
+      const user = await this.userService.findByEmail(email, {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true
+                  }
+                }
+              }
+            },
+            tenant: true
+          }
+        }
+      });
 
       console.log('the user: ',user);
       
@@ -39,7 +54,8 @@ export class AuthService {
 
 
       // 3. Get user's roles and tenant from user.userRoles
-      const userRoles = user.userRoles || [];
+      const userWithRoles = user as any; // Cast to include userRoles
+      const userRoles = userWithRoles.userRoles || [];
       let tenantId: string | null = null;
       if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
         tenantId = (userRoles[0] as any).tenantId;

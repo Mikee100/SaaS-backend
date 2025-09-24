@@ -385,13 +385,14 @@ export class StripeService {
 
       await this.prisma.invoice.create({
         data: {
-          id: invoice.id,
+          id: invoice.id || `inv_${Date.now()}`,
           number: invoice.number || `INV-${Date.now()}`,
           tenantId,
           amount: (invoice.amount_paid || 0) / 100, // Convert from cents to dollars
           status: invoice.status === 'paid' ? 'paid' : 'open',
           dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
           paidAt: invoice.status === 'paid' ? new Date() : null,
+          updatedAt: new Date(),
           // subscriptionId,
         },
       });
@@ -508,10 +509,10 @@ export class StripeService {
     try {
       const subscription = await this.prisma.subscription.findFirst({
         where: { tenantId },
-        orderBy: { id: 'desc' }, 
+        orderBy: { id: 'desc' },
         include: {
-          tenant: true,
-          user: true,
+          Tenant: true,
+          User: true,
         },
       });
 

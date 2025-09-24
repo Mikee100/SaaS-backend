@@ -7,7 +7,13 @@ export class AuditLogService {
 
   async log(userId: string | null, action: string, details: any, ip?: string) {
     return this.prisma.auditLog.create({
-      data: { userId, action, details, ip },
+      data: { 
+        id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId, 
+        action, 
+        details, 
+        ip,
+      },
     });
   }
 

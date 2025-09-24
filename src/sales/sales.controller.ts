@@ -102,18 +102,18 @@ export class SalesController {
         })),
         total: sale.total,
         paymentMethod: sale.paymentType,
-        amountReceived: sale.paymentType === 'cash' ? sale.amountReceived : sale.total,
-        change: sale.paymentType === 'cash' ? (sale.amountReceived || 0) - sale.total : 0,
+        amountReceived: sale.paymentType === 'cash' ? sale.total : sale.total, // amountReceived is now the same as total for cash payments
+        change: 0, // Change is now always 0 since we don't track amount received separately
         businessInfo: {
           name: tenant.name,
           address: tenant.address,
           phone: tenant.contactPhone,
           email: tenant.contactEmail
         },
-        branch: sale.branch ? {
-          id: sale.branch.id,
-          name: sale.branch.name,
-          address: sale.branch.address
+        branch: sale.Branch ? {
+          id: sale.Branch.id,
+          name: sale.Branch.name,
+          address: sale.Branch.address || ''
         } : null
       };
 

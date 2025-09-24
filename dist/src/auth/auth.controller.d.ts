@@ -14,7 +14,7 @@ export declare class AuthController {
             name: string;
             tenantId: string;
             branchId: string | null;
-            roles: any[];
+            roles: any;
             permissions: string[];
         };
     }>;

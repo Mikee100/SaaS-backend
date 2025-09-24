@@ -64,16 +64,14 @@ export class BranchService {
     // Update user's current branch
     return this.prisma.user.update({
       where: { id: userId },
-      data: { 
-        branch: {
-          connect: { id: branchId }
-        }
+      data: {
+        branchId: branchId
       },
       select: {
         id: true,
         email: true,
         name: true,
-        branch: {
+        Branch: {
           select: {
             id: true,
             name: true,

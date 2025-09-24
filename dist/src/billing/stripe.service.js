@@ -314,13 +314,14 @@ let StripeService = StripeService_1 = class StripeService {
             }
             await this.prisma.invoice.create({
                 data: {
-                    id: invoice.id,
+                    id: invoice.id || `inv_${Date.now()}`,
                     number: invoice.number || `INV-${Date.now()}`,
                     tenantId,
                     amount: (invoice.amount_paid || 0) / 100,
                     status: invoice.status === 'paid' ? 'paid' : 'open',
                     dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
                     paidAt: invoice.status === 'paid' ? new Date() : null,
+                    updatedAt: new Date(),
                 },
             });
             await this.auditLogService.log(userId || 'system', 'payment_succeeded', {
@@ -408,8 +409,8 @@ let StripeService = StripeService_1 = class StripeService {
                 where: { tenantId },
                 orderBy: { id: 'desc' },
                 include: {
-                    tenant: true,
-                    user: true,
+                    Tenant: true,
+                    User: true,
                 },
             });
             if (!subscription || !subscription.stripeSubscriptionId) {

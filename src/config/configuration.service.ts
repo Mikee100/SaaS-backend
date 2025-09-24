@@ -74,12 +74,14 @@ export class ConfigurationService {
           updatedAt: new Date(),
         },
         create: {
+          id: `config_${Date.now()}`,
           key,
           value: finalValue,
           description,
           category,
           isEncrypted,
           isPublic,
+          updatedAt: new Date(),
         },
       });
 

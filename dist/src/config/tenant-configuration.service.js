@@ -76,6 +76,7 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                     updatedAt: new Date(),
                 },
                 create: {
+                    id: `tenant_config_${tenantId}_${key}_${Date.now()}`,
                     tenantId,
                     key,
                     value: finalValue,
@@ -83,6 +84,7 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                     category,
                     isEncrypted,
                     isPublic,
+                    updatedAt: new Date(),
                 },
             });
             this.logger.log(`Tenant configuration updated: ${key} for tenant: ${tenantId}`);

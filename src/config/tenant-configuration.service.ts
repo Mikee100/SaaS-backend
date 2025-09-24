@@ -89,6 +89,7 @@ export class TenantConfigurationService {
           updatedAt: new Date(),
         },
         create: {
+          id: `tenant_config_${tenantId}_${key}_${Date.now()}`,
           tenantId,
           key,
           value: finalValue,
@@ -96,6 +97,7 @@ export class TenantConfigurationService {
           category,
           isEncrypted,
           isPublic,
+          updatedAt: new Date(),
         },
       });
 

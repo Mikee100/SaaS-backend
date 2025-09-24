@@ -18,7 +18,20 @@ export class MpesaService {
   }) {
     // Remove userId if undefined (Prisma expects it to be present or omitted)
     const { userId, tenantId, ...rest } = data;
-    const createData = userId ? { userId, tenantId, ...rest } : { tenantId, ...rest };
+    const createData = userId
+      ? {
+          id: `mpesa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId,
+          tenantId,
+          ...rest,
+          updatedAt: new Date()
+        }
+      : {
+          id: `mpesa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          tenantId,
+          ...rest,
+          updatedAt: new Date()
+        };
     return this.prisma.mpesaTransaction.create({ data: createData });
   }
 

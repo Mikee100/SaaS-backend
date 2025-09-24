@@ -96,18 +96,18 @@ let SalesController = class SalesController {
                 })),
                 total: sale.total,
                 paymentMethod: sale.paymentType,
-                amountReceived: sale.paymentType === 'cash' ? sale.amountReceived : sale.total,
-                change: sale.paymentType === 'cash' ? (sale.amountReceived || 0) - sale.total : 0,
+                amountReceived: sale.paymentType === 'cash' ? sale.total : sale.total,
+                change: 0,
                 businessInfo: {
                     name: tenant.name,
                     address: tenant.address,
                     phone: tenant.contactPhone,
                     email: tenant.contactEmail
                 },
-                branch: sale.branch ? {
-                    id: sale.branch.id,
-                    name: sale.branch.name,
-                    address: sale.branch.address
+                branch: sale.Branch ? {
+                    id: sale.Branch.id,
+                    name: sale.Branch.name,
+                    address: sale.Branch.address || ''
                 } : null
             };
             console.log('Sending receipt response', { ...logContext, saleId: response.id });

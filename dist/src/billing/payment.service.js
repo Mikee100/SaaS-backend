@@ -66,7 +66,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
         try {
             const subscription = await this.prisma.subscription.findUnique({
                 where: { id: subscriptionId },
-                include: { plan: true, tenant: true },
+                include: { Plan: true, Tenant: true },
             });
             if (!subscription) {
                 throw new Error('Subscription not found');
@@ -74,12 +74,14 @@ let PaymentService = PaymentService_1 = class PaymentService {
             const stripeInvoice = await this.stripeService.createInvoice(subscription.tenantId, subscription.stripeSubscriptionId, amount, currency);
             const invoice = await this.prisma.invoice.create({
                 data: {
+                    id: `inv_${Date.now()}`,
                     tenantId: subscription.tenantId,
                     subscriptionId: subscription.id,
                     number: stripeInvoice.number || `INV-${Date.now()}`,
                     amount: amount / 100,
                     status: 'draft',
                     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                    updatedAt: new Date(),
                 },
             });
             await this.auditLogService.log(null, 'invoice_generated', {

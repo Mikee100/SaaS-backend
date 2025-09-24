@@ -216,6 +216,7 @@ let BillingController = BillingController_1 = class BillingController {
             if (paymentIntent.status !== 'succeeded') {
                 throw new Error('Payment not completed');
             }
+            const now = new Date();
             const payment = await this.prisma.payment.create({
                 data: {
                     id: paymentId,
@@ -224,12 +225,14 @@ let BillingController = BillingController_1 = class BillingController {
                     status: paymentIntent.status,
                     description,
                     metadata: {
-                        ...metadata,
+                        ...(metadata || {}),
                         userId: req.user.userId,
                         stripe_payment_intent_id: paymentIntent.id,
                     },
-                    tenantId: req.user.tenantId,
                     stripePaymentIntentId: paymentIntent.id,
+                    tenantId: req.user.tenantId,
+                    createdAt: now,
+                    updatedAt: now,
                 },
             });
             await this.applyPaymentBenefits(req.user.tenantId, amount, metadata);

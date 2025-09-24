@@ -76,7 +76,7 @@ export class PaymentService {
     try {
       const subscription = await this.prisma.subscription.findUnique({
         where: { id: subscriptionId },
-        include: { plan: true, tenant: true },
+        include: { Plan: true, Tenant: true },
       });
 
       if (!subscription) {
@@ -94,12 +94,14 @@ export class PaymentService {
       // Store invoice record
       const invoice = await this.prisma.invoice.create({
         data: {
+          id: `inv_${Date.now()}`,
           tenantId: subscription.tenantId,
           subscriptionId: subscription.id,
           number: stripeInvoice.number || `INV-${Date.now()}`,
           amount: amount / 100, // Convert from cents to dollars if needed
           status: 'draft',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          updatedAt: new Date(),
         },
       });
 

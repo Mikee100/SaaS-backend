@@ -66,7 +66,7 @@ let AppController = class AppController {
                 orderBy: { createdAt: 'desc' },
                 take: 5,
                 include: {
-                    user: {
+                    User: {
                         select: { name: true }
                     }
                 }
@@ -88,7 +88,7 @@ let AppController = class AppController {
                         amount: sale.total,
                         customer: sale.customerName || 'Anonymous',
                         date: sale.createdAt,
-                        user: sale.user.name
+                        user: sale.User.name
                     })),
                     products: recentProducts.map(product => ({
                         id: product.id,

@@ -14,14 +14,11 @@ export declare class ProductService {
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        isActive: boolean;
         sku: string;
         price: number;
-        cost: number | null;
-        barcode: string | null;
-        quantity: number;
-        minStock: number;
-        categoryId: string | null;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        cost: number;
     }[]>;
     constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
     findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<{
@@ -32,14 +29,11 @@ export declare class ProductService {
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        isActive: boolean;
         sku: string;
         price: number;
-        cost: number | null;
-        barcode: string | null;
-        quantity: number;
-        minStock: number;
-        categoryId: string | null;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        cost: number;
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
@@ -49,14 +43,11 @@ export declare class ProductService {
         tenantId: string;
         updatedAt: Date;
         branchId: string | null;
-        isActive: boolean;
         sku: string;
         price: number;
-        cost: number | null;
-        barcode: string | null;
-        quantity: number;
-        minStock: number;
-        categoryId: string | null;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        cost: number;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

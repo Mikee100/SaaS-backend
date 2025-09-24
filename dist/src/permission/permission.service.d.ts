@@ -12,15 +12,26 @@ export declare class PermissionService {
         name: string;
         description: string | null;
     }>;
-    getAllRoles(): Promise<{
+    getAllRoles(): Promise<({
+        permissions: ({
+            permission: {
+                id: string;
+                name: string;
+                description: string | null;
+            };
+        } & {
+            id: string;
+            roleId: string;
+            permissionId: string;
+        })[];
+    } & {
         id: string;
         name: string;
         description: string | null;
-        isSystemRole: boolean;
         createdAt: Date;
         tenantId: string | null;
         updatedAt: Date;
-    }[]>;
+    })[]>;
     updateRole(name: string, description?: string): Promise<void>;
     createRole(name: string, description?: string): Promise<void>;
     getRolePermissions(roleId: string): Promise<({
@@ -28,7 +39,6 @@ export declare class PermissionService {
             id: string;
             name: string;
             description: string | null;
-            isSystemRole: boolean;
             createdAt: Date;
             tenantId: string | null;
             updatedAt: Date;
@@ -50,7 +60,6 @@ export declare class PermissionService {
             id: string;
             name: string;
             description: string | null;
-            isSystemRole: boolean;
             createdAt: Date;
             tenantId: string | null;
             updatedAt: Date;

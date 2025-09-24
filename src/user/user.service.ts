@@ -22,7 +22,7 @@ export class UserService {
       if (perm) {
         this.logger.log(`Assigning permission '${permKey}' (id: ${perm.id}) to user ${userId} for tenant ${tenantId}`);
         await this.prisma.userPermission.create({
-          data: { userId, permissionId: perm.id, tenantId }
+          data: { userId, tenantId, permission: perm.id }
         });
       } else {
         this.logger.warn(`Permission '${permKey}' not found in Permission table for user ${userId}`);
@@ -38,7 +38,7 @@ export class UserService {
     const defaultInclude = {
       userRoles: {
         include: {
-          role: true
+          Role: true
         }
       }
     };
@@ -138,41 +138,67 @@ export class UserService {
   async findByEmail(email: string, include?: any) {
     try {
       const defaultInclude = {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: {
-                    permission: true
-                  }
+      userRoles: {
+        include: {
+          role: {
+            include: {
+              permissions: {
+                include: {
+                  Permission: true
                 }
               }
-            },
-            tenant: true
-          }
-        },
+            }
+          },
+          Tenant: true
+        }
+      },
       };
 
       // If no custom include is provided, use the default one
       const queryInclude = include || defaultInclude;
 
       this.logger.log(`Querying database for user with email: ${email}`);
-      const user = await this.prisma.user.findUnique({
-        where: { email },
-        include: queryInclude
-      });
       
-      if (user) {
-        this.logger.log(`Found user: ${user.id} with email: ${email}`);
-      } else {
-        this.logger.warn(`No user found with email: ${email}`);
+      try {
+        const user = await this.prisma.user.findUnique({
+          where: { email },
+          include: queryInclude
+        });
+        
+        if (user) {
+          this.logger.log(`Found user: ${user.id} with email: ${email}`);
+          return user;
+        } else {
+          this.logger.warn(`No user found with email: ${email}`);
+          return null;
+        }
+      } catch (error) {
+        // If the error is about the isActive column not existing, try without it
+        if (error.code === 'P2022' && error.meta?.column === 'User.isActive') {
+          this.logger.warn('isActive column not found, falling back to basic user query');
+          
+          // Try with a more basic query that doesn't rely on isActive
+          const basicUser = await this.prisma.user.findUnique({
+            where: { email },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              password: true,
+              tenantId: true,
+              branchId: true,
+              // Include other essential fields here
+            }
+          });
+          
+          if (basicUser) {
+            // Manually add isActive as true for backward compatibility
+            return { ...basicUser, isActive: true };
+          }
+          return null;
+        }
+        throw error; // Re-throw if it's a different error
       }
-
-      if (!user) {
-        return null;
-      }
-      return user;
     } catch (error) {
       console.error(`Error in findByEmail for ${email}:`, error);
       throw error;
@@ -183,7 +209,7 @@ export class UserService {
     return this.prisma.role.findMany({
       where: { tenantId },
       include: { 
-        rolePermissions: true,
+        permissions: true,
         tenant: true
       },
     });
@@ -198,7 +224,7 @@ export class UserService {
       },
       include: {
         userRoles: {
-          include: { 
+          include: {
             role: true,
             tenant: true
           }
@@ -235,22 +261,24 @@ export class UserService {
       if (!role) {
         throw new NotFoundException(`Role '${data.role}' not found for tenant ${tenantId}`);
       }
-      // Update or create user role
-      await this.prisma.userRole.upsert({
-        where: {
-          userId_roleId_tenantId: {
-            userId: id,
-            roleId: role.id,
-            tenantId: tenantId
-          }
-        },
-        update: {},
-        create: {
-          userId: id,
-          roleId: role.id,
-          tenantId: tenantId
-        }
-      });
+
+await this.prisma.userRole.upsert({
+  where: {
+    userId_roleId_tenantId: {
+      userId: id,
+      roleId: role.id,
+      tenantId: tenantId
+    }
+  },
+  update: {
+    roleId: role.id
+  },
+  create: {
+    userId: id,
+    roleId: role.id,
+    tenantId: tenantId
+  }
+});
       // Remove role from data to prevent updating it directly
       delete data.role;
     }
@@ -370,7 +398,7 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     // Get direct user permissions
     const directUserPermissions = await this.prisma.userPermission.findMany({
       where: permissionWhere,
-      include: { permission: true }
+      include: { permissionRef: true }
     });
     this.logger.log(`Direct user permissions found: ${directUserPermissions.length}`);
     
@@ -400,8 +428,8 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     // Combine and deduplicate permissions
     const allPermissions = [
       ...directUserPermissions
-        .filter(up => up.permission?.name)
-        .map(up => up.permission.name),
+        .filter(up => up.permissionRef?.name)
+        .map(up => up.permissionRef.name),
       ...rolePermissions
         .filter(rp => rp.permission?.name)
         .map(rp => rp.permission.name)
@@ -492,5 +520,5 @@ async getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<
     return this.prisma.permission.findMany({
       select: { name: true }
     });
-  }
 }
+  }

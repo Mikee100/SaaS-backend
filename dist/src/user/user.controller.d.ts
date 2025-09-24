@@ -25,26 +25,21 @@ export declare class UserController {
                 id: string;
                 name: string;
                 description: string | null;
-                isSystemRole: boolean;
                 createdAt: Date;
                 tenantId: string | null;
                 updatedAt: Date;
             };
         } & {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            updatedAt: Date;
             roleId: string;
             userId: string;
-            branchId: string | null;
         })[];
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string | null;
         updatedAt: Date;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -53,12 +48,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        isActive: boolean;
-        emailVerificationToken: string | null;
-        emailVerified: boolean;
-        failedLoginAttempts: number;
-        accountLocked: boolean;
-        lastLogin: Date | null;
+        branchId: string | null;
     }[]>;
     getProtected(req: any): {
         message: string;
@@ -78,7 +68,6 @@ export declare class UserController {
         createdAt: Date;
         tenantId: string | null;
         updatedAt: Date;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -87,12 +76,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        isActive: boolean;
-        emailVerificationToken: string | null;
-        emailVerified: boolean;
-        failedLoginAttempts: number;
-        accountLocked: boolean;
-        lastLogin: Date | null;
+        branchId: string | null;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
 }

@@ -30,7 +30,7 @@ let PermissionService = class PermissionService {
     async getAllRoles() {
         return this.prisma.role.findMany({
             include: {
-                rolePermissions: {
+                permissions: {
                     include: {
                         permission: true
                     }

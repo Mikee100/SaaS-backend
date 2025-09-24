@@ -66,10 +66,10 @@ export class SubscriptionService {
       const existingSubscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId: data.tenantId,
-        // Removed console.log for existing subscription upgrade
         },
         include: {
-          plan: true,
+          Plan: true,
+          Tenant: true,
         },
       });
 
@@ -87,6 +87,7 @@ export class SubscriptionService {
       // Create new subscription
       const subscription = await this.prisma.subscription.create({
         data: {
+          id: `sub_${Date.now()}`,
           tenantId: data.tenantId,
           planId: data.planId,
           status: 'active',
@@ -96,11 +97,13 @@ export class SubscriptionService {
           stripeCustomerId: 'cust_' + data.tenantId, // Temp value
           stripePriceId: plan.stripePriceId ?? '',
           stripeCurrentPeriodEnd: endDate,
-      // Removed console.log for successful subscription creation
-          userId: 'system', // This should be the admin user ID
+          userId: 'system', // This should be the admin user ID,
+          cancelAtPeriodEnd: false,
+          trialEnd: null,
+          canceledAt: null
         },
         include: {
-          plan: true,
+          Plan: true,
         },
       });
 
@@ -119,7 +122,7 @@ export class SubscriptionService {
         status: 'active',
       },
       include: {
-        plan: true,
+        Plan: true,
       },
     });
 
@@ -135,8 +138,17 @@ export class SubscriptionService {
       throw new NotFoundException('Plan not found');
     }
 
+    // Get the current plan details
+    const currentPlan = await this.prisma.plan.findUnique({
+      where: { id: currentSubscription.planId },
+    });
+
+    if (!currentPlan) {
+      throw new NotFoundException('Current plan not found');
+    }
+
     // Handle upgrade/downgrade logic
-    const isUpgrade = this.isPlanUpgrade(currentSubscription.plan.name, newPlan.name);
+    const isUpgrade = this.isPlanUpgrade(currentPlan.name, newPlan.name);
     
     if (isUpgrade) {
       // Immediate upgrade
@@ -172,8 +184,8 @@ export class SubscriptionService {
     return await this.prisma.subscription.findMany({
       where: { tenantId },
       include: {
-        plan: true,
-        invoices: {
+        Plan: true,
+        Invoice: {
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -188,13 +200,13 @@ export class SubscriptionService {
     
     return await this.prisma.invoice.create({
       data: {
+        id: `inv_${Date.now()}`,
         number: invoiceNumber,
         subscriptionId,
         tenantId,
         amount,
         status: 'open',
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        createdAt: new Date(),
         updatedAt: new Date(),
       },
     });
@@ -239,7 +251,7 @@ export class SubscriptionService {
         // Prisma will handle the updatedAt field automatically
       },
       include: {
-        plan: true,
+        Plan: true,
       },
     });
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuditLogService {
@@ -8,7 +9,14 @@ export class AuditLogService {
   async log(userId: string | null, action: string, details: any, ip?: string, prismaClient?: any) {
     const prisma = prismaClient || this.prisma;
     return prisma.auditLog.create({
-      data: { userId, action, details, ip },
+      data: {
+        id: uuidv4(),
+        userId,
+        action,
+        details,
+        ip,
+        createdAt: new Date()
+      },
     });
   }
 
@@ -16,7 +24,7 @@ export class AuditLogService {
     return this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: { user: true },
+      include: { User: true },  // Changed from 'user' to 'User' to match Prisma schema
     });
   }
 } 

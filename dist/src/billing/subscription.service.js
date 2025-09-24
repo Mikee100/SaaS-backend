@@ -63,7 +63,8 @@ let SubscriptionService = class SubscriptionService {
                     tenantId: data.tenantId,
                 },
                 include: {
-                    plan: true,
+                    Plan: true,
+                    Tenant: true,
                 },
             });
             if (existingSubscription) {
@@ -74,6 +75,7 @@ let SubscriptionService = class SubscriptionService {
             console.log('Creating subscription with dates:', { now, endDate });
             const subscription = await this.prisma.subscription.create({
                 data: {
+                    id: `sub_${Date.now()}`,
                     tenantId: data.tenantId,
                     planId: data.planId,
                     status: 'active',
@@ -84,9 +86,12 @@ let SubscriptionService = class SubscriptionService {
                     stripePriceId: plan.stripePriceId ?? '',
                     stripeCurrentPeriodEnd: endDate,
                     userId: 'system',
+                    cancelAtPeriodEnd: false,
+                    trialEnd: null,
+                    canceledAt: null
                 },
                 include: {
-                    plan: true,
+                    Plan: true,
                 },
             });
             console.log('Subscription created successfully:', subscription.id);
@@ -104,7 +109,7 @@ let SubscriptionService = class SubscriptionService {
                 status: 'active',
             },
             include: {
-                plan: true,
+                Plan: true,
             },
         });
         if (!currentSubscription) {
@@ -116,7 +121,13 @@ let SubscriptionService = class SubscriptionService {
         if (!newPlan) {
             throw new common_1.NotFoundException('Plan not found');
         }
-        const isUpgrade = this.isPlanUpgrade(currentSubscription.plan.name, newPlan.name);
+        const currentPlan = await this.prisma.plan.findUnique({
+            where: { id: currentSubscription.planId },
+        });
+        if (!currentPlan) {
+            throw new common_1.NotFoundException('Current plan not found');
+        }
+        const isUpgrade = this.isPlanUpgrade(currentPlan.name, newPlan.name);
         if (isUpgrade) {
             return await this.handleUpgrade(currentSubscription, newPlan);
         }
@@ -146,8 +157,8 @@ let SubscriptionService = class SubscriptionService {
         return await this.prisma.subscription.findMany({
             where: { tenantId },
             include: {
-                plan: true,
-                invoices: {
+                Plan: true,
+                Invoice: {
                     orderBy: { createdAt: 'desc' },
                     take: 10,
                 },
@@ -158,13 +169,13 @@ let SubscriptionService = class SubscriptionService {
         const invoiceNumber = 'INV-' + Date.now();
         return await this.prisma.invoice.create({
             data: {
+                id: `inv_${Date.now()}`,
                 number: invoiceNumber,
                 subscriptionId,
                 tenantId,
                 amount,
                 status: 'open',
                 dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                createdAt: new Date(),
                 updatedAt: new Date(),
             },
         });
@@ -201,7 +212,7 @@ let SubscriptionService = class SubscriptionService {
                 planId: newPlan.id,
             },
             include: {
-                plan: true,
+                Plan: true,
             },
         });
         if (netCharge > 0) {

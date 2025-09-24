@@ -66,12 +66,14 @@ let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
                     updatedAt: new Date(),
                 },
                 create: {
+                    id: `config_${Date.now()}`,
                     key,
                     value: finalValue,
                     description,
                     category,
                     isEncrypted,
                     isPublic,
+                    updatedAt: new Date(),
                 },
             });
             this.logger.log(`Configuration updated: ${key}`);
