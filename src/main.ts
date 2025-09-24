@@ -107,6 +107,7 @@ async function bootstrap() {
 
     // Get config service
     const configService = app.get(ConfigService);
+    
     const port = configService.get<number>('PORT', 9000);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
