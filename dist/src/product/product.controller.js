@@ -29,7 +29,10 @@ let ProductController = class ProductController {
         return this.productService.findAllByTenantAndBranch(req.user.tenantId, branchId);
     }
     async create(body, req) {
-        const branchId = req.headers['x-branch-id'] || req.user.branchId;
+        const branchId = body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+        if (!branchId) {
+            throw new Error('Branch ID is required to create a product');
+        }
         return this.productService.createProduct({
             ...body,
             tenantId: req.user.tenantId,

@@ -18,13 +18,13 @@ export declare class SubscriptionService {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -68,13 +68,13 @@ export declare class SubscriptionService {
         Plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -114,13 +114,13 @@ export declare class SubscriptionService {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -187,8 +187,8 @@ export declare class SubscriptionService {
         Invoice: {
             number: string;
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
             amount: number;
             status: string;
@@ -199,13 +199,13 @@ export declare class SubscriptionService {
         Plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -243,8 +243,8 @@ export declare class SubscriptionService {
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         number: string;
         id: string;
-        createdAt: Date;
         tenantId: string;
+        createdAt: Date;
         updatedAt: Date;
         amount: number;
         status: string;

@@ -59,7 +59,10 @@ export class ProductService {
       );
     }
 
-    const productData = { ...data };
+    const productData = { 
+      ...data,
+      id: uuidv4() // Generate a new UUID for the product
+    };
 
     // Ensure stock is an integer
     if (productData.stock !== undefined) {
@@ -74,7 +77,9 @@ export class ProductService {
       productData.price = parseFloat(String(productData.price));
     }
 
-    const product = await this.prisma.product.create({ data: productData });
+    const product = await this.prisma.product.create({ 
+      data: productData 
+    });
 
     if (this.auditLogService) {
       await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
@@ -129,6 +134,24 @@ export class ProductService {
     if (!uploadId) uploadId = uuidv4();
     bulkUploadProgress[uploadId] = { processed: 0, total: rows.length };
 
+    // Get branch ID - priority: user's branchId > selectedBranchId > first available branch
+    let branchId = user.branchId || user.selectedBranchId;
+    
+    // If no branch ID found, try to get the first branch for the tenant
+    if (!branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: { tenantId: user.tenantId },
+        select: { id: true }
+      });
+      if (branch) {
+        branchId = branch.id;
+      } else {
+        throw new Error('No branch found. Please create a branch before uploading products.');
+      }
+    }
+
+    console.log(`Using branch ID for bulk upload: ${branchId}`);
+
     // Get headers from the first row
     const headers = Object.keys(rows[0]);
 
@@ -145,41 +168,69 @@ export class ProductService {
     // Required fields for Product
     const requiredFields = ['name', 'sku', 'price'];
     const results: any[] = [];
-    for (const [i, row] of rows.entries()) {
-      try {
-        // Map the best-matched columns to required fields
-        const mappedRow: Record<string, any> = { ...row };
-        if (nameCol) mappedRow.name = row[nameCol];
-        if (skuCol) mappedRow.sku = row[skuCol];
-        if (priceCol) mappedRow.price = row[priceCol];
+    const createdProducts: any[] = []; // Temporarily using any[] to fix the type error
 
-        // Validate required fields
-        for (const field of requiredFields) {
-          if (!mappedRow[field]) throw new Error(`Missing required field: ${field}`);
+    try {
+      // Process all rows in a transaction
+      await this.prisma.$transaction(async (prisma) => {
+        for (const [i, row] of rows.entries()) {
+          try {
+            // Map the best-matched columns to required fields
+            const mappedRow: Record<string, any> = { ...row };
+            if (nameCol) mappedRow.name = row[nameCol];
+            if (skuCol) mappedRow.sku = row[skuCol];
+            if (priceCol) mappedRow.price = row[priceCol];
+
+            // Validate required fields
+            for (const field of requiredFields) {
+              if (!mappedRow[field]) throw new Error(`Missing required field: ${field}`);
+            }
+
+            // Extract standard fields
+            const { name, sku, price, description, stock, ...customFields } = mappedRow;
+            
+            const productData = {
+              id: uuidv4(),
+              name: String(name).trim(),
+              sku: sku !== undefined ? String(sku).trim() : '',
+              price: parseFloat(price),
+              description: description ? String(description).trim() : '',
+              stock: stock !== undefined ? parseInt(String(stock)) : 0,
+              tenantId: user.tenantId,
+              branchId: branchId, // Use the resolved branch ID
+              ...(Object.keys(customFields).length > 0 && { customFields })
+            };
+
+            console.log('Creating product:', productData);
+            const createdProduct = await prisma.product.create({ data: productData });
+            createdProducts.push(createdProduct);
+            results.push({ row: mappedRow, status: 'success' });
+          } catch (error) {
+            console.error('Error processing row:', error);
+            results.push({ row, status: 'error', error: error.message });
+          } finally {
+            bulkUploadProgress[uploadId].processed = i + 1;
+          }
         }
-        // Extract standard fields
-        const { name, sku, price, description, stock, ...customFields } = mappedRow;
-        const productData: any = {
-          name,
-          sku: sku !== undefined ? String(sku) : '',
-          price: parseFloat(price),
-          description: description || '',
-          stock: stock !== undefined ? parseInt(stock) : 0,
-          tenantId: user.tenantId,
-          branchId: user.branchId || user.selectedBranchId,
-        };
-        // Attach custom fields if any
-        if (Object.keys(customFields).length > 0) {
-          productData.customFields = customFields;
-        }
-  console.log('Creating product:', productData);
-        await this.prisma.product.create({ data: productData });
-        results.push({ row: mappedRow, status: 'success' });
-      } catch (error) {
-  console.error('Bulk upload error:', error);
-        results.push({ row, status: 'error', error: error.message });
+      });
+
+      // Log successful bulk upload
+      if (this.auditLogService) {
+        await this.auditLogService.log(
+          user.userId || null,
+          'products_bulk_upload',
+          { 
+            total: rows.length, 
+            successful: results.filter(r => r.status === 'success').length,
+            failed: results.filter(r => r.status === 'error').length,
+            branchId
+          },
+          user.ip
+        );
       }
-      bulkUploadProgress[uploadId].processed = i + 1;
+    } catch (error) {
+      console.error('Bulk upload transaction failed:', error);
+      throw new Error(`Bulk upload failed: ${error.message}`);
     }
     setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000); // Clean up after 1 min
     return { summary: results, uploadId };

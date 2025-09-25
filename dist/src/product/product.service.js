@@ -61,7 +61,10 @@ let ProductService = class ProductService {
         if (!productLimit.allowed) {
             throw new common_1.BadRequestException(`Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`);
         }
-        const productData = { ...data };
+        const productData = {
+            ...data,
+            id: (0, uuid_1.v4)()
+        };
         if (productData.stock !== undefined) {
             productData.stock = parseInt(String(productData.stock), 10);
             if (isNaN(productData.stock)) {
@@ -71,7 +74,9 @@ let ProductService = class ProductService {
         if (productData.price !== undefined) {
             productData.price = parseFloat(String(productData.price));
         }
-        const product = await this.prisma.product.create({ data: productData });
+        const product = await this.prisma.product.create({
+            data: productData
+        });
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
         }
@@ -122,6 +127,20 @@ let ProductService = class ProductService {
         if (!uploadId)
             uploadId = (0, uuid_1.v4)();
         bulkUploadProgress[uploadId] = { processed: 0, total: rows.length };
+        let branchId = user.branchId || user.selectedBranchId;
+        if (!branchId) {
+            const branch = await this.prisma.branch.findFirst({
+                where: { tenantId: user.tenantId },
+                select: { id: true }
+            });
+            if (branch) {
+                branchId = branch.id;
+            }
+            else {
+                throw new Error('No branch found. Please create a branch before uploading products.');
+            }
+        }
+        console.log(`Using branch ID for bulk upload: ${branchId}`);
         const headers = Object.keys(rows[0]);
         const nameCandidates = ['name', 'product name', 'item name', 'description', 'title'];
         const skuCandidates = ['sku', 'product id', 'product code', 'partnumber', 'part number', 'code', 'id'];
@@ -131,41 +150,60 @@ let ProductService = class ProductService {
         const priceCol = findColumnMatch(headers, priceCandidates);
         const requiredFields = ['name', 'sku', 'price'];
         const results = [];
-        for (const [i, row] of rows.entries()) {
-            try {
-                const mappedRow = { ...row };
-                if (nameCol)
-                    mappedRow.name = row[nameCol];
-                if (skuCol)
-                    mappedRow.sku = row[skuCol];
-                if (priceCol)
-                    mappedRow.price = row[priceCol];
-                for (const field of requiredFields) {
-                    if (!mappedRow[field])
-                        throw new Error(`Missing required field: ${field}`);
+        const createdProducts = [];
+        try {
+            await this.prisma.$transaction(async (prisma) => {
+                for (const [i, row] of rows.entries()) {
+                    try {
+                        const mappedRow = { ...row };
+                        if (nameCol)
+                            mappedRow.name = row[nameCol];
+                        if (skuCol)
+                            mappedRow.sku = row[skuCol];
+                        if (priceCol)
+                            mappedRow.price = row[priceCol];
+                        for (const field of requiredFields) {
+                            if (!mappedRow[field])
+                                throw new Error(`Missing required field: ${field}`);
+                        }
+                        const { name, sku, price, description, stock, ...customFields } = mappedRow;
+                        const productData = {
+                            id: (0, uuid_1.v4)(),
+                            name: String(name).trim(),
+                            sku: sku !== undefined ? String(sku).trim() : '',
+                            price: parseFloat(price),
+                            description: description ? String(description).trim() : '',
+                            stock: stock !== undefined ? parseInt(String(stock)) : 0,
+                            tenantId: user.tenantId,
+                            branchId: branchId,
+                            ...(Object.keys(customFields).length > 0 && { customFields })
+                        };
+                        console.log('Creating product:', productData);
+                        const createdProduct = await prisma.product.create({ data: productData });
+                        createdProducts.push(createdProduct);
+                        results.push({ row: mappedRow, status: 'success' });
+                    }
+                    catch (error) {
+                        console.error('Error processing row:', error);
+                        results.push({ row, status: 'error', error: error.message });
+                    }
+                    finally {
+                        bulkUploadProgress[uploadId].processed = i + 1;
+                    }
                 }
-                const { name, sku, price, description, stock, ...customFields } = mappedRow;
-                const productData = {
-                    name,
-                    sku: sku !== undefined ? String(sku) : '',
-                    price: parseFloat(price),
-                    description: description || '',
-                    stock: stock !== undefined ? parseInt(stock) : 0,
-                    tenantId: user.tenantId,
-                    branchId: user.branchId || user.selectedBranchId,
-                };
-                if (Object.keys(customFields).length > 0) {
-                    productData.customFields = customFields;
-                }
-                console.log('Creating product:', productData);
-                await this.prisma.product.create({ data: productData });
-                results.push({ row: mappedRow, status: 'success' });
+            });
+            if (this.auditLogService) {
+                await this.auditLogService.log(user.userId || null, 'products_bulk_upload', {
+                    total: rows.length,
+                    successful: results.filter(r => r.status === 'success').length,
+                    failed: results.filter(r => r.status === 'error').length,
+                    branchId
+                }, user.ip);
             }
-            catch (error) {
-                console.error('Bulk upload error:', error);
-                results.push({ row, status: 'error', error: error.message });
-            }
-            bulkUploadProgress[uploadId].processed = i + 1;
+        }
+        catch (error) {
+            console.error('Bulk upload transaction failed:', error);
+            throw new Error(`Bulk upload failed: ${error.message}`);
         }
         setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000);
         return { summary: results, uploadId };

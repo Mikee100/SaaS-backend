@@ -63,12 +63,20 @@ let UserService = UserService_1 = class UserService {
         this.auditLogService = auditLogService;
     }
     async createUser(data, actorUserId, ip, prismaClient) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
         const prisma = prismaClient || this.prisma;
         const tenant = await prisma.tenant.findUnique({ where: { id: data.tenantId } });
         if (!tenant) {
             throw new common_1.BadRequestException(`Tenant with id '${data.tenantId}' does not exist. Cannot create user.`);
         }
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email },
+            select: { id: true, tenantId: true }
+        });
+        if (existingUser) {
+            throw new common_1.BadRequestException(`A user with email '${data.email}' already exists. ` +
+                `Please use a different email address or contact support if you need assistance.`);
+        }
+        const hashedPassword = await bcrypt.hash(data.password, 10);
         const user = await prisma.user.create({
             data: {
                 name: data.name,

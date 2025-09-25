@@ -92,8 +92,8 @@ export declare class SalesService {
         Branch: {
             id: string;
             name: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
             email: string | null;
             address: string | null;
@@ -186,10 +186,10 @@ export declare class SalesService {
             saleId: string;
         })[];
         id: string;
-        createdAt: Date;
         tenantId: string;
-        userId: string;
+        createdAt: Date;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;

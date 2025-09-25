@@ -40,8 +40,8 @@ export declare class SalesController {
             Branch: {
                 id: string;
                 name: string;
-                createdAt: Date;
                 tenantId: string;
+                createdAt: Date;
                 updatedAt: Date;
                 email: string | null;
                 address: string | null;
@@ -134,10 +134,10 @@ export declare class SalesController {
                 saleId: string;
             })[];
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -313,8 +313,8 @@ export declare class SalesController {
         Branch: {
             id: string;
             name: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
             email: string | null;
             address: string | null;
@@ -407,10 +407,10 @@ export declare class SalesController {
             saleId: string;
         })[];
         id: string;
-        createdAt: Date;
         tenantId: string;
-        userId: string;
+        createdAt: Date;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;

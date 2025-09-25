@@ -22,21 +22,21 @@ export declare class UserService {
         })[] | ({
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         } | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -46,10 +46,10 @@ export declare class UserService {
             vatAmount: number | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -73,12 +73,12 @@ export declare class UserService {
             ip: string | null;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -98,12 +98,12 @@ export declare class UserService {
             transactionType: string | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -123,24 +123,24 @@ export declare class UserService {
             transactionType: string | null;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         })[] | ({
@@ -197,15 +197,15 @@ export declare class UserService {
         }[] | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -222,12 +222,12 @@ export declare class UserService {
             ip: string | null;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -247,13 +247,13 @@ export declare class UserService {
             transactionType: string | null;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         }[] | {
@@ -285,9 +285,10 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -296,7 +297,6 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }) | null>;
     private readonly logger;
     constructor(prisma: PrismaService, auditLogService: AuditLogService);
@@ -322,21 +322,21 @@ export declare class UserService {
         })[] | ({
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         } | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -346,10 +346,10 @@ export declare class UserService {
             vatAmount: number | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -373,12 +373,12 @@ export declare class UserService {
             ip: string | null;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -398,12 +398,12 @@ export declare class UserService {
             transactionType: string | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -423,24 +423,24 @@ export declare class UserService {
             transactionType: string | null;
         })[] | ({
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         })[] | ({
@@ -497,15 +497,15 @@ export declare class UserService {
         }[] | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            userId: string;
+            createdAt: Date;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -522,12 +522,12 @@ export declare class UserService {
             ip: string | null;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
+            amount: number;
             userId: string | null;
             phoneNumber: string;
-            amount: number;
             status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
@@ -547,13 +547,13 @@ export declare class UserService {
             transactionType: string | null;
         }[] | {
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             data: import("@prisma/client/runtime/library").JsonValue | null;
-            userId: string | null;
-            message: string;
             type: string;
             title: string;
+            userId: string | null;
+            message: string;
             isRead: boolean;
             readAt: Date | null;
         }[] | {
@@ -585,9 +585,10 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -596,15 +597,14 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }) | {
         isActive: boolean;
         id: string;
         name: string;
         tenantId: string | null;
+        branchId: string | null;
         email: string;
         password: string;
-        branchId: string | null;
     } | null>;
     getUserRoles(tenantId: string): Promise<({
         tenant: {
@@ -673,20 +673,12 @@ export declare class UserService {
         id: string;
         name: string;
         description: string | null;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         userRoles: ({
-            role: {
-                id: string;
-                name: string;
-                description: string | null;
-                createdAt: Date;
-                tenantId: string | null;
-                updatedAt: Date;
-            };
             tenant: {
                 id: string;
                 name: string;
@@ -744,36 +736,12 @@ export declare class UserService {
                 auditLogsEnabled: boolean;
                 credits: number | null;
             };
-        } & {
-            id: string;
-            tenantId: string;
-            roleId: string;
-            userId: string;
-        })[];
-    } & {
-        id: string;
-        name: string;
-        createdAt: Date;
-        tenantId: string | null;
-        updatedAt: Date;
-        email: string;
-        password: string;
-        resetPasswordExpires: Date | null;
-        resetPasswordToken: string | null;
-        language: string | null;
-        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
-        region: string | null;
-        isSuperadmin: boolean;
-        branchId: string | null;
-    })[]>;
-    findByTenantAndBranch(tenantId: string, branchId: string | null): Promise<({
-        userRoles: ({
             role: {
                 id: string;
                 name: string;
                 description: string | null;
-                createdAt: Date;
                 tenantId: string | null;
+                createdAt: Date;
                 updatedAt: Date;
             };
         } & {
@@ -785,9 +753,10 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -796,7 +765,38 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+    })[]>;
+    findByTenantAndBranch(tenantId: string, branchId: string | null): Promise<({
+        userRoles: ({
+            role: {
+                id: string;
+                name: string;
+                description: string | null;
+                tenantId: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+            };
+        } & {
+            id: string;
+            tenantId: string;
+            roleId: string;
+            userId: string;
+        })[];
+    } & {
+        id: string;
+        name: string;
+        tenantId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         branchId: string | null;
+        email: string;
+        password: string;
+        resetPasswordExpires: Date | null;
+        resetPasswordToken: string | null;
+        language: string | null;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        region: string | null;
+        isSuperadmin: boolean;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -805,9 +805,10 @@ export declare class UserService {
     updateUserByEmail(email: string, data: any): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -816,7 +817,6 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -826,9 +826,10 @@ export declare class UserService {
     }): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -837,14 +838,14 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -853,7 +854,6 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }>;
     getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{
         name: string;
@@ -920,19 +920,11 @@ export declare class UserService {
             id: string;
             name: string;
             description: string | null;
-            createdAt: Date;
             tenantId: string | null;
+            createdAt: Date;
             updatedAt: Date;
         }[];
         userRoles: {
-            role: {
-                id: string;
-                name: string;
-                description: string | null;
-                createdAt: Date;
-                tenantId: string | null;
-                updatedAt: Date;
-            };
             tenant: {
                 id: string;
                 name: string;
@@ -990,12 +982,21 @@ export declare class UserService {
                 auditLogsEnabled: boolean;
                 credits: number | null;
             };
+            role: {
+                id: string;
+                name: string;
+                description: string | null;
+                tenantId: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+            };
         }[];
         id: string;
         name: string;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -1004,7 +1005,6 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
-        branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     getAllPermissions(): Promise<{

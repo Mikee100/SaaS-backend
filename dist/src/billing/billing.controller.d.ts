@@ -83,13 +83,13 @@ export declare class BillingController {
             plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -110,13 +110,13 @@ export declare class BillingController {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -189,13 +189,13 @@ export declare class BillingController {
         })[];
         id: string;
         name: string;
+        price: number;
         description: string;
+        customFields: boolean;
         backupRestore: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         whiteLabel: boolean;
-        price: number;
-        customFields: boolean;
         stripePriceId: string | null;
         isActive: boolean;
         interval: string;
@@ -245,13 +245,13 @@ export declare class BillingController {
         plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -272,13 +272,13 @@ export declare class BillingController {
         Plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -342,13 +342,13 @@ export declare class BillingController {
                 Plan: {
                     id: string;
                     name: string;
+                    price: number;
                     description: string;
+                    customFields: boolean;
                     backupRestore: boolean;
                     customIntegrations: boolean;
                     ssoEnabled: boolean;
                     whiteLabel: boolean;
-                    price: number;
-                    customFields: boolean;
                     stripePriceId: string | null;
                     isActive: boolean;
                     interval: string;
@@ -392,13 +392,13 @@ export declare class BillingController {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -484,11 +484,11 @@ export declare class BillingController {
         payment: {
             id: string;
             description: string | null;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
-            currency: string;
             amount: number;
+            currency: string;
             status: string;
             stripePaymentIntentId: string | null;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;

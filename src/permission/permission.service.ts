@@ -61,9 +61,34 @@ export class PermissionService {
   throw new Error('updateRole now requires tenantId');
   }
 
-  async createRole(name: string, description?: string) {
-  // You must pass tenantId to this method!
-  throw new Error('createRole now requires tenantId');
+  async createRole(name: string, description?: string, tenantId?: string) {
+    if (!name) {
+      throw new BadRequestException('Role name is required');
+    }
+    
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    
+    // Check if role with same name already exists for this tenant
+    const existingRole = await this.prisma.role.findFirst({
+      where: {
+        name,
+        tenantId
+      }
+    });
+    
+    if (existingRole) {
+      throw new BadRequestException('A role with this name already exists for this tenant');
+    }
+    
+    return this.prisma.role.create({
+      data: {
+        name,
+        description,
+        tenantId
+      }
+    });
   }
 
   async getRolePermissions(roleId: string) {

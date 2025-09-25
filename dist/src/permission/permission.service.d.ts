@@ -28,19 +28,26 @@ export declare class PermissionService {
         id: string;
         name: string;
         description: string | null;
-        createdAt: Date;
         tenantId: string | null;
+        createdAt: Date;
         updatedAt: Date;
     })[]>;
     updateRole(name: string, description?: string): Promise<void>;
-    createRole(name: string, description?: string): Promise<void>;
+    createRole(name: string, description?: string, tenantId?: string): Promise<{
+        id: string;
+        name: string;
+        description: string | null;
+        tenantId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
     getRolePermissions(roleId: string): Promise<({
         role: {
             id: string;
             name: string;
             description: string | null;
-            createdAt: Date;
             tenantId: string | null;
+            createdAt: Date;
             updatedAt: Date;
         };
         permission: {
@@ -60,8 +67,8 @@ export declare class PermissionService {
             id: string;
             name: string;
             description: string | null;
-            createdAt: Date;
             tenantId: string | null;
+            createdAt: Date;
             updatedAt: Date;
         };
         permission: {

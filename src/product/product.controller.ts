@@ -34,12 +34,17 @@ export class ProductController {
   @Post()
   @Permissions('create_products')
   async create(@Body() body, @Req() req) {
-    // Attach tenantId and branchId from the authenticated user or request header
-    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    // Priority for branchId: 1. From request body 2. From header 3. From user context
+    const branchId = body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+    
+    if (!branchId) {
+      throw new Error('Branch ID is required to create a product');
+    }
+
     return this.productService.createProduct({
       ...body,
       tenantId: req.user.tenantId,
-      branchId,
+      branchId, // Use the resolved branchId
     }, req.user.userId, req.ip);
   }
 

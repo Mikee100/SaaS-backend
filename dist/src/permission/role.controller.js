@@ -26,7 +26,9 @@ let RoleController = class RoleController {
     async createRole(body) {
         if (!body.name)
             throw new common_1.BadRequestException('Role name is required');
-        return this.permissionService.createRole(body.name, body.description);
+        if (!body.tenantId)
+            throw new common_1.BadRequestException('Tenant ID is required');
+        return this.permissionService.createRole(body.name, body.description, body.tenantId);
     }
     async getRoles() {
         return this.permissionService.getAllRoles();

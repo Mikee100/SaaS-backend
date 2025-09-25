@@ -12,9 +12,10 @@ export class RoleController {
 
 @Post()
 @Permissions('edit_roles')
-async createRole(@Body() body) {
+async createRole(@Body() body: { name: string; description?: string; tenantId: string }) {
   if (!body.name) throw new BadRequestException('Role name is required');
-  return this.permissionService.createRole(body.name, body.description);
+  if (!body.tenantId) throw new BadRequestException('Tenant ID is required');
+  return this.permissionService.createRole(body.name, body.description, body.tenantId);
 }
 
 @Get()

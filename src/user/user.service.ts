@@ -63,14 +63,29 @@ export class UserService {
     ip?: string,
     prismaClient?: any
   ) {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
     const prisma = prismaClient || this.prisma;
+    
     // Check if tenant exists
     const tenant = await prisma.tenant.findUnique({ where: { id: data.tenantId } });
     if (!tenant) {
       throw new BadRequestException(`Tenant with id '${data.tenantId}' does not exist. Cannot create user.`);
     }
 
+    // Check if user with this email already exists in any tenant
+    const existingUser = await prisma.user.findUnique({
+      where: { email: data.email },
+      select: { id: true, tenantId: true }
+    });
+
+    if (existingUser) {
+      throw new BadRequestException(
+        `A user with email '${data.email}' already exists. ` +
+        `Please use a different email address or contact support if you need assistance.`
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    
     // Create the user
     const user = await prisma.user.create({
       data: {
