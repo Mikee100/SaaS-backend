@@ -142,7 +142,9 @@ let BillingController = BillingController_1 = class BillingController {
     }
     async cancelSubscription(req) {
         await this.stripeService.cancelSubscription(req.user.tenantId, req.user.id);
-        return { message: 'Subscription will be canceled at the end of the current period' };
+        return {
+            message: 'Subscription will be canceled at the end of the current period',
+        };
     }
     async getSubscriptionDetails(req) {
         const subscription = await this.stripeService.getSubscription(req.user.tenantId);
@@ -170,7 +172,7 @@ let BillingController = BillingController_1 = class BillingController {
     }
     async createPaymentIntent(req, body) {
         try {
-            const { amount, currency = 'usd', description, metadata, paymentMethodId, savePaymentMethod = false } = body;
+            const { amount, currency = 'usd', description, metadata, paymentMethodId, savePaymentMethod = false, } = body;
             if (!amount || amount < 50) {
                 throw new Error('Invalid amount');
             }

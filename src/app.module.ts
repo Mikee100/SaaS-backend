@@ -39,9 +39,8 @@ import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.mo
     BranchModule,
     UsageModule,
     AdminTenantStatsModule,
-   
   ],
   controllers: [AppController],
-  providers: [AppService]
+  providers: [AppService],
 })
 export class AppModule {}

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Logger,
+} from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionService } from './subscription.service';
@@ -58,8 +66,10 @@ export class BillingController {
           timestamp: new Date().toISOString(),
         };
       }
-      
-      const subscription = await this.billingService.getCurrentSubscription(req.user.tenantId);
+
+      const subscription = await this.billingService.getCurrentSubscription(
+        req.user.tenantId,
+      );
       return {
         message: 'Subscription test successful',
         tenantId: req.user.tenantId,
@@ -100,7 +110,7 @@ export class BillingController {
       if (!req.user?.tenantId) {
         throw new Error('No tenant ID found in user object');
       }
-      
+
       return this.billingService.getCurrentSubscription(req.user.tenantId);
     } catch (error) {
       throw error;
@@ -114,7 +124,7 @@ export class BillingController {
       if (!req.user?.tenantId) {
         throw new Error('No tenant ID found in user object');
       }
-      
+
       return this.billingService.getPlanLimits(req.user.tenantId);
     } catch (error) {
       throw error;
@@ -131,10 +141,7 @@ export class BillingController {
   @Post('create-subscription')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
-  async createSubscription(
-    @Body() body: { planId: string },
-    @Req() req,
-  ) {
+  async createSubscription(@Body() body: { planId: string }, @Req() req) {
     try {
       if (!req.user?.tenantId) {
         throw new Error('No tenant ID found in user object');
@@ -174,10 +181,7 @@ export class BillingController {
   @Post('create-portal-session')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('edit_billing')
-  async createPortalSession(
-    @Body() body: { returnUrl: string },
-    @Req() req,
-  ) {
+  async createPortalSession(@Body() body: { returnUrl: string }, @Req() req) {
     const session = await this.stripeService.createBillingPortalSession(
       req.user.tenantId,
       body.returnUrl,
@@ -191,14 +195,18 @@ export class BillingController {
   @Permissions('edit_billing')
   async cancelSubscription(@Req() req) {
     await this.stripeService.cancelSubscription(req.user.tenantId, req.user.id);
-    return { message: 'Subscription will be canceled at the end of the current period' };
+    return {
+      message: 'Subscription will be canceled at the end of the current period',
+    };
   }
 
   @Get('subscription-details')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_billing')
   async getSubscriptionDetails(@Req() req) {
-    const subscription = await this.stripeService.getSubscription(req.user.tenantId);
+    const subscription = await this.stripeService.getSubscription(
+      req.user.tenantId,
+    );
     return subscription;
   }
 
@@ -238,27 +246,29 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'))
   async createPaymentIntent(
     @Req() req: any,
-    @Body() body: { 
-      amount: number; 
-      currency?: string; 
-      description?: string; 
-      metadata?: any; 
-      paymentMethodId?: string; 
-      savePaymentMethod?: boolean 
-    }
+    @Body()
+    body: {
+      amount: number;
+      currency?: string;
+      description?: string;
+      metadata?: any;
+      paymentMethodId?: string;
+      savePaymentMethod?: boolean;
+    },
   ) {
     try {
-      const { 
-        amount, 
-        currency = 'usd', 
-        description, 
-        metadata, 
-        paymentMethodId, 
-        savePaymentMethod = false 
+      const {
+        amount,
+        currency = 'usd',
+        description,
+        metadata,
+        paymentMethodId,
+        savePaymentMethod = false,
       } = body;
-      
+
       // Validate amount
-      if (!amount || amount < 50) { // Minimum charge is $0.50
+      if (!amount || amount < 50) {
+        // Minimum charge is $0.50
         throw new Error('Invalid amount');
       }
 
@@ -269,10 +279,10 @@ export class BillingController {
         const customer = await this.stripeService.createCustomer(
           req.user.tenantId,
           req.user.tenant.contactEmail,
-          req.user.tenant.name
+          req.user.tenant.name,
         );
         customerId = customer.id;
-        
+
         // Update tenant with Stripe customer ID
         await this.prisma.tenant.update({
           where: { id: req.user.tenantId },
@@ -297,11 +307,11 @@ export class BillingController {
           confirm: !!paymentMethodId, // Auto-confirm if using saved payment method
           customerId,
           setupFutureUsage: savePaymentMethod ? 'off_session' : undefined,
-        }
+        },
       );
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
       };
@@ -315,17 +325,23 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'))
   async recordOneTimePayment(
     @Req() req: any,
-    @Body() body: { paymentId: string; amount: number; description: string; metadata?: any }
+    @Body()
+    body: {
+      paymentId: string;
+      amount: number;
+      description: string;
+      metadata?: any;
+    },
   ) {
     try {
       const { paymentId, amount, description, metadata = {} } = body;
-      
+
       // Verify the payment with Stripe
       const paymentIntent = await this.stripeService.retrievePaymentIntent(
         req.user.tenantId,
-        paymentId
+        paymentId,
       );
-      
+
       if (paymentIntent.status !== 'succeeded') {
         throw new Error('Payment not completed');
       }
@@ -361,7 +377,11 @@ export class BillingController {
     }
   }
 
-  private async applyPaymentBenefits(tenantId: string, amount: number, metadata: any) {
+  private async applyPaymentBenefits(
+    tenantId: string,
+    amount: number,
+    metadata: any,
+  ) {
     // Add credits to the tenant's account using raw query to ensure type safety
     await this.prisma.$executeRaw`
       UPDATE "Tenant" 

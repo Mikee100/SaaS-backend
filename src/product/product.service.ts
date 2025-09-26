@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as XLSX from 'xlsx';
 import { Express, Response } from 'express';
@@ -8,16 +12,24 @@ import * as qrcode from 'qrcode';
 import { BillingService } from '../billing/billing.service';
 
 // In-memory progress store (for demo; use Redis for production)
-const bulkUploadProgress: Record<string, { processed: number; total: number }> = {};
+const bulkUploadProgress: Record<string, { processed: number; total: number }> =
+  {};
 
-function findColumnMatch(headers: string[], candidates: string[]): string | undefined {
+function findColumnMatch(
+  headers: string[],
+  candidates: string[],
+): string | undefined {
   // Try exact, case-insensitive, and partial matches
   for (const candidate of candidates) {
     // Exact match (case-insensitive)
-    const exact = headers.find(h => h.toLowerCase() === candidate.toLowerCase());
+    const exact = headers.find(
+      (h) => h.toLowerCase() === candidate.toLowerCase(),
+    );
     if (exact) return exact;
     // Partial match (case-insensitive)
-    const partial = headers.find(h => h.toLowerCase().includes(candidate.toLowerCase()));
+    const partial = headers.find((h) =>
+      h.toLowerCase().includes(candidate.toLowerCase()),
+    );
     if (partial) return partial;
   }
   return undefined;
@@ -27,9 +39,14 @@ function findColumnMatch(headers: string[], candidates: string[]): string | unde
 export class ProductService {
   // Use console.log for maximum visibility
   async findAllByBranch(branchId: string, tenantId: string) {
-  console.log('------------------------------');
-  console.log('[ProductService] Filtering products by branchId:', branchId, 'tenantId:', tenantId);
-  console.log('------------------------------');
+    console.log('------------------------------');
+    console.log(
+      '[ProductService] Filtering products by branchId:',
+      branchId,
+      'tenantId:',
+      tenantId,
+    );
+    console.log('------------------------------');
     return this.prisma.product.findMany({
       where: { branchId, tenantId },
       orderBy: { createdAt: 'desc' },
@@ -52,16 +69,19 @@ export class ProductService {
 
   async createProduct(data: any, actorUserId?: string, ip?: string) {
     // Check product limit
-    const productLimit = await this.billingService.checkLimit(data.tenantId, 'products');
+    const productLimit = await this.billingService.checkLimit(
+      data.tenantId,
+      'products',
+    );
     if (!productLimit.allowed) {
       throw new BadRequestException(
-        `Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`
+        `Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`,
       );
     }
 
-    const productData = { 
+    const productData = {
       ...data,
-      id: uuidv4() // Generate a new UUID for the product
+      id: uuidv4(), // Generate a new UUID for the product
     };
 
     // Ensure stock is an integer
@@ -77,17 +97,28 @@ export class ProductService {
       productData.price = parseFloat(String(productData.price));
     }
 
-    const product = await this.prisma.product.create({ 
-      data: productData 
+    const product = await this.prisma.product.create({
+      data: productData,
     });
 
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'product_created',
+        { productId: product.id, name: product.name, sku: product.sku },
+        ip,
+      );
     }
     return product;
   }
 
-  async updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string) {
+  async updateProduct(
+    id: string,
+    data: any,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     // Separate standard and custom fields
     const { name, sku, price, description, stock, ...customFields } = data;
     const updateData: any = {};
@@ -104,17 +135,32 @@ export class ProductService {
       data: updateData,
     });
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'product_updated', { productId: id, updatedFields: data }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'product_updated',
+        { productId: id, updatedFields: data },
+        ip,
+      );
     }
     return result;
   }
 
-  async deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+  async deleteProduct(
+    id: string,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const result = await this.prisma.product.deleteMany({
       where: { id, tenantId },
     });
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'product_deleted', { productId: id }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'product_deleted',
+        { productId: id },
+        ip,
+      );
     }
     return result;
   }
@@ -124,10 +170,14 @@ export class ProductService {
     const workbook = XLSX.read(file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
+    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+      defval: '',
+    });
 
     if (rows.length === 0) {
-      return { summary: [{ status: 'error', error: 'No data found in file.' }] };
+      return {
+        summary: [{ status: 'error', error: 'No data found in file.' }],
+      };
     }
 
     // Progress tracking
@@ -136,17 +186,19 @@ export class ProductService {
 
     // Get branch ID - priority: user's branchId > selectedBranchId > first available branch
     let branchId = user.branchId || user.selectedBranchId;
-    
+
     // If no branch ID found, try to get the first branch for the tenant
     if (!branchId) {
       const branch = await this.prisma.branch.findFirst({
         where: { tenantId: user.tenantId },
-        select: { id: true }
+        select: { id: true },
       });
       if (branch) {
         branchId = branch.id;
       } else {
-        throw new Error('No branch found. Please create a branch before uploading products.');
+        throw new Error(
+          'No branch found. Please create a branch before uploading products.',
+        );
       }
     }
 
@@ -156,9 +208,29 @@ export class ProductService {
     const headers = Object.keys(rows[0]);
 
     // Define possible synonyms for each required field
-    const nameCandidates = ['name', 'product name', 'item name', 'description', 'title'];
-    const skuCandidates = ['sku', 'product id', 'product code', 'partnumber', 'part number', 'code', 'id'];
-    const priceCandidates = ['price', 'unit price', 'cost', 'price usd', 'amount'];
+    const nameCandidates = [
+      'name',
+      'product name',
+      'item name',
+      'description',
+      'title',
+    ];
+    const skuCandidates = [
+      'sku',
+      'product id',
+      'product code',
+      'partnumber',
+      'part number',
+      'code',
+      'id',
+    ];
+    const priceCandidates = [
+      'price',
+      'unit price',
+      'cost',
+      'price usd',
+      'amount',
+    ];
 
     // Find the best matching column for each required field
     const nameCol = findColumnMatch(headers, nameCandidates);
@@ -183,12 +255,14 @@ export class ProductService {
 
             // Validate required fields
             for (const field of requiredFields) {
-              if (!mappedRow[field]) throw new Error(`Missing required field: ${field}`);
+              if (!mappedRow[field])
+                throw new Error(`Missing required field: ${field}`);
             }
 
             // Extract standard fields
-            const { name, sku, price, description, stock, ...customFields } = mappedRow;
-            
+            const { name, sku, price, description, stock, ...customFields } =
+              mappedRow;
+
             const productData = {
               id: uuidv4(),
               name: String(name).trim(),
@@ -198,11 +272,13 @@ export class ProductService {
               stock: stock !== undefined ? parseInt(String(stock)) : 0,
               tenantId: user.tenantId,
               branchId: branchId, // Use the resolved branch ID
-              ...(Object.keys(customFields).length > 0 && { customFields })
+              ...(Object.keys(customFields).length > 0 && { customFields }),
             };
 
             console.log('Creating product:', productData);
-            const createdProduct = await prisma.product.create({ data: productData });
+            const createdProduct = await prisma.product.create({
+              data: productData,
+            });
             createdProducts.push(createdProduct);
             results.push({ row: mappedRow, status: 'success' });
           } catch (error) {
@@ -219,20 +295,22 @@ export class ProductService {
         await this.auditLogService.log(
           user.userId || null,
           'products_bulk_upload',
-          { 
-            total: rows.length, 
-            successful: results.filter(r => r.status === 'success').length,
-            failed: results.filter(r => r.status === 'error').length,
-            branchId
+          {
+            total: rows.length,
+            successful: results.filter((r) => r.status === 'success').length,
+            failed: results.filter((r) => r.status === 'error').length,
+            branchId,
           },
-          user.ip
+          user.ip,
         );
       }
     } catch (error) {
       console.error('Bulk upload transaction failed:', error);
       throw new Error(`Bulk upload failed: ${error.message}`);
     }
-    setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000); // Clean up after 1 min
+    setTimeout(() => {
+      delete bulkUploadProgress[uploadId];
+    }, 60000); // Clean up after 1 min
     return { summary: results, uploadId };
   }
 
@@ -240,8 +318,8 @@ export class ProductService {
     return this.prisma.product.count({
       where: {
         tenantId,
-        ...(branchId && { branchId })
-      }
+        ...(branchId && { branchId }),
+      },
     });
   }
 
@@ -250,12 +328,16 @@ export class ProductService {
   }
 
   async clearAll(tenantId: string) {
-    const deleted = await this.prisma.product.deleteMany({ where: { tenantId } });
+    const deleted = await this.prisma.product.deleteMany({
+      where: { tenantId },
+    });
     return { deletedCount: deleted.count };
   }
 
   async randomizeAllStocks(tenantId: string) {
-    const products = await this.prisma.product.findMany({ where: { tenantId } });
+    const products = await this.prisma.product.findMany({
+      where: { tenantId },
+    });
     for (const product of products) {
       const randomStock = Math.floor(Math.random() * 191) + 10; // 10-200
       await this.prisma.product.update({
@@ -280,7 +362,7 @@ export class ProductService {
 
     // Send the QR code back as an image
     res.setHeader('Content-Type', 'image/png');
-    const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+    const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
     const img = Buffer.from(base64Data, 'base64');
     res.send(img);
   }

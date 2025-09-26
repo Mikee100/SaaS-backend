@@ -80,8 +80,14 @@ let TenantController = TenantController_1 = class TenantController {
     async updateBranding(req, dto) {
         const tenantId = req.user.tenantId;
         const allowedFields = [
-            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel',
-            'logoUrl', 'favicon', 'receiptLogo', 'watermark'
+            'primaryColor',
+            'secondaryColor',
+            'customDomain',
+            'whiteLabel',
+            'logoUrl',
+            'favicon',
+            'receiptLogo',
+            'watermark',
         ];
         const data = {};
         for (const key of allowedFields) {
@@ -176,7 +182,13 @@ __decorate([
             },
         }),
         fileFilter: (req, file, cb) => {
-            const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml', 'image/x-icon'];
+            const allowedMimes = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/svg+xml',
+                'image/x-icon',
+            ];
             if (!allowedMimes.includes(file.mimetype)) {
                 return cb(new Error('Only image files (JPEG, PNG, SVG, ICO) are allowed!'), false);
             }

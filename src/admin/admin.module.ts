@@ -8,7 +8,12 @@ import { ConfigurationService } from '../config/configuration.service';
 
 @Module({
   controllers: [AdminController, ConfigurationController],
-  providers: [AdminService, PrismaService, SuperadminGuard, ConfigurationService],
+  providers: [
+    AdminService,
+    PrismaService,
+    SuperadminGuard,
+    ConfigurationService,
+  ],
   exports: [AdminService, ConfigurationService],
 })
-export class AdminModule {} 
+export class AdminModule {}

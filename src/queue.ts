@@ -29,4 +29,4 @@
 //   { connection }
 // );
 // reportWorker.on('completed', ...);
-// reportWorker.on('failed', ...); 
+// reportWorker.on('failed', ...);

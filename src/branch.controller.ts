@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Put,
+  Delete,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -10,7 +20,10 @@ export class BranchController {
   @Post()
   async create(@Body() body, @Req() req) {
     // Attach tenantId from authenticated user
-    return this.branchService.createBranch({ ...body, tenantId: req.user.tenantId });
+    return this.branchService.createBranch({
+      ...body,
+      tenantId: req.user.tenantId,
+    });
   }
 
   @Get()

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateSaleDto } from './create-sale.dto';
@@ -43,7 +47,8 @@ interface RawSaleResult {
 }
 
 // Define the type for the transformed sale
-export interface TransformedSale extends Omit<RawSaleResult, 'branchId' | 'branchName' | 'branchAddress'> {
+export interface TransformedSale
+  extends Omit<RawSaleResult, 'branchId' | 'branchName' | 'branchAddress'> {
   cashier: string | null;
   mpesaTransaction: {
     phoneNumber: string;
@@ -81,15 +86,19 @@ export class SalesService {
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
     private realtimeGateway: RealtimeGateway, // Inject gateway
-    private configurationService: ConfigurationService
+    private configurationService: ConfigurationService,
   ) {}
 
   async createSale(
-    dto: CreateSaleDto & { mpesaTransactionId?: string; idempotencyKey: string },
+    dto: CreateSaleDto & {
+      mpesaTransactionId?: string;
+      idempotencyKey: string;
+    },
     tenantId: string,
-    userId: string
+    userId: string,
   ): Promise<SaleReceiptDto> {
-    if (!dto.idempotencyKey) throw new BadRequestException('Missing idempotency key');
+    if (!dto.idempotencyKey)
+      throw new BadRequestException('Missing idempotency key');
     // Check for existing sale with this idempotencyKey for this user
     const existing = await this.prisma.sale.findFirst({
       where: { idempotencyKey: dto.idempotencyKey, userId },
@@ -113,19 +122,25 @@ export class SalesService {
     const saleId = uuidv4();
     const now = new Date();
     let subtotal = 0;
-    const receiptItems: { productId: string; name: string; price: number; quantity: number }[] = [];
+    const receiptItems: {
+      productId: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }[] = [];
     // Validate and update stock
     for (const item of dto.items) {
-      const product = await this.prisma.product.findUnique({ 
+      const product = await this.prisma.product.findUnique({
         where: { id: item.productId },
         select: {
           id: true,
           name: true,
           price: true,
           tenantId: true,
-        }
+        },
       });
-      if (!product || product.tenantId !== tenantId) throw new BadRequestException('Invalid product');
+      if (!product || product.tenantId !== tenantId)
+        throw new BadRequestException('Invalid product');
       // Skip quantity check since it's not part of the selected fields
       // This assumes the product has enough quantity
       // In a real app, you would need to fetch the full product to check quantity
@@ -148,8 +163,8 @@ export class SalesService {
           where: { id: item.productId },
           data: {
             stock: {
-              decrement: item.quantity
-            }
+              decrement: item.quantity,
+            },
           },
         });
       }
@@ -179,14 +194,21 @@ export class SalesService {
             saleId,
             productId: item.productId,
             quantity: item.quantity,
-            price: receiptItems.find(i => i.productId === item.productId)?.price || 0,
+            price:
+              receiptItems.find((i) => i.productId === item.productId)?.price ||
+              0,
           },
         });
       }
     });
     // Audit log
     if (this.auditLogService) {
-      await this.auditLogService.log(userId, 'sale_created', { saleId, items: dto.items, total }, undefined);
+      await this.auditLogService.log(
+        userId,
+        'sale_created',
+        { saleId, items: dto.items, total },
+        undefined,
+      );
     }
     // Emit real-time events
     this.realtimeGateway.emitSalesUpdate({ saleId, items: dto.items, total });
@@ -214,7 +236,7 @@ export class SalesService {
 
     try {
       console.log(`Fetching sale with ID: ${id} for tenant: ${tenantId}`);
-      
+
       const sale = await this.prisma.sale.findUnique({
         where: { id, tenantId },
         include: {
@@ -232,7 +254,7 @@ export class SalesService {
                   id: true,
                   name: true,
                   price: true,
-                  sku: true
+                  sku: true,
                 },
               },
             },
@@ -262,20 +284,24 @@ export class SalesService {
       const result = {
         ...sale,
         saleId: sale.id,
-        cashier: sale.User ? {
-          id: sale.User.id,
-          name: sale.User.name,
-          email: sale.User.email,
-        } : null,
-        mpesaTransaction: sale.mpesaTransaction ? {
-          phoneNumber: sale.mpesaTransaction.phoneNumber,
-          amount: sale.mpesaTransaction.amount,
-          status: sale.mpesaTransaction.status,
-          mpesaReceipt: sale.mpesaTransaction.transactionId || '',
-          message: sale.mpesaTransaction.responseDesc || '',
-          transactionDate: sale.mpesaTransaction.createdAt,
-        } : null,
-        items: sale.SaleItem.map(item => ({
+        cashier: sale.User
+          ? {
+              id: sale.User.id,
+              name: sale.User.name,
+              email: sale.User.email,
+            }
+          : null,
+        mpesaTransaction: sale.mpesaTransaction
+          ? {
+              phoneNumber: sale.mpesaTransaction.phoneNumber,
+              amount: sale.mpesaTransaction.amount,
+              status: sale.mpesaTransaction.status,
+              mpesaReceipt: sale.mpesaTransaction.transactionId || '',
+              message: sale.mpesaTransaction.responseDesc || '',
+              transactionDate: sale.mpesaTransaction.createdAt,
+            }
+          : null,
+        items: sale.SaleItem.map((item) => ({
           ...item,
           name: item.product?.name || 'Unknown Product',
           price: item.price || 0,
@@ -290,16 +316,23 @@ export class SalesService {
     }
   }
 
-  async getSales(tenantId: string, page: number = 1, limit: number = 10): Promise<{ data: TransformedSale[]; meta: { total: number; page: number; lastPage: number; }; }> {
+  async getSales(
+    tenantId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    data: TransformedSale[];
+    meta: { total: number; page: number; lastPage: number };
+  }> {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
     if (page < 1) page = 1;
     if (limit < 1 || limit > 100) limit = 10;
-    
+
     const skip = (page - 1) * limit;
-    
+
     // First get the total count
     const total = await this.prisma.sale.count({ where: { tenantId } });
-    
+
     // Define the type for the raw query result
     interface RawSaleResult {
       id: string;
@@ -337,12 +370,12 @@ export class SalesService {
       ORDER BY s."createdAt" DESC
       LIMIT ${limit} OFFSET ${skip}
     `;
-    
+
     // Get sale items for each sale
-    const saleIds = sales.map(sale => sale.id);
+    const saleIds = sales.map((sale) => sale.id);
     const saleItems = await this.prisma.saleItem.findMany({
       where: {
-        saleId: { in: saleIds }
+        saleId: { in: saleIds },
       },
       include: {
         product: {
@@ -350,16 +383,16 @@ export class SalesService {
             id: true,
             name: true,
             price: true,
-            sku: true
-          }
-        }
-      }
+            sku: true,
+          },
+        },
+      },
     });
-    
+
     // Get M-Pesa transactions for each sale
     const mpesaTransactions = await this.prisma.mpesaTransaction.findMany({
       where: {
-        saleId: { in: saleIds }
+        saleId: { in: saleIds },
       },
       select: {
         id: true,
@@ -370,38 +403,40 @@ export class SalesService {
         transactionId: true,
         responseDesc: true,
         createdAt: true,
-      }
+      },
     });
 
-
-
     // Transform the data to match the expected response type
-    const transformedSales = sales.map(sale => {
+    const transformedSales = sales.map((sale) => {
       const items = saleItems
-        .filter(item => item.saleId === sale.id)
-        .map(item => ({
+        .filter((item) => item.saleId === sale.id)
+        .map((item) => ({
           ...item,
           productName: item.product?.name || 'Unknown',
         }));
-      
+
       const mpesaTransaction = mpesaTransactions.find(
-        tx => tx.saleId === sale.id
+        (tx) => tx.saleId === sale.id,
       );
-      
+
       return {
         ...sale,
         cashier: sale.userName || null,
-        mpesaTransaction: mpesaTransaction ? {
-          phoneNumber: mpesaTransaction.phoneNumber,
-          amount: mpesaTransaction.amount,
-          status: mpesaTransaction.status,
-        } : null,
+        mpesaTransaction: mpesaTransaction
+          ? {
+              phoneNumber: mpesaTransaction.phoneNumber,
+              amount: mpesaTransaction.amount,
+              status: mpesaTransaction.status,
+            }
+          : null,
         items,
-        branch: sale.branchId ? {
-          id: sale.branchId,
-          name: sale.branchName || 'Unknown Branch',
-          address: sale.branchAddress
-        } : null
+        branch: sale.branchId
+          ? {
+              id: sale.branchId,
+              name: sale.branchName || 'Unknown Branch',
+              address: sale.branchAddress,
+            }
+          : null,
       } as TransformedSale;
     });
 
@@ -424,17 +459,17 @@ export class SalesService {
       take: limit,
       include: {
         User: true,
-        SaleItem: { 
-          include: { 
-            product: true 
-          } 
+        SaleItem: {
+          include: {
+            product: true,
+          },
         },
         mpesaTransaction: true,
         Branch: true,
-        Tenant: true
+        Tenant: true,
       },
     });
-    return sales.map(sale => ({
+    return sales.map((sale) => ({
       saleId: sale.id,
       date: sale.createdAt,
       total: sale.total,
@@ -442,12 +477,14 @@ export class SalesService {
       customerName: sale.customerName,
       customerPhone: sale.customerPhone,
       cashier: sale.User ? sale.User.name : null,
-      mpesaTransaction: sale.mpesaTransaction ? {
-        phoneNumber: sale.mpesaTransaction.phoneNumber,
-        amount: sale.mpesaTransaction.amount,
-        status: sale.mpesaTransaction.status,
-      } : null,
-      items: sale.SaleItem.map(item => ({
+      mpesaTransaction: sale.mpesaTransaction
+        ? {
+            phoneNumber: sale.mpesaTransaction.phoneNumber,
+            amount: sale.mpesaTransaction.amount,
+            status: sale.mpesaTransaction.status,
+          }
+        : null,
+      items: sale.SaleItem.map((item) => ({
         productId: item.productId,
         name: item.product?.name || '',
         price: item.price,
@@ -458,32 +495,30 @@ export class SalesService {
 
   async getAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
-    
+
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
     const start = startDate || new Date();
     start.setDate(start.getDate() - 30);
-    
 
     // First, get all sales in the date range
     const sales = await this.prisma.sale.findMany({
-      where: { 
+      where: {
         tenantId,
         createdAt: {
           gte: start,
-          lte: end
-        }
+          lte: end,
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
-
 
     // Then, get all sale items for these sales with their products
     const saleItems = await this.prisma.saleItem.findMany({
       where: {
         saleId: {
-          in: sales.map(sale => sale.id)
-        }
+          in: sales.map((sale) => sale.id),
+        },
       },
       include: {
         product: {
@@ -491,32 +526,35 @@ export class SalesService {
             id: true,
             name: true,
             price: true,
-            sku: true
-          }
-        }
-      }
+            sku: true,
+          },
+        },
+      },
     });
 
     // Group sale items by sale ID
-    const saleItemsBySaleId: Record<string, Array<{
-      id: string;
-      saleId: string;
-      productId: string;
-      quantity: number;
-      price: number;
-      product: {
+    const saleItemsBySaleId: Record<
+      string,
+      Array<{
         id: string;
-        name: string;
+        saleId: string;
+        productId: string;
+        quantity: number;
         price: number;
-        sku: string;
-      } | null;
-    }>> = {};
+        product: {
+          id: string;
+          name: string;
+          price: number;
+          sku: string;
+        } | null;
+      }>
+    > = {};
 
     for (const item of saleItems) {
       if (!saleItemsBySaleId[item.saleId]) {
         saleItemsBySaleId[item.saleId] = [];
       }
-      
+
       // Only include items with valid products
       if (item.product) {
         saleItemsBySaleId[item.saleId].push({
@@ -525,56 +563,67 @@ export class SalesService {
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
-          product: item.product ? {
-            id: item.product.id,
-            name: item.product.name || 'Unknown',
-            price: item.product.price || 0,
-            sku: item.product.sku || ''
-          } : null
+          product: item.product
+            ? {
+                id: item.product.id,
+                name: item.product.name || 'Unknown',
+                price: item.product.price || 0,
+                sku: item.product.sku || '',
+              }
+            : null,
         });
       }
     }
 
     // Combine sales with their items
-    const salesWithItems: SaleWithItems[] = sales.map(sale => {
+    const salesWithItems: SaleWithItems[] = sales.map((sale) => {
       const items = saleItemsBySaleId[sale.id] || [];
       return {
         ...sale,
-        SaleItem: items.map(item => ({
+        SaleItem: items.map((item) => ({
           id: item.id,
           saleId: item.saleId,
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
-          product: item.product ? {
-            id: item.product.id,
-            name: item.product.name || 'Unknown',
-            price: item.product.price || 0,
-            sku: item.product.sku || ''
-          } : null
-        }))
+          product: item.product
+            ? {
+                id: item.product.id,
+                name: item.product.name || 'Unknown',
+                price: item.product.price || 0,
+                sku: item.product.sku || '',
+              }
+            : null,
+        })),
       };
     });
     // Total sales count
     const totalSales = salesWithItems.length;
     // Total revenue
-    const totalRevenue = salesWithItems.reduce((sum, s) => sum + (s.total || 0), 0);
+    const totalRevenue = salesWithItems.reduce(
+      (sum, s) => sum + (s.total || 0),
+      0,
+    );
     // Average sale value
     const avgSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     // Sales by product
-    const salesByProduct: Record<string, { name: string; quantity: number; revenue: number }> = {};
+    const salesByProduct: Record<
+      string,
+      { name: string; quantity: number; revenue: number }
+    > = {};
     for (const sale of salesWithItems) {
       if (!sale.SaleItem || !Array.isArray(sale.SaleItem)) continue;
-      
+
       for (const item of sale.SaleItem) {
         const productId = item.productId;
-        if (item.product) { // Only process items with valid products
+        if (item.product) {
+          // Only process items with valid products
           const productName = item.product.name || 'N/A';
           if (!salesByProduct[productId]) {
-            salesByProduct[productId] = { 
-              name: productName, 
-              quantity: 0, 
-              revenue: 0 
+            salesByProduct[productId] = {
+              name: productName,
+              quantity: 0,
+              revenue: 0,
             };
           }
           salesByProduct[productId].quantity += item.quantity;
@@ -600,11 +649,21 @@ export class SalesService {
     const paymentBreakdown: Record<string, number> = {};
     for (const sale of sales) {
       if (sale.paymentType) {
-        paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+        paymentBreakdown[sale.paymentType] =
+          (paymentBreakdown[sale.paymentType] || 0) + 1;
       }
     }
     // Top customers (by name/phone)
-    const customerMap: Record<string, { name: string; phone: string; total: number; count: number; lastPurchase?: Date }> = {};
+    const customerMap: Record<
+      string,
+      {
+        name: string;
+        phone: string;
+        total: number;
+        count: number;
+        lastPurchase?: Date;
+      }
+    > = {};
     for (const sale of sales) {
       const key = (sale.customerName || '-') + (sale.customerPhone || '-');
       if (!customerMap[key]) {
@@ -618,7 +677,10 @@ export class SalesService {
       customerMap[key].total += sale.total || 0;
       customerMap[key].count += 1;
       // Track last purchase date for each customer
-      if (!customerMap[key].lastPurchase || new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)) {
+      if (
+        !customerMap[key].lastPurchase ||
+        new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)
+      ) {
         customerMap[key].lastPurchase = sale.createdAt;
       }
     }
@@ -630,18 +692,18 @@ export class SalesService {
     const lowStock = await this.prisma.product.findMany({
       where: {
         tenantId,
-        stock: { lt: 10 } // Low stock threshold
+        stock: { lt: 10 }, // Low stock threshold
       },
       select: {
         id: true,
         name: true,
         stock: true,
-        sku: true
+        sku: true,
       },
-      orderBy: { stock: 'asc' }
+      orderBy: { stock: 'asc' },
     });
     // Prepare customer data for segmentation
-    const customerInput = Object.values(customerMap).map(c => ({
+    const customerInput = Object.values(customerMap).map((c) => ({
       name: c.name,
       total: c.total,
       count: c.count,
@@ -650,9 +712,12 @@ export class SalesService {
     let customerSegments = [];
     try {
       if (customerInput.length > 0 && process.env.AI_SERVICE_URL) {
-        const res = await axios.post(`${process.env.AI_SERVICE_URL}/customer_segments`, {
-          customers: customerInput,
-        });
+        const res = await axios.post(
+          `${process.env.AI_SERVICE_URL}/customer_segments`,
+          {
+            customers: customerInput,
+          },
+        );
         customerSegments = res.data;
       }
     } catch (e) {
@@ -704,7 +769,7 @@ export class SalesService {
   async getRecentSales(tenantId: string, limit: number = 10) {
     try {
       console.log(`Fetching recent sales for tenant: ${tenantId}`);
-      
+
       const recentSales = await this.prisma.sale.findMany({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
@@ -732,14 +797,14 @@ export class SalesService {
       });
 
       // Transform the data to match the frontend's expected format
-      return recentSales.map(sale => ({
+      return recentSales.map((sale) => ({
         id: sale.id,
         total: sale.total,
         paymentMethod: sale.paymentType,
         customerName: sale.customerName || null,
         customerPhone: sale.customerPhone || null,
         date: sale.createdAt,
-        items: sale.SaleItem.map(item => ({
+        items: sale.SaleItem.map((item) => ({
           productId: item.product?.id || '',
           productName: item.product?.name || 'Unknown',
           quantity: item.quantity,

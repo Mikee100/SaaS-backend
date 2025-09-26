@@ -15,7 +15,8 @@ import { PassportModule } from '@nestjs/passport';
     PrismaModule,
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
+      secret:
+        process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
       signOptions: {
         expiresIn: '1d',
         algorithm: 'HS256',

@@ -19,18 +19,18 @@ export class AppController {
     try {
       // Get total sales count
       const totalSales = await this.prisma.sale.count({
-        where: { tenantId }
+        where: { tenantId },
       });
 
       // Get total products count
       const totalProducts = await this.prisma.product.count({
-        where: { tenantId }
+        where: { tenantId },
       });
 
       // Get total revenue (sum of all sales)
       const salesData = await this.prisma.sale.findMany({
         where: { tenantId },
-        select: { total: true }
+        select: { total: true },
       });
       const totalRevenue = salesData.reduce((sum, sale) => sum + sale.total, 0);
 
@@ -44,21 +44,24 @@ export class AppController {
           tenantId,
           createdAt: {
             gte: startOfMonth,
-            lte: endOfMonth
-          }
+            lte: endOfMonth,
+          },
         },
-        select: { total: true }
+        select: { total: true },
       });
-      const monthlyRevenue = monthlySales.reduce((sum, sale) => sum + sale.total, 0);
+      const monthlyRevenue = monthlySales.reduce(
+        (sum, sale) => sum + sale.total,
+        0,
+      );
 
       // Get unique customers count (based on customer names in sales)
       const uniqueCustomers = await this.prisma.sale.findMany({
-        where: { 
+        where: {
           tenantId,
-          customerName: { not: null }
+          customerName: { not: null },
         },
         select: { customerName: true },
-        distinct: ['customerName']
+        distinct: ['customerName'],
       });
       const totalCustomers = uniqueCustomers.length;
 
@@ -69,15 +72,15 @@ export class AppController {
         take: 5,
         include: {
           User: {
-            select: { name: true }
-          }
-        }
+            select: { name: true },
+          },
+        },
       });
 
       const recentProducts = await this.prisma.product.findMany({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
-        take: 3
+        take: 3,
       });
 
       return {
@@ -87,20 +90,20 @@ export class AppController {
         totalRevenue,
         monthlyRevenue,
         recentActivity: {
-          sales: recentSales.map(sale => ({
+          sales: recentSales.map((sale) => ({
             id: sale.id,
             amount: sale.total,
             customer: sale.customerName || 'Anonymous',
             date: sale.createdAt,
-            user: sale.User.name
+            user: sale.User.name,
           })),
-          products: recentProducts.map(product => ({
+          products: recentProducts.map((product) => ({
             id: product.id,
             name: product.name,
             price: product.price,
-            date: product.createdAt
-          }))
-        }
+            date: product.createdAt,
+          })),
+        },
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -112,8 +115,8 @@ export class AppController {
         monthlyRevenue: 0,
         recentActivity: {
           sales: [],
-          products: []
-        }
+          products: [],
+        },
       };
     }
   }
@@ -126,12 +129,12 @@ export class AppController {
     try {
       // Get user count for this tenant
       const userCount = await this.prisma.userRole.count({
-        where: { tenantId }
+        where: { tenantId },
       });
 
       // Get product count for this tenant
       const productCount = await this.prisma.product.count({
-        where: { tenantId }
+        where: { tenantId },
       });
 
       // Get sales count for current month
@@ -144,31 +147,31 @@ export class AppController {
           tenantId,
           createdAt: {
             gte: startOfMonth,
-            lte: endOfMonth
-          }
-        }
+            lte: endOfMonth,
+          },
+        },
       });
 
       return {
         users: {
           current: userCount,
-          limit: 10 // This should come from the plan
+          limit: 10, // This should come from the plan
         },
         products: {
           current: productCount,
-          limit: 50 // This should come from the plan
+          limit: 50, // This should come from the plan
         },
         sales: {
           current: monthlySales,
-          limit: 100 // This should come from the plan
-        }
+          limit: 100, // This should come from the plan
+        },
       };
     } catch (error) {
       console.error('Error fetching usage stats:', error);
       return {
         users: { current: 1, limit: 10 },
         products: { current: 0, limit: 50 },
-        sales: { current: 0, limit: 100 }
+        sales: { current: 0, limit: 100 },
       };
     }
   }

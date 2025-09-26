@@ -9,16 +9,12 @@ import { ConfigModule } from '../config/config.module';
 
 @Module({
   imports: [
-    RealtimeModule, 
+    RealtimeModule,
     UserModule,
     ConfigModule, // Import ConfigModule to provide CONFIG_OPTIONS
   ],
   controllers: [SalesController],
-  providers: [
-    SalesService, 
-    PrismaService, 
-    AuditLogService,
-  ],
+  providers: [SalesService, PrismaService, AuditLogService],
   exports: [SalesService],
 })
-export class SalesModule {} 
+export class SalesModule {}

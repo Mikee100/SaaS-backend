@@ -19,7 +19,7 @@ exports.AnalyticsModule = AnalyticsModule = __decorate([
         imports: [prisma_module_1.PrismaModule],
         controllers: [analytics_controller_1.AnalyticsController],
         providers: [analytics_service_1.AnalyticsService],
-        exports: [analytics_service_1.AnalyticsService]
+        exports: [analytics_service_1.AnalyticsService],
     })
 ], AnalyticsModule);
 //# sourceMappingURL=analytics.module.js.map

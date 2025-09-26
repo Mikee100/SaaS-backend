@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, NotFoundException, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  NotFoundException,
+  UseGuards,
+  Req,
+  ForbiddenException,
+} from '@nestjs/common';
 import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
@@ -53,7 +65,7 @@ export class BranchController {
   async switchBranch(@Param('branchId') branchId: string, @Req() req: any) {
     const userId = req.user?.id || req.user?.sub;
     const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
-    
+
     if (!userId) {
       throw new ForbiddenException('User not authenticated');
     }
@@ -65,8 +77,14 @@ export class BranchController {
     }
 
     // Only allow managers to switch branches
-    if (!userRoles.includes('manager') && !userRoles.includes('admin') && !userRoles.includes('owner')) {
-      throw new ForbiddenException('Only managers and above can switch branches');
+    if (
+      !userRoles.includes('manager') &&
+      !userRoles.includes('admin') &&
+      !userRoles.includes('owner')
+    ) {
+      throw new ForbiddenException(
+        'Only managers and above can switch branches',
+      );
     }
 
     // Update user's current branch

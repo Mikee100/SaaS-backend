@@ -47,7 +47,7 @@ let SalesController = class SalesController {
             return {
                 message: 'Database connected',
                 salesCount: sales.length,
-                sales: sales.slice(0, 5)
+                sales: sales.slice(0, 5),
             };
         }
         catch (error) {
@@ -59,7 +59,12 @@ let SalesController = class SalesController {
     }
     async getReceipt(id, req) {
         const requestId = Math.random().toString(36).substring(2, 9);
-        const logContext = { requestId, saleId: id, userId: req.user?.id, tenantId: req.user?.tenantId };
+        const logContext = {
+            requestId,
+            saleId: id,
+            userId: req.user?.id,
+            tenantId: req.user?.tenantId,
+        };
         console.log('Receipt request received:', { ...logContext });
         try {
             if (!id) {
@@ -76,7 +81,10 @@ let SalesController = class SalesController {
                 console.error('Sale not found', logContext);
                 throw new common_2.NotFoundException('Sale not found');
             }
-            console.log('Fetching tenant info...', { ...logContext, saleId: sale.id });
+            console.log('Fetching tenant info...', {
+                ...logContext,
+                saleId: sale.id,
+            });
             const tenant = await this.salesService.getTenantInfo(req.user.tenantId);
             if (!tenant) {
                 console.error('Tenant not found', logContext);
@@ -88,11 +96,11 @@ let SalesController = class SalesController {
                 date: sale.createdAt,
                 customerName: sale.customerName || 'Walk-in Customer',
                 customerPhone: sale.customerPhone || 'N/A',
-                items: sale.items.map(item => ({
+                items: sale.items.map((item) => ({
                     productId: item.productId,
                     name: item.product?.name || 'Unknown Product',
                     price: item.price,
-                    quantity: item.quantity
+                    quantity: item.quantity,
                 })),
                 total: sale.total,
                 paymentMethod: sale.paymentType,
@@ -102,19 +110,27 @@ let SalesController = class SalesController {
                     name: tenant.name,
                     address: tenant.address,
                     phone: tenant.contactPhone,
-                    email: tenant.contactEmail
+                    email: tenant.contactEmail,
                 },
-                branch: sale.Branch ? {
-                    id: sale.Branch.id,
-                    name: sale.Branch.name,
-                    address: sale.Branch.address || ''
-                } : null
+                branch: sale.Branch
+                    ? {
+                        id: sale.Branch.id,
+                        name: sale.Branch.name,
+                        address: sale.Branch.address || '',
+                    }
+                    : null,
             };
-            console.log('Sending receipt response', { ...logContext, saleId: response.id });
+            console.log('Sending receipt response', {
+                ...logContext,
+                saleId: response.id,
+            });
             return response;
         }
         catch (error) {
-            console.error('Error generating receipt:', { ...logContext, error: error.message });
+            console.error('Error generating receipt:', {
+                ...logContext,
+                error: error.message,
+            });
             throw new common_3.InternalServerErrorException('Failed to generate receipt');
         }
     }
@@ -123,7 +139,7 @@ let SalesController = class SalesController {
         const logContext = {
             requestId,
             userId: req.user?.id,
-            tenantId: req.user?.tenantId
+            tenantId: req.user?.tenantId,
         };
         console.log('Recent sales request received:', { ...logContext });
         try {
@@ -135,7 +151,7 @@ let SalesController = class SalesController {
             const recentSales = await this.salesService.getRecentSales(req.user.tenantId, 10);
             console.log(`Found ${recentSales.length} recent sales`, {
                 ...logContext,
-                salesCount: recentSales.length
+                salesCount: recentSales.length,
             });
             return recentSales;
         }

@@ -17,7 +17,7 @@ const validateStripeConfig = () => {
         'STRIPE_PUBLISHABLE_KEY',
         'STRIPE_WEBHOOK_SECRET',
     ];
-    const missing = requiredVars.filter(varName => !process.env[varName]);
+    const missing = requiredVars.filter((varName) => !process.env[varName]);
     if (missing.length > 0) {
         console.warn(`Missing Stripe environment variables: ${missing.join(', ')}`);
         console.warn('Stripe features will be disabled');

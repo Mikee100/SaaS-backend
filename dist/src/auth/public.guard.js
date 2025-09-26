@@ -31,9 +31,9 @@ let PublicGuard = class PublicGuard {
             '/auth/login',
             '/auth/forgot-password',
             '/auth/reset-password',
-            '/auth/register'
+            '/auth/register',
         ];
-        return publicRoutes.some(route => url.startsWith(route));
+        return publicRoutes.some((route) => url.startsWith(route));
     }
 };
 exports.PublicGuard = PublicGuard;

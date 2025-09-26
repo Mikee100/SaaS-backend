@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { BillingService } from './billing.service';
 
@@ -23,7 +28,7 @@ export class PlanGuard implements CanActivate {
 
     if (requiredPlan) {
       const currentPlan = user.plan?.name || 'Basic';
-      const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };
+      const planHierarchy = { Basic: 1, Pro: 2, Enterprise: 3 };
       const currentPlanLevel = planHierarchy[currentPlan] || 0;
       const requiredPlanLevel = planHierarchy[requiredPlan] || 0;
 
@@ -31,7 +36,10 @@ export class PlanGuard implements CanActivate {
     }
 
     if (requiredFeature) {
-      return await this.billingService.hasFeature(user.tenantId, requiredFeature);
+      return await this.billingService.hasFeature(
+        user.tenantId,
+        requiredFeature,
+      );
     }
 
     return true;

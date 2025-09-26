@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
-import { TenantConfigurationService, TenantConfigurationItem } from '../config/tenant-configuration.service';
+import {
+  TenantConfigurationService,
+  TenantConfigurationItem,
+} from '../config/tenant-configuration.service';
 
 interface CreateConfigurationDto {
   key: string;
@@ -36,7 +49,9 @@ interface StripeConfigurationDto {
 @Controller('tenant/configurations')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class TenantConfigurationController {
-  constructor(private readonly tenantConfigurationService: TenantConfigurationService) {}
+  constructor(
+    private readonly tenantConfigurationService: TenantConfigurationService,
+  ) {}
 
   @Get()
   @Permissions('view_billing')
@@ -47,16 +62,25 @@ export class TenantConfigurationController {
 
   @Get('category/:category')
   @Permissions('view_billing')
-  async getConfigurationsByCategory(@Param('category') category: string, @Req() req) {
+  async getConfigurationsByCategory(
+    @Param('category') category: string,
+    @Req() req,
+  ) {
     const tenantId = req.user.tenantId;
-    return this.tenantConfigurationService.getAllTenantConfigurations(tenantId, category);
+    return this.tenantConfigurationService.getAllTenantConfigurations(
+      tenantId,
+      category,
+    );
   }
 
   @Get(':key')
   @Permissions('view_billing')
   async getConfiguration(@Param('key') key: string, @Req() req) {
     const tenantId = req.user.tenantId;
-    const value = await this.tenantConfigurationService.getTenantConfiguration(tenantId, key);
+    const value = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      key,
+    );
     return { key, value };
   }
 
@@ -73,14 +97,18 @@ export class TenantConfigurationController {
         category: dto.category,
         isEncrypted: dto.isEncrypted || false,
         isPublic: dto.isPublic || false,
-      }
+      },
     );
     return { message: 'Configuration created successfully' };
   }
 
   @Put(':key')
   @Permissions('edit_billing')
-  async updateConfiguration(@Param('key') key: string, @Body() dto: UpdateConfigurationDto, @Req() req) {
+  async updateConfiguration(
+    @Param('key') key: string,
+    @Body() dto: UpdateConfigurationDto,
+    @Req() req,
+  ) {
     const tenantId = req.user.tenantId;
     await this.tenantConfigurationService.setTenantConfiguration(
       tenantId,
@@ -91,7 +119,7 @@ export class TenantConfigurationController {
         category: dto.category,
         isEncrypted: dto.isEncrypted,
         isPublic: dto.isPublic,
-      }
+      },
     );
     return { message: 'Configuration updated successfully' };
   }
@@ -100,7 +128,10 @@ export class TenantConfigurationController {
   @Permissions('edit_billing')
   async deleteConfiguration(@Param('key') key: string, @Req() req) {
     const tenantId = req.user.tenantId;
-    await this.tenantConfigurationService.deleteTenantConfiguration(tenantId, key);
+    await this.tenantConfigurationService.deleteTenantConfiguration(
+      tenantId,
+      key,
+    );
     return { message: 'Configuration deleted successfully' };
   }
 
@@ -109,7 +140,8 @@ export class TenantConfigurationController {
   @Permissions('view_billing')
   async getStripeStatus(@Req() req) {
     const tenantId = req.user.tenantId;
-    const isConfigured = await this.tenantConfigurationService.isStripeConfigured(tenantId);
+    const isConfigured =
+      await this.tenantConfigurationService.isStripeConfigured(tenantId);
     return { isConfigured };
   }
 
@@ -137,9 +169,22 @@ export class TenantConfigurationController {
 
     // Set Stripe keys
     await Promise.all([
-      this.tenantConfigurationService.setStripeSecretKey(tenantId, dto.secretKey),
-      this.tenantConfigurationService.setStripePublishableKey(tenantId, dto.publishableKey),
-      ...(dto.webhookSecret ? [this.tenantConfigurationService.setStripeWebhookSecret(tenantId, dto.webhookSecret)] : []),
+      this.tenantConfigurationService.setStripeSecretKey(
+        tenantId,
+        dto.secretKey,
+      ),
+      this.tenantConfigurationService.setStripePublishableKey(
+        tenantId,
+        dto.publishableKey,
+      ),
+      ...(dto.webhookSecret
+        ? [
+            this.tenantConfigurationService.setStripeWebhookSecret(
+              tenantId,
+              dto.webhookSecret,
+            ),
+          ]
+        : []),
     ]);
 
     // Auto-create products and prices if requested
@@ -179,26 +224,31 @@ export class TenantConfigurationController {
   async createStripeProducts(@Req() req) {
     const tenantId = req.user.tenantId;
     const stripeService = req.app.get('StripeService');
-    
-    const priceIds = await stripeService.createStripeProductsAndPrices(tenantId);
-    
-    return { 
+
+    const priceIds =
+      await stripeService.createStripeProductsAndPrices(tenantId);
+
+    return {
       message: 'Stripe products and prices created successfully',
-      priceIds 
+      priceIds,
     };
   }
 
   @Post('stripe/update-prices')
   @Permissions('edit_billing')
-  async updateStripePrices(@Body() dto: { basicPrice?: number; proPrice?: number; enterprisePrice?: number }, @Req() req) {
+  async updateStripePrices(
+    @Body()
+    dto: { basicPrice?: number; proPrice?: number; enterprisePrice?: number },
+    @Req() req,
+  ) {
     const tenantId = req.user.tenantId;
     const stripeService = req.app.get('StripeService');
-    
+
     const priceIds = await stripeService.updateStripePrices(tenantId, dto);
-    
-    return { 
+
+    return {
       message: 'Stripe prices updated successfully',
-      priceIds 
+      priceIds,
     };
   }
-} 
+}

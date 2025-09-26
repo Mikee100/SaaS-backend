@@ -24,13 +24,15 @@ export class PaymentService {
     metadata: Record<string, any> = {},
   ) {
     try {
-      this.logger.log(`Processing one-time payment for tenant: ${tenantId}, amount: ${amount}`);
+      this.logger.log(
+        `Processing one-time payment for tenant: ${tenantId}, amount: ${amount}`,
+      );
 
       // Mock implementation for now - replace with actual Stripe integration once configured
       const mockPaymentId = `pi_${Date.now()}`;
       const mockClientSecret = `pi_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
 
-  await this.auditLogService.log(null, 'payment_created', {
+      await this.auditLogService.log(null, 'payment_created', {
         tenantId,
         paymentId: mockPaymentId,
         amount,
@@ -44,7 +46,10 @@ export class PaymentService {
         currency,
       };
     } catch (error) {
-      this.logger.error(`Failed to process one-time payment for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to process one-time payment for tenant: ${tenantId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -57,7 +62,7 @@ export class PaymentService {
       this.logger.log(`Confirming payment: ${paymentId}`);
 
       // Mock implementation for now - replace with actual database update once Payment model is migrated
-  await this.auditLogService.log(null, 'payment_confirmed', {
+      await this.auditLogService.log(null, 'payment_confirmed', {
         paymentId,
         paymentIntentId,
       });
@@ -72,7 +77,11 @@ export class PaymentService {
   /**
    * Generate invoice for a subscription
    */
-  async generateInvoice(subscriptionId: string, amount: number, currency: string = 'usd') {
+  async generateInvoice(
+    subscriptionId: string,
+    amount: number,
+    currency: string = 'usd',
+  ) {
     try {
       const subscription = await this.prisma.subscription.findUnique({
         where: { id: subscriptionId },
@@ -86,7 +95,7 @@ export class PaymentService {
       // Create invoice in Stripe
       const stripeInvoice = await this.stripeService.createInvoice(
         subscription.tenantId,
-        subscription.stripeSubscriptionId!,
+        subscription.stripeSubscriptionId,
         amount,
         currency,
       );
@@ -105,7 +114,7 @@ export class PaymentService {
         },
       });
 
-  await this.auditLogService.log(null, 'invoice_generated', {
+      await this.auditLogService.log(null, 'invoice_generated', {
         tenantId: subscription.tenantId,
         invoiceId: invoice.id,
         amount,
@@ -114,7 +123,10 @@ export class PaymentService {
 
       return invoice;
     } catch (error) {
-      this.logger.error(`Failed to generate invoice for subscription: ${subscriptionId}`, error);
+      this.logger.error(
+        `Failed to generate invoice for subscription: ${subscriptionId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -122,39 +134,47 @@ export class PaymentService {
   /**
    * Get payment analytics
    */
-  async getPaymentAnalytics(tenantId: string, period: 'month' | 'quarter' | 'year' = 'month') {
+  async getPaymentAnalytics(
+    tenantId: string,
+    period: 'month' | 'quarter' | 'year' = 'month',
+  ) {
     try {
-      this.logger.log(`Getting payment analytics for tenant: ${tenantId}, period: ${period}`);
+      this.logger.log(
+        `Getting payment analytics for tenant: ${tenantId}, period: ${period}`,
+      );
 
       // Mock data for now - replace with actual database queries once Payment model is migrated
       const mockAnalytics = {
         period,
-        totalRevenue: 1250.00,
+        totalRevenue: 1250.0,
         paymentCount: 15,
         averagePayment: 83.33,
         paymentMethods: [
           {
             paymentMethod: 'card',
             _count: { paymentMethod: 12 },
-            _sum: { amount: 1000.00 }
+            _sum: { amount: 1000.0 },
           },
           {
             paymentMethod: 'bank_transfer',
             _count: { paymentMethod: 3 },
-            _sum: { amount: 250.00 }
-          }
+            _sum: { amount: 250.0 },
+          },
         ],
-        currency: 'USD'
+        currency: 'USD',
       };
 
-  await this.auditLogService.log(null, 'payment_analytics_viewed', {
+      await this.auditLogService.log(null, 'payment_analytics_viewed', {
         tenantId,
         period,
       });
 
       return mockAnalytics;
     } catch (error) {
-      this.logger.error(`Failed to get payment analytics for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to get payment analytics for tenant: ${tenantId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -162,9 +182,15 @@ export class PaymentService {
   /**
    * Get payment history
    */
-  async getPaymentHistory(tenantId: string, limit: number = 50, offset: number = 0) {
+  async getPaymentHistory(
+    tenantId: string,
+    limit: number = 50,
+    offset: number = 0,
+  ) {
     try {
-      this.logger.log(`Getting payment history for tenant: ${tenantId}, limit: ${limit}, offset: ${offset}`);
+      this.logger.log(
+        `Getting payment history for tenant: ${tenantId}, limit: ${limit}, offset: ${offset}`,
+      );
 
       // Mock data for now - replace with actual database queries once Payment model is migrated
       const mockHistory = [
@@ -175,7 +201,7 @@ export class PaymentService {
           status: 'completed',
           description: 'Monthly subscription payment',
           createdAt: new Date().toISOString(),
-          type: 'payment'
+          type: 'payment',
         },
         {
           id: '2',
@@ -184,7 +210,7 @@ export class PaymentService {
           status: 'completed',
           description: 'One-time payment',
           createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          type: 'payment'
+          type: 'payment',
         },
         {
           id: '3',
@@ -193,11 +219,11 @@ export class PaymentService {
           status: 'pending',
           description: 'Annual subscription',
           createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          type: 'invoice'
-        }
+          type: 'invoice',
+        },
       ];
 
-  await this.auditLogService.log(null, 'payment_history_viewed', {
+      await this.auditLogService.log(null, 'payment_history_viewed', {
         tenantId,
         limit,
         offset,
@@ -205,7 +231,10 @@ export class PaymentService {
 
       return mockHistory;
     } catch (error) {
-      this.logger.error(`Failed to get payment history for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to get payment history for tenant: ${tenantId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -246,7 +275,7 @@ export class PaymentService {
         },
       });
 
-  await this.auditLogService.log(null, 'payment_refunded', {
+      await this.auditLogService.log(null, 'payment_refunded', {
         tenantId: payment.tenantId,
         paymentId: payment.id,
         refundAmount: amount || payment.amount,
@@ -276,8 +305,8 @@ export class PaymentService {
             brand: 'visa',
             last4: '4242',
             expMonth: 12,
-            expYear: 2025
-          }
+            expYear: 2025,
+          },
         },
         {
           id: 'pm_2',
@@ -286,18 +315,21 @@ export class PaymentService {
             brand: 'mastercard',
             last4: '5555',
             expMonth: 6,
-            expYear: 2026
-          }
-        }
+            expYear: 2026,
+          },
+        },
       ];
 
-  await this.auditLogService.log(null, 'payment_methods_viewed', {
+      await this.auditLogService.log(null, 'payment_methods_viewed', {
         tenantId,
       });
 
       return mockMethods;
     } catch (error) {
-      this.logger.error(`Failed to get payment methods for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to get payment methods for tenant: ${tenantId}`,
+        error,
+      );
       return [];
     }
   }
@@ -307,7 +339,7 @@ export class PaymentService {
    */
   async addPaymentMethod(tenantId: string, paymentMethodId: string) {
     try {
-      let tenant = await this.prisma.tenant.findUnique({
+      const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
         select: { stripeCustomerId: true, contactEmail: true, name: true },
       });
@@ -321,7 +353,7 @@ export class PaymentService {
         const customer = await this.stripeService.createCustomer(
           tenantId,
           tenant.contactEmail || '',
-          tenant.name || ''
+          tenant.name || '',
         );
         await this.prisma.tenant.update({
           where: { id: tenantId },
@@ -334,16 +366,23 @@ export class PaymentService {
         throw new Error('Stripe customer ID is missing');
       }
 
-      await this.stripeService.attachPaymentMethod(tenantId, stripeCustomerId, paymentMethodId);
+      await this.stripeService.attachPaymentMethod(
+        tenantId,
+        stripeCustomerId,
+        paymentMethodId,
+      );
 
-  await this.auditLogService.log(null, 'payment_method_added', {
+      await this.auditLogService.log(null, 'payment_method_added', {
         tenantId,
         paymentMethodId,
       });
 
       return { success: true };
     } catch (error) {
-      this.logger.error(`Failed to add payment method for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to add payment method for tenant: ${tenantId}`,
+        error,
+      );
       throw error;
     }
   }
@@ -355,15 +394,18 @@ export class PaymentService {
     try {
       await this.stripeService.detachPaymentMethod(tenantId, paymentMethodId);
 
-  await this.auditLogService.log(null, 'payment_method_removed', {
+      await this.auditLogService.log(null, 'payment_method_removed', {
         tenantId,
         paymentMethodId,
       });
 
       return { success: true };
     } catch (error) {
-      this.logger.error(`Failed to remove payment method for tenant: ${tenantId}`, error);
+      this.logger.error(
+        `Failed to remove payment method for tenant: ${tenantId}`,
+        error,
+      );
       throw error;
     }
   }
-} 
+}

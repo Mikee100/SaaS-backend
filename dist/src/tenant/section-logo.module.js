@@ -19,7 +19,7 @@ exports.SectionLogoModule = SectionLogoModule = __decorate([
     (0, common_1.Module)({
         controllers: [section_logo_controller_1.SectionLogoController],
         providers: [section_logo_service_1.SectionLogoService, prisma_service_1.PrismaService, logo_service_1.LogoService],
-        exports: [section_logo_service_1.SectionLogoService]
+        exports: [section_logo_service_1.SectionLogoService],
     })
 ], SectionLogoModule);
 //# sourceMappingURL=section-logo.module.js.map

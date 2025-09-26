@@ -7,6 +7,6 @@ import { LogoService } from './logo.service';
 @Module({
   controllers: [SectionLogoController],
   providers: [SectionLogoService, PrismaService, LogoService],
-  exports: [SectionLogoService]
+  exports: [SectionLogoService],
 })
 export class SectionLogoModule {}

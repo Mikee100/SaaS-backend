@@ -6,12 +6,13 @@ export class BranchService {
   constructor(private prisma: PrismaService) {}
 
   async createBranch(data: any) {
-  // Only use tenantId for linking branch to tenant
-  const branchData = { ...data };
-  // Remove any accidental tenant object
-  if ('tenant' in branchData) delete branchData.tenant;
-  if (!branchData.tenantId) throw new Error('tenantId is required to create a branch');
-  return this.prisma.branch.create({ data: branchData });
+    // Only use tenantId for linking branch to tenant
+    const branchData = { ...data };
+    // Remove any accidental tenant object
+    if ('tenant' in branchData) delete branchData.tenant;
+    if (!branchData.tenantId)
+      throw new Error('tenantId is required to create a branch');
+    return this.prisma.branch.create({ data: branchData });
   }
 
   async getAllBranches() {
@@ -38,7 +39,7 @@ export class BranchService {
     // Verify the user exists and get their tenant
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { tenant: true }
+      include: { tenant: true },
     });
 
     if (!user) {
@@ -51,10 +52,10 @@ export class BranchService {
 
     // Verify the branch exists and belongs to the same tenant
     const branch = await this.prisma.branch.findFirst({
-      where: { 
+      where: {
         id: branchId,
-        tenantId: user.tenantId 
-      }
+        tenantId: user.tenantId,
+      },
     });
 
     if (!branch) {
@@ -65,7 +66,7 @@ export class BranchService {
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        branchId: branchId
+        branchId: branchId,
       },
       select: {
         id: true,
@@ -75,10 +76,10 @@ export class BranchService {
           select: {
             id: true,
             name: true,
-            address: true
-          }
-        }
-      }
+            address: true,
+          },
+        },
+      },
     });
   }
 }

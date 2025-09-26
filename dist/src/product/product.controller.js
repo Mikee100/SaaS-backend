@@ -41,7 +41,10 @@ let ProductController = class ProductController {
     }
     async bulkUpload(file, req) {
         const branchId = req.headers['x-branch-id'];
-        return this.productService.bulkUpload(file, { ...req.user, branchId });
+        return this.productService.bulkUpload(file, {
+            ...req.user,
+            branchId,
+        });
     }
     async getBulkUploadProgress(uploadId) {
         return product_service_1.ProductService.getBulkUploadProgress(uploadId);

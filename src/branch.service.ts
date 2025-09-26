@@ -11,7 +11,10 @@ export class BranchService {
   }
 
   async findAllByTenant(tenantId: string) {
-    return this.prisma.branch.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.branch.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findById(id: string, tenantId: string) {

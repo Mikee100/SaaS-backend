@@ -13,8 +13,14 @@ async function bootstrap() {
         const app = await core_1.NestFactory.create(app_module_1.AppModule);
         const isProduction = process.env.NODE_ENV === 'production';
         const allowedOrigins = isProduction
-            ? (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim())
-            : ['http://localhost:3000', 'http://localhost:5000', 'http://localhost:9000'];
+            ? (process.env.CORS_ORIGINS || '')
+                .split(',')
+                .map((origin) => origin.trim())
+            : [
+                'http://localhost:3000',
+                'http://localhost:5000',
+                'http://localhost:9000',
+            ];
         logger.debug('CORS Configuration:');
         logger.debug(`- Allowed Origins: ${JSON.stringify(allowedOrigins)}`);
         logger.debug(`- Production Mode: ${isProduction}`);
@@ -24,22 +30,25 @@ async function bootstrap() {
                     logger.debug('Allowing request with no origin');
                     return callback(null, true);
                 }
-                const allowedOriginsList = isProduction ? allowedOrigins : [
-                    ...allowedOrigins,
-                    'http://localhost:3000',
-                    'http://localhost:5000',
-                    'http://localhost:9000',
-                    'http://127.0.0.1:3000',
-                    'http://127.0.0.1:5000',
-                    'http://127.0.0.1:9000'
-                ];
-                const isAllowed = !isProduction || allowedOriginsList.some(allowedOrigin => {
-                    const matches = origin === allowedOrigin || origin.startsWith(allowedOrigin);
-                    if (matches) {
-                        logger.debug(`Origin ${origin} matches allowed origin: ${allowedOrigin}`);
-                    }
-                    return matches;
-                });
+                const allowedOriginsList = isProduction
+                    ? allowedOrigins
+                    : [
+                        ...allowedOrigins,
+                        'http://localhost:3000',
+                        'http://localhost:5000',
+                        'http://localhost:9000',
+                        'http://127.0.0.1:3000',
+                        'http://127.0.0.1:5000',
+                        'http://127.0.0.1:9000',
+                    ];
+                const isAllowed = !isProduction ||
+                    allowedOriginsList.some((allowedOrigin) => {
+                        const matches = origin === allowedOrigin || origin.startsWith(allowedOrigin);
+                        if (matches) {
+                            logger.debug(`Origin ${origin} matches allowed origin: ${allowedOrigin}`);
+                        }
+                        return matches;
+                    });
                 if (isAllowed) {
                     logger.debug(`Allowing CORS request from origin: ${origin}`);
                     callback(null, true);
@@ -77,7 +86,7 @@ async function bootstrap() {
                 'Pragma',
                 'If-Modified-Since',
                 'Accept-Language',
-                'Accept-Encoding'
+                'Accept-Encoding',
             ],
             exposedHeaders: [
                 'Content-Length',
@@ -87,7 +96,7 @@ async function bootstrap() {
                 'x-branch-id',
                 'Access-Control-Allow-Origin',
                 'Access-Control-Allow-Credentials',
-                'Set-Cookie'
+                'Set-Cookie',
             ],
             maxAge: 86400,
         });
@@ -132,7 +141,7 @@ async function bootstrap() {
         process.exit(1);
     }
 }
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
     console.error('Failed to start application:', err);
     process.exit(1);
 });

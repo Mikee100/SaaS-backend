@@ -84,7 +84,11 @@ let TenantConfigurationController = class TenantConfigurationController {
         await Promise.all([
             this.tenantConfigurationService.setStripeSecretKey(tenantId, dto.secretKey),
             this.tenantConfigurationService.setStripePublishableKey(tenantId, dto.publishableKey),
-            ...(dto.webhookSecret ? [this.tenantConfigurationService.setStripeWebhookSecret(tenantId, dto.webhookSecret)] : []),
+            ...(dto.webhookSecret
+                ? [
+                    this.tenantConfigurationService.setStripeWebhookSecret(tenantId, dto.webhookSecret),
+                ]
+                : []),
         ]);
         if (dto.autoCreateProducts) {
             const stripeService = req.app.get('StripeService');
@@ -115,7 +119,7 @@ let TenantConfigurationController = class TenantConfigurationController {
         const priceIds = await stripeService.createStripeProductsAndPrices(tenantId);
         return {
             message: 'Stripe products and prices created successfully',
-            priceIds
+            priceIds,
         };
     }
     async updateStripePrices(dto, req) {
@@ -124,7 +128,7 @@ let TenantConfigurationController = class TenantConfigurationController {
         const priceIds = await stripeService.updateStripePrices(tenantId, dto);
         return {
             message: 'Stripe prices updated successfully',
-            priceIds
+            priceIds,
         };
     }
 };

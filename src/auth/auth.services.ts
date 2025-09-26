@@ -15,7 +15,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     const user = await this.userService.findByEmail(email);
-    if (user && await bcrypt.compare(password, user.password)) {
+    if (user && (await bcrypt.compare(password, user.password))) {
       const { password, ...result } = user;
       return result;
     }
@@ -32,18 +32,18 @@ export class AuthService {
               include: {
                 permissions: {
                   include: {
-                    permission: true
-                  }
-                }
-              }
+                    permission: true,
+                  },
+                },
+              },
             },
-            tenant: true
-          }
-        }
+            tenant: true,
+          },
+        },
       });
 
-      console.log('the user: ',user);
-      
+      console.log('the user: ', user);
+
       // 2. Check if user exists and password is correct
       if (!user || !(await bcrypt.compare(password, user.password))) {
         if (this.auditLogService) {
@@ -52,22 +52,26 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-
       // 3. Get user's roles and tenant from user.userRoles
       const userWithRoles = user as any; // Cast to include userRoles
       const userRoles = userWithRoles.userRoles || [];
       let tenantId: string | null = null;
       if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
-        tenantId = (userRoles[0] as any).tenantId;
+        tenantId = userRoles[0].tenantId;
       }
       if (!tenantId) {
-        throw new UnauthorizedException('No tenant assigned to this user. Please contact support.');
+        throw new UnauthorizedException(
+          'No tenant assigned to this user. Please contact support.',
+        );
       }
       // 4. Get user's permissions
       const userPermissions: string[] = [];
       try {
-        const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
-        perms.forEach(perm => {
+        const perms = await this.userService.getEffectivePermissions(
+          user.id,
+          tenantId,
+        );
+        perms.forEach((perm) => {
           if (perm.name) userPermissions.push(perm.name);
         });
       } catch (error) {
@@ -75,7 +79,7 @@ export class AuthService {
       }
 
       // 5. Prepare JWT payload with all necessary user data
-      const roles = userRoles.map(ur => ur.role?.name).filter(Boolean) || [];
+      const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
       const payload = {
         sub: user.id,
         email: user.email,
@@ -83,7 +87,7 @@ export class AuthService {
         tenantId: tenantId,
         branchId: user.branchId || null,
         roles: roles,
-        permissions: userPermissions
+        permissions: userPermissions,
       };
 
       console.log('JWT Payload:', JSON.stringify(payload, null, 2));
@@ -103,8 +107,12 @@ export class AuthService {
         await this.auditLogService.log(
           user.id,
           'login_success',
-          { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId },
-          ip
+          {
+            email: user.email,
+            tenantId: payload.tenantId,
+            branchId: payload.branchId,
+          },
+          ip,
         );
       }
 
@@ -118,8 +126,8 @@ export class AuthService {
           tenantId: payload.tenantId,
           branchId: payload.branchId,
           roles: payload.roles,
-          permissions: payload.permissions
-        }
+          permissions: payload.permissions,
+        },
       };
     } catch (error) {
       console.error('Login error:', error);
@@ -131,7 +139,10 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
     if (!user) {
       // Don't reveal if user exists or not
-      return { message: 'If an account with that email exists, a password reset link has been sent.' };
+      return {
+        message:
+          'If an account with that email exists, a password reset link has been sent.',
+      };
     }
 
     // Generate a secure token
@@ -147,9 +158,14 @@ export class AuthService {
     // TODO: Send email with reset link
     // For now, just log the token (in production, send email)
     console.log(`Password reset token for ${email}: ${resetToken}`);
-    console.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+    console.log(
+      `Reset link: http://localhost:3000/reset-password?token=${resetToken}`,
+    );
 
-    return { message: 'If an account with that email exists, a password reset link has been sent.' };
+    return {
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {

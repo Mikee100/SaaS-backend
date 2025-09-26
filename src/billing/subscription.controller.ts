@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Body, Req, UseGuards, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  UseGuards,
+  Param,
+} from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -8,7 +16,10 @@ export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   @Post('create')
-  async createSubscription(@Body() body: { planId: string; paymentMethodId?: string }, @Req() req) {
+  async createSubscription(
+    @Body() body: { planId: string; paymentMethodId?: string },
+    @Req() req,
+  ) {
     return await this.subscriptionService.createSubscription({
       tenantId: req.user.tenantId,
       planId: body.planId,
@@ -17,8 +28,14 @@ export class SubscriptionController {
   }
 
   @Post('update')
-  async updateSubscription(@Body() body: { planId: string; effectiveDate?: Date }, @Req() req) {
-    return await this.subscriptionService.updateSubscription(req.user.tenantId, body);
+  async updateSubscription(
+    @Body() body: { planId: string; effectiveDate?: Date },
+    @Req() req,
+  ) {
+    return await this.subscriptionService.updateSubscription(
+      req.user.tenantId,
+      body,
+    );
   }
 
   @Post('cancel')
@@ -28,6 +45,8 @@ export class SubscriptionController {
 
   @Get('history')
   async getSubscriptionHistory(@Req() req) {
-    return await this.subscriptionService.getSubscriptionHistory(req.user.tenantId);
+    return await this.subscriptionService.getSubscriptionHistory(
+      req.user.tenantId,
+    );
   }
 }

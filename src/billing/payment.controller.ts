@@ -1,6 +1,13 @@
- 
-
-import { Controller, Post, Get, Body, Req, UseGuards, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  UseGuards,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
@@ -11,32 +18,32 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-
-    @Post('methods')
-    async savePaymentMethod(
-      @Body() body: { paymentMethodId: string },
-      @Req() req,
-    ) {
-      try {
-        await this.paymentService.addPaymentMethod(
-          req.user?.tenantId,
-          body.paymentMethodId,
-        );
-        return { success: true };
-      } catch (error) {
-        console.error('Error saving payment method:', error.message);
-        return { success: false, error: error.message };
-      }
+  @Post('methods')
+  async savePaymentMethod(
+    @Body() body: { paymentMethodId: string },
+    @Req() req,
+  ) {
+    try {
+      await this.paymentService.addPaymentMethod(
+        req.user?.tenantId,
+        body.paymentMethodId,
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving payment method:', error.message);
+      return { success: false, error: error.message };
     }
+  }
 
-    
   /**
    * Get payment methods
    */
   @Get('methods')
   async getPaymentMethods(@Req() req) {
     try {
-      const methods = await this.paymentService.getPaymentMethods(req.user.tenantId);
+      const methods = await this.paymentService.getPaymentMethods(
+        req.user.tenantId,
+      );
 
       return {
         success: true,
@@ -50,15 +57,14 @@ export class PaymentController {
     }
   }
 
-
-
   /**
    * Process a one-time payment
    */
   @Post('process')
   @Permissions('edit_billing')
   async processPayment(
-    @Body() body: {
+    @Body()
+    body: {
       amount: number;
       currency: string;
       description: string;
@@ -123,7 +129,8 @@ export class PaymentController {
   @Post('generate-invoice')
   @Permissions('edit_billing')
   async generateInvoice(
-    @Body() body: {
+    @Body()
+    body: {
       subscriptionId: string;
       amount: number;
       currency?: string;
@@ -211,7 +218,8 @@ export class PaymentController {
   @Post('refund')
   @Permissions('edit_billing')
   async refundPayment(
-    @Body() body: {
+    @Body()
+    body: {
       paymentId: string;
       amount?: number;
       reason?: string;
@@ -310,7 +318,4 @@ export class PaymentController {
       };
     }
   }
-
-
-    
-} 
+}

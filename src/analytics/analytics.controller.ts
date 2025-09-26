@@ -5,24 +5,24 @@ import { AnalyticsService } from './analytics.service';
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
-  
+
   @Get('basic')
   @UseGuards(AuthGuard('jwt'))
   async getBasicAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
-    
+
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
-    
+
     try {
       const data = await this.analyticsService.getDashboardAnalytics(tenantId);
       return {
         totalSales: data.totalSales,
         totalRevenue: data.totalRevenue,
         totalProducts: data.totalProducts,
-        message: 'Basic analytics available to all plans'
+        message: 'Basic analytics available to all plans',
       };
     } catch (error) {
       console.error('Error fetching basic analytics:', error);
@@ -35,11 +35,11 @@ export class AnalyticsController {
   async getDashboardAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
-    
+
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
-    
+
     try {
       return await this.analyticsService.getDashboardAnalytics(tenantId);
     } catch (error) {
@@ -52,11 +52,11 @@ export class AnalyticsController {
   @UseGuards(AuthGuard('jwt'))
   async getAdvancedAnalytics(@Req() req: any) {
     const tenantId = req.user.tenantId;
-    
+
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
-    
+
     try {
       const data = await this.analyticsService.getDashboardAnalytics(tenantId);
       return {
@@ -73,11 +73,11 @@ export class AnalyticsController {
   @UseGuards(AuthGuard('jwt'))
   async getEnterpriseAnalytics(@Req() req: any) {
     const tenantId = req.user.tenantId;
-    
+
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
-    
+
     try {
       const data = await this.analyticsService.getDashboardAnalytics(tenantId);
       return {

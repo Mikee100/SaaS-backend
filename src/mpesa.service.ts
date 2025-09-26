@@ -24,21 +24,30 @@ export class MpesaService {
           userId,
           tenantId,
           ...rest,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       : {
           id: `mpesa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           tenantId,
           ...rest,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
     return this.prisma.mpesaTransaction.create({ data: createData });
   }
 
-  async updateTransaction(checkoutRequestId: string, update: Partial<{ status: string; mpesaReceipt: string; responseCode: string; responseDesc: string; message: string; }>) {
+  async updateTransaction(
+    checkoutRequestId: string,
+    update: Partial<{
+      status: string;
+      mpesaReceipt: string;
+      responseCode: string;
+      responseDesc: string;
+      message: string;
+    }>,
+  ) {
     return this.prisma.mpesaTransaction.updateMany({
       where: { checkoutRequestID: checkoutRequestId },
       data: update,
     });
   }
-} 
+}

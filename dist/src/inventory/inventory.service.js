@@ -79,7 +79,10 @@ let InventoryService = class InventoryService {
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: result.id, ...dto }, ip);
         }
-        this.realtimeGateway.emitInventoryUpdate({ productId: dto.productId, quantity: dto.quantity });
+        this.realtimeGateway.emitInventoryUpdate({
+            productId: dto.productId,
+            quantity: dto.quantity,
+        });
         return result;
     }
     async updateInventory(id, dto, tenantId, actorUserId, ip) {

@@ -26,11 +26,7 @@ exports.SalesModule = SalesModule = __decorate([
             config_module_1.ConfigModule,
         ],
         controllers: [sales_controller_1.SalesController],
-        providers: [
-            sales_service_1.SalesService,
-            prisma_service_1.PrismaService,
-            audit_log_service_1.AuditLogService,
-        ],
+        providers: [sales_service_1.SalesService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
         exports: [sales_service_1.SalesService],
     })
 ], SalesModule);

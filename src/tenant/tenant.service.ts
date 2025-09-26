@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
@@ -8,22 +13,65 @@ export class TenantService {
   private readonly logger = new Logger(TenantService.name);
 
   constructor(
-    private prisma: PrismaService, 
-    private userService: UserService
+    private prisma: PrismaService,
+    private userService: UserService,
   ) {}
 
   async createTenant(data: any): Promise<any> {
     // Only allow valid Tenant fields
     const allowedFields = [
-      'name', 'businessType', 'contactEmail', 'contactPhone',
-      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
-      'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
-      'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
-      'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-      'currency', 'timezone', 'invoiceFooter', 'credits', 'logoUrl', 'loginLogoUrl', 'favicon', 'receiptLogo', 'watermark',
-      'dashboardLogoUrl', 'emailLogoUrl', 'mobileLogoUrl', 'logoSettings',
-      'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-      'ssoEnabled', 'auditLogsEnabled', 'backupRestore', 'stripeCustomerId'
+      'name',
+      'businessType',
+      'contactEmail',
+      'contactPhone',
+      'businessCategory',
+      'businessSubcategory',
+      'primaryProducts',
+      'secondaryProducts',
+      'businessDescription',
+      'address',
+      'city',
+      'state',
+      'country',
+      'postalCode',
+      'latitude',
+      'longitude',
+      'foundedYear',
+      'employeeCount',
+      'annualRevenue',
+      'businessHours',
+      'website',
+      'socialMedia',
+      'kraPin',
+      'vatNumber',
+      'etimsQrUrl',
+      'businessLicense',
+      'taxId',
+      'currency',
+      'timezone',
+      'invoiceFooter',
+      'credits',
+      'logoUrl',
+      'loginLogoUrl',
+      'favicon',
+      'receiptLogo',
+      'watermark',
+      'dashboardLogoUrl',
+      'emailLogoUrl',
+      'mobileLogoUrl',
+      'logoSettings',
+      'primaryColor',
+      'secondaryColor',
+      'customDomain',
+      'whiteLabel',
+      'apiKey',
+      'webhookUrl',
+      'rateLimit',
+      'customIntegrations',
+      'ssoEnabled',
+      'auditLogsEnabled',
+      'backupRestore',
+      'stripeCustomerId',
     ];
     const filtered: any = {};
     for (const key of allowedFields) {
@@ -32,7 +80,10 @@ export class TenantService {
     const tenant = await this.prisma.tenant.create({ data: filtered });
 
     // Automatically create default stockThreshold configuration for new tenant
-    const tenantConfigurationService = new (require('../config/tenant-configuration.service').TenantConfigurationService)(this.prisma);
+    const tenantConfigurationService =
+      new (require('../config/tenant-configuration.service').TenantConfigurationService)(
+        this.prisma,
+      );
     await tenantConfigurationService.setTenantConfiguration(
       tenant.id,
       'stockThreshold',
@@ -42,7 +93,7 @@ export class TenantService {
         category: 'general',
         isEncrypted: false,
         isPublic: true,
-      }
+      },
     );
 
     return tenant;
@@ -53,61 +104,64 @@ export class TenantService {
   }
 
   async getTenantById(tenantId: string) {
-    return this.prisma.tenant.findUnique({ 
-      where: { id: tenantId } 
+    return this.prisma.tenant.findUnique({
+      where: { id: tenantId },
     });
   }
 
   async getTenant(tenantId: string) {
-    return this.prisma.tenant.findUnique({ 
-      where: { id: tenantId } 
+    return this.prisma.tenant.findUnique({
+      where: { id: tenantId },
     });
   }
 
-  async updateTenant(tenantId: string, dto: Partial<{
-    name: string;
-    businessType: string;
-    contactEmail: string;
-    contactPhone: string | null;
-    businessCategory: string | null;
-    businessSubcategory: string | null;
-    primaryProducts: any;
-    secondaryProducts: any;
-    businessDescription: string | null;
-    address: string | null;
-    city: string | null;
-    state: string | null;
-    country: string | null;
-    postalCode: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    foundedYear: number | null;
-    employeeCount: string | null;
-    annualRevenue: string | null;
-    businessHours: any;
-    website: string | null;
-    socialMedia: any;
-    kraPin: string | null;
-    vatNumber: string | null;
-    etimsQrUrl: string | null;
-    businessLicense: string | null;
-    taxId: string | null;
-    currency: string | null;
-    timezone: string | null;
-    invoiceFooter: string | null;
-    logoUrl: string | null;
-    favicon: string | null;
-    receiptLogo: string | null;
-    watermark: string | null;
-    primaryColor: string | null;
-    secondaryColor: string | null;
-    customDomain: string | null;
-    whiteLabel: boolean | null;
-    apiKey: string | null;
-    webhookUrl: string | null;
-    rateLimit: number | null;
-    stripeCustomerId: string | null;
-  }>) {
+  async updateTenant(
+    tenantId: string,
+    dto: Partial<{
+      name: string;
+      businessType: string;
+      contactEmail: string;
+      contactPhone: string | null;
+      businessCategory: string | null;
+      businessSubcategory: string | null;
+      primaryProducts: any;
+      secondaryProducts: any;
+      businessDescription: string | null;
+      address: string | null;
+      city: string | null;
+      state: string | null;
+      country: string | null;
+      postalCode: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      foundedYear: number | null;
+      employeeCount: string | null;
+      annualRevenue: string | null;
+      businessHours: any;
+      website: string | null;
+      socialMedia: any;
+      kraPin: string | null;
+      vatNumber: string | null;
+      etimsQrUrl: string | null;
+      businessLicense: string | null;
+      taxId: string | null;
+      currency: string | null;
+      timezone: string | null;
+      invoiceFooter: string | null;
+      logoUrl: string | null;
+      favicon: string | null;
+      receiptLogo: string | null;
+      watermark: string | null;
+      primaryColor: string | null;
+      secondaryColor: string | null;
+      customDomain: string | null;
+      whiteLabel: boolean | null;
+      apiKey: string | null;
+      webhookUrl: string | null;
+      rateLimit: number | null;
+      stripeCustomerId: string | null;
+    }>,
+  ) {
     // Get existing tenant
     const existingTenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -119,17 +173,51 @@ export class TenantService {
 
     // Update tenant
     const updateData: any = {};
-    
+
     // Only include fields that are defined in the DTO and are valid tenant fields
     const validTenantFields = [
-      'name', 'businessType', 'contactEmail', 'contactPhone',
-      'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 
-      'businessDescription', 'address', 'city', 'state', 'country', 'postalCode', 
-      'latitude', 'longitude', 'foundedYear', 'employeeCount', 'annualRevenue', 
-      'businessHours', 'website', 'socialMedia', 'kraPin', 'vatNumber', 'etimsQrUrl', 
-      'businessLicense', 'taxId', 'currency', 'timezone', 'invoiceFooter', 'logoUrl', 
-      'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor', 
-      'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
+      'name',
+      'businessType',
+      'contactEmail',
+      'contactPhone',
+      'businessCategory',
+      'businessSubcategory',
+      'primaryProducts',
+      'secondaryProducts',
+      'businessDescription',
+      'address',
+      'city',
+      'state',
+      'country',
+      'postalCode',
+      'latitude',
+      'longitude',
+      'foundedYear',
+      'employeeCount',
+      'annualRevenue',
+      'businessHours',
+      'website',
+      'socialMedia',
+      'kraPin',
+      'vatNumber',
+      'etimsQrUrl',
+      'businessLicense',
+      'taxId',
+      'currency',
+      'timezone',
+      'invoiceFooter',
+      'logoUrl',
+      'favicon',
+      'receiptLogo',
+      'watermark',
+      'primaryColor',
+      'secondaryColor',
+      'customDomain',
+      'whiteLabel',
+      'apiKey',
+      'webhookUrl',
+      'rateLimit',
+      'stripeCustomerId',
     ];
 
     for (const key of validTenantFields) {
@@ -146,11 +234,11 @@ export class TenantService {
     return updatedTenant;
   }
 
-  async createOwnerUser(data: { 
-    name: string; 
-    email: string; 
-    password: string; 
-    tenantId: string; 
+  async createOwnerUser(data: {
+    name: string;
+    email: string;
+    password: string;
+    tenantId: string;
     role?: string;
   }) {
     try {
@@ -163,7 +251,10 @@ export class TenantService {
         role: data.role || 'admin',
       });
     } catch (error) {
-      this.logger.error(`Error creating owner user for tenant ${data.tenantId}:`, error);
+      this.logger.error(
+        `Error creating owner user for tenant ${data.tenantId}:`,
+        error,
+      );
       throw new BadRequestException('Failed to create owner user');
     }
   }

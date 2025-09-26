@@ -21,7 +21,10 @@ let BranchService = class BranchService {
         return this.prisma.branch.create({ data });
     }
     async findAllByTenant(tenantId) {
-        return this.prisma.branch.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+        return this.prisma.branch.findMany({
+            where: { tenantId },
+            orderBy: { createdAt: 'desc' },
+        });
     }
     async findById(id, tenantId) {
         return this.prisma.branch.findFirst({ where: { id, tenantId } });

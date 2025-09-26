@@ -25,7 +25,7 @@ let PermissionsGuard = class PermissionsGuard {
         const user = request.user;
         console.log('[PermissionsGuard] user:', JSON.stringify(user));
         const roles = Array.isArray(user.roles)
-            ? user.roles.map(r => typeof r === 'string' ? r : r.name)
+            ? user.roles.map((r) => (typeof r === 'string' ? r : r.name))
             : [];
         if (roles.includes('owner') || roles.includes('admin')) {
             console.log('[PermissionsGuard] Owner/admin bypass');
@@ -34,7 +34,7 @@ let PermissionsGuard = class PermissionsGuard {
         const requiredPermissions = this.reflector.get('permissions', context.getHandler());
         if (!requiredPermissions)
             return true;
-        const hasAll = requiredPermissions.every(permission => user.permissions && user.permissions.includes(permission));
+        const hasAll = requiredPermissions.every((permission) => user.permissions && user.permissions.includes(permission));
         if (!hasAll) {
             console.warn('[PermissionsGuard] Missing permissions:', requiredPermissions, 'User has:', user.permissions);
         }

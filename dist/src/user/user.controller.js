@@ -31,7 +31,7 @@ let UserController = class UserController {
             email: user.email,
             name: user.name,
             roles: user.roles || [],
-            permissions: permissions.map(p => p.name),
+            permissions: permissions.map((p) => p.name),
             tenantId: user.tenantId,
             branchId: user.branchId,
             isSuperadmin: user.isSuperadmin || false,
@@ -39,7 +39,9 @@ let UserController = class UserController {
     }
     async updateUserPermissions(req, id, body) {
         const actorUser = await this.userService.findById(req.user.userId);
-        const isOwner = actorUser && actorUser.userRoles && actorUser.userRoles.some(ur => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
+        const isOwner = actorUser &&
+            actorUser.userRoles &&
+            actorUser.userRoles.some((ur) => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId);
         if (!isOwner)
             throw new common_1.ForbiddenException('Only owners can update user permissions');
         const targetUser = await this.userService.findById(id);
@@ -64,7 +66,7 @@ let UserController = class UserController {
                 const permissions = await this.userService.getEffectivePermissions(user.id, tenantId);
                 return {
                     ...user,
-                    permissions: permissions.map(p => p.name)
+                    permissions: permissions.map((p) => p.name),
                 };
             }));
             return usersWithPermissions;

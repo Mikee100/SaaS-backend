@@ -1,4 +1,11 @@
-import { IsArray, IsString, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsString,
+  IsNumber,
+  IsOptional,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SaleItemDto {

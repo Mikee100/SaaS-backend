@@ -8,10 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [UserModule, AuthModule],
   controllers: [BranchController],
-  providers: [
-    BranchService, 
-    PrismaService
-  ],
+  providers: [BranchService, PrismaService],
   exports: [BranchService],
 })
 export class BranchModule {}

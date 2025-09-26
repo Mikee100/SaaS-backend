@@ -50,8 +50,8 @@ let SubscriptionService = class SubscriptionService {
                     ssoEnabled: true,
                     auditLogs: true,
                     backupRestore: true,
-                    customIntegrations: true
-                }
+                    customIntegrations: true,
+                },
             });
             if (!plan) {
                 console.error('Plan not found:', data.planId);
@@ -88,7 +88,7 @@ let SubscriptionService = class SubscriptionService {
                     userId: 'system',
                     cancelAtPeriodEnd: false,
                     trialEnd: null,
-                    canceledAt: null
+                    canceledAt: null,
                 },
                 include: {
                     Plan: true,
@@ -192,14 +192,17 @@ let SubscriptionService = class SubscriptionService {
         }
     }
     isPlanUpgrade(currentPlan, newPlan) {
-        const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };
+        const planHierarchy = { Basic: 1, Pro: 2, Enterprise: 3 };
         const currentLevel = planHierarchy[currentPlan] || 0;
         const newLevel = planHierarchy[newPlan] || 0;
         return newLevel > currentLevel;
     }
     async handleUpgrade(currentSubscription, newPlan) {
-        const daysRemaining = Math.ceil((currentSubscription.currentPeriodEnd.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        const totalDays = Math.ceil((currentSubscription.currentPeriodEnd.getTime() - currentSubscription.currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24));
+        const daysRemaining = Math.ceil((currentSubscription.currentPeriodEnd.getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24));
+        const totalDays = Math.ceil((currentSubscription.currentPeriodEnd.getTime() -
+            currentSubscription.currentPeriodStart.getTime()) /
+            (1000 * 60 * 60 * 24));
         const prorationRatio = daysRemaining / totalDays;
         const currentPlanPrice = currentSubscription.plan.price;
         const newPlanPrice = newPlan.price;

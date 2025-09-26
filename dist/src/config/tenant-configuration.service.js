@@ -17,7 +17,8 @@ const crypto = require("crypto");
 let TenantConfigurationService = TenantConfigurationService_1 = class TenantConfigurationService {
     prisma;
     logger = new common_1.Logger(TenantConfigurationService_1.name);
-    encryptionKey = process.env.CONFIG_ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
+    encryptionKey = process.env.CONFIG_ENCRYPTION_KEY ||
+        'default-encryption-key-change-in-production';
     constructor(prisma) {
         this.prisma = prisma;
     }
@@ -43,13 +44,15 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                     tenantId_key: {
                         tenantId,
                         key,
-                    }
+                    },
                 },
             });
             if (!config) {
                 return null;
             }
-            return config.isEncrypted ? this.decryptValue(config.value) : config.value;
+            return config.isEncrypted
+                ? this.decryptValue(config.value)
+                : config.value;
         }
         catch (error) {
             this.logger.error(`Failed to get tenant configuration for key: ${key}, tenant: ${tenantId}`, error);
@@ -65,7 +68,7 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                     tenantId_key: {
                         tenantId,
                         key,
-                    }
+                    },
                 },
                 update: {
                     value: finalValue,
@@ -101,7 +104,7 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                 ...(category && { category }),
             };
             const configs = await this.prisma.tenantConfiguration.findMany({ where });
-            return configs.map(config => ({
+            return configs.map((config) => ({
                 key: config.key,
                 value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
                 description: config.description || undefined,
@@ -122,7 +125,7 @@ let TenantConfigurationService = TenantConfigurationService_1 = class TenantConf
                     tenantId_key: {
                         tenantId,
                         key,
-                    }
+                    },
                 },
             });
             this.logger.log(`Tenant configuration deleted: ${key} for tenant: ${tenantId}`);

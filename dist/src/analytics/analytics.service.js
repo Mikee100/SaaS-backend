@@ -21,36 +21,36 @@ let AnalyticsService = class AnalyticsService {
         const now = new Date();
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const [totalSales, totalRevenue, totalProducts, totalCustomers, salesByDay, salesByWeek, salesByMonth, topProducts, inventoryAnalytics] = await Promise.all([
+        const [totalSales, totalRevenue, totalProducts, totalCustomers, salesByDay, salesByWeek, salesByMonth, topProducts, inventoryAnalytics,] = await Promise.all([
             this.prisma.sale.count({
                 where: {
                     tenantId,
-                    createdAt: { gte: thirtyDaysAgo }
-                }
+                    createdAt: { gte: thirtyDaysAgo },
+                },
             }),
             this.prisma.sale.aggregate({
                 where: {
                     tenantId,
-                    createdAt: { gte: thirtyDaysAgo }
+                    createdAt: { gte: thirtyDaysAgo },
                 },
-                _sum: { total: true }
+                _sum: { total: true },
             }),
             this.prisma.product.count({
-                where: { tenantId }
+                where: { tenantId },
             }),
             this.prisma.sale.groupBy({
                 by: ['customerPhone'],
                 where: {
                     tenantId,
-                    customerPhone: { not: null }
+                    customerPhone: { not: null },
                 },
-                _count: true
+                _count: true,
             }),
             this.getSalesByTimePeriod(tenantId, 'day'),
             this.getSalesByTimePeriod(tenantId, 'week'),
             this.getSalesByTimePeriod(tenantId, 'month'),
             this.getTopProducts(tenantId, 5),
-            this.getInventoryAnalytics(tenantId)
+            this.getInventoryAnalytics(tenantId),
         ]);
         const repeatCustomers = await this.getRepeatCustomers(tenantId);
         const totalUniqueCustomers = totalCustomers.length;
@@ -70,19 +70,21 @@ let AnalyticsService = class AnalyticsService {
             customerRetention: {
                 totalCustomers: totalUniqueCustomers,
                 repeatCustomers,
-                retentionRate: parseFloat(retentionRate.toFixed(2))
+                retentionRate: parseFloat(retentionRate.toFixed(2)),
             },
             inventoryAnalytics,
             performanceMetrics,
-            realTimeData: await this.getRealTimeData(tenantId)
+            realTimeData: await this.getRealTimeData(tenantId),
         };
     }
     async getSalesByTimePeriod(tenantId, period) {
         const now = new Date();
-        const format = period === 'day' ? 'YYYY-MM-DD' :
-            period === 'week' ? '\'Week\' WW' : 'YYYY-MM';
-        const groupBy = period === 'day' ? 'day' :
-            period === 'week' ? 'week' : 'month';
+        const format = period === 'day'
+            ? 'YYYY-MM-DD'
+            : period === 'week'
+                ? "'Week' WW"
+                : 'YYYY-MM';
+        const groupBy = period === 'day' ? 'day' : period === 'week' ? 'week' : 'month';
         const date = new Date();
         if (period === 'day')
             date.setDate(date.getDate() - 7);
@@ -103,41 +105,43 @@ let AnalyticsService = class AnalyticsService {
     `;
         return sales.reduce((acc, curr) => ({
             ...acc,
-            [curr.period]: parseFloat(curr.total)
+            [curr.period]: parseFloat(curr.total),
         }), {});
     }
     async getTopProducts(tenantId, limit) {
         const topProducts = await this.prisma.saleItem.groupBy({
             by: ['productId'],
             where: {
-                sale: { tenantId }
+                sale: { tenantId },
             },
             _sum: {
                 quantity: true,
-                price: true
+                price: true,
             },
             _count: true,
             orderBy: {
                 _sum: {
-                    price: 'desc'
-                }
+                    price: 'desc',
+                },
             },
-            take: limit
+            take: limit,
         });
         const productDetails = await Promise.all(topProducts.map(async (item) => {
             const product = await this.prisma.product.findUnique({
-                where: { id: item.productId }
+                where: { id: item.productId },
             });
-            const revenue = item._sum.price ? parseFloat(item._sum.price.toString()) : 0;
+            const revenue = item._sum.price
+                ? parseFloat(item._sum.price.toString())
+                : 0;
             const quantity = item._sum.quantity || 0;
-            const cost = product ? (product.cost * quantity) : 0;
+            const cost = product ? product.cost * quantity : 0;
             const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
             return {
                 name: product?.name || 'Unknown Product',
                 sales: item._sum.quantity,
                 revenue: revenue,
                 margin: parseFloat(margin.toFixed(2)),
-                cost: parseFloat(cost.toFixed(2))
+                cost: parseFloat(cost.toFixed(2)),
             };
         }));
         return productDetails;
@@ -145,7 +149,7 @@ let AnalyticsService = class AnalyticsService {
     async getInventoryAnalytics(tenantId) {
         const products = await this.prisma.product.findMany({
             where: { tenantId },
-            include: { inventory: true }
+            include: { inventory: true },
         });
         const lowStockThreshold = 10;
         const overstockThreshold = 100;
@@ -153,7 +157,7 @@ let AnalyticsService = class AnalyticsService {
         let overstockItems = 0;
         let totalStockValue = 0;
         let totalCost = 0;
-        products.forEach(product => {
+        products.forEach((product) => {
             const stock = product.inventory.reduce((sum, inv) => sum + inv.quantity, 0);
             const value = stock * (product.price || 0);
             const cost = stock * (product.cost || 0);
@@ -166,18 +170,16 @@ let AnalyticsService = class AnalyticsService {
         });
         const cogs = await this.getCostOfGoodsSold(tenantId, 30);
         const avgInventoryValue = totalCost / 2;
-        const inventoryTurnover = avgInventoryValue > 0
-            ? cogs / avgInventoryValue
-            : 0;
+        const inventoryTurnover = avgInventoryValue > 0 ? cogs / avgInventoryValue : 0;
         const stockoutRate = products.length > 0
-            ? products.filter(p => p.stock <= 0).length / products.length
+            ? products.filter((p) => p.stock <= 0).length / products.length
             : 0;
         return {
             lowStockItems,
             overstockItems,
             inventoryTurnover: parseFloat(inventoryTurnover.toFixed(2)),
             stockoutRate: parseFloat(stockoutRate.toFixed(2)),
-            totalStockValue: parseFloat(totalStockValue.toFixed(2))
+            totalStockValue: parseFloat(totalStockValue.toFixed(2)),
         };
     }
     async getCostOfGoodsSold(tenantId, days) {
@@ -187,16 +189,16 @@ let AnalyticsService = class AnalyticsService {
             where: {
                 sale: {
                     tenantId,
-                    createdAt: { gte: date }
-                }
+                    createdAt: { gte: date },
+                },
             },
             include: {
-                product: true
-            }
+                product: true,
+            },
         });
         return sales.reduce((sum, item) => {
             const cost = item.product?.cost || 0;
-            return sum + (cost * item.quantity);
+            return sum + cost * item.quantity;
         }, 0);
     }
     async getRepeatCustomers(tenantId) {
@@ -216,19 +218,19 @@ let AnalyticsService = class AnalyticsService {
         const salesData = await this.prisma.sale.aggregate({
             where: {
                 tenantId,
-                createdAt: { gte: thirtyDaysAgo }
+                createdAt: { gte: thirtyDaysAgo },
             },
             _sum: { total: true },
-            _count: true
+            _count: true,
         });
         const customerCount = await this.prisma.sale.groupBy({
             by: ['customerPhone'],
             where: {
                 tenantId,
                 customerPhone: { not: null },
-                createdAt: { gte: thirtyDaysAgo }
+                createdAt: { gte: thirtyDaysAgo },
             },
-            _count: true
+            _count: true,
         });
         const totalRevenue = salesData._sum.total || 0;
         const totalSales = salesData._count;
@@ -240,14 +242,15 @@ let AnalyticsService = class AnalyticsService {
             ? 1000 / totalCustomers
             : 0;
         const returnOnInvestment = customerAcquisitionCost > 0
-            ? (customerLifetimeValue - customerAcquisitionCost) / customerAcquisitionCost
+            ? (customerLifetimeValue - customerAcquisitionCost) /
+                customerAcquisitionCost
             : 0;
         const netPromoterScore = 45;
         return {
             customerLifetimeValue: parseFloat(customerLifetimeValue.toFixed(2)),
             customerAcquisitionCost: parseFloat(customerAcquisitionCost.toFixed(2)),
             returnOnInvestment: parseFloat(returnOnInvestment.toFixed(2)),
-            netPromoterScore: Math.min(100, Math.max(-100, netPromoterScore))
+            netPromoterScore: Math.min(100, Math.max(-100, netPromoterScore)),
         };
     }
     async getRealTimeData(tenantId) {
@@ -256,28 +259,28 @@ let AnalyticsService = class AnalyticsService {
         const salesToday = await this.prisma.sale.count({
             where: {
                 tenantId,
-                createdAt: { gte: today }
-            }
+                createdAt: { gte: today },
+            },
         });
         const revenueToday = await this.prisma.sale.aggregate({
             where: {
                 tenantId,
-                createdAt: { gte: today }
+                createdAt: { gte: today },
             },
-            _sum: { total: true }
+            _sum: { total: true },
         });
         const activeUsers = await this.prisma.sale.groupBy({
             by: ['userId'],
             where: {
                 tenantId,
-                createdAt: { gte: today }
-            }
+                createdAt: { gte: today },
+            },
         });
         const activeSales = await this.prisma.sale.count({
             where: {
                 tenantId,
-                createdAt: { gte: new Date(Date.now() - 3600000) }
-            }
+                createdAt: { gte: new Date(Date.now() - 3600000) },
+            },
         });
         return {
             currentUsers: activeUsers.length,
@@ -285,7 +288,7 @@ let AnalyticsService = class AnalyticsService {
             revenueToday: revenueToday._sum.total || 0,
             ordersInProgress: salesToday,
             averageSessionDuration: 8.5,
-            bounceRate: 0.32
+            bounceRate: 0.32,
         };
     }
 };

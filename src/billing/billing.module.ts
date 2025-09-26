@@ -15,26 +15,26 @@ import { ConfigModule } from '../config/config.module';
 
 @Module({
   imports: [
-    forwardRef(() => UserModule), 
+    forwardRef(() => UserModule),
     PrismaModule,
     ConfigModule, // Add ConfigModule to provide CONFIG_OPTIONS
   ],
   controllers: [BillingController, PaymentController, SubscriptionController],
   providers: [
-    BillingService, 
+    BillingService,
     PaymentService,
-    StripeService, 
+    StripeService,
     SubscriptionService,
     BillingLoggerService,
     TenantConfigurationService,
     AuditLogService,
   ],
   exports: [
-    BillingService, 
-    PaymentService, 
-    StripeService, 
-    SubscriptionService, 
-    BillingLoggerService
+    BillingService,
+    PaymentService,
+    StripeService,
+    SubscriptionService,
+    BillingLoggerService,
   ],
 })
 export class BillingModule {}

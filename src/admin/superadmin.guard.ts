@@ -21,4 +21,4 @@ export class SuperadminGuard implements CanActivate {
 
     return dbUser?.isSuperadmin === true;
   }
-} 
+}

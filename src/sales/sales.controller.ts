@@ -1,11 +1,23 @@
-import { Controller, Post, Body, Req, UseGuards, Get, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Get,
+  Param,
+} from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './create-sale.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { NotFoundException } from '@nestjs/common';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
-import { BadRequestException, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('sales')
@@ -35,10 +47,10 @@ export class SalesController {
     try {
       // Try to get all sales
       const sales = await this.salesService.listSales('test-tenant-id');
-      return { 
-        message: 'Database connected', 
+      return {
+        message: 'Database connected',
         salesCount: sales.length,
-        sales: sales.slice(0, 5) // Return first 5 sales
+        sales: sales.slice(0, 5), // Return first 5 sales
       };
     } catch (error) {
       return { message: 'Database error', error: error.message };
@@ -56,10 +68,15 @@ export class SalesController {
   @Permissions('view_sales')
   async getReceipt(@Param('id') id: string, @Req() req) {
     const requestId = Math.random().toString(36).substring(2, 9);
-    const logContext = { requestId, saleId: id, userId: req.user?.id, tenantId: req.user?.tenantId };
-    
+    const logContext = {
+      requestId,
+      saleId: id,
+      userId: req.user?.id,
+      tenantId: req.user?.tenantId,
+    };
+
     console.log('Receipt request received:', { ...logContext });
-    
+
     try {
       if (!id) {
         console.error('Missing sale ID in request', logContext);
@@ -73,15 +90,18 @@ export class SalesController {
 
       console.log('Fetching sale details...', logContext);
       const sale = await this.salesService.getSaleById(id, req.user.tenantId);
-      
+
       if (!sale) {
         console.error('Sale not found', logContext);
         throw new NotFoundException('Sale not found');
       }
 
-      console.log('Fetching tenant info...', { ...logContext, saleId: sale.id });
+      console.log('Fetching tenant info...', {
+        ...logContext,
+        saleId: sale.id,
+      });
       const tenant = await this.salesService.getTenantInfo(req.user.tenantId);
-      
+
       if (!tenant) {
         console.error('Tenant not found', logContext);
         throw new NotFoundException('Business information not found');
@@ -94,11 +114,11 @@ export class SalesController {
         date: sale.createdAt,
         customerName: sale.customerName || 'Walk-in Customer',
         customerPhone: sale.customerPhone || 'N/A',
-        items: sale.items.map(item => ({
+        items: sale.items.map((item) => ({
           productId: item.productId,
           name: item.product?.name || 'Unknown Product',
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
         })),
         total: sale.total,
         paymentMethod: sale.paymentType,
@@ -108,38 +128,44 @@ export class SalesController {
           name: tenant.name,
           address: tenant.address,
           phone: tenant.contactPhone,
-          email: tenant.contactEmail
+          email: tenant.contactEmail,
         },
-        branch: sale.Branch ? {
-          id: sale.Branch.id,
-          name: sale.Branch.name,
-          address: sale.Branch.address || ''
-        } : null
+        branch: sale.Branch
+          ? {
+              id: sale.Branch.id,
+              name: sale.Branch.name,
+              address: sale.Branch.address || '',
+            }
+          : null,
       };
 
-      console.log('Sending receipt response', { ...logContext, saleId: response.id });
+      console.log('Sending receipt response', {
+        ...logContext,
+        saleId: response.id,
+      });
       return response;
     } catch (error) {
-      console.error('Error generating receipt:', { ...logContext, error: error.message });
+      console.error('Error generating receipt:', {
+        ...logContext,
+        error: error.message,
+      });
       throw new InternalServerErrorException('Failed to generate receipt');
     }
   }
-
-  
 
   @Get('recent')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
   async getRecentSales(@Req() req) {
     const requestId = Math.random().toString(36).substring(2, 9);
-    const logContext = { 
-      requestId, 
-      userId: req.user?.id, 
-      tenantId: req.user?.tenantId 
+    const logContext = {
+      requestId,
+      userId: req.user?.id,
+      tenantId: req.user?.tenantId,
     };
-    
+
     console.log('Recent sales request received:', { ...logContext });
-    
+
     try {
       if (!req.user?.tenantId) {
         console.error('Missing tenant ID in user context', logContext);
@@ -147,13 +173,16 @@ export class SalesController {
       }
 
       console.log('Fetching recent sales...', logContext);
-      const recentSales = await this.salesService.getRecentSales(req.user.tenantId, 10);
-      
-      console.log(`Found ${recentSales.length} recent sales`, { 
-        ...logContext, 
-        salesCount: recentSales.length 
+      const recentSales = await this.salesService.getRecentSales(
+        req.user.tenantId,
+        10,
+      );
+
+      console.log(`Found ${recentSales.length} recent sales`, {
+        ...logContext,
+        salesCount: recentSales.length,
       });
-      
+
       return recentSales;
     } catch (error) {
       console.error('Error fetching recent sales:', {
@@ -191,9 +220,9 @@ export class SalesController {
       const sale = await this.salesService.createSale(
         saleData,
         req.user.tenantId,
-        req.user.userId
+        req.user.userId,
       );
-      
+
       return {
         success: true,
         data: sale,

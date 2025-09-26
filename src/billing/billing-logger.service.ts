@@ -103,11 +103,16 @@ export class BillingLoggerService {
     userAgent: string,
     additionalData: Record<string, any> = {},
   ) {
-    await this.logBillingEvent(userId, `security_${event}`, {
-      ipAddress,
-      userAgent,
-      ...additionalData,
-    }, 'warn');
+    await this.logBillingEvent(
+      userId,
+      `security_${event}`,
+      {
+        ipAddress,
+        userAgent,
+        ...additionalData,
+      },
+      'warn',
+    );
   }
 
   /**
@@ -136,10 +141,15 @@ export class BillingLoggerService {
     error: Error,
     context: Record<string, any> = {},
   ) {
-    await this.logBillingEvent(userId, 'error', {
-      error: error.message,
-      stack: error.stack,
-      ...context,
-    }, 'error');
+    await this.logBillingEvent(
+      userId,
+      'error',
+      {
+        error: error.message,
+        stack: error.stack,
+        ...context,
+      },
+      'error',
+    );
   }
-} 
+}

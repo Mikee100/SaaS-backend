@@ -13,29 +13,29 @@ export declare class ProductController {
     findAll(req: any): Promise<{
         id: string;
         name: string;
+        description: string | null;
+        createdAt: Date;
+        tenantId: string;
+        updatedAt: Date;
+        branchId: string | null;
         sku: string;
         price: number;
-        description: string | null;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         stock: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         cost: number;
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
+        description: string | null;
+        createdAt: Date;
+        tenantId: string;
+        updatedAt: Date;
+        branchId: string | null;
         sku: string;
         price: number;
-        description: string | null;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         stock: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         cost: number;
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{

@@ -17,7 +17,8 @@ const crypto = require("crypto");
 let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
     prisma;
     logger = new common_1.Logger(ConfigurationService_1.name);
-    encryptionKey = process.env.CONFIG_ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
+    encryptionKey = process.env.CONFIG_ENCRYPTION_KEY ||
+        'default-encryption-key-change-in-production';
     constructor(prisma) {
         this.prisma = prisma;
     }
@@ -44,7 +45,9 @@ let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
             if (!config) {
                 return null;
             }
-            return config.isEncrypted ? this.decryptValue(config.value) : config.value;
+            return config.isEncrypted
+                ? this.decryptValue(config.value)
+                : config.value;
         }
         catch (error) {
             this.logger.error(`Failed to get configuration for key: ${key}`, error);
@@ -87,7 +90,7 @@ let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
         try {
             const where = category ? { category } : {};
             const configs = await this.prisma.systemConfiguration.findMany({ where });
-            return configs.map(config => ({
+            return configs.map((config) => ({
                 key: config.key,
                 value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
                 description: config.description || undefined,
@@ -114,10 +117,10 @@ let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
         }
     }
     async getApiBaseUrl() {
-        return await this.getConfiguration('API_BASE_URL') || 'http://localhost:4000';
+        return ((await this.getConfiguration('API_BASE_URL')) || 'http://localhost:4000');
     }
     async getFrontendUrl() {
-        return await this.getConfiguration('FRONTEND_URL') || 'http://localhost:5000';
+        return ((await this.getConfiguration('FRONTEND_URL')) || 'http://localhost:5000');
     }
     async getJwtSecret() {
         const secret = await this.getConfiguration('JWT_SECRET');
@@ -127,10 +130,10 @@ let ConfigurationService = ConfigurationService_1 = class ConfigurationService {
         return secret;
     }
     async getAiServiceUrl() {
-        return await this.getConfiguration('AI_SERVICE_URL') || 'http://localhost:5000';
+        return ((await this.getConfiguration('AI_SERVICE_URL')) || 'http://localhost:5000');
     }
     async getEmailServiceUrl() {
-        return await this.getConfiguration('EMAIL_SERVICE_URL') || '';
+        return (await this.getConfiguration('EMAIL_SERVICE_URL')) || '';
     }
     async initializeDefaultConfigurations() {
         const defaultConfigs = [

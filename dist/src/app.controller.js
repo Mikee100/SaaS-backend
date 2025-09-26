@@ -28,14 +28,14 @@ let AppController = class AppController {
         const tenantId = req.user.tenantId;
         try {
             const totalSales = await this.prisma.sale.count({
-                where: { tenantId }
+                where: { tenantId },
             });
             const totalProducts = await this.prisma.product.count({
-                where: { tenantId }
+                where: { tenantId },
             });
             const salesData = await this.prisma.sale.findMany({
                 where: { tenantId },
-                select: { total: true }
+                select: { total: true },
             });
             const totalRevenue = salesData.reduce((sum, sale) => sum + sale.total, 0);
             const now = new Date();
@@ -46,19 +46,19 @@ let AppController = class AppController {
                     tenantId,
                     createdAt: {
                         gte: startOfMonth,
-                        lte: endOfMonth
-                    }
+                        lte: endOfMonth,
+                    },
                 },
-                select: { total: true }
+                select: { total: true },
             });
             const monthlyRevenue = monthlySales.reduce((sum, sale) => sum + sale.total, 0);
             const uniqueCustomers = await this.prisma.sale.findMany({
                 where: {
                     tenantId,
-                    customerName: { not: null }
+                    customerName: { not: null },
                 },
                 select: { customerName: true },
-                distinct: ['customerName']
+                distinct: ['customerName'],
             });
             const totalCustomers = uniqueCustomers.length;
             const recentSales = await this.prisma.sale.findMany({
@@ -67,14 +67,14 @@ let AppController = class AppController {
                 take: 5,
                 include: {
                     User: {
-                        select: { name: true }
-                    }
-                }
+                        select: { name: true },
+                    },
+                },
             });
             const recentProducts = await this.prisma.product.findMany({
                 where: { tenantId },
                 orderBy: { createdAt: 'desc' },
-                take: 3
+                take: 3,
             });
             return {
                 totalSales,
@@ -83,20 +83,20 @@ let AppController = class AppController {
                 totalRevenue,
                 monthlyRevenue,
                 recentActivity: {
-                    sales: recentSales.map(sale => ({
+                    sales: recentSales.map((sale) => ({
                         id: sale.id,
                         amount: sale.total,
                         customer: sale.customerName || 'Anonymous',
                         date: sale.createdAt,
-                        user: sale.User.name
+                        user: sale.User.name,
                     })),
-                    products: recentProducts.map(product => ({
+                    products: recentProducts.map((product) => ({
                         id: product.id,
                         name: product.name,
                         price: product.price,
-                        date: product.createdAt
-                    }))
-                }
+                        date: product.createdAt,
+                    })),
+                },
             };
         }
         catch (error) {
@@ -109,8 +109,8 @@ let AppController = class AppController {
                 monthlyRevenue: 0,
                 recentActivity: {
                     sales: [],
-                    products: []
-                }
+                    products: [],
+                },
             };
         }
     }
@@ -118,10 +118,10 @@ let AppController = class AppController {
         const tenantId = req.user.tenantId;
         try {
             const userCount = await this.prisma.userRole.count({
-                where: { tenantId }
+                where: { tenantId },
             });
             const productCount = await this.prisma.product.count({
-                where: { tenantId }
+                where: { tenantId },
             });
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -131,23 +131,23 @@ let AppController = class AppController {
                     tenantId,
                     createdAt: {
                         gte: startOfMonth,
-                        lte: endOfMonth
-                    }
-                }
+                        lte: endOfMonth,
+                    },
+                },
             });
             return {
                 users: {
                     current: userCount,
-                    limit: 10
+                    limit: 10,
                 },
                 products: {
                     current: productCount,
-                    limit: 50
+                    limit: 50,
                 },
                 sales: {
                     current: monthlySales,
-                    limit: 100
-                }
+                    limit: 100,
+                },
             };
         }
         catch (error) {
@@ -155,7 +155,7 @@ let AppController = class AppController {
             return {
                 users: { current: 1, limit: 10 },
                 products: { current: 0, limit: 50 },
-                sales: { current: 0, limit: 100 }
+                sales: { current: 0, limit: 100 },
             };
         }
     }

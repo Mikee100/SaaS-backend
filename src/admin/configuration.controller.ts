@@ -1,7 +1,20 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SuperadminGuard } from './superadmin.guard';
-import { ConfigurationService, ConfigurationItem } from '../config/configuration.service';
+import {
+  ConfigurationService,
+  ConfigurationItem,
+} from '../config/configuration.service';
 
 interface UpdateConfigurationDto {
   value: string;
@@ -58,7 +71,7 @@ export class ConfigurationController {
   @Put(':key')
   async updateConfiguration(
     @Param('key') key: string,
-    @Body() dto: UpdateConfigurationDto
+    @Body() dto: UpdateConfigurationDto,
   ) {
     await this.configurationService.setConfiguration(key, dto.value, {
       description: dto.description,
@@ -91,4 +104,4 @@ export class ConfigurationController {
       { value: 'general', label: 'General Settings' },
     ];
   }
-} 
+}

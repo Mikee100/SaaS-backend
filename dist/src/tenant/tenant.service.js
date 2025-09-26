@@ -25,15 +25,58 @@ let TenantService = TenantService_1 = class TenantService {
     }
     async createTenant(data) {
         const allowedFields = [
-            'name', 'businessType', 'contactEmail', 'contactPhone',
-            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts', 'businessDescription',
-            'address', 'city', 'state', 'country', 'postalCode', 'latitude', 'longitude',
-            'foundedYear', 'employeeCount', 'annualRevenue', 'businessHours', 'website', 'socialMedia',
-            'kraPin', 'vatNumber', 'etimsQrUrl', 'businessLicense', 'taxId',
-            'currency', 'timezone', 'invoiceFooter', 'credits', 'logoUrl', 'loginLogoUrl', 'favicon', 'receiptLogo', 'watermark',
-            'dashboardLogoUrl', 'emailLogoUrl', 'mobileLogoUrl', 'logoSettings',
-            'primaryColor', 'secondaryColor', 'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'customIntegrations',
-            'ssoEnabled', 'auditLogsEnabled', 'backupRestore', 'stripeCustomerId'
+            'name',
+            'businessType',
+            'contactEmail',
+            'contactPhone',
+            'businessCategory',
+            'businessSubcategory',
+            'primaryProducts',
+            'secondaryProducts',
+            'businessDescription',
+            'address',
+            'city',
+            'state',
+            'country',
+            'postalCode',
+            'latitude',
+            'longitude',
+            'foundedYear',
+            'employeeCount',
+            'annualRevenue',
+            'businessHours',
+            'website',
+            'socialMedia',
+            'kraPin',
+            'vatNumber',
+            'etimsQrUrl',
+            'businessLicense',
+            'taxId',
+            'currency',
+            'timezone',
+            'invoiceFooter',
+            'credits',
+            'logoUrl',
+            'loginLogoUrl',
+            'favicon',
+            'receiptLogo',
+            'watermark',
+            'dashboardLogoUrl',
+            'emailLogoUrl',
+            'mobileLogoUrl',
+            'logoSettings',
+            'primaryColor',
+            'secondaryColor',
+            'customDomain',
+            'whiteLabel',
+            'apiKey',
+            'webhookUrl',
+            'rateLimit',
+            'customIntegrations',
+            'ssoEnabled',
+            'auditLogsEnabled',
+            'backupRestore',
+            'stripeCustomerId',
         ];
         const filtered = {};
         for (const key of allowedFields) {
@@ -55,12 +98,12 @@ let TenantService = TenantService_1 = class TenantService {
     }
     async getTenantById(tenantId) {
         return this.prisma.tenant.findUnique({
-            where: { id: tenantId }
+            where: { id: tenantId },
         });
     }
     async getTenant(tenantId) {
         return this.prisma.tenant.findUnique({
-            where: { id: tenantId }
+            where: { id: tenantId },
         });
     }
     async updateTenant(tenantId, dto) {
@@ -72,14 +115,48 @@ let TenantService = TenantService_1 = class TenantService {
         }
         const updateData = {};
         const validTenantFields = [
-            'name', 'businessType', 'contactEmail', 'contactPhone',
-            'businessCategory', 'businessSubcategory', 'primaryProducts', 'secondaryProducts',
-            'businessDescription', 'address', 'city', 'state', 'country', 'postalCode',
-            'latitude', 'longitude', 'foundedYear', 'employeeCount', 'annualRevenue',
-            'businessHours', 'website', 'socialMedia', 'kraPin', 'vatNumber', 'etimsQrUrl',
-            'businessLicense', 'taxId', 'currency', 'timezone', 'invoiceFooter', 'logoUrl',
-            'favicon', 'receiptLogo', 'watermark', 'primaryColor', 'secondaryColor',
-            'customDomain', 'whiteLabel', 'apiKey', 'webhookUrl', 'rateLimit', 'stripeCustomerId'
+            'name',
+            'businessType',
+            'contactEmail',
+            'contactPhone',
+            'businessCategory',
+            'businessSubcategory',
+            'primaryProducts',
+            'secondaryProducts',
+            'businessDescription',
+            'address',
+            'city',
+            'state',
+            'country',
+            'postalCode',
+            'latitude',
+            'longitude',
+            'foundedYear',
+            'employeeCount',
+            'annualRevenue',
+            'businessHours',
+            'website',
+            'socialMedia',
+            'kraPin',
+            'vatNumber',
+            'etimsQrUrl',
+            'businessLicense',
+            'taxId',
+            'currency',
+            'timezone',
+            'invoiceFooter',
+            'logoUrl',
+            'favicon',
+            'receiptLogo',
+            'watermark',
+            'primaryColor',
+            'secondaryColor',
+            'customDomain',
+            'whiteLabel',
+            'apiKey',
+            'webhookUrl',
+            'rateLimit',
+            'stripeCustomerId',
         ];
         for (const key of validTenantFields) {
             if (dto[key] !== undefined && dto[key] !== null) {

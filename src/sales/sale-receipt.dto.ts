@@ -10,4 +10,4 @@ export class SaleReceiptDto {
   change: number;
   customerName?: string;
   customerPhone?: string;
-} 
+}

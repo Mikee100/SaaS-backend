@@ -10,7 +10,7 @@ export class InventoryService {
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
-    private realtimeGateway: RealtimeGateway // Inject gateway
+    private realtimeGateway: RealtimeGateway, // Inject gateway
   ) {}
 
   async findAllByBranch(tenantId: string, branchId: string) {
@@ -29,7 +29,12 @@ export class InventoryService {
     });
   }
 
-  async createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string) {
+  async createInventory(
+    dto: CreateInventoryDto,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     // Use a transaction to update both inventory and product stock
     const result = await this.prisma.$transaction(async (prisma) => {
       // Check if inventory record already exists
@@ -77,14 +82,28 @@ export class InventoryService {
     });
 
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'inventory_created', { inventoryId: result.id, ...dto }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'inventory_created',
+        { inventoryId: result.id, ...dto },
+        ip,
+      );
     }
     // Emit real-time event
-    this.realtimeGateway.emitInventoryUpdate({ productId: dto.productId, quantity: dto.quantity });
+    this.realtimeGateway.emitInventoryUpdate({
+      productId: dto.productId,
+      quantity: dto.quantity,
+    });
     return result;
   }
 
-  async updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string, actorUserId?: string, ip?: string) {
+  async updateInventory(
+    id: string,
+    dto: UpdateInventoryDto,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     // Use a transaction to update both inventory and product stock
     const result = await this.prisma.$transaction(async (prisma) => {
       // Update inventory record
@@ -118,20 +137,35 @@ export class InventoryService {
     });
 
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'inventory_updated', { inventoryId: id, updatedFields: dto }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'inventory_updated',
+        { inventoryId: id, updatedFields: dto },
+        ip,
+      );
     }
     // Emit real-time event
     this.realtimeGateway.emitInventoryUpdate({ inventoryId: id, ...dto });
     return result;
   }
 
-  async deleteInventory(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+  async deleteInventory(
+    id: string,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const result = await this.prisma.inventory.deleteMany({
       where: { id, tenantId },
     });
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'inventory_deleted', { inventoryId: id }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'inventory_deleted',
+        { inventoryId: id },
+        ip,
+      );
     }
     return result;
   }
-} 
+}

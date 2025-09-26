@@ -20,7 +20,12 @@ exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
         controllers: [admin_controller_1.AdminController, configuration_controller_1.ConfigurationController],
-        providers: [admin_service_1.AdminService, prisma_service_1.PrismaService, superadmin_guard_1.SuperadminGuard, configuration_service_1.ConfigurationService],
+        providers: [
+            admin_service_1.AdminService,
+            prisma_service_1.PrismaService,
+            superadmin_guard_1.SuperadminGuard,
+            configuration_service_1.ConfigurationService,
+        ],
         exports: [admin_service_1.AdminService, configuration_service_1.ConfigurationService],
     })
 ], AdminModule);

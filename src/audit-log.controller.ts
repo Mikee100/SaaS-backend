@@ -14,4 +14,4 @@ export class AuditLogController {
   async getLogs(@Query('limit') limit: string) {
     return this.auditLogService.getLogs(Number(limit) || 100);
   }
-} 
+}

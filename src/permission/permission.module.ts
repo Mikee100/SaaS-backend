@@ -10,4 +10,4 @@ import { UserModule } from '../user/user.module';
   providers: [PermissionService, PrismaService],
   imports: [UserModule],
 })
-export class PermissionModule {} 
+export class PermissionModule {}

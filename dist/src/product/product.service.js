@@ -20,10 +20,10 @@ const billing_service_1 = require("../billing/billing.service");
 const bulkUploadProgress = {};
 function findColumnMatch(headers, candidates) {
     for (const candidate of candidates) {
-        const exact = headers.find(h => h.toLowerCase() === candidate.toLowerCase());
+        const exact = headers.find((h) => h.toLowerCase() === candidate.toLowerCase());
         if (exact)
             return exact;
-        const partial = headers.find(h => h.toLowerCase().includes(candidate.toLowerCase()));
+        const partial = headers.find((h) => h.toLowerCase().includes(candidate.toLowerCase()));
         if (partial)
             return partial;
     }
@@ -63,7 +63,7 @@ let ProductService = class ProductService {
         }
         const productData = {
             ...data,
-            id: (0, uuid_1.v4)()
+            id: (0, uuid_1.v4)(),
         };
         if (productData.stock !== undefined) {
             productData.stock = parseInt(String(productData.stock), 10);
@@ -75,7 +75,7 @@ let ProductService = class ProductService {
             productData.price = parseFloat(String(productData.price));
         }
         const product = await this.prisma.product.create({
-            data: productData
+            data: productData,
         });
         if (this.auditLogService) {
             await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
@@ -120,9 +120,13 @@ let ProductService = class ProductService {
         const workbook = XLSX.read(file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const rows = XLSX.utils.sheet_to_json(sheet, {
+            defval: '',
+        });
         if (rows.length === 0) {
-            return { summary: [{ status: 'error', error: 'No data found in file.' }] };
+            return {
+                summary: [{ status: 'error', error: 'No data found in file.' }],
+            };
         }
         if (!uploadId)
             uploadId = (0, uuid_1.v4)();
@@ -131,7 +135,7 @@ let ProductService = class ProductService {
         if (!branchId) {
             const branch = await this.prisma.branch.findFirst({
                 where: { tenantId: user.tenantId },
-                select: { id: true }
+                select: { id: true },
             });
             if (branch) {
                 branchId = branch.id;
@@ -142,9 +146,29 @@ let ProductService = class ProductService {
         }
         console.log(`Using branch ID for bulk upload: ${branchId}`);
         const headers = Object.keys(rows[0]);
-        const nameCandidates = ['name', 'product name', 'item name', 'description', 'title'];
-        const skuCandidates = ['sku', 'product id', 'product code', 'partnumber', 'part number', 'code', 'id'];
-        const priceCandidates = ['price', 'unit price', 'cost', 'price usd', 'amount'];
+        const nameCandidates = [
+            'name',
+            'product name',
+            'item name',
+            'description',
+            'title',
+        ];
+        const skuCandidates = [
+            'sku',
+            'product id',
+            'product code',
+            'partnumber',
+            'part number',
+            'code',
+            'id',
+        ];
+        const priceCandidates = [
+            'price',
+            'unit price',
+            'cost',
+            'price usd',
+            'amount',
+        ];
         const nameCol = findColumnMatch(headers, nameCandidates);
         const skuCol = findColumnMatch(headers, skuCandidates);
         const priceCol = findColumnMatch(headers, priceCandidates);
@@ -176,10 +200,12 @@ let ProductService = class ProductService {
                             stock: stock !== undefined ? parseInt(String(stock)) : 0,
                             tenantId: user.tenantId,
                             branchId: branchId,
-                            ...(Object.keys(customFields).length > 0 && { customFields })
+                            ...(Object.keys(customFields).length > 0 && { customFields }),
                         };
                         console.log('Creating product:', productData);
-                        const createdProduct = await prisma.product.create({ data: productData });
+                        const createdProduct = await prisma.product.create({
+                            data: productData,
+                        });
                         createdProducts.push(createdProduct);
                         results.push({ row: mappedRow, status: 'success' });
                     }
@@ -195,9 +221,9 @@ let ProductService = class ProductService {
             if (this.auditLogService) {
                 await this.auditLogService.log(user.userId || null, 'products_bulk_upload', {
                     total: rows.length,
-                    successful: results.filter(r => r.status === 'success').length,
-                    failed: results.filter(r => r.status === 'error').length,
-                    branchId
+                    successful: results.filter((r) => r.status === 'success').length,
+                    failed: results.filter((r) => r.status === 'error').length,
+                    branchId,
                 }, user.ip);
             }
         }
@@ -205,26 +231,32 @@ let ProductService = class ProductService {
             console.error('Bulk upload transaction failed:', error);
             throw new Error(`Bulk upload failed: ${error.message}`);
         }
-        setTimeout(() => { delete bulkUploadProgress[uploadId]; }, 60000);
+        setTimeout(() => {
+            delete bulkUploadProgress[uploadId];
+        }, 60000);
         return { summary: results, uploadId };
     }
     async getProductCount(tenantId, branchId) {
         return this.prisma.product.count({
             where: {
                 tenantId,
-                ...(branchId && { branchId })
-            }
+                ...(branchId && { branchId }),
+            },
         });
     }
     static getBulkUploadProgress(uploadId) {
         return bulkUploadProgress[uploadId] || null;
     }
     async clearAll(tenantId) {
-        const deleted = await this.prisma.product.deleteMany({ where: { tenantId } });
+        const deleted = await this.prisma.product.deleteMany({
+            where: { tenantId },
+        });
         return { deletedCount: deleted.count };
     }
     async randomizeAllStocks(tenantId) {
-        const products = await this.prisma.product.findMany({ where: { tenantId } });
+        const products = await this.prisma.product.findMany({
+            where: { tenantId },
+        });
         for (const product of products) {
             const randomStock = Math.floor(Math.random() * 191) + 10;
             await this.prisma.product.update({
@@ -243,7 +275,7 @@ let ProductService = class ProductService {
         }
         const qrCodeDataUrl = await qrcode.toDataURL(product.id);
         res.setHeader('Content-Type', 'image/png');
-        const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, "");
+        const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
         const img = Buffer.from(base64Data, 'base64');
         res.send(img);
     }

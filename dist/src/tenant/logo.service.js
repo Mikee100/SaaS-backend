@@ -27,7 +27,7 @@ let LogoService = LogoService_1 = class LogoService {
                 logoUrl: true,
                 etimsQrUrl: true,
                 country: true,
-            }
+            },
         });
         if (!tenant) {
             throw new Error('Tenant not found');
@@ -50,7 +50,7 @@ let LogoService = LogoService_1 = class LogoService {
         return {
             requirements,
             missing,
-            compliance
+            compliance,
         };
     }
     async getLogoUsage(tenantId) {
@@ -62,7 +62,7 @@ let LogoService = LogoService_1 = class LogoService {
                 receiptLogo: true,
                 etimsQrUrl: true,
                 watermark: true,
-            }
+            },
         });
         if (!tenant) {
             throw new Error('Tenant not found');
@@ -83,22 +83,23 @@ let LogoService = LogoService_1 = class LogoService {
         }
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { country: true }
+            select: { country: true },
         });
-        if (tenant?.country === 'Kenya' && !validation.missing.includes('KRA eTIMS QR Code')) {
+        if (tenant?.country === 'Kenya' &&
+            !validation.missing.includes('KRA eTIMS QR Code')) {
             recommendations.push('Consider uploading a KRA eTIMS QR code for tax compliance');
         }
         return {
             compliant: validation.compliance,
             missing: validation.missing,
-            recommendations
+            recommendations,
         };
     }
     async validateLogoFile(file, logoType) {
         const result = {
             isValid: true,
             errors: [],
-            warnings: []
+            warnings: [],
         };
         const maxSizes = {
             main: 2 * 1024 * 1024,
@@ -133,12 +134,14 @@ let LogoService = LogoService_1 = class LogoService {
         const totalLogos = Object.values(logos).filter(Boolean).length;
         const requiredLogos = Object.values(validation.requirements).filter(Boolean).length;
         const optionalLogos = totalLogos - requiredLogos;
-        const complianceScore = validation.compliance ? 100 : Math.round((requiredLogos - validation.missing.length) / requiredLogos * 100);
+        const complianceScore = validation.compliance
+            ? 100
+            : Math.round(((requiredLogos - validation.missing.length) / requiredLogos) * 100);
         return {
             totalLogos,
             requiredLogos,
             optionalLogos,
-            complianceScore
+            complianceScore,
         };
     }
     async getLogoRequirements(tenantId) {

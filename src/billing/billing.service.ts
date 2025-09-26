@@ -29,8 +29,8 @@ export class BillingService {
     const tenants = await this.prisma.tenant.findMany({
       include: {
         Subscription: {
-          include: { 
-            Plan: true 
+          include: {
+            Plan: true,
           },
           orderBy: { currentPeriodStart: 'desc' },
         },
@@ -38,61 +38,71 @@ export class BillingService {
     });
 
     // Map tenants to subscription info with more billing details
-    return Promise.all(tenants.map(async tenant => {
-      // Get the most recent subscription, even if canceled or expired
-      const sub = tenant.Subscription?.[0];
-      
-      // Get last invoice
-      const lastInvoice = sub ? await this.prisma.invoice.findFirst({
-        where: { subscriptionId: sub.id },
-        orderBy: { createdAt: 'desc' },
-      }) : null;
-      
-      // Get last payment
-      const lastPayment = await this.prisma.payment.findFirst({
-        where: { tenantId: tenant.id },
-        orderBy: { createdAt: 'desc' },
-      });
-      
-      return {
-        tenantId: tenant.id,
-        clientName: tenant.name,
-        clientEmail: tenant.contactEmail,
-        plan: sub?.Plan ? {
-          name: sub.Plan.name,
-          price: sub.Plan.price,
-          interval: sub.Plan.interval,
-          features: {
-            maxUsers: sub.Plan.maxUsers,
-            maxProducts: sub.Plan.maxProducts,
-            maxSalesPerMonth: sub.Plan.maxSalesPerMonth,
-            analyticsEnabled: sub.Plan.analyticsEnabled,
-            advancedReports: sub.Plan.advancedReports,
-            prioritySupport: sub.Plan.prioritySupport,
-            customBranding: sub.Plan.customBranding,
-            apiAccess: sub.Plan.apiAccess,
-          },
-        } : null,
-        status: sub?.status || 'none',
-        startDate: sub?.currentPeriodStart,
-        currentPeriodEnd: sub?.currentPeriodEnd,
-        cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
-        lastInvoice: lastInvoice ? {
-          id: lastInvoice.id,
-          amount: lastInvoice.amount,
-          status: lastInvoice.status,
-          dueDate: lastInvoice.dueDate,
-          paidAt: lastInvoice.paidAt,
-        } : null,
-        lastPayment: lastPayment ? {
-          id: lastPayment.id,
-          amount: lastPayment.amount,
-          currency: lastPayment.currency,
-          status: lastPayment.status,
-          completedAt: lastPayment.completedAt,
-        } : null,
-      };
-    }));
+    return Promise.all(
+      tenants.map(async (tenant) => {
+        // Get the most recent subscription, even if canceled or expired
+        const sub = tenant.Subscription?.[0];
+
+        // Get last invoice
+        const lastInvoice = sub
+          ? await this.prisma.invoice.findFirst({
+              where: { subscriptionId: sub.id },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null;
+
+        // Get last payment
+        const lastPayment = await this.prisma.payment.findFirst({
+          where: { tenantId: tenant.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        return {
+          tenantId: tenant.id,
+          clientName: tenant.name,
+          clientEmail: tenant.contactEmail,
+          plan: sub?.Plan
+            ? {
+                name: sub.Plan.name,
+                price: sub.Plan.price,
+                interval: sub.Plan.interval,
+                features: {
+                  maxUsers: sub.Plan.maxUsers,
+                  maxProducts: sub.Plan.maxProducts,
+                  maxSalesPerMonth: sub.Plan.maxSalesPerMonth,
+                  analyticsEnabled: sub.Plan.analyticsEnabled,
+                  advancedReports: sub.Plan.advancedReports,
+                  prioritySupport: sub.Plan.prioritySupport,
+                  customBranding: sub.Plan.customBranding,
+                  apiAccess: sub.Plan.apiAccess,
+                },
+              }
+            : null,
+          status: sub?.status || 'none',
+          startDate: sub?.currentPeriodStart,
+          currentPeriodEnd: sub?.currentPeriodEnd,
+          cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
+          lastInvoice: lastInvoice
+            ? {
+                id: lastInvoice.id,
+                amount: lastInvoice.amount,
+                status: lastInvoice.status,
+                dueDate: lastInvoice.dueDate,
+                paidAt: lastInvoice.paidAt,
+              }
+            : null,
+          lastPayment: lastPayment
+            ? {
+                id: lastPayment.id,
+                amount: lastPayment.amount,
+                currency: lastPayment.currency,
+                status: lastPayment.status,
+                completedAt: lastPayment.completedAt,
+              }
+            : null,
+        };
+      }),
+    );
   }
 
   async getPlans() {
@@ -103,19 +113,20 @@ export class BillingService {
         include: {
           PlanFeatureOnPlan: {
             include: {
-              PlanFeature: true
+              PlanFeature: true,
             },
-            where: { isEnabled: true }
-          }
-        }
+            where: { isEnabled: true },
+          },
+        },
       });
-      
+
       // Map features to array of feature names for frontend
-      return plans.map(plan => ({
+      return plans.map((plan) => ({
         ...plan,
-        features: plan.PlanFeatureOnPlan
-          ?.map(f => f.PlanFeature?.featureName)
-          .filter((featureName): featureName is string => Boolean(featureName)) || []
+        features:
+          plan.PlanFeatureOnPlan?.map((f) => f.PlanFeature?.featureName).filter(
+            (featureName): featureName is string => Boolean(featureName),
+          ) || [],
       }));
     } catch (error) {
       console.error('Error fetching plans:', error);
@@ -199,11 +210,11 @@ export class BillingService {
   async hasFeature(tenantId: string, feature: string): Promise<boolean> {
     const subscription = await this.prisma.subscription.findFirst({
       where: { tenantId },
-      include: { 
-        Plan: true 
+      include: {
+        Plan: true,
       },
-      orderBy: { 
-        currentPeriodStart: 'desc' 
+      orderBy: {
+        currentPeriodStart: 'desc',
       },
     });
 
@@ -212,7 +223,7 @@ export class BillingService {
     }
 
     const plan = subscription.Plan;
-    
+
     switch (feature) {
       // Core features
       case 'analytics':
@@ -225,7 +236,7 @@ export class BillingService {
         return plan.customBranding;
       case 'api_access':
         return plan.apiAccess;
-      
+
       // New granular features
       case 'bulk_operations':
         return plan.bulkOperations || false;
@@ -247,7 +258,7 @@ export class BillingService {
         return plan.backupRestore || false;
       case 'custom_integrations':
         return plan.customIntegrations || false;
-      
+
       // Enterprise-specific features
       case 'enterprise_branding':
         return plan.customBranding && plan.whiteLabel;
@@ -257,7 +268,7 @@ export class BillingService {
         return plan.analyticsEnabled && plan.advancedReports;
       case 'security_audit':
         return plan.advancedSecurity && plan.auditLogs;
-      
+
       default:
         return false;
     }
@@ -265,15 +276,15 @@ export class BillingService {
 
   async getPlanLimits(tenantId: string) {
     try {
-  // ...existing code...
-      
+      // ...existing code...
+
       const subscription = await this.prisma.subscription.findFirst({
         where: { tenantId },
-        include: { 
-          Plan: true 
+        include: {
+          Plan: true,
         },
-        orderBy: { 
-          currentPeriodStart: 'desc' 
+        orderBy: {
+          currentPeriodStart: 'desc',
         },
       });
 
@@ -302,7 +313,7 @@ export class BillingService {
       }
 
       const plan = subscription.Plan;
-      
+
       return {
         maxUsers: plan.maxUsers,
         maxProducts: plan.maxProducts,
@@ -329,9 +340,12 @@ export class BillingService {
     }
   }
 
-  async checkLimit(tenantId: string, limitType: 'users' | 'products' | 'sales'): Promise<{ allowed: boolean; current: number; limit: number }> {
+  async checkLimit(
+    tenantId: string,
+    limitType: 'users' | 'products' | 'sales',
+  ): Promise<{ allowed: boolean; current: number; limit: number }> {
     const limits = await this.getPlanLimits(tenantId);
-    
+
     let current = 0;
     let limit = 0;
 
@@ -350,8 +364,8 @@ export class BillingService {
         current = await this.prisma.sale.count({
           where: {
             tenantId,
-            createdAt: { gte: startOfMonth }
-          }
+            createdAt: { gte: startOfMonth },
+          },
         });
         limit = limits.maxSalesPerMonth || 200;
         break;
@@ -367,35 +381,44 @@ export class BillingService {
   async getEnterpriseFeatures(tenantId: string) {
     const subscription = await this.prisma.subscription.findFirst({
       where: { tenantId },
-      include: { 
-        Plan: true 
+      include: {
+        Plan: true,
       },
-      orderBy: { 
-        currentPeriodStart: 'desc' 
+      orderBy: {
+        currentPeriodStart: 'desc',
       },
     });
 
-    if (!subscription || !subscription.Plan || subscription.Plan.name !== 'Enterprise') {
+    if (
+      !subscription ||
+      !subscription.Plan ||
+      subscription.Plan.name !== 'Enterprise'
+    ) {
       return null;
     }
 
     return {
       customBranding: {
         enabled: subscription.Plan.customBranding,
-        features: ['logo', 'colors', 'domain', 'white_label']
+        features: ['logo', 'colors', 'domain', 'white_label'],
       },
       apiAccess: {
         enabled: subscription.Plan.apiAccess,
-        features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+        features: [
+          'rest_api',
+          'webhooks',
+          'custom_integrations',
+          'rate_limits',
+        ],
       },
       security: {
         enabled: subscription.Plan.advancedSecurity,
-        features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+        features: ['sso', 'audit_logs', 'backup_restore', 'encryption'],
       },
       support: {
         enabled: subscription.Plan.dedicatedSupport,
-        features: ['24_7_support', 'dedicated_manager', 'priority_queue']
-      }
+        features: ['24_7_support', 'dedicated_manager', 'priority_queue'],
+      },
     };
   }
 
@@ -413,40 +436,42 @@ export class BillingService {
       });
 
       // Fetch subscription and plan details for each invoice
-      const invoicesWithDetails = await Promise.all(invoices.map(async (invoice) => {
-        let subscriptionDetails: SubscriptionDetails | null = null;
-        
-        if (invoice.subscriptionId) {
-          const subscription = await this.prisma.subscription.findUnique({
-            where: { id: invoice.subscriptionId },
-            include: {
-              Plan: true
-            }
-          });
-          
-          if (subscription && subscription.Plan) {
-            subscriptionDetails = {
-              id: subscription.id,
-              plan: {
-                name: subscription.Plan.name,
-                price: subscription.Plan.price,
+      const invoicesWithDetails = await Promise.all(
+        invoices.map(async (invoice) => {
+          let subscriptionDetails: SubscriptionDetails | null = null;
+
+          if (invoice.subscriptionId) {
+            const subscription = await this.prisma.subscription.findUnique({
+              where: { id: invoice.subscriptionId },
+              include: {
+                Plan: true,
               },
-            };
+            });
+
+            if (subscription && subscription.Plan) {
+              subscriptionDetails = {
+                id: subscription.id,
+                plan: {
+                  name: subscription.Plan.name,
+                  price: subscription.Plan.price,
+                },
+              };
+            }
           }
-        }
-        
-        return {
-          id: invoice.id,
-          number: invoice.number,
-          amount: invoice.amount,
-          status: invoice.status,
-          dueDate: invoice.dueDate,
-          paidAt: invoice.paidAt,
-          createdAt: invoice.createdAt,
-          subscription: subscriptionDetails,
-        };
-      }));
-      
+
+          return {
+            id: invoice.id,
+            number: invoice.number,
+            amount: invoice.amount,
+            status: invoice.status,
+            dueDate: invoice.dueDate,
+            paidAt: invoice.paidAt,
+            createdAt: invoice.createdAt,
+            subscription: subscriptionDetails,
+          };
+        }),
+      );
+
       return invoicesWithDetails;
     } catch (error) {
       console.error('Error fetching invoices:', error);

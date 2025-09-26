@@ -14,13 +14,19 @@ export interface ConfigurationItem {
 @Injectable()
 export class ConfigurationService {
   private readonly logger = new Logger(ConfigurationService.name);
-  private readonly encryptionKey = process.env.CONFIG_ENCRYPTION_KEY || 'default-encryption-key-change-in-production';
+  private readonly encryptionKey =
+    process.env.CONFIG_ENCRYPTION_KEY ||
+    'default-encryption-key-change-in-production';
 
   constructor(private readonly prisma: PrismaService) {}
 
   private encryptValue(value: string): string {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.encryptionKey.slice(0, 32)), iv);
+    const cipher = crypto.createCipheriv(
+      'aes-256-cbc',
+      Buffer.from(this.encryptionKey.slice(0, 32)),
+      iv,
+    );
     let encrypted = cipher.update(value, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return iv.toString('hex') + ':' + encrypted;
@@ -29,7 +35,11 @@ export class ConfigurationService {
   private decryptValue(encryptedValue: string): string {
     const [ivHex, encrypted] = encryptedValue.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.encryptionKey.slice(0, 32)), iv);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      Buffer.from(this.encryptionKey.slice(0, 32)),
+      iv,
+    );
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
@@ -45,14 +55,20 @@ export class ConfigurationService {
         return null;
       }
 
-      return config.isEncrypted ? this.decryptValue(config.value) : config.value;
+      return config.isEncrypted
+        ? this.decryptValue(config.value)
+        : config.value;
     } catch (error) {
       this.logger.error(`Failed to get configuration for key: ${key}`, error);
       return null;
     }
   }
 
-  async setConfiguration(key: string, value: string, options: Partial<ConfigurationItem> = {}): Promise<void> {
+  async setConfiguration(
+    key: string,
+    value: string,
+    options: Partial<ConfigurationItem> = {},
+  ): Promise<void> {
     try {
       const {
         description = '',
@@ -97,7 +113,7 @@ export class ConfigurationService {
       const where = category ? { category } : {};
       const configs = await this.prisma.systemConfiguration.findMany({ where });
 
-      return configs.map(config => ({
+      return configs.map((config) => ({
         key: config.key,
         value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
         description: config.description || undefined,
@@ -125,11 +141,15 @@ export class ConfigurationService {
 
   // Helper methods for common configurations
   async getApiBaseUrl(): Promise<string> {
-    return await this.getConfiguration('API_BASE_URL') || 'http://localhost:4000';
+    return (
+      (await this.getConfiguration('API_BASE_URL')) || 'http://localhost:4000'
+    );
   }
 
   async getFrontendUrl(): Promise<string> {
-    return await this.getConfiguration('FRONTEND_URL') || 'http://localhost:5000';
+    return (
+      (await this.getConfiguration('FRONTEND_URL')) || 'http://localhost:5000'
+    );
   }
 
   async getJwtSecret(): Promise<string> {
@@ -141,11 +161,13 @@ export class ConfigurationService {
   }
 
   async getAiServiceUrl(): Promise<string> {
-    return await this.getConfiguration('AI_SERVICE_URL') || 'http://localhost:5000';
+    return (
+      (await this.getConfiguration('AI_SERVICE_URL')) || 'http://localhost:5000'
+    );
   }
 
   async getEmailServiceUrl(): Promise<string> {
-    return await this.getConfiguration('EMAIL_SERVICE_URL') || '';
+    return (await this.getConfiguration('EMAIL_SERVICE_URL')) || '';
   }
 
   // Initialize default configurations
@@ -213,4 +235,4 @@ export class ConfigurationService {
       }
     }
   }
-} 
+}

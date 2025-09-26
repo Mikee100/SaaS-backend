@@ -27,7 +27,7 @@ let AuthService = class AuthService {
     }
     async validateUser(email, password) {
         const user = await this.userService.findByEmail(email);
-        if (user && await bcrypt.compare(password, user.password)) {
+        if (user && (await bcrypt.compare(password, user.password))) {
             const { password, ...result } = user;
             return result;
         }
@@ -42,14 +42,14 @@ let AuthService = class AuthService {
                             include: {
                                 permissions: {
                                     include: {
-                                        permission: true
-                                    }
-                                }
-                            }
+                                        permission: true,
+                                    },
+                                },
+                            },
                         },
-                        tenant: true
-                    }
-                }
+                        tenant: true,
+                    },
+                },
             });
             console.log('the user: ', user);
             if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -70,7 +70,7 @@ let AuthService = class AuthService {
             const userPermissions = [];
             try {
                 const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
-                perms.forEach(perm => {
+                perms.forEach((perm) => {
                     if (perm.name)
                         userPermissions.push(perm.name);
                 });
@@ -78,7 +78,7 @@ let AuthService = class AuthService {
             catch (error) {
                 console.error('Error fetching user permissions:', error);
             }
-            const roles = userRoles.map(ur => ur.role?.name).filter(Boolean) || [];
+            const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
             const payload = {
                 sub: user.id,
                 email: user.email,
@@ -86,7 +86,7 @@ let AuthService = class AuthService {
                 tenantId: tenantId,
                 branchId: user.branchId || null,
                 roles: roles,
-                permissions: userPermissions
+                permissions: userPermissions,
             };
             console.log('JWT Payload:', JSON.stringify(payload, null, 2));
             const accessToken = this.jwtService.sign(payload, {
@@ -97,7 +97,11 @@ let AuthService = class AuthService {
             console.log('[JWT_SECRET]', process.env.JWT_SECRET);
             console.log('Generated JWT Token:', accessToken);
             if (this.auditLogService) {
-                await this.auditLogService.log(user.id, 'login_success', { email: user.email, tenantId: payload.tenantId, branchId: payload.branchId }, ip);
+                await this.auditLogService.log(user.id, 'login_success', {
+                    email: user.email,
+                    tenantId: payload.tenantId,
+                    branchId: payload.branchId,
+                }, ip);
             }
             return {
                 access_token: accessToken,
@@ -108,8 +112,8 @@ let AuthService = class AuthService {
                     tenantId: payload.tenantId,
                     branchId: payload.branchId,
                     roles: payload.roles,
-                    permissions: payload.permissions
-                }
+                    permissions: payload.permissions,
+                },
             };
         }
         catch (error) {
@@ -120,7 +124,9 @@ let AuthService = class AuthService {
     async forgotPassword(email) {
         const user = await this.userService.findByEmail(email);
         if (!user) {
-            return { message: 'If an account with that email exists, a password reset link has been sent.' };
+            return {
+                message: 'If an account with that email exists, a password reset link has been sent.',
+            };
         }
         const resetToken = (0, uuid_1.v4)();
         const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
@@ -130,7 +136,9 @@ let AuthService = class AuthService {
         });
         console.log(`Password reset token for ${email}: ${resetToken}`);
         console.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
-        return { message: 'If an account with that email exists, a password reset link has been sent.' };
+        return {
+            message: 'If an account with that email exists, a password reset link has been sent.',
+        };
     }
     async resetPassword(token, newPassword) {
         try {

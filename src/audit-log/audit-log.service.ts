@@ -7,11 +7,11 @@ export class AuditLogService {
 
   async log(userId: string | null, action: string, details: any, ip?: string) {
     return this.prisma.auditLog.create({
-      data: { 
+      data: {
         id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        userId, 
-        action, 
-        details, 
+        userId,
+        action,
+        details,
         ip,
       },
     });
@@ -21,10 +21,10 @@ export class AuditLogService {
     return this.prisma.auditLog.findMany({
       where: {
         ...(userId && { userId }),
-        ...(action && { action })
+        ...(action && { action }),
       },
       orderBy: { createdAt: 'desc' },
-      take: limit
+      take: limit,
     });
   }
 }

@@ -5,8 +5,8 @@ export declare class BranchService {
     createBranch(data: any): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;
@@ -25,8 +25,8 @@ export declare class BranchService {
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;
@@ -45,8 +45,8 @@ export declare class BranchService {
     findById(id: string, tenantId: string): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;

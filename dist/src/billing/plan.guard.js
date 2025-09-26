@@ -30,7 +30,7 @@ let PlanGuard = class PlanGuard {
         const requiredFeature = undefined;
         if (requiredPlan) {
             const currentPlan = user.plan?.name || 'Basic';
-            const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };
+            const planHierarchy = { Basic: 1, Pro: 2, Enterprise: 3 };
             const currentPlanLevel = planHierarchy[currentPlan] || 0;
             const requiredPlanLevel = planHierarchy[requiredPlan] || 0;
             return currentPlanLevel >= requiredPlanLevel;

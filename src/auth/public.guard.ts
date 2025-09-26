@@ -10,7 +10,7 @@ export class PublicGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (isPublic) {
       return true;
     }
@@ -18,15 +18,15 @@ export class PublicGuard implements CanActivate {
     // Check if it's an auth route that should be public
     const request = context.switchToHttp().getRequest();
     const url = request.url;
-    
+
     // Allow these auth routes without authentication
     const publicRoutes = [
       '/auth/login',
       '/auth/forgot-password',
       '/auth/reset-password',
-      '/auth/register'
+      '/auth/register',
     ];
-    
-    return publicRoutes.some(route => url.startsWith(route));
+
+    return publicRoutes.some((route) => url.startsWith(route));
   }
-} 
+}

@@ -32,10 +32,10 @@ let AuditLogService = class AuditLogService {
         return this.prisma.auditLog.findMany({
             where: {
                 ...(userId && { userId }),
-                ...(action && { action })
+                ...(action && { action }),
             },
             orderBy: { createdAt: 'desc' },
-            take: limit
+            take: limit,
         });
     }
 };

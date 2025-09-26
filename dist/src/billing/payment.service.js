@@ -102,22 +102,22 @@ let PaymentService = PaymentService_1 = class PaymentService {
             this.logger.log(`Getting payment analytics for tenant: ${tenantId}, period: ${period}`);
             const mockAnalytics = {
                 period,
-                totalRevenue: 1250.00,
+                totalRevenue: 1250.0,
                 paymentCount: 15,
                 averagePayment: 83.33,
                 paymentMethods: [
                     {
                         paymentMethod: 'card',
                         _count: { paymentMethod: 12 },
-                        _sum: { amount: 1000.00 }
+                        _sum: { amount: 1000.0 },
                     },
                     {
                         paymentMethod: 'bank_transfer',
                         _count: { paymentMethod: 3 },
-                        _sum: { amount: 250.00 }
-                    }
+                        _sum: { amount: 250.0 },
+                    },
                 ],
-                currency: 'USD'
+                currency: 'USD',
             };
             await this.auditLogService.log(null, 'payment_analytics_viewed', {
                 tenantId,
@@ -141,7 +141,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     status: 'completed',
                     description: 'Monthly subscription payment',
                     createdAt: new Date().toISOString(),
-                    type: 'payment'
+                    type: 'payment',
                 },
                 {
                     id: '2',
@@ -150,7 +150,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     status: 'completed',
                     description: 'One-time payment',
                     createdAt: new Date(Date.now() - 86400000).toISOString(),
-                    type: 'payment'
+                    type: 'payment',
                 },
                 {
                     id: '3',
@@ -159,8 +159,8 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     status: 'pending',
                     description: 'Annual subscription',
                     createdAt: new Date(Date.now() - 172800000).toISOString(),
-                    type: 'invoice'
-                }
+                    type: 'invoice',
+                },
             ];
             await this.auditLogService.log(null, 'payment_history_viewed', {
                 tenantId,
@@ -219,8 +219,8 @@ let PaymentService = PaymentService_1 = class PaymentService {
                         brand: 'visa',
                         last4: '4242',
                         expMonth: 12,
-                        expYear: 2025
-                    }
+                        expYear: 2025,
+                    },
                 },
                 {
                     id: 'pm_2',
@@ -229,9 +229,9 @@ let PaymentService = PaymentService_1 = class PaymentService {
                         brand: 'mastercard',
                         last4: '5555',
                         expMonth: 6,
-                        expYear: 2026
-                    }
-                }
+                        expYear: 2026,
+                    },
+                },
             ];
             await this.auditLogService.log(null, 'payment_methods_viewed', {
                 tenantId,
@@ -245,7 +245,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
     }
     async addPaymentMethod(tenantId, paymentMethodId) {
         try {
-            let tenant = await this.prisma.tenant.findUnique({
+            const tenant = await this.prisma.tenant.findUnique({
                 where: { id: tenantId },
                 select: { stripeCustomerId: true, contactEmail: true, name: true },
             });

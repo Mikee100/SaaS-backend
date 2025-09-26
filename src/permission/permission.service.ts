@@ -15,10 +15,12 @@ export class PermissionService {
   }
 
   async createPermission(key: string, description?: string) {
-  const existingArr = await this.prisma.permission.findMany({ where: { name: { equals: key } } });
-  const existing = existingArr[0];
-  if (existing) throw new BadRequestException('Permission already exists');
-  return this.prisma.permission.create({ data: { name: key, description } });
+    const existingArr = await this.prisma.permission.findMany({
+      where: { name: { equals: key } },
+    });
+    const existing = existingArr[0];
+    if (existing) throw new BadRequestException('Permission already exists');
+    return this.prisma.permission.create({ data: { name: key, description } });
   }
 
   // Commenting out problematic permission creation
@@ -49,54 +51,56 @@ export class PermissionService {
       include: {
         permissions: {
           include: {
-            permission: true
-          }
-        }
-      }
+            permission: true,
+          },
+        },
+      },
     });
   }
 
   async updateRole(name: string, description?: string) {
-  // You must pass tenantId to this method!
-  throw new Error('updateRole now requires tenantId');
+    // You must pass tenantId to this method!
+    throw new Error('updateRole now requires tenantId');
   }
 
   async createRole(name: string, description?: string, tenantId?: string) {
     if (!name) {
       throw new BadRequestException('Role name is required');
     }
-    
+
     if (!tenantId) {
       throw new BadRequestException('Tenant ID is required');
     }
-    
+
     // Check if role with same name already exists for this tenant
     const existingRole = await this.prisma.role.findFirst({
       where: {
         name,
-        tenantId
-      }
+        tenantId,
+      },
     });
-    
+
     if (existingRole) {
-      throw new BadRequestException('A role with this name already exists for this tenant');
+      throw new BadRequestException(
+        'A role with this name already exists for this tenant',
+      );
     }
-    
+
     return this.prisma.role.create({
       data: {
         name,
         description,
-        tenantId
-      }
+        tenantId,
+      },
     });
   }
 
   async getRolePermissions(roleId: string) {
     return this.prisma.rolePermission.findMany({
       where: { roleId },
-      include: { 
+      include: {
         permission: true,
-        role: true 
+        role: true,
       },
     });
   }
@@ -106,10 +110,14 @@ export class PermissionService {
     await this.prisma.rolePermission.deleteMany({ where: { roleId } });
     // Add new permissions
     for (const perm of permissions) {
-      const permissionArr = await this.prisma.permission.findMany({ where: { name: { equals: perm.key } } });
+      const permissionArr = await this.prisma.permission.findMany({
+        where: { name: { equals: perm.key } },
+      });
       const permission = permissionArr[0];
       if (permission) {
-        await this.prisma.rolePermission.create({ data: { roleId, permissionId: permission.id } });
+        await this.prisma.rolePermission.create({
+          data: { roleId, permissionId: permission.id },
+        });
       }
     }
     // Return updated list

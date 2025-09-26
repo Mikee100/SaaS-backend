@@ -117,10 +117,12 @@ let StripeService = StripeService_1 = class StripeService {
         }
         return stripe.checkout.sessions.create({
             payment_method_types: ['card'],
-            line_items: [{
+            line_items: [
+                {
                     price: priceId,
                     quantity: 1,
-                }],
+                },
+            ],
             mode: 'subscription',
             success_url: successUrl,
             cancel_url: cancelUrl,
@@ -226,9 +228,15 @@ let StripeService = StripeService_1 = class StripeService {
                     currentPeriodStart: new Date(subscription.current_period_start * 1000),
                     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
                     cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                    canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-                    trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
-                    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+                    canceledAt: subscription.cancel_at
+                        ? new Date(subscription.cancel_at * 1000)
+                        : null,
+                    trialStart: subscription.trial_start
+                        ? new Date(subscription.trial_start * 1000)
+                        : null,
+                    trialEnd: subscription.trial_end
+                        ? new Date(subscription.trial_end * 1000)
+                        : null,
                     userId: userId || 'system',
                 },
             });
@@ -257,9 +265,15 @@ let StripeService = StripeService_1 = class StripeService {
                     currentPeriodStart: new Date(subscription.current_period_start * 1000),
                     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
                     cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                    canceledAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
-                    trialStart: subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
-                    trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+                    canceledAt: subscription.cancel_at
+                        ? new Date(subscription.cancel_at * 1000)
+                        : null,
+                    trialStart: subscription.trial_start
+                        ? new Date(subscription.trial_start * 1000)
+                        : null,
+                    trialEnd: subscription.trial_end
+                        ? new Date(subscription.trial_end * 1000)
+                        : null,
                 },
             });
             await this.auditLogService.log(userId || 'system', 'subscription_updated', {
@@ -356,7 +370,7 @@ let StripeService = StripeService_1 = class StripeService {
             const subscription = await this.prisma.subscription.findFirst({
                 where: {
                     tenantId,
-                    status: { in: ['active', 'past_due', 'trialing'] }
+                    status: { in: ['active', 'past_due', 'trialing'] },
                 },
             });
             if (!subscription) {
@@ -368,13 +382,13 @@ let StripeService = StripeService_1 = class StripeService {
                     data: {
                         status: 'canceled',
                         cancelAtPeriodEnd: true,
-                        canceledAt: new Date()
-                    }
+                        canceledAt: new Date(),
+                    },
                 });
                 await this.auditLogService.log(userId, 'subscription_canceled_locally', {
                     tenantId,
                     subscriptionId: subscription.id,
-                    reason: 'No Stripe subscription ID associated'
+                    reason: 'No Stripe subscription ID associated',
                 });
                 this.logger.log(`Subscription canceled locally (no Stripe ID): ${subscription.id} for tenant: ${tenantId}`);
                 return;
@@ -387,7 +401,7 @@ let StripeService = StripeService_1 = class StripeService {
             });
             await this.prisma.subscription.update({
                 where: { id: subscription.id },
-                data: { cancelAtPeriodEnd: true }
+                data: { cancelAtPeriodEnd: true },
             });
             await this.auditLogService.log(userId, 'subscription_cancel_requested', {
                 tenantId,
@@ -433,8 +447,8 @@ let StripeService = StripeService_1 = class StripeService {
             const orphanedSubscriptions = await this.prisma.subscription.findMany({
                 where: {
                     tenantId,
-                    status: { in: ['active', 'past_due', 'trialing'] }
-                }
+                    status: { in: ['active', 'past_due', 'trialing'] },
+                },
             });
             for (const subscription of orphanedSubscriptions) {
                 await this.prisma.subscription.update({
@@ -442,8 +456,8 @@ let StripeService = StripeService_1 = class StripeService {
                     data: {
                         status: 'canceled',
                         cancelAtPeriodEnd: true,
-                        canceledAt: new Date()
-                    }
+                        canceledAt: new Date(),
+                    },
                 });
                 this.logger.log(`Cleaned up orphaned subscription: ${subscription.id} for tenant: ${tenantId}`);
             }
@@ -554,7 +568,8 @@ let StripeService = StripeService_1 = class StripeService {
                 const basicPriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'basic');
                 if (basicPriceId) {
                     const basicPrice = await stripe.prices.create({
-                        product: (await stripe.prices.retrieve(basicPriceId)).product,
+                        product: (await stripe.prices.retrieve(basicPriceId))
+                            .product,
                         unit_amount: prices.basicPrice * 100,
                         currency: 'usd',
                         recurring: {
@@ -573,7 +588,8 @@ let StripeService = StripeService_1 = class StripeService {
                 const proPriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'pro');
                 if (proPriceId) {
                     const proPrice = await stripe.prices.create({
-                        product: (await stripe.prices.retrieve(proPriceId)).product,
+                        product: (await stripe.prices.retrieve(proPriceId))
+                            .product,
                         unit_amount: prices.proPrice * 100,
                         currency: 'usd',
                         recurring: {
@@ -592,7 +608,8 @@ let StripeService = StripeService_1 = class StripeService {
                 const enterprisePriceId = await this.tenantConfigurationService.getStripePriceId(tenantId, 'enterprise');
                 if (enterprisePriceId) {
                     const enterprisePrice = await stripe.prices.create({
-                        product: (await stripe.prices.retrieve(enterprisePriceId)).product,
+                        product: (await stripe.prices.retrieve(enterprisePriceId))
+                            .product,
                         unit_amount: prices.enterprisePrice * 100,
                         currency: 'usd',
                         recurring: {
@@ -624,7 +641,7 @@ let StripeService = StripeService_1 = class StripeService {
         }
     }
     async createPaymentIntent(tenantId, params) {
-        const { amount, currency = 'usd', description, metadata = {}, paymentMethod, confirm = false, customerId, setupFutureUsage } = params;
+        const { amount, currency = 'usd', description, metadata = {}, paymentMethod, confirm = false, customerId, setupFutureUsage, } = params;
         const stripe = await this.getStripeForTenant(tenantId);
         if (!stripe) {
             throw new Error('Stripe is not configured for this tenant');
@@ -649,7 +666,8 @@ let StripeService = StripeService_1 = class StripeService {
                     },
                 }),
             };
-            Object.keys(paymentIntentParams).forEach((key) => paymentIntentParams[key] === undefined && delete paymentIntentParams[key]);
+            Object.keys(paymentIntentParams).forEach((key) => paymentIntentParams[key] === undefined &&
+                delete paymentIntentParams[key]);
             const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
             await this.auditLogService.log('system', 'payment_intent_created', {
                 tenantId,

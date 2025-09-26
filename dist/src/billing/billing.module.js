@@ -46,7 +46,7 @@ exports.BillingModule = BillingModule = __decorate([
             payment_service_1.PaymentService,
             stripe_service_1.StripeService,
             subscription_service_1.SubscriptionService,
-            billing_logger_service_1.BillingLoggerService
+            billing_logger_service_1.BillingLoggerService,
         ],
     })
 ], BillingModule);

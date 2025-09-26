@@ -1,13 +1,13 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  Req, 
-  Logger, 
-  BadRequestException, 
-  InternalServerErrorException, 
-  UnauthorizedException, 
-  HttpException 
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+  UnauthorizedException,
+  HttpException,
 } from '@nestjs/common';
 import { AuthService } from './auth.services';
 import { Public } from './decorators/public.decorator';
@@ -22,15 +22,19 @@ export class AuthController {
   @Post('login')
   async login(@Body() body: { email: string; password: string }, @Req() req) {
     this.logger.log(`Login attempt for: ${body.email} from IP: ${req.ip}`);
-    
+
     if (!body.email || !body.password) {
       this.logger.warn('Missing email or password in login request');
       throw new BadRequestException('Email and password are required');
     }
 
     try {
-      const result = await this.authService.login(body.email, body.password, req.ip);
-      
+      const result = await this.authService.login(
+        body.email,
+        body.password,
+        req.ip,
+      );
+
       if (!result || !result.access_token) {
         this.logger.error('Login failed: No access token in response');
         throw new InternalServerErrorException('Authentication failed');
@@ -39,13 +43,16 @@ export class AuthController {
       this.logger.log(`Successful login for user: ${body.email}`);
       return result;
     } catch (error) {
-      this.logger.error(`Login error for ${body.email}: ${error.message}`, error.stack);
-      
+      this.logger.error(
+        `Login error for ${body.email}: ${error.message}`,
+        error.stack,
+      );
+
       // Don't expose internal errors to the client
       if (error instanceof HttpException) {
         throw error;
       }
-      
+
       throw new UnauthorizedException('Invalid credentials');
     }
   }

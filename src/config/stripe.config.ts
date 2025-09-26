@@ -5,7 +5,8 @@ export const stripeConfig = {
   priceIds: {
     basic: process.env.STRIPE_BASIC_PRICE_ID || 'price_basic_monthly',
     pro: process.env.STRIPE_PRO_PRICE_ID || 'price_pro_monthly',
-    enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_monthly',
+    enterprise:
+      process.env.STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise_monthly',
   },
 };
 
@@ -16,13 +17,13 @@ export const validateStripeConfig = () => {
     'STRIPE_WEBHOOK_SECRET',
   ];
 
-  const missing = requiredVars.filter(varName => !process.env[varName]);
-  
+  const missing = requiredVars.filter((varName) => !process.env[varName]);
+
   if (missing.length > 0) {
     console.warn(`Missing Stripe environment variables: ${missing.join(', ')}`);
     console.warn('Stripe features will be disabled');
     return false;
   }
-  
+
   return true;
-}; 
+};

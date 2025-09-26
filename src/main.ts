@@ -11,22 +11,28 @@ import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
   try {
     // Create the application with CORS configuration
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
-    
+
     // Configure CORS
     const isProduction = process.env.NODE_ENV === 'production';
-    const allowedOrigins = isProduction 
-      ? (process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim())
-      : ['http://localhost:3000', 'http://localhost:5000', 'http://localhost:9000'];
+    const allowedOrigins = isProduction
+      ? (process.env.CORS_ORIGINS || '')
+          .split(',')
+          .map((origin) => origin.trim())
+      : [
+          'http://localhost:3000',
+          'http://localhost:5000',
+          'http://localhost:9000',
+        ];
 
     // Log CORS configuration
     logger.debug('CORS Configuration:');
     logger.debug(`- Allowed Origins: ${JSON.stringify(allowedOrigins)}`);
     logger.debug(`- Production Mode: ${isProduction}`);
-    
+
     // Enable CORS with specific configuration
     app.enableCors({
       origin: (origin, callback) => {
@@ -35,31 +41,44 @@ async function bootstrap() {
           logger.debug('Allowing request with no origin');
           return callback(null, true);
         }
-        
-        const allowedOriginsList = isProduction ? allowedOrigins : [
-          ...allowedOrigins,
-          'http://localhost:3000',
-          'http://localhost:5000',
-          'http://localhost:9000',
-          'http://127.0.0.1:3000',
-          'http://127.0.0.1:5000',
-          'http://127.0.0.1:9000'
-        ];
-        
-        const isAllowed = !isProduction || allowedOriginsList.some(allowedOrigin => {
-          const matches = origin === allowedOrigin || origin.startsWith(allowedOrigin);
-          if (matches) {
-            logger.debug(`Origin ${origin} matches allowed origin: ${allowedOrigin}`);
-          }
-          return matches;
-        });
-        
+
+        const allowedOriginsList = isProduction
+          ? allowedOrigins
+          : [
+              ...allowedOrigins,
+              'http://localhost:3000',
+              'http://localhost:5000',
+              'http://localhost:9000',
+              'http://127.0.0.1:3000',
+              'http://127.0.0.1:5000',
+              'http://127.0.0.1:9000',
+            ];
+
+        const isAllowed =
+          !isProduction ||
+          allowedOriginsList.some((allowedOrigin) => {
+            const matches =
+              origin === allowedOrigin || origin.startsWith(allowedOrigin);
+            if (matches) {
+              logger.debug(
+                `Origin ${origin} matches allowed origin: ${allowedOrigin}`,
+              );
+            }
+            return matches;
+          });
+
         if (isAllowed) {
           logger.debug(`Allowing CORS request from origin: ${origin}`);
           callback(null, true);
         } else {
-          logger.warn(`CORS request blocked from origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOriginsList)}`);
-          callback(new Error(`Not allowed by CORS. Origin: ${origin} not in allowed origins`));
+          logger.warn(
+            `CORS request blocked from origin: ${origin}. Allowed origins: ${JSON.stringify(allowedOriginsList)}`,
+          );
+          callback(
+            new Error(
+              `Not allowed by CORS. Origin: ${origin} not in allowed origins`,
+            ),
+          );
         }
       },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
@@ -90,7 +109,7 @@ async function bootstrap() {
         'Pragma',
         'If-Modified-Since',
         'Accept-Language',
-        'Accept-Encoding'
+        'Accept-Encoding',
       ],
       exposedHeaders: [
         'Content-Length',
@@ -100,14 +119,14 @@ async function bootstrap() {
         'x-branch-id',
         'Access-Control-Allow-Origin',
         'Access-Control-Allow-Credentials',
-        'Set-Cookie'
+        'Set-Cookie',
       ],
       maxAge: 86400, // 24 hours
     });
 
     // Get config service
     const configService = app.get(ConfigService);
-    
+
     const port = configService.get<number>('PORT', 9000);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
@@ -124,7 +143,7 @@ async function bootstrap() {
         transformOptions: { enableImplicitConversion: true },
         forbidNonWhitelisted: true,
         disableErrorMessages: isProduction,
-      })
+      }),
     );
 
     // CORS is already configured above
@@ -135,13 +154,17 @@ async function bootstrap() {
 
     // API documentation endpoint will be available when @nestjs/swagger is installed
     if (!isProduction) {
-      logger.log('API documentation will be available at /api when @nestjs/swagger is installed');
+      logger.log(
+        'API documentation will be available at /api when @nestjs/swagger is installed',
+      );
     }
 
     // Check Stripe configuration
     const stripeSecret = configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecret) {
-      logger.warn('⚠️ Stripe secret key not found - billing features will be disabled');
+      logger.warn(
+        '⚠️ Stripe secret key not found - billing features will be disabled',
+      );
     }
 
     // Log JWT secret at startup
@@ -160,21 +183,19 @@ async function bootstrap() {
         const dbName = new URL(dbUrl).pathname.replace(/^\/+/, '');
         logger.log(`📦 Connected to database: ${dbName}`);
       } catch (error: any) {
-        logger.warn(`⚠️ Could not parse DATABASE_URL: ${error?.message || 'Unknown error'}`);
+        logger.warn(
+          `⚠️ Could not parse DATABASE_URL: ${error?.message || 'Unknown error'}`,
+        );
         logger.log(`📦 Database URL: ${dbUrl.substring(0, 20)}...`); // Log first 20 chars for debugging
       }
     }
-    
-    
   } catch (error) {
     logger.error('❌ Failed to start application', error);
     process.exit(1);
   }
-
-
 }
 
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
   console.error('Failed to start application:', err);
   process.exit(1);
 });

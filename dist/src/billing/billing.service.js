@@ -23,7 +23,7 @@ let BillingService = class BillingService {
             include: {
                 Subscription: {
                     include: {
-                        Plan: true
+                        Plan: true,
                     },
                     orderBy: { currentPeriodStart: 'desc' },
                 },
@@ -31,10 +31,12 @@ let BillingService = class BillingService {
         });
         return Promise.all(tenants.map(async (tenant) => {
             const sub = tenant.Subscription?.[0];
-            const lastInvoice = sub ? await this.prisma.invoice.findFirst({
-                where: { subscriptionId: sub.id },
-                orderBy: { createdAt: 'desc' },
-            }) : null;
+            const lastInvoice = sub
+                ? await this.prisma.invoice.findFirst({
+                    where: { subscriptionId: sub.id },
+                    orderBy: { createdAt: 'desc' },
+                })
+                : null;
             const lastPayment = await this.prisma.payment.findFirst({
                 where: { tenantId: tenant.id },
                 orderBy: { createdAt: 'desc' },
@@ -43,39 +45,45 @@ let BillingService = class BillingService {
                 tenantId: tenant.id,
                 clientName: tenant.name,
                 clientEmail: tenant.contactEmail,
-                plan: sub?.Plan ? {
-                    name: sub.Plan.name,
-                    price: sub.Plan.price,
-                    interval: sub.Plan.interval,
-                    features: {
-                        maxUsers: sub.Plan.maxUsers,
-                        maxProducts: sub.Plan.maxProducts,
-                        maxSalesPerMonth: sub.Plan.maxSalesPerMonth,
-                        analyticsEnabled: sub.Plan.analyticsEnabled,
-                        advancedReports: sub.Plan.advancedReports,
-                        prioritySupport: sub.Plan.prioritySupport,
-                        customBranding: sub.Plan.customBranding,
-                        apiAccess: sub.Plan.apiAccess,
-                    },
-                } : null,
+                plan: sub?.Plan
+                    ? {
+                        name: sub.Plan.name,
+                        price: sub.Plan.price,
+                        interval: sub.Plan.interval,
+                        features: {
+                            maxUsers: sub.Plan.maxUsers,
+                            maxProducts: sub.Plan.maxProducts,
+                            maxSalesPerMonth: sub.Plan.maxSalesPerMonth,
+                            analyticsEnabled: sub.Plan.analyticsEnabled,
+                            advancedReports: sub.Plan.advancedReports,
+                            prioritySupport: sub.Plan.prioritySupport,
+                            customBranding: sub.Plan.customBranding,
+                            apiAccess: sub.Plan.apiAccess,
+                        },
+                    }
+                    : null,
                 status: sub?.status || 'none',
                 startDate: sub?.currentPeriodStart,
                 currentPeriodEnd: sub?.currentPeriodEnd,
                 cancelAtPeriodEnd: sub?.cancelAtPeriodEnd || false,
-                lastInvoice: lastInvoice ? {
-                    id: lastInvoice.id,
-                    amount: lastInvoice.amount,
-                    status: lastInvoice.status,
-                    dueDate: lastInvoice.dueDate,
-                    paidAt: lastInvoice.paidAt,
-                } : null,
-                lastPayment: lastPayment ? {
-                    id: lastPayment.id,
-                    amount: lastPayment.amount,
-                    currency: lastPayment.currency,
-                    status: lastPayment.status,
-                    completedAt: lastPayment.completedAt,
-                } : null,
+                lastInvoice: lastInvoice
+                    ? {
+                        id: lastInvoice.id,
+                        amount: lastInvoice.amount,
+                        status: lastInvoice.status,
+                        dueDate: lastInvoice.dueDate,
+                        paidAt: lastInvoice.paidAt,
+                    }
+                    : null,
+                lastPayment: lastPayment
+                    ? {
+                        id: lastPayment.id,
+                        amount: lastPayment.amount,
+                        currency: lastPayment.currency,
+                        status: lastPayment.status,
+                        completedAt: lastPayment.completedAt,
+                    }
+                    : null,
             };
         }));
     }
@@ -87,17 +95,15 @@ let BillingService = class BillingService {
                 include: {
                     PlanFeatureOnPlan: {
                         include: {
-                            PlanFeature: true
+                            PlanFeature: true,
                         },
-                        where: { isEnabled: true }
-                    }
-                }
+                        where: { isEnabled: true },
+                    },
+                },
             });
-            return plans.map(plan => ({
+            return plans.map((plan) => ({
                 ...plan,
-                features: plan.PlanFeatureOnPlan
-                    ?.map(f => f.PlanFeature?.featureName)
-                    .filter((featureName) => Boolean(featureName)) || []
+                features: plan.PlanFeatureOnPlan?.map((f) => f.PlanFeature?.featureName).filter((featureName) => Boolean(featureName)) || [],
             }));
         }
         catch (error) {
@@ -179,10 +185,10 @@ let BillingService = class BillingService {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
             include: {
-                Plan: true
+                Plan: true,
             },
             orderBy: {
-                currentPeriodStart: 'desc'
+                currentPeriodStart: 'desc',
             },
         });
         if (!subscription || !subscription.Plan) {
@@ -237,10 +243,10 @@ let BillingService = class BillingService {
             const subscription = await this.prisma.subscription.findFirst({
                 where: { tenantId },
                 include: {
-                    Plan: true
+                    Plan: true,
                 },
                 orderBy: {
-                    currentPeriodStart: 'desc'
+                    currentPeriodStart: 'desc',
                 },
             });
             if (!subscription || !subscription.Plan) {
@@ -310,8 +316,8 @@ let BillingService = class BillingService {
                 current = await this.prisma.sale.count({
                     where: {
                         tenantId,
-                        createdAt: { gte: startOfMonth }
-                    }
+                        createdAt: { gte: startOfMonth },
+                    },
                 });
                 limit = limits.maxSalesPerMonth || 200;
                 break;
@@ -326,32 +332,39 @@ let BillingService = class BillingService {
         const subscription = await this.prisma.subscription.findFirst({
             where: { tenantId },
             include: {
-                Plan: true
+                Plan: true,
             },
             orderBy: {
-                currentPeriodStart: 'desc'
+                currentPeriodStart: 'desc',
             },
         });
-        if (!subscription || !subscription.Plan || subscription.Plan.name !== 'Enterprise') {
+        if (!subscription ||
+            !subscription.Plan ||
+            subscription.Plan.name !== 'Enterprise') {
             return null;
         }
         return {
             customBranding: {
                 enabled: subscription.Plan.customBranding,
-                features: ['logo', 'colors', 'domain', 'white_label']
+                features: ['logo', 'colors', 'domain', 'white_label'],
             },
             apiAccess: {
                 enabled: subscription.Plan.apiAccess,
-                features: ['rest_api', 'webhooks', 'custom_integrations', 'rate_limits']
+                features: [
+                    'rest_api',
+                    'webhooks',
+                    'custom_integrations',
+                    'rate_limits',
+                ],
             },
             security: {
                 enabled: subscription.Plan.advancedSecurity,
-                features: ['sso', 'audit_logs', 'backup_restore', 'encryption']
+                features: ['sso', 'audit_logs', 'backup_restore', 'encryption'],
             },
             support: {
                 enabled: subscription.Plan.dedicatedSupport,
-                features: ['24_7_support', 'dedicated_manager', 'priority_queue']
-            }
+                features: ['24_7_support', 'dedicated_manager', 'priority_queue'],
+            },
         };
     }
     async getInvoices(tenantId) {
@@ -371,8 +384,8 @@ let BillingService = class BillingService {
                     const subscription = await this.prisma.subscription.findUnique({
                         where: { id: invoice.subscriptionId },
                         include: {
-                            Plan: true
-                        }
+                            Plan: true,
+                        },
                     });
                     if (subscription && subscription.Plan) {
                         subscriptionDetails = {

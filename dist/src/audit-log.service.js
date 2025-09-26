@@ -27,7 +27,7 @@ let AuditLogService = class AuditLogService {
                 action,
                 details,
                 ip,
-                createdAt: new Date()
+                createdAt: new Date(),
             },
         });
     }

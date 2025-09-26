@@ -36,7 +36,7 @@ let SectionLogoController = class SectionLogoController {
                 url: '/uploads/section-logos/default-logo.png',
                 altText: `${section} logo`,
                 width: 120,
-                height: 120
+                height: 120,
             };
         }
         return { sectionLogos: { [section]: logo } };
@@ -51,7 +51,7 @@ let SectionLogoController = class SectionLogoController {
             url: logoUrl,
             width: body.width ? parseInt(body.width, 10) : undefined,
             height: body.height ? parseInt(body.height, 10) : undefined,
-            altText: body.altText
+            altText: body.altText,
         };
         return this.sectionLogoService.updateSectionLogo(tenantId, section, config);
     }
@@ -97,7 +97,12 @@ __decorate([
             },
         }),
         fileFilter: (req, file, cb) => {
-            const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
+            const allowedMimes = [
+                'image/jpeg',
+                'image/jpg',
+                'image/png',
+                'image/svg+xml',
+            ];
             if (!allowedMimes.includes(file.mimetype)) {
                 return cb(new Error('Only image files (JPEG, PNG, SVG) are allowed!'), false);
             }

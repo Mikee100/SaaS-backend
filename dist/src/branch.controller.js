@@ -22,7 +22,10 @@ let BranchController = class BranchController {
         this.branchService = branchService;
     }
     async create(body, req) {
-        return this.branchService.createBranch({ ...body, tenantId: req.user.tenantId });
+        return this.branchService.createBranch({
+            ...body,
+            tenantId: req.user.tenantId,
+        });
     }
     async findAll(req) {
         return this.branchService.findAllByTenant(req.user.tenantId);

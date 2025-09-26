@@ -28,7 +28,7 @@ export class AdminTenantStatsService {
       'Payment',
       'PaymentMethod',
       'Branch',
-      'Notification'
+      'Notification',
     ];
     const tenantSpace: Record<string, number> = {};
 
@@ -73,7 +73,7 @@ export class AdminTenantStatsService {
     const tenants = await this.prisma.tenant.findMany();
 
     // Merge stats with tenant metadata
-    return tenants.map(tenant => {
+    return tenants.map((tenant) => {
       const bytes = tenantSpace[tenant.id] || 0;
       return {
         ...tenant,

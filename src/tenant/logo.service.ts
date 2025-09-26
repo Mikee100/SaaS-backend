@@ -36,7 +36,7 @@ export class LogoService {
         logoUrl: true,
         etimsQrUrl: true,
         country: true,
-      }
+      },
     });
 
     if (!tenant) {
@@ -52,11 +52,11 @@ export class LogoService {
     };
 
     const missing: string[] = [];
-    
+
     if (requirements.mainLogo && !tenant.logoUrl) {
       missing.push('Main Logo');
     }
-    
+
     if (requirements.etimsQrCode && !tenant.etimsQrUrl) {
       missing.push('KRA eTIMS QR Code');
     }
@@ -66,7 +66,7 @@ export class LogoService {
     return {
       requirements,
       missing,
-      compliance
+      compliance,
     };
   }
 
@@ -85,7 +85,7 @@ export class LogoService {
         receiptLogo: true,
         etimsQrUrl: true,
         watermark: true,
-      }
+      },
     });
 
     if (!tenant) {
@@ -107,34 +107,42 @@ export class LogoService {
     recommendations: string[];
   }> {
     const validation = await this.validateTenantLogos(tenantId);
-    
+
     const recommendations: string[] = [];
-    
+
     if (!validation.compliance) {
       recommendations.push('Upload required logos to ensure compliance');
     }
-    
+
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { country: true }
+      select: { country: true },
     });
 
-    if (tenant?.country === 'Kenya' && !validation.missing.includes('KRA eTIMS QR Code')) {
-      recommendations.push('Consider uploading a KRA eTIMS QR code for tax compliance');
+    if (
+      tenant?.country === 'Kenya' &&
+      !validation.missing.includes('KRA eTIMS QR Code')
+    ) {
+      recommendations.push(
+        'Consider uploading a KRA eTIMS QR code for tax compliance',
+      );
     }
 
     return {
       compliant: validation.compliance,
       missing: validation.missing,
-      recommendations
+      recommendations,
     };
   }
 
-  async validateLogoFile(file: MulterFile, logoType: string): Promise<LogoValidation> {
+  async validateLogoFile(
+    file: MulterFile,
+    logoType: string,
+  ): Promise<LogoValidation> {
     const result: LogoValidation = {
       isValid: true,
       errors: [],
-      warnings: []
+      warnings: [],
     };
 
     // File size validation
@@ -146,9 +154,12 @@ export class LogoService {
       watermark: 1 * 1024 * 1024, // 1MB
     };
 
-    const maxSize = maxSizes[logoType as keyof typeof maxSizes] || 2 * 1024 * 1024;
+    const maxSize =
+      maxSizes[logoType as keyof typeof maxSizes] || 2 * 1024 * 1024;
     if (file.size > maxSize) {
-      result.errors.push(`File size must be less than ${maxSize / (1024 * 1024)}MB`);
+      result.errors.push(
+        `File size must be less than ${maxSize / (1024 * 1024)}MB`,
+      );
     }
 
     // File type validation
@@ -160,14 +171,20 @@ export class LogoService {
       watermark: ['image/jpeg', 'image/jpg', 'image/png'],
     };
 
-    const allowedMimes = allowedTypes[logoType as keyof typeof allowedTypes] || ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedMimes = allowedTypes[
+      logoType as keyof typeof allowedTypes
+    ] || ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedMimes.includes(file.mimetype)) {
-      result.errors.push(`File type must be one of: ${allowedMimes.join(', ')}`);
+      result.errors.push(
+        `File type must be one of: ${allowedMimes.join(', ')}`,
+      );
     }
 
     // Special validation for eTIMS QR code
     if (logoType === 'etimsQrCode') {
-      result.warnings.push('Ensure this is a valid KRA eTIMS QR code for tax compliance');
+      result.warnings.push(
+        'Ensure this is a valid KRA eTIMS QR code for tax compliance',
+      );
     }
 
     return result;
@@ -181,17 +198,23 @@ export class LogoService {
   }> {
     const logos = await this.getLogoUsage(tenantId);
     const validation = await this.validateTenantLogos(tenantId);
-    
+
     const totalLogos = Object.values(logos).filter(Boolean).length;
-    const requiredLogos = Object.values(validation.requirements).filter(Boolean).length;
+    const requiredLogos = Object.values(validation.requirements).filter(
+      Boolean,
+    ).length;
     const optionalLogos = totalLogos - requiredLogos;
-    const complianceScore = validation.compliance ? 100 : Math.round((requiredLogos - validation.missing.length) / requiredLogos * 100);
+    const complianceScore = validation.compliance
+      ? 100
+      : Math.round(
+          ((requiredLogos - validation.missing.length) / requiredLogos) * 100,
+        );
 
     return {
       totalLogos,
       requiredLogos,
       optionalLogos,
-      complianceScore
+      complianceScore,
     };
   }
 
@@ -239,7 +262,7 @@ export class LogoService {
   async updateLogo(tenantId: string, file: MulterFile) {
     // Upload the file to storage (e.g., S3, local storage, etc.)
     const logoUrl = await this.uploadFile(file);
-    
+
     // Update the tenant with the new logo URL
     const updatedTenant = await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -255,7 +278,7 @@ export class LogoService {
   async updateEtimsQrCode(tenantId: string, file: MulterFile) {
     // Upload the file to storage
     const etimsQrUrl = await this.uploadFile(file);
-    
+
     // Update the tenant with the new ETIMS QR code URL
     const updatedTenant = await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -275,7 +298,7 @@ export class LogoService {
     // Example: Upload to S3 or save to disk
     // const result = await this.storageService.upload(file.buffer, fileName, file.mimetype);
     // return result.url;
-    
+
     // For now, return a placeholder URL
     return `/uploads/${fileName}`;
   }

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { BillingService } from './billing.service';
 
@@ -17,13 +21,13 @@ interface UpdateSubscriptionDto {
 export class SubscriptionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly billingService: BillingService
+    private readonly billingService: BillingService,
   ) {}
 
   async createSubscription(data: CreateSubscriptionDto) {
     try {
       console.log('Creating subscription with data:', data);
-      
+
       const plan = await this.prisma.plan.findUnique({
         where: { id: data.planId },
         select: {
@@ -51,8 +55,8 @@ export class SubscriptionService {
           ssoEnabled: true,
           auditLogs: true,
           backupRestore: true,
-          customIntegrations: true
-        }
+          customIntegrations: true,
+        },
       });
 
       if (!plan) {
@@ -74,7 +78,7 @@ export class SubscriptionService {
       });
 
       if (existingSubscription) {
-      // Removed console.log for subscription creation dates
+        // Removed console.log for subscription creation dates
         // Handle upgrade by updating the existing subscription
         return await this.handleUpgrade(existingSubscription, plan);
       }
@@ -100,7 +104,7 @@ export class SubscriptionService {
           userId: 'system', // This should be the admin user ID,
           cancelAtPeriodEnd: false,
           trialEnd: null,
-          canceledAt: null
+          canceledAt: null,
         },
         include: {
           Plan: true,
@@ -149,13 +153,17 @@ export class SubscriptionService {
 
     // Handle upgrade/downgrade logic
     const isUpgrade = this.isPlanUpgrade(currentPlan.name, newPlan.name);
-    
+
     if (isUpgrade) {
       // Immediate upgrade
       return await this.handleUpgrade(currentSubscription, newPlan);
     } else {
       // Schedule downgrade for next billing cycle
-      return await this.handleDowngrade(currentSubscription, newPlan, data.effectiveDate);
+      return await this.handleDowngrade(
+        currentSubscription,
+        newPlan,
+        data.effectiveDate,
+      );
     }
   }
 
@@ -190,14 +198,18 @@ export class SubscriptionService {
           take: 10,
         },
       },
-  // orderBy: { createdAt: 'desc' },
+      // orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createInvoice(subscriptionId: string, amount: number, tenantId: string) {
+  async createInvoice(
+    subscriptionId: string,
+    amount: number,
+    tenantId: string,
+  ) {
     // Generate a unique invoice number
     const invoiceNumber = 'INV-' + Date.now();
-    
+
     return await this.prisma.invoice.create({
       data: {
         id: `inv_${Date.now()}`,
@@ -225,7 +237,7 @@ export class SubscriptionService {
   }
 
   private isPlanUpgrade(currentPlan: string, newPlan: string): boolean {
-    const planHierarchy = { 'Basic': 1, 'Pro': 2, 'Enterprise': 3 };
+    const planHierarchy = { Basic: 1, Pro: 2, Enterprise: 3 };
     const currentLevel = planHierarchy[currentPlan] || 0;
     const newLevel = planHierarchy[newPlan] || 0;
     return newLevel > currentLevel;
@@ -233,8 +245,15 @@ export class SubscriptionService {
 
   private async handleUpgrade(currentSubscription: any, newPlan: any) {
     // Calculate proration
-    const daysRemaining = Math.ceil((currentSubscription.currentPeriodEnd.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    const totalDays = Math.ceil((currentSubscription.currentPeriodEnd.getTime() - currentSubscription.currentPeriodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.ceil(
+      (currentSubscription.currentPeriodEnd.getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    const totalDays = Math.ceil(
+      (currentSubscription.currentPeriodEnd.getTime() -
+        currentSubscription.currentPeriodStart.getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
     const prorationRatio = daysRemaining / totalDays;
 
     const currentPlanPrice = currentSubscription.plan.price;
@@ -257,7 +276,11 @@ export class SubscriptionService {
 
     // Create invoice for the difference
     if (netCharge > 0) {
-      await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
+      await this.createInvoice(
+        currentSubscription.id,
+        netCharge,
+        currentSubscription.tenantId,
+      );
     }
 
     return {
@@ -270,7 +293,11 @@ export class SubscriptionService {
     };
   }
 
-  private async handleDowngrade(currentSubscription: any, newPlan: any, effectiveDate?: Date) {
+  private async handleDowngrade(
+    currentSubscription: any,
+    newPlan: any,
+    effectiveDate?: Date,
+  ) {
     const effective = effectiveDate || currentSubscription.currentPeriodEnd;
 
     // For now, just return a message about scheduling
@@ -282,4 +309,4 @@ export class SubscriptionService {
       newPlan: newPlan.name,
     };
   }
-} 
+}

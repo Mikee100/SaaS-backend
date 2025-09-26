@@ -29,33 +29,33 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
                     logoType: 'loginLogoUrl',
                     enabled: true,
                     dimensions: { width: 200, height: 50 },
-                    position: 'center'
+                    position: 'center',
                 },
                 dashboard: {
                     logoType: 'dashboardLogoUrl',
                     enabled: true,
                     dimensions: { width: 180, height: 45 },
-                    position: 'left'
+                    position: 'left',
                 },
                 email: {
                     logoType: 'emailLogoUrl',
                     enabled: true,
                     dimensions: { width: 200, height: 50 },
-                    position: 'center'
+                    position: 'center',
                 },
                 mobile: {
                     logoType: 'mobileLogoUrl',
                     enabled: true,
                     dimensions: { width: 120, height: 30 },
-                    position: 'center'
+                    position: 'center',
                 },
                 receipt: {
                     logoType: 'receiptLogoUrl',
                     enabled: true,
                     dimensions: { width: 200, height: 50 },
-                    position: 'center'
-                }
-            }
+                    position: 'center',
+                },
+            },
         };
     }
     parseLogoSettings(settings) {
@@ -72,12 +72,12 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
         }
         const defaultSettings = this.getDefaultSettings();
         const result = {
-            sections: { ...defaultSettings.sections, ...settings.sections }
+            sections: { ...defaultSettings.sections, ...settings.sections },
         };
         for (const [section, config] of Object.entries(result.sections)) {
             result.sections[section] = {
                 ...defaultSettings.sections[section],
-                ...config
+                ...config,
             };
         }
         return result;
@@ -94,8 +94,8 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
                 mobileLogoUrl: true,
                 favicon: true,
                 receiptLogo: true,
-                watermark: true
-            }
+                watermark: true,
+            },
         });
         if (!tenant) {
             throw new common_1.NotFoundException(`Tenant with ID ${tenantId} not found`);
@@ -137,13 +137,13 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
             logoUrl,
             enabled: sectionConfig.enabled !== false,
             dimensions: sectionConfig.dimensions,
-            position: sectionConfig.position
+            position: sectionConfig.position,
         };
     }
     async updateSectionLogoConfig(tenantId, section, config) {
         const tenant = await this.prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { logoSettings: true }
+            select: { logoSettings: true },
         });
         if (!tenant) {
             throw new common_1.NotFoundException(`Tenant with ID ${tenantId} not found`);
@@ -151,7 +151,7 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
         const currentSettings = this.parseLogoSettings(tenant.logoSettings);
         const sectionConfig = currentSettings.sections[section] || {
             logoType: 'logoUrl',
-            enabled: true
+            enabled: true,
         };
         currentSettings.sections[section] = {
             ...sectionConfig,
@@ -160,12 +160,12 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
             enabled: config.enabled !== undefined ? config.enabled : sectionConfig.enabled,
             dimensions: {
                 ...(sectionConfig.dimensions || {}),
-                ...(config.dimensions || {})
-            }
+                ...(config.dimensions || {}),
+            },
         };
         await this.prisma.tenant.update({
             where: { id: tenantId },
-            data: { logoSettings: currentSettings }
+            data: { logoSettings: currentSettings },
         });
         return this.getSectionLogoConfig(tenantId, section);
     }
@@ -182,7 +182,7 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
         return {
             url: logoUrl,
             width: config.dimensions?.width,
-            height: config.dimensions?.height
+            height: config.dimensions?.height,
         };
     }
     async getAllSectionLogos(tenantId) {
@@ -194,14 +194,22 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
                 loginLogoUrl: true,
                 dashboardLogoUrl: true,
                 emailLogoUrl: true,
-                mobileLogoUrl: true
-            }
+                mobileLogoUrl: true,
+            },
         });
         if (!tenant)
             return {};
         const sections = [
-            'main', 'favicon', 'receipt', 'watermark', 'login',
-            'dashboard', 'email', 'mobile', 'sidebar', 'header'
+            'main',
+            'favicon',
+            'receipt',
+            'watermark',
+            'login',
+            'dashboard',
+            'email',
+            'mobile',
+            'sidebar',
+            'header',
         ];
         const result = {};
         for (const section of sections) {
@@ -264,16 +272,16 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
     }
     getDefaultLogoForSection(tenant, section) {
         const logoMap = {
-            'main': 'logoUrl',
-            'favicon': 'faviconUrl',
-            'receipt': 'receiptLogoUrl',
-            'watermark': 'watermarkUrl',
-            'login': 'loginLogoUrl',
-            'dashboard': 'dashboardLogoUrl',
-            'email': 'emailLogoUrl',
-            'mobile': 'mobileLogoUrl',
-            'sidebar': 'logoUrl',
-            'header': 'logoUrl'
+            main: 'logoUrl',
+            favicon: 'faviconUrl',
+            receipt: 'receiptLogoUrl',
+            watermark: 'watermarkUrl',
+            login: 'loginLogoUrl',
+            dashboard: 'dashboardLogoUrl',
+            email: 'emailLogoUrl',
+            mobile: 'mobileLogoUrl',
+            sidebar: 'logoUrl',
+            header: 'logoUrl',
         };
         const logoType = logoMap[section] || 'logoUrl';
         const logoUrl = tenant[logoType];
@@ -281,19 +289,19 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
             section,
             logoType,
             logoUrl: logoUrl || tenant.logoUrl,
-            enabled: true
+            enabled: true,
         };
     }
     getLogoUrlByType(tenant, logoType) {
         const logoMap = {
-            'main': 'logoUrl',
-            'favicon': 'faviconUrl',
-            'receipt': 'receiptLogoUrl',
-            'watermark': 'watermarkUrl',
-            'login': 'loginLogoUrl',
-            'dashboard': 'dashboardLogoUrl',
-            'email': 'emailLogoUrl',
-            'mobile': 'mobileLogoUrl'
+            main: 'logoUrl',
+            favicon: 'faviconUrl',
+            receipt: 'receiptLogoUrl',
+            watermark: 'watermarkUrl',
+            login: 'loginLogoUrl',
+            dashboard: 'dashboardLogoUrl',
+            email: 'emailLogoUrl',
+            mobile: 'mobileLogoUrl',
         };
         return tenant[logoMap[logoType]];
     }
@@ -309,7 +317,7 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
                 dashboardLogoUrl: true,
                 emailLogoUrl: true,
                 mobileLogoUrl: true,
-            }
+            },
         });
         if (!tenant)
             return {};
@@ -340,7 +348,7 @@ let SectionLogoService = SectionLogoService_1 = class SectionLogoService {
         return {
             compliant,
             missing,
-            recommendations
+            recommendations,
         };
     }
 };

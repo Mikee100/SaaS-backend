@@ -32,7 +32,7 @@ let AnalyticsController = class AnalyticsController {
                 totalSales: data.totalSales,
                 totalRevenue: data.totalRevenue,
                 totalProducts: data.totalProducts,
-                message: 'Basic analytics available to all plans'
+                message: 'Basic analytics available to all plans',
             };
         }
         catch (error) {

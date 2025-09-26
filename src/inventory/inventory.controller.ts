@@ -1,4 +1,14 @@
-import { Controller, Get, Req, UseGuards, Body, Param, Post, Put, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Req,
+  UseGuards,
+  Body,
+  Param,
+  Post,
+  Put,
+  Delete,
+} from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CreateInventoryDto } from './create-inventory.dto';
@@ -27,21 +37,41 @@ export class InventoryController {
   async create(@Req() req, @Body() dto: CreateInventoryDto) {
     const tenantId = req.user.tenantId;
     // branchId can be passed in body (dto)
-    return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
+    return this.inventoryService.createInventory(
+      dto,
+      tenantId,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Put(':id')
   @Permissions('edit_inventory')
-  async update(@Req() req, @Param('id') id: string, @Body() dto: UpdateInventoryDto) {
+  async update(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() dto: UpdateInventoryDto,
+  ) {
     const tenantId = req.user.tenantId;
     // branchId can be passed in body (dto)
-    return this.inventoryService.updateInventory(id, dto, tenantId, req.user.userId, req.ip);
+    return this.inventoryService.updateInventory(
+      id,
+      dto,
+      tenantId,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Delete(':id')
   @Permissions('delete_inventory')
   async remove(@Req() req, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
-    return this.inventoryService.deleteInventory(id, tenantId, req.user.userId, req.ip);
+    return this.inventoryService.deleteInventory(
+      id,
+      tenantId,
+      req.user.userId,
+      req.ip,
+    );
   }
-} 
+}

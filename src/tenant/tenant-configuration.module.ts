@@ -8,6 +8,6 @@ import { UserModule } from '../user/user.module';
   imports: [UserModule],
   providers: [TenantConfigurationService, PrismaService],
   controllers: [TenantConfigurationController],
-  exports: [TenantConfigurationService]
+  exports: [TenantConfigurationService],
 })
 export class TenantConfigurationModule {}

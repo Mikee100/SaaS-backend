@@ -61,7 +61,7 @@ let SalesService = class SalesService {
                     name: true,
                     price: true,
                     tenantId: true,
-                }
+                },
             });
             if (!product || product.tenantId !== tenantId)
                 throw new common_1.BadRequestException('Invalid product');
@@ -82,8 +82,8 @@ let SalesService = class SalesService {
                     where: { id: item.productId },
                     data: {
                         stock: {
-                            decrement: item.quantity
-                        }
+                            decrement: item.quantity,
+                        },
                     },
                 });
             }
@@ -110,7 +110,8 @@ let SalesService = class SalesService {
                         saleId,
                         productId: item.productId,
                         quantity: item.quantity,
-                        price: receiptItems.find(i => i.productId === item.productId)?.price || 0,
+                        price: receiptItems.find((i) => i.productId === item.productId)?.price ||
+                            0,
                     },
                 });
             }
@@ -160,7 +161,7 @@ let SalesService = class SalesService {
                                     id: true,
                                     name: true,
                                     price: true,
-                                    sku: true
+                                    sku: true,
                                 },
                             },
                         },
@@ -187,20 +188,24 @@ let SalesService = class SalesService {
             const result = {
                 ...sale,
                 saleId: sale.id,
-                cashier: sale.User ? {
-                    id: sale.User.id,
-                    name: sale.User.name,
-                    email: sale.User.email,
-                } : null,
-                mpesaTransaction: sale.mpesaTransaction ? {
-                    phoneNumber: sale.mpesaTransaction.phoneNumber,
-                    amount: sale.mpesaTransaction.amount,
-                    status: sale.mpesaTransaction.status,
-                    mpesaReceipt: sale.mpesaTransaction.transactionId || '',
-                    message: sale.mpesaTransaction.responseDesc || '',
-                    transactionDate: sale.mpesaTransaction.createdAt,
-                } : null,
-                items: sale.SaleItem.map(item => ({
+                cashier: sale.User
+                    ? {
+                        id: sale.User.id,
+                        name: sale.User.name,
+                        email: sale.User.email,
+                    }
+                    : null,
+                mpesaTransaction: sale.mpesaTransaction
+                    ? {
+                        phoneNumber: sale.mpesaTransaction.phoneNumber,
+                        amount: sale.mpesaTransaction.amount,
+                        status: sale.mpesaTransaction.status,
+                        mpesaReceipt: sale.mpesaTransaction.transactionId || '',
+                        message: sale.mpesaTransaction.responseDesc || '',
+                        transactionDate: sale.mpesaTransaction.createdAt,
+                    }
+                    : null,
+                items: sale.SaleItem.map((item) => ({
                     ...item,
                     name: item.product?.name || 'Unknown Product',
                     price: item.price || 0,
@@ -239,10 +244,10 @@ let SalesService = class SalesService {
       ORDER BY s."createdAt" DESC
       LIMIT ${limit} OFFSET ${skip}
     `;
-        const saleIds = sales.map(sale => sale.id);
+        const saleIds = sales.map((sale) => sale.id);
         const saleItems = await this.prisma.saleItem.findMany({
             where: {
-                saleId: { in: saleIds }
+                saleId: { in: saleIds },
             },
             include: {
                 product: {
@@ -250,14 +255,14 @@ let SalesService = class SalesService {
                         id: true,
                         name: true,
                         price: true,
-                        sku: true
-                    }
-                }
-            }
+                        sku: true,
+                    },
+                },
+            },
         });
         const mpesaTransactions = await this.prisma.mpesaTransaction.findMany({
             where: {
-                saleId: { in: saleIds }
+                saleId: { in: saleIds },
             },
             select: {
                 id: true,
@@ -268,30 +273,34 @@ let SalesService = class SalesService {
                 transactionId: true,
                 responseDesc: true,
                 createdAt: true,
-            }
+            },
         });
-        const transformedSales = sales.map(sale => {
+        const transformedSales = sales.map((sale) => {
             const items = saleItems
-                .filter(item => item.saleId === sale.id)
-                .map(item => ({
+                .filter((item) => item.saleId === sale.id)
+                .map((item) => ({
                 ...item,
                 productName: item.product?.name || 'Unknown',
             }));
-            const mpesaTransaction = mpesaTransactions.find(tx => tx.saleId === sale.id);
+            const mpesaTransaction = mpesaTransactions.find((tx) => tx.saleId === sale.id);
             return {
                 ...sale,
                 cashier: sale.userName || null,
-                mpesaTransaction: mpesaTransaction ? {
-                    phoneNumber: mpesaTransaction.phoneNumber,
-                    amount: mpesaTransaction.amount,
-                    status: mpesaTransaction.status,
-                } : null,
+                mpesaTransaction: mpesaTransaction
+                    ? {
+                        phoneNumber: mpesaTransaction.phoneNumber,
+                        amount: mpesaTransaction.amount,
+                        status: mpesaTransaction.status,
+                    }
+                    : null,
                 items,
-                branch: sale.branchId ? {
-                    id: sale.branchId,
-                    name: sale.branchName || 'Unknown Branch',
-                    address: sale.branchAddress
-                } : null
+                branch: sale.branchId
+                    ? {
+                        id: sale.branchId,
+                        name: sale.branchName || 'Unknown Branch',
+                        address: sale.branchAddress,
+                    }
+                    : null,
             };
         });
         return {
@@ -316,15 +325,15 @@ let SalesService = class SalesService {
                 User: true,
                 SaleItem: {
                     include: {
-                        product: true
-                    }
+                        product: true,
+                    },
                 },
                 mpesaTransaction: true,
                 Branch: true,
-                Tenant: true
+                Tenant: true,
             },
         });
-        return sales.map(sale => ({
+        return sales.map((sale) => ({
             saleId: sale.id,
             date: sale.createdAt,
             total: sale.total,
@@ -332,12 +341,14 @@ let SalesService = class SalesService {
             customerName: sale.customerName,
             customerPhone: sale.customerPhone,
             cashier: sale.User ? sale.User.name : null,
-            mpesaTransaction: sale.mpesaTransaction ? {
-                phoneNumber: sale.mpesaTransaction.phoneNumber,
-                amount: sale.mpesaTransaction.amount,
-                status: sale.mpesaTransaction.status,
-            } : null,
-            items: sale.SaleItem.map(item => ({
+            mpesaTransaction: sale.mpesaTransaction
+                ? {
+                    phoneNumber: sale.mpesaTransaction.phoneNumber,
+                    amount: sale.mpesaTransaction.amount,
+                    status: sale.mpesaTransaction.status,
+                }
+                : null,
+            items: sale.SaleItem.map((item) => ({
                 productId: item.productId,
                 name: item.product?.name || '',
                 price: item.price,
@@ -356,16 +367,16 @@ let SalesService = class SalesService {
                 tenantId,
                 createdAt: {
                     gte: start,
-                    lte: end
-                }
+                    lte: end,
+                },
             },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
         });
         const saleItems = await this.prisma.saleItem.findMany({
             where: {
                 saleId: {
-                    in: sales.map(sale => sale.id)
-                }
+                    in: sales.map((sale) => sale.id),
+                },
             },
             include: {
                 product: {
@@ -373,10 +384,10 @@ let SalesService = class SalesService {
                         id: true,
                         name: true,
                         price: true,
-                        sku: true
-                    }
-                }
-            }
+                        sku: true,
+                    },
+                },
+            },
         });
         const saleItemsBySaleId = {};
         for (const item of saleItems) {
@@ -390,32 +401,36 @@ let SalesService = class SalesService {
                     productId: item.productId,
                     quantity: item.quantity,
                     price: item.price,
-                    product: item.product ? {
-                        id: item.product.id,
-                        name: item.product.name || 'Unknown',
-                        price: item.product.price || 0,
-                        sku: item.product.sku || ''
-                    } : null
+                    product: item.product
+                        ? {
+                            id: item.product.id,
+                            name: item.product.name || 'Unknown',
+                            price: item.product.price || 0,
+                            sku: item.product.sku || '',
+                        }
+                        : null,
                 });
             }
         }
-        const salesWithItems = sales.map(sale => {
+        const salesWithItems = sales.map((sale) => {
             const items = saleItemsBySaleId[sale.id] || [];
             return {
                 ...sale,
-                SaleItem: items.map(item => ({
+                SaleItem: items.map((item) => ({
                     id: item.id,
                     saleId: item.saleId,
                     productId: item.productId,
                     quantity: item.quantity,
                     price: item.price,
-                    product: item.product ? {
-                        id: item.product.id,
-                        name: item.product.name || 'Unknown',
-                        price: item.product.price || 0,
-                        sku: item.product.sku || ''
-                    } : null
-                }))
+                    product: item.product
+                        ? {
+                            id: item.product.id,
+                            name: item.product.name || 'Unknown',
+                            price: item.product.price || 0,
+                            sku: item.product.sku || '',
+                        }
+                        : null,
+                })),
             };
         });
         const totalSales = salesWithItems.length;
@@ -433,7 +448,7 @@ let SalesService = class SalesService {
                         salesByProduct[productId] = {
                             name: productName,
                             quantity: 0,
-                            revenue: 0
+                            revenue: 0,
                         };
                     }
                     salesByProduct[productId].quantity += item.quantity;
@@ -458,7 +473,8 @@ let SalesService = class SalesService {
         const paymentBreakdown = {};
         for (const sale of sales) {
             if (sale.paymentType) {
-                paymentBreakdown[sale.paymentType] = (paymentBreakdown[sale.paymentType] || 0) + 1;
+                paymentBreakdown[sale.paymentType] =
+                    (paymentBreakdown[sale.paymentType] || 0) + 1;
             }
         }
         const customerMap = {};
@@ -474,7 +490,8 @@ let SalesService = class SalesService {
             }
             customerMap[key].total += sale.total || 0;
             customerMap[key].count += 1;
-            if (!customerMap[key].lastPurchase || new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)) {
+            if (!customerMap[key].lastPurchase ||
+                new Date(sale.createdAt) > new Date(customerMap[key].lastPurchase)) {
                 customerMap[key].lastPurchase = sale.createdAt;
             }
         }
@@ -484,17 +501,17 @@ let SalesService = class SalesService {
         const lowStock = await this.prisma.product.findMany({
             where: {
                 tenantId,
-                stock: { lt: 10 }
+                stock: { lt: 10 },
             },
             select: {
                 id: true,
                 name: true,
                 stock: true,
-                sku: true
+                sku: true,
             },
-            orderBy: { stock: 'asc' }
+            orderBy: { stock: 'asc' },
         });
-        const customerInput = Object.values(customerMap).map(c => ({
+        const customerInput = Object.values(customerMap).map((c) => ({
             name: c.name,
             total: c.total,
             count: c.count,
@@ -579,14 +596,14 @@ let SalesService = class SalesService {
                     },
                 },
             });
-            return recentSales.map(sale => ({
+            return recentSales.map((sale) => ({
                 id: sale.id,
                 total: sale.total,
                 paymentMethod: sale.paymentType,
                 customerName: sale.customerName || null,
                 customerPhone: sale.customerPhone || null,
                 date: sale.createdAt,
-                items: sale.SaleItem.map(item => ({
+                items: sale.SaleItem.map((item) => ({
                     productId: item.product?.id || '',
                     productName: item.product?.name || 'Unknown',
                     quantity: item.quantity,

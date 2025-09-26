@@ -8,6 +8,6 @@ import { UserModule } from '../user/user.module';
 @Module({
   imports: [UserModule],
   providers: [TenantService, PrismaService, LogoService],
-  controllers: [TenantController]
+  controllers: [TenantController],
 })
 export class TenantModule {}

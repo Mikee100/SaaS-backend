@@ -25,13 +25,13 @@ let MpesaService = class MpesaService {
                 userId,
                 tenantId,
                 ...rest,
-                updatedAt: new Date()
+                updatedAt: new Date(),
             }
             : {
                 id: `mpesa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 tenantId,
                 ...rest,
-                updatedAt: new Date()
+                updatedAt: new Date(),
             };
         return this.prisma.mpesaTransaction.create({ data: createData });
     }

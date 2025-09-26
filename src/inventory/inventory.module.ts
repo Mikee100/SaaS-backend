@@ -11,4 +11,4 @@ import { UserModule } from '../user/user.module';
   providers: [InventoryService, PrismaService, AuditLogService],
   imports: [RealtimeModule, UserModule],
 })
-export class InventoryModule {} 
+export class InventoryModule {}
