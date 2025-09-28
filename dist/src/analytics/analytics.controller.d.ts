@@ -9,6 +9,7 @@ export declare class AnalyticsController {
         message: string;
     }>;
     getDashboardAnalytics(req: any): Promise<{
+        aiSummary: string;
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
@@ -48,9 +49,14 @@ export declare class AnalyticsController {
             ordersInProgress: number;
             averageSessionDuration: number;
             bounceRate: number;
+        };
+        forecast: {
+            forecast_months: string[];
+            forecast_sales: number[];
         };
     }>;
     getAdvancedAnalytics(req: any): Promise<{
+        aiSummary: string;
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
@@ -90,9 +96,14 @@ export declare class AnalyticsController {
             ordersInProgress: number;
             averageSessionDuration: number;
             bounceRate: number;
+        };
+        forecast: {
+            forecast_months: string[];
+            forecast_sales: number[];
         };
     }>;
     getEnterpriseAnalytics(req: any): Promise<{
+        aiSummary: string;
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
@@ -132,6 +143,10 @@ export declare class AnalyticsController {
             ordersInProgress: number;
             averageSessionDuration: number;
             bounceRate: number;
+        };
+        forecast: {
+            forecast_months: string[];
+            forecast_sales: number[];
         };
     }>;
 }

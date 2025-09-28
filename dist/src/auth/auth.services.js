@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,14 +17,18 @@ const user_service_1 = require("../user/user.service");
 const bcrypt = require("bcrypt");
 const audit_log_service_1 = require("../audit-log.service");
 const uuid_1 = require("uuid");
-let AuthService = class AuthService {
+const email_service_1 = require("../email/email.service");
+let AuthService = AuthService_1 = class AuthService {
     userService;
     jwtService;
     auditLogService;
-    constructor(userService, jwtService, auditLogService) {
+    emailService;
+    logger = new common_1.Logger(AuthService_1.name);
+    constructor(userService, jwtService, auditLogService, emailService) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.auditLogService = auditLogService;
+        this.emailService = emailService;
     }
     async validateUser(email, password) {
         const user = await this.userService.findByEmail(email);
@@ -134,8 +139,17 @@ let AuthService = class AuthService {
             resetPasswordToken: resetToken,
             resetPasswordExpires: resetExpires,
         });
-        console.log(`Password reset token for ${email}: ${resetToken}`);
-        console.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+        try {
+            await this.emailService.sendResetPasswordEmail(email, resetToken);
+            this.logger.log(`Password reset email sent successfully to ${email}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to send password reset email to ${email}:`, error);
+            if (process.env.NODE_ENV !== 'production') {
+                this.logger.log(`Password reset token for ${email}: ${resetToken}`);
+                this.logger.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+            }
+        }
         return {
             message: 'If an account with that email exists, a password reset link has been sent.',
         };
@@ -151,10 +165,11 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [user_service_1.UserService,
         jwt_1.JwtService,
-        audit_log_service_1.AuditLogService])
+        audit_log_service_1.AuditLogService,
+        email_service_1.EmailService])
 ], AuthService);
 //# sourceMappingURL=auth.services.js.map

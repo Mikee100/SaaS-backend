@@ -9,7 +9,14 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ValidationPipe,
+  HttpException,
+  HttpStatus,
+  Headers,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import axios from 'axios';
+import { RegistrationDto } from './dto/registration.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -18,16 +25,46 @@ import { TenantService } from './tenant.service';
 import { Logger } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
+import * as bcrypt from 'bcrypt';
 
 @Controller('tenant')
+@UseGuards(ThrottlerGuard)
 export class TenantController {
   private readonly logger = new Logger(TenantController.name);
+  private readonly recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
 
   constructor(
     private readonly tenantService: TenantService,
     private readonly userService: UserService,
     private readonly logoService: LogoService,
   ) {}
+
+  private async validateRecaptcha(token: string): Promise<boolean> {
+    if (!this.recaptchaSecretKey) {
+      this.logger.warn('reCAPTCHA secret key not configured');
+      return true; // Skip validation in development
+    }
+
+    try {
+      const response = await axios.post('https://www.google.com/recaptcha/api/siteverify', null, {
+        params: {
+          secret: this.recaptchaSecretKey,
+          response: token,
+        },
+      });
+
+      const data = response.data;
+      return data.success && data.score >= 0.5;
+    } catch (error) {
+      this.logger.error('reCAPTCHA validation failed:', error);
+      return false;
+    }
+  }
+
+  private validateCsrf(csrfToken: string | undefined): boolean {
+    // For stateless API, check if token is present and valid format (in production, use proper validation)
+    return !!csrfToken && csrfToken.length > 10;
+  }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
@@ -209,43 +246,60 @@ export class TenantController {
     return { apiKey };
   }
 
+  // Public endpoint for CSRF token generation
+  @Get('csrf-token')
+  async getCsrfToken() {
+    const csrfToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    return { csrfToken };
+  }
+
   // Public endpoint for business registration
   @Post()
-  async createTenant(@Body() createTenantDto: any) {
+  @UseGuards(ThrottlerGuard)
+  async createTenant(
+    @Req() req,
+    @Body(new ValidationPipe({ transform: true })) createTenantDto: RegistrationDto,
+    @Headers('x-csrf-token') csrfToken?: string,
+  ) {
     this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
 
     try {
-      // Extract owner information from the request
-      const {
-        ownerName,
-        ownerEmail,
-        ownerPassword,
-        ownerRole = 'owner',
-        ...tenantData
-      } = createTenantDto;
-
-      // Validate required fields
-      if (!ownerName || !ownerEmail || !ownerPassword) {
-        throw new BadRequestException('Missing required owner information');
+      // CSRF validation (simple presence check for stateless API)
+      if (!this.validateCsrf(csrfToken)) {
+        throw new HttpException('Invalid CSRF token', HttpStatus.FORBIDDEN);
       }
 
-      // Create the tenant first (only valid fields)
-      const tenant = await this.tenantService.createTenant(tenantData);
-
-      // Create the owner user and assign owner role
-      // You may need to inject UserService here, or call it via another service
-      // For now, assume UserService is available as this.userService
-      if (this.userService) {
-        const ownerUser = await this.userService.createUser({
-          name: ownerName,
-          email: ownerEmail,
-          password: ownerPassword,
-          role: ownerRole,
-          tenantId: tenant.id,
-        });
-        return { tenant, ownerUser };
+      // reCAPTCHA validation
+      if (!(await this.validateRecaptcha(createTenantDto.recaptchaToken))) {
+        throw new HttpException('Invalid reCAPTCHA. Please try again.', HttpStatus.BAD_REQUEST);
       }
-      return { tenant };
+
+      // Extract validated data
+      const { name, businessType, contactEmail, branchName, owner, ...otherData } = createTenantDto;
+
+      // Create the tenant with branch and owner
+      const result = await this.tenantService.createTenantWithOwner({
+        name,
+        businessType,
+        contactEmail,
+        contactPhone: otherData.contactPhone,
+        branchName,
+        owner: {
+          name: owner.name,
+          email: owner.email,
+          password: owner.password,
+        },
+        ...otherData // Pass other sanitized fields
+      });
+
+      return {
+        success: true,
+        data: {
+          tenant: result.tenant,
+          branch: result.branch,
+          user: result.user,
+        },
+      };
     } catch (error) {
       this.logger.error('Error creating tenant:', error);
       console.error(

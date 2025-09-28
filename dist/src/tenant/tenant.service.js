@@ -15,13 +15,16 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const user_service_1 = require("../user/user.service");
 const bcrypt = require("bcrypt");
+const branch_service_1 = require("../branch/branch.service");
 let TenantService = TenantService_1 = class TenantService {
     prisma;
     userService;
+    branchService;
     logger = new common_1.Logger(TenantService_1.name);
-    constructor(prisma, userService) {
+    constructor(prisma, userService, branchService) {
         this.prisma = prisma;
         this.userService = userService;
+        this.branchService = branchService;
     }
     async createTenant(data) {
         const allowedFields = [
@@ -169,6 +172,37 @@ let TenantService = TenantService_1 = class TenantService {
         });
         return updatedTenant;
     }
+    async createTenantWithOwner(tenantData) {
+        return this.prisma.$transaction(async (prisma) => {
+            const tenant = await this.createTenant(tenantData);
+            const branchName = tenantData.branchName || 'Main Branch';
+            const mainBranch = await this.branchService.createBranch({
+                name: branchName,
+                email: tenantData.contactEmail,
+                phone: tenantData.contactPhone,
+                isMainBranch: true,
+                tenantId: tenant.id,
+            });
+            const hashedPassword = await bcrypt.hash(tenantData.owner.password, 10);
+            const ownerUser = await this.userService.createUser({
+                name: tenantData.owner.name,
+                email: tenantData.owner.email,
+                password: hashedPassword,
+                tenantId: tenant.id,
+                branchId: mainBranch.id,
+                role: 'owner',
+            });
+            return {
+                tenant,
+                branch: mainBranch,
+                user: {
+                    id: ownerUser.id,
+                    name: ownerUser.name,
+                    email: ownerUser.email,
+                },
+            };
+        });
+    }
     async createOwnerUser(data) {
         try {
             const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -190,6 +224,7 @@ exports.TenantService = TenantService;
 exports.TenantService = TenantService = TenantService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        user_service_1.UserService])
+        user_service_1.UserService,
+        branch_service_1.BranchService])
 ], TenantService);
 //# sourceMappingURL=tenant.service.js.map

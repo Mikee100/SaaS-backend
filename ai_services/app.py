@@ -7,6 +7,7 @@ import numpy as np
 from datetime import datetime
 from flask_cors import CORS
 from sklearn.linear_model import LogisticRegression
+from transformers import pipeline
 
 # Combined Flask app for sales anomaly detection, forecasting, and customer segmentation
 app = Flask(__name__)
@@ -115,7 +116,51 @@ def churn_prediction():
     result = df[['name', 'total', 'count', 'last_purchase', 'churn_probability', 'churn_risk']].to_dict(orient='records')
     return jsonify(result)
 
+# --- AI Summary Generation Endpoint ---
+@app.route('/generate_summary', methods=['POST'])
+def generate_summary():
+    data = request.json
+    metrics = data.get('metrics', {})
+    if not metrics:
+        return jsonify({"summary": "No data provided for summary generation."})
+
+    # Create a text prompt from metrics
+    prompt = f"""
+    Generate a concise business report summary based on the following metrics:
+    - Total Sales: {metrics.get('totalSales', 0)}
+    - Total Revenue: Ksh {metrics.get('totalRevenue', 0):,.0f}
+    - Average Sale Value: Ksh {metrics.get('avgSaleValue', 0):,.2f}
+    - Top Products: {', '.join([p['name'] for p in metrics.get('topProducts', [])[:3]])}
+    - Customer Retention: {metrics.get('customerRetention', {}).get('retentionRate', 0):.1f}%
+    - Forecast Growth: {metrics.get('forecastGrowth', 0):.1f}%
+
+    Provide a professional summary highlighting key insights and recommendations.
+    """
+
+    try:
+        # Use a local text generation model (GPT-2 small)
+        generator = pipeline('text-generation', model='gpt2')
+        generated = generator(prompt, max_length=200, num_return_sequences=1, temperature=0.7)
+        summary = generated[0]['generated_text'].strip()
+        # Clean up the summary (remove the prompt if repeated)
+        if summary.startswith(prompt.strip()):
+            summary = summary[len(prompt.strip()):].strip()
+        return jsonify({"summary": summary})
+    except Exception as e:
+        # Fallback to a simple template-based summary
+        summary = f"""
+        Business Performance Summary:
+        - Sales performance shows {metrics.get('totalSales', 0)} total transactions with revenue of Ksh {metrics.get('totalRevenue', 0):,.0f}.
+        - Average transaction value is Ksh {metrics.get('avgSaleValue', 0):,.2f}, indicating {'strong' if metrics.get('avgSaleValue', 0) > 1000 else 'moderate'} pricing strategy.
+        - Top performing products include {', '.join([p['name'] for p in metrics.get('topProducts', [])[:3]])}.
+        - Customer retention rate is {metrics.get('customerRetention', {}).get('retentionRate', 0):.1f}%, suggesting {'excellent' if metrics.get('customerRetention', {}).get('retentionRate', 0) > 80 else 'room for improvement'} in customer loyalty.
+        - Forecast indicates {metrics.get('forecastGrowth', 0):.1f}% growth potential.
+
+        Recommendations: Focus on high-margin products and improve customer retention through targeted marketing.
+        """
+        return jsonify({"summary": summary.strip()})
+
 if __name__ == '__main__':
     # To run: python app.py
     # The app will be available at http://localhost:5000
-    app.run(port=5000) 
+    app.run(port=5000)

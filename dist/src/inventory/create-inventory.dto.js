@@ -15,6 +15,10 @@ class CreateInventoryDto {
     productId;
     quantity;
     branchId;
+    minStock;
+    maxStock;
+    reorderPoint;
+    location;
 }
 exports.CreateInventoryDto = CreateInventoryDto;
 __decorate([
@@ -31,4 +35,27 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateInventoryDto.prototype, "branchId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateInventoryDto.prototype, "minStock", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], CreateInventoryDto.prototype, "maxStock", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateInventoryDto.prototype, "reorderPoint", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateInventoryDto.prototype, "location", void 0);
 //# sourceMappingURL=create-inventory.dto.js.map

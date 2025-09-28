@@ -4,9 +4,10 @@ import { LogoService } from './logo.service';
 import { TenantController } from './tenant.controller';
 import { PrismaService } from '../prisma.service';
 import { UserModule } from '../user/user.module';
+import { BranchModule } from '../branch/branch.module';
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, BranchModule],
   providers: [TenantService, PrismaService, LogoService],
   controllers: [TenantController],
 })

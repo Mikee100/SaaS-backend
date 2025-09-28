@@ -1,11 +1,14 @@
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { AuditLogService } from '../audit-log.service';
+import { EmailService } from '../email/email.service';
 export declare class AuthService {
     private userService;
     private jwtService;
     private auditLogService;
-    constructor(userService: UserService, jwtService: JwtService, auditLogService: AuditLogService);
+    private emailService;
+    private readonly logger;
+    constructor(userService: UserService, jwtService: JwtService, auditLogService: AuditLogService, emailService: EmailService);
     validateUser(email: string, password: string): Promise<{
         [x: string]: ({
             id: string;
@@ -75,9 +78,9 @@ export declare class AuthService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -100,9 +103,9 @@ export declare class AuthService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -178,15 +181,15 @@ export declare class AuthService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         } | {
             id: string;
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         })[] | {
             id: string;
             tenantId: string;
@@ -224,9 +227,9 @@ export declare class AuthService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -275,8 +278,8 @@ export declare class AuthService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;

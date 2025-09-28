@@ -32,6 +32,53 @@ export class InventoryController {
     return this.inventoryService.findAllByTenant(tenantId);
   }
 
+  @Get('advanced')
+  @Permissions('view_inventory')
+  async findAdvanced(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    return this.inventoryService.findAdvanced(tenantId, branchId);
+  }
+
+  @Get('movements')
+  @Permissions('view_inventory')
+  async getMovements(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    return this.inventoryService.getMovements(tenantId, branchId);
+  }
+
+  @Get('alerts')
+  @Permissions('view_inventory')
+  async getAlerts(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    return this.inventoryService.getAlerts(tenantId, branchId);
+  }
+
+  @Get('locations')
+  @Permissions('view_inventory')
+  async getLocations(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    return this.inventoryService.getLocations(tenantId, branchId);
+  }
+
+  @Get('forecast')
+  @Permissions('view_inventory')
+  async getForecast(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.query.branchId as string | undefined;
+    return this.inventoryService.getForecast(tenantId, branchId);
+  }
+
+  @Post('movements')
+  @Permissions('edit_inventory')
+  async createMovement(@Req() req, @Body() dto: any) {
+    const tenantId = req.user.tenantId;
+    return this.inventoryService.createMovement(dto, tenantId, req.user.userId, req.ip);
+  }
+
   @Post()
   @Permissions('create_inventory')
   async create(@Req() req, @Body() dto: CreateInventoryDto) {

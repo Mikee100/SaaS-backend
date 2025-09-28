@@ -33,6 +33,35 @@ let InventoryController = class InventoryController {
         }
         return this.inventoryService.findAllByTenant(tenantId);
     }
+    async findAdvanced(req) {
+        const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        return this.inventoryService.findAdvanced(tenantId, branchId);
+    }
+    async getMovements(req) {
+        const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        return this.inventoryService.getMovements(tenantId, branchId);
+    }
+    async getAlerts(req) {
+        const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        return this.inventoryService.getAlerts(tenantId, branchId);
+    }
+    async getLocations(req) {
+        const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        return this.inventoryService.getLocations(tenantId, branchId);
+    }
+    async getForecast(req) {
+        const tenantId = req.user.tenantId;
+        const branchId = req.query.branchId;
+        return this.inventoryService.getForecast(tenantId, branchId);
+    }
+    async createMovement(req, dto) {
+        const tenantId = req.user.tenantId;
+        return this.inventoryService.createMovement(dto, tenantId, req.user.userId, req.ip);
+    }
     async create(req, dto) {
         const tenantId = req.user.tenantId;
         return this.inventoryService.createInventory(dto, tenantId, req.user.userId, req.ip);
@@ -55,6 +84,55 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('advanced'),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "findAdvanced", null);
+__decorate([
+    (0, common_1.Get)('movements'),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getMovements", null);
+__decorate([
+    (0, common_1.Get)('alerts'),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getAlerts", null);
+__decorate([
+    (0, common_1.Get)('locations'),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getLocations", null);
+__decorate([
+    (0, common_1.Get)('forecast'),
+    (0, permissions_decorator_1.Permissions)('view_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getForecast", null);
+__decorate([
+    (0, common_1.Post)('movements'),
+    (0, permissions_decorator_1.Permissions)('edit_inventory'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "createMovement", null);
 __decorate([
     (0, common_1.Post)(),
     (0, permissions_decorator_1.Permissions)('create_inventory'),

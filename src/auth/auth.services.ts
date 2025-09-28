@@ -1,16 +1,20 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
     private auditLogService: AuditLogService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -155,12 +159,19 @@ export class AuthService {
       resetPasswordExpires: resetExpires,
     });
 
-    // TODO: Send email with reset link
-    // For now, just log the token (in production, send email)
-    console.log(`Password reset token for ${email}: ${resetToken}`);
-    console.log(
-      `Reset link: http://localhost:3000/reset-password?token=${resetToken}`,
-    );
+    try {
+      // Send email with reset link
+      await this.emailService.sendResetPasswordEmail(email, resetToken);
+      this.logger.log(`Password reset email sent successfully to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      // In development, log the token for testing
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.log(`Password reset token for ${email}: ${resetToken}`);
+        this.logger.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+      }
+      // Don't throw error to avoid revealing user existence
+    }
 
     return {
       message:

@@ -3,6 +3,7 @@ export declare class AnalyticsService {
     private prisma;
     constructor(prisma: PrismaService);
     getDashboardAnalytics(tenantId: string): Promise<{
+        aiSummary: string;
         totalSales: number;
         totalRevenue: number;
         totalProducts: number;
@@ -43,6 +44,10 @@ export declare class AnalyticsService {
             averageSessionDuration: number;
             bounceRate: number;
         };
+        forecast: {
+            forecast_months: string[];
+            forecast_sales: number[];
+        };
     }>;
     private getSalesByTimePeriod;
     private getTopProducts;
@@ -51,4 +56,5 @@ export declare class AnalyticsService {
     private getRepeatCustomers;
     private calculatePerformanceMetrics;
     private getRealTimeData;
+    private generateSalesForecast;
 }

@@ -97,6 +97,11 @@ export class ProductService {
       productData.price = parseFloat(String(productData.price));
     }
 
+    // Ensure cost is a float
+    if (productData.cost !== undefined) {
+      productData.cost = parseFloat(String(productData.cost));
+    }
+
     const product = await this.prisma.product.create({
       data: productData,
     });
@@ -120,13 +125,14 @@ export class ProductService {
     ip?: string,
   ) {
     // Separate standard and custom fields
-    const { name, sku, price, description, stock, ...customFields } = data;
+    const { name, sku, price, description, stock, cost, ...customFields } = data;
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (sku !== undefined) updateData.sku = String(sku);
     if (price !== undefined) updateData.price = parseFloat(price);
     if (description !== undefined) updateData.description = description;
     if (stock !== undefined) updateData.stock = parseInt(stock);
+    if (cost !== undefined) updateData.cost = parseFloat(cost);
     if (Object.keys(customFields).length > 0) {
       updateData.customFields = customFields;
     }
@@ -227,15 +233,25 @@ export class ProductService {
     const priceCandidates = [
       'price',
       'unit price',
-      'cost',
+      'selling price',
+      'sale price',
       'price usd',
       'amount',
+    ];
+    const costCandidates = [
+      'cost',
+      'purchase cost',
+      'unit cost',
+      'buy price',
+      'cost price',
+      'wholesale price',
     ];
 
     // Find the best matching column for each required field
     const nameCol = findColumnMatch(headers, nameCandidates);
     const skuCol = findColumnMatch(headers, skuCandidates);
     const priceCol = findColumnMatch(headers, priceCandidates);
+    const costCol = findColumnMatch(headers, costCandidates);
 
     // Required fields for Product
     const requiredFields = ['name', 'sku', 'price'];
@@ -252,6 +268,7 @@ export class ProductService {
             if (nameCol) mappedRow.name = row[nameCol];
             if (skuCol) mappedRow.sku = row[skuCol];
             if (priceCol) mappedRow.price = row[priceCol];
+            if (costCol) mappedRow.cost = row[costCol];
 
             // Validate required fields
             for (const field of requiredFields) {
@@ -260,7 +277,7 @@ export class ProductService {
             }
 
             // Extract standard fields
-            const { name, sku, price, description, stock, ...customFields } =
+            const { name, sku, price, cost, description, stock, ...customFields } =
               mappedRow;
 
             const productData = {
@@ -268,6 +285,7 @@ export class ProductService {
               name: String(name).trim(),
               sku: sku !== undefined ? String(sku).trim() : '',
               price: parseFloat(price),
+              cost: cost !== undefined ? parseFloat(String(cost)) : 0,
               description: description ? String(description).trim() : '',
               stock: stock !== undefined ? parseInt(String(stock)) : 0,
               tenantId: user.tenantId,

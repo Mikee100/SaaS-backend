@@ -15,9 +15,9 @@ export declare class MpesaController {
         tenantId: string;
         updatedAt: Date;
         userId: string | null;
+        status: string;
         phoneNumber: string;
         amount: number;
-        status: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         responseCode: string | null;

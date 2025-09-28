@@ -8,12 +8,14 @@ import { AuditLogService } from '../audit-log.service';
 import { PrismaModule } from '../prisma.module';
 import { ConfigurationService } from '../config/configuration.service';
 import { PassportModule } from '@nestjs/passport';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     UserModule,
     PrismaModule,
     PassportModule,
+    EmailModule,
     JwtModule.register({
       secret:
         process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',

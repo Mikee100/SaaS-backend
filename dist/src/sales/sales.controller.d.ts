@@ -49,12 +49,13 @@ export declare class SalesController {
                 country: string | null;
                 postalCode: string | null;
                 state: string | null;
-                status: string | null;
-                logo: string | null;
                 customField: string | null;
+                isMainBranch: boolean;
+                logo: string | null;
                 manager: string | null;
                 openingHours: string | null;
                 phone: string | null;
+                status: string | null;
                 street: string | null;
             } | null;
             Tenant: {
@@ -186,11 +187,14 @@ export declare class SalesController {
         totalSales: number;
         totalRevenue: number;
         avgSaleValue: number;
+        totalProfit: number;
+        avgProfitMargin: number;
         topProducts: {
             id: string;
             name: string;
             unitsSold: number;
             revenue: number;
+            profit: number;
         }[];
         salesByMonth: Record<string, number>;
         topCustomers: {
@@ -322,12 +326,13 @@ export declare class SalesController {
             country: string | null;
             postalCode: string | null;
             state: string | null;
-            status: string | null;
-            logo: string | null;
             customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
             manager: string | null;
             openingHours: string | null;
             phone: string | null;
+            status: string | null;
             street: string | null;
         } | null;
         Tenant: {

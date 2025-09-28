@@ -385,6 +385,7 @@ let SalesService = class SalesService {
                         name: true,
                         price: true,
                         sku: true,
+                        cost: true,
                     },
                 },
             },
@@ -407,6 +408,7 @@ let SalesService = class SalesService {
                             name: item.product.name || 'Unknown',
                             price: item.product.price || 0,
                             sku: item.product.sku || '',
+                            cost: item.product.cost || 0,
                         }
                         : null,
                 });
@@ -428,6 +430,7 @@ let SalesService = class SalesService {
                             name: item.product.name || 'Unknown',
                             price: item.product.price || 0,
                             sku: item.product.sku || '',
+                            cost: item.product.cost || 0,
                         }
                         : null,
                 })),
@@ -436,6 +439,17 @@ let SalesService = class SalesService {
         const totalSales = salesWithItems.length;
         const totalRevenue = salesWithItems.reduce((sum, s) => sum + (s.total || 0), 0);
         const avgSaleValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+        let totalProfit = 0;
+        for (const sale of salesWithItems) {
+            if (!sale.SaleItem || !Array.isArray(sale.SaleItem))
+                continue;
+            for (const item of sale.SaleItem) {
+                if (item.product && item.product.cost !== undefined) {
+                    totalProfit += (item.price - item.product.cost) * item.quantity;
+                }
+            }
+        }
+        const avgProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
         const salesByProduct = {};
         for (const sale of salesWithItems) {
             if (!sale.SaleItem || !Array.isArray(sale.SaleItem))
@@ -449,10 +463,14 @@ let SalesService = class SalesService {
                             name: productName,
                             quantity: 0,
                             revenue: 0,
+                            profit: 0,
                         };
                     }
                     salesByProduct[productId].quantity += item.quantity;
                     salesByProduct[productId].revenue += item.price * item.quantity;
+                    if (item.product.cost !== undefined) {
+                        salesByProduct[productId].profit += (item.price - item.product.cost) * item.quantity;
+                    }
                 }
             }
         }
@@ -462,6 +480,7 @@ let SalesService = class SalesService {
             name: data.name,
             unitsSold: data.quantity,
             revenue: data.revenue,
+            profit: data.profit,
         }))
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 10);
@@ -547,6 +566,8 @@ let SalesService = class SalesService {
             totalSales,
             totalRevenue,
             avgSaleValue,
+            totalProfit,
+            avgProfitMargin,
             topProducts,
             salesByMonth,
             topCustomers,

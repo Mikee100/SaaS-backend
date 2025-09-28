@@ -488,8 +488,8 @@ export declare class BillingController {
             tenantId: string;
             updatedAt: Date;
             currency: string;
-            amount: number;
             status: string;
+            amount: number;
             stripePaymentIntentId: string | null;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
             completedAt: Date | null;

@@ -41,7 +41,7 @@ model User {
 
 model Role {
   id             String           @id @default(uuid())
-  name           String           @unique
+  name           String
   description    String?
   createdAt      DateTime         @default(now())
   tenantId       String?
@@ -143,6 +143,9 @@ model Tenant {
   credits             Float?                @default(0)
   Branch              Branch[]
   Inventory           Inventory[]
+  InventoryMovement   InventoryMovement[]
+  InventoryAlert      InventoryAlert[]
+  InventoryLocation   InventoryLocation[]
   Invoice             Invoice[]
   MpesaTransaction    MpesaTransaction[]
   Notification        Notification[]
@@ -181,6 +184,7 @@ model Branch {
   country        String?
   customField    String?
   email          String?
+  isMainBranch   Boolean          @default(false)
   logo           String?
   manager        String?
   openingHours   String?
@@ -189,30 +193,96 @@ model Branch {
   state          String?
   status         String?
   street         String?
-  tenant         Tenant           @relation(fields: [tenantId], references: [id])
-  inventories    Inventory[]
-  products       Product[]        @relation("BranchProducts")
-  sales          Sale[]
-  users          User[]           @relation("UserBranch")
-  UserBranchRole UserBranchRole[] @relation("BranchUserBranchRoles")
+  tenant              Tenant              @relation(fields: [tenantId], references: [id])
+  inventories         Inventory[]
+  inventoryMovements  InventoryMovement[]
+  inventoryAlerts     InventoryAlert[]
+  inventoryLocations  InventoryLocation[]
+  products            Product[]           @relation("BranchProducts")
+  sales               Sale[]
+  users               User[]              @relation("UserBranch")
+  UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
 
   @@index([tenantId])
 }
 
 model Inventory {
-  id        String   @id
+  id           String   @id
+  productId    String
+  quantity     Int
+  tenantId     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  branchId     String?
+  minStock     Int      @default(0)
+  maxStock     Int      @default(1000)
+  reorderPoint Int      @default(10)
+  location     String   @default("Main Warehouse")
+  branch       Branch?  @relation(fields: [branchId], references: [id])
+  product      Product  @relation("ProductInventory", fields: [productId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([branchId])
+  @@index([productId])
+  @@index([tenantId])
+}
+
+model InventoryMovement {
+  id           String   @id @default(uuid())
+  productId    String
+  type         String   // 'in', 'out', 'adjustment', 'transfer'
+  quantity     Int
+  previousQuantity Int
+  newQuantity  Int
+  reason       String?
+  location     String
+  createdAt    DateTime @default(now())
+  createdBy    String
+  branchId     String?
+  tenantId     String
+  branch       Branch?  @relation(fields: [branchId], references: [id])
+  product      Product  @relation(fields: [productId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([branchId])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+model InventoryAlert {
+  id        String   @id @default(uuid())
   productId String
-  quantity  Int
-  tenantId  String
+  type      String   // 'low_stock', 'out_of_stock', 'over_stock', 'reorder'
+  message   String
+  severity  String   // 'low', 'medium', 'high', 'critical'
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime
   branchId  String?
+  tenantId  String
   branch    Branch?  @relation(fields: [branchId], references: [id])
-  product   Product  @relation("ProductInventory", fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([branchId])
   @@index([productId])
+  @@index([tenantId])
+  @@index([isRead])
+}
+
+model InventoryLocation {
+  id       String   @id @default(uuid())
+  name     String
+  type     String   // 'warehouse', 'store', 'showroom'
+  address  String?
+  branchId String?
+  tenantId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch   Branch?  @relation(fields: [branchId], references: [id])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([branchId])
   @@index([tenantId])
 }
 
@@ -401,10 +471,12 @@ model Product {
   customFields Json?
   branchId     String?
   cost         Float       @default(0)
-  inventory    Inventory[] @relation("ProductInventory")
-  branch       Branch?     @relation("BranchProducts", fields: [branchId], references: [id])
-  tenant       Tenant      @relation("TenantProducts", fields: [tenantId], references: [id])
-  saleItems    SaleItem[]  @relation("ProductSaleItems")
+  inventory           Inventory[]          @relation("ProductInventory")
+  inventoryMovements  InventoryMovement[]
+  inventoryAlerts     InventoryAlert[]
+  branch              Branch?              @relation("BranchProducts", fields: [branchId], references: [id])
+  tenant              Tenant               @relation("TenantProducts", fields: [tenantId], references: [id])
+  saleItems           SaleItem[]           @relation("ProductSaleItems")
 
   @@index([branchId])
   @@index([tenantId])

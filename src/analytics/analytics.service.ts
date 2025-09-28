@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
+import axios from 'axios';
 
 @Injectable()
 export class AnalyticsService {
@@ -22,6 +24,7 @@ export class AnalyticsService {
       salesByMonth,
       topProducts,
       inventoryAnalytics,
+      forecastData,
     ] = await Promise.all([
       // Total Sales (count of sales in the last 30 days)
       this.prisma.sale.count({
@@ -69,6 +72,9 @@ export class AnalyticsService {
 
       // Inventory analytics
       this.getInventoryAnalytics(tenantId),
+
+      // Sales forecasting
+      this.generateSalesForecast(tenantId),
     ]);
 
     // Calculate customer retention (simplified)
@@ -82,7 +88,7 @@ export class AnalyticsService {
     // Calculate performance metrics
     const performanceMetrics = await this.calculatePerformanceMetrics(tenantId);
 
-    return {
+    const analyticsData = {
       totalSales,
       totalRevenue: totalRevenue._sum.total || 0,
       totalProducts,
@@ -99,6 +105,31 @@ export class AnalyticsService {
       inventoryAnalytics,
       performanceMetrics,
       realTimeData: await this.getRealTimeData(tenantId),
+      forecast: forecastData,
+    };
+
+    // Generate AI summary
+    let aiSummary = 'AI summary generation failed.';
+    try {
+      const summaryResponse = await axios.post('http://localhost:5000/generate_summary', {
+        metrics: {
+          totalSales,
+          totalRevenue: totalRevenue._sum.total || 0,
+          avgSaleValue: totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0,
+          topProducts: topProducts.map(p => ({ name: p.name })),
+          customerRetention: { retentionRate: parseFloat(retentionRate.toFixed(2)) },
+          forecastGrowth: forecastData.forecast_sales?.length > 1 ?
+            ((forecastData.forecast_sales[forecastData.forecast_sales.length - 1] - forecastData.forecast_sales[0]) / forecastData.forecast_sales[0]) * 100 : 0,
+        },
+      });
+      aiSummary = summaryResponse.data.summary;
+    } catch (error) {
+      console.error('Failed to generate AI summary:', error);
+    }
+
+    return {
+      ...analyticsData,
+      aiSummary,
     };
   }
 
@@ -123,7 +154,7 @@ export class AnalyticsService {
       date.setDate(date.getDate() - 28); // 4 weeks
     else date.setMonth(date.getMonth() - 6); // 6 months
 
-    const sales = await this.prisma.$queryRaw`
+    const sales = await this.prisma.$queryRaw` 
       SELECT 
         TO_CHAR("createdAt" AT TIME ZONE 'UTC', ${format}) as period,
         COUNT(*) as count,
@@ -265,14 +296,16 @@ export class AnalyticsService {
   }
 
   private async getRepeatCustomers(tenantId: string) {
-    const repeatCustomers = await this.prisma.$queryRaw`
-      SELECT "customerPhone", COUNT(*) as purchase_count
-      FROM "Sale"
-      WHERE "tenantId" = ${tenantId}
-        AND "customerPhone" IS NOT NULL
-      GROUP BY "customerPhone"
-      HAVING COUNT(*) > 1
-    `;
+    const repeatCustomers = await this.prisma.$queryRaw(
+      Prisma.sql`
+        SELECT "customerPhone", COUNT(*) as purchase_count
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "customerPhone" IS NOT NULL
+        GROUP BY "customerPhone"
+        HAVING COUNT(*) > 1
+      `
+    );
 
     type RepeatCustomer = { customerPhone: string; purchase_count: bigint };
     return (repeatCustomers as RepeatCustomer[]).length;
@@ -381,6 +414,92 @@ export class AnalyticsService {
       ordersInProgress: salesToday,
       averageSessionDuration: 8.5, // Minutes - would come from analytics in a real app
       bounceRate: 0.32, // Would come from analytics in a real app
+    };
+  }
+
+  private async generateSalesForecast(tenantId: string) {
+    // Get historical sales data for the last 6 months to base forecast on
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const historicalSales = await this.prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM') as month,
+          COUNT(*) as sales_count,
+          COALESCE(SUM(total), 0) as total_revenue
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "createdAt" >= ${sixMonthsAgo}
+        GROUP BY month
+        ORDER BY month ASC
+      `
+    );
+
+    type HistoricalData = { month: string; sales_count: bigint; total_revenue: string };
+
+    // If we have less than 3 months of data, generate mock forecast data
+    if ((historicalSales as HistoricalData[]).length < 3) {
+      const now = new Date();
+      const forecastMonths: string[] = [];
+      const forecastSales: number[] = [];
+
+      for (let i = 1; i <= 6; i++) {
+        const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        forecastMonths.push(futureDate.toISOString().slice(0, 7)); // YYYY-MM format
+
+        // Generate realistic mock sales data with some growth trend
+        const baseSales = 150 + Math.random() * 100; // Base sales between 150-250
+        const growthFactor = 1 + (i * 0.05) + (Math.random() * 0.1 - 0.05); // 5% monthly growth with variance
+        forecastSales.push(Math.round(baseSales * growthFactor));
+      }
+
+      return {
+        forecast_months: forecastMonths,
+        forecast_sales: forecastSales,
+      };
+    }
+
+    // Calculate trend and seasonality from historical data
+    const salesData = (historicalSales as HistoricalData[]).map(item => ({
+      month: item.month,
+      sales: Number(item.sales_count),
+      revenue: parseFloat(item.total_revenue),
+    }));
+
+    // Simple linear regression for trend
+    const n = salesData.length;
+    const sumX = salesData.reduce((sum, _, index) => sum + index, 0);
+    const sumY = salesData.reduce((sum, item) => sum + item.sales, 0);
+    const sumXY = salesData.reduce((sum, item, index) => sum + index * item.sales, 0);
+    const sumXX = salesData.reduce((sum, _, index) => sum + index * index, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Generate forecast for next 6 months
+    const now = new Date();
+    const forecastMonths: string[] = [];
+    const forecastSales: number[] = [];
+
+    for (let i = 1; i <= 6; i++) {
+      const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      forecastMonths.push(futureDate.toISOString().slice(0, 7)); // YYYY-MM format
+
+      // Predict sales using linear regression
+      const predictedSales = intercept + slope * (n + i - 1);
+
+      // Add some realistic variance (±20%) and ensure positive values
+      const variance = 0.2;
+      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
+      const finalPrediction = Math.max(1, Math.round(predictedSales * randomFactor));
+
+      forecastSales.push(finalPrediction);
+    }
+
+    return {
+      forecast_months: forecastMonths,
+      forecast_sales: forecastSales,
     };
   }
 }

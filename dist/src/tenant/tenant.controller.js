@@ -15,6 +15,9 @@ var TenantController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TenantController = void 0;
 const common_1 = require("@nestjs/common");
+const throttler_1 = require("@nestjs/throttler");
+const axios_1 = require("axios");
+const registration_dto_1 = require("./dto/registration.dto");
 const passport_1 = require("@nestjs/passport");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
@@ -28,10 +31,34 @@ let TenantController = TenantController_1 = class TenantController {
     userService;
     logoService;
     logger = new common_2.Logger(TenantController_1.name);
+    recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
     constructor(tenantService, userService, logoService) {
         this.tenantService = tenantService;
         this.userService = userService;
         this.logoService = logoService;
+    }
+    async validateRecaptcha(token) {
+        if (!this.recaptchaSecretKey) {
+            this.logger.warn('reCAPTCHA secret key not configured');
+            return true;
+        }
+        try {
+            const response = await axios_1.default.post('https://www.google.com/recaptcha/api/siteverify', null, {
+                params: {
+                    secret: this.recaptchaSecretKey,
+                    response: token,
+                },
+            });
+            const data = response.data;
+            return data.success && data.score >= 0.5;
+        }
+        catch (error) {
+            this.logger.error('reCAPTCHA validation failed:', error);
+            return false;
+        }
+    }
+    validateCsrf(csrfToken) {
+        return !!csrfToken && csrfToken.length > 10;
     }
     async getMyTenant(req) {
         const tenantId = req.user.tenantId;
@@ -122,25 +149,41 @@ let TenantController = TenantController_1 = class TenantController {
         await this.tenantService.updateTenant(tenantId, { apiKey });
         return { apiKey };
     }
-    async createTenant(createTenantDto) {
+    async getCsrfToken() {
+        const csrfToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        return { csrfToken };
+    }
+    async createTenant(req, createTenantDto, csrfToken) {
         this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
         try {
-            const { ownerName, ownerEmail, ownerPassword, ownerRole = 'owner', ...tenantData } = createTenantDto;
-            if (!ownerName || !ownerEmail || !ownerPassword) {
-                throw new common_1.BadRequestException('Missing required owner information');
+            if (!this.validateCsrf(csrfToken)) {
+                throw new common_1.HttpException('Invalid CSRF token', common_1.HttpStatus.FORBIDDEN);
             }
-            const tenant = await this.tenantService.createTenant(tenantData);
-            if (this.userService) {
-                const ownerUser = await this.userService.createUser({
-                    name: ownerName,
-                    email: ownerEmail,
-                    password: ownerPassword,
-                    role: ownerRole,
-                    tenantId: tenant.id,
-                });
-                return { tenant, ownerUser };
+            if (!(await this.validateRecaptcha(createTenantDto.recaptchaToken))) {
+                throw new common_1.HttpException('Invalid reCAPTCHA. Please try again.', common_1.HttpStatus.BAD_REQUEST);
             }
-            return { tenant };
+            const { name, businessType, contactEmail, branchName, owner, ...otherData } = createTenantDto;
+            const result = await this.tenantService.createTenantWithOwner({
+                name,
+                businessType,
+                contactEmail,
+                contactPhone: otherData.contactPhone,
+                branchName,
+                owner: {
+                    name: owner.name,
+                    email: owner.email,
+                    password: owner.password,
+                },
+                ...otherData
+            });
+            return {
+                success: true,
+                data: {
+                    tenant: result.tenant,
+                    branch: result.branch,
+                    user: result.user,
+                },
+            };
         }
         catch (error) {
             this.logger.error('Error creating tenant:', error);
@@ -257,14 +300,24 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "generateApiKey", null);
 __decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    (0, common_1.Get)('csrf-token'),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "getCsrfToken", null);
+__decorate([
+    (0, common_1.Post)(),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
+    __param(2, (0, common_1.Headers)('x-csrf-token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, registration_dto_1.RegistrationDto, String]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "createTenant", null);
 exports.TenantController = TenantController = TenantController_1 = __decorate([
     (0, common_1.Controller)('tenant'),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
     __metadata("design:paramtypes", [tenant_service_1.TenantService,
         user_service_1.UserService,
         logo_service_1.LogoService])

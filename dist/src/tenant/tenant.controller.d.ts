@@ -1,3 +1,4 @@
+import { RegistrationDto } from './dto/registration.dto';
 import { TenantService } from './tenant.service';
 import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
@@ -6,7 +7,10 @@ export declare class TenantController {
     private readonly userService;
     private readonly logoService;
     private readonly logger;
+    private readonly recaptchaSecretKey;
     constructor(tenantService: TenantService, userService: UserService, logoService: LogoService);
+    private validateRecaptcha;
+    private validateCsrf;
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
@@ -259,11 +263,39 @@ export declare class TenantController {
     generateApiKey(req: any): Promise<{
         apiKey: string;
     }>;
-    createTenant(createTenantDto: any): Promise<{
-        tenant: any;
-        ownerUser: any;
-    } | {
-        tenant: any;
-        ownerUser?: undefined;
+    getCsrfToken(): Promise<{
+        csrfToken: string;
+    }>;
+    createTenant(req: any, createTenantDto: RegistrationDto, csrfToken?: string): Promise<{
+        success: boolean;
+        data: {
+            tenant: any;
+            branch: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                tenantId: string;
+                updatedAt: Date;
+                email: string | null;
+                address: string | null;
+                city: string | null;
+                country: string | null;
+                postalCode: string | null;
+                state: string | null;
+                customField: string | null;
+                isMainBranch: boolean;
+                logo: string | null;
+                manager: string | null;
+                openingHours: string | null;
+                phone: string | null;
+                status: string | null;
+                street: string | null;
+            };
+            user: {
+                id: any;
+                name: any;
+                email: any;
+            };
+        };
     }>;
 }

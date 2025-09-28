@@ -190,8 +190,8 @@ export declare class SubscriptionService {
             createdAt: Date;
             tenantId: string;
             updatedAt: Date;
-            amount: number;
             status: string;
+            amount: number;
             subscriptionId: string | null;
             dueDate: Date | null;
             paidAt: Date | null;
@@ -246,8 +246,8 @@ export declare class SubscriptionService {
         createdAt: Date;
         tenantId: string;
         updatedAt: Date;
-        amount: number;
         status: string;
+        amount: number;
         subscriptionId: string | null;
         dueDate: Date | null;
         paidAt: Date | null;

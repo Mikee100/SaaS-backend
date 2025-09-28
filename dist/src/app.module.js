@@ -27,12 +27,17 @@ const analytics_module_1 = require("./analytics/analytics.module");
 const branch_module_1 = require("./branch/branch.module");
 const usage_module_1 = require("./usage.module");
 const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-stats.module");
+const throttler_1 = require("@nestjs/throttler");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            throttler_1.ThrottlerModule.forRoot([{
+                    ttl: 60,
+                    limit: 5,
+                }]),
             auth_module_1.AuthModule,
             config_1.ConfigModule.forRoot(),
             prisma_module_1.PrismaModule,

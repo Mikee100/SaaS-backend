@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
+import { BranchService } from '../branch/branch.service';
 
 @Injectable()
 export class TenantService {
@@ -15,6 +16,7 @@ export class TenantService {
   constructor(
     private prisma: PrismaService,
     private userService: UserService,
+    private branchService: BranchService,
   ) {}
 
   async createTenant(data: any): Promise<any> {
@@ -232,6 +234,56 @@ export class TenantService {
     });
 
     return updatedTenant;
+  }
+
+  async createTenantWithOwner(tenantData: {
+    name: string;
+    businessType: string;
+    contactEmail: string;
+    contactPhone?: string;
+    branchName?: string;
+    owner: {
+      name: string;
+      email: string;
+      password: string;
+    };
+    [key: string]: any; // Allow additional fields
+  }) {
+    return this.prisma.$transaction(async (prisma) => {
+      // 1. Create the tenant
+      const tenant = await this.createTenant(tenantData);
+
+      // 2. Create the main branch
+      const branchName = tenantData.branchName || 'Main Branch';
+      const mainBranch = await this.branchService.createBranch({
+        name: branchName,
+        email: tenantData.contactEmail,
+        phone: tenantData.contactPhone,
+        isMainBranch: true,
+        tenantId: tenant.id,
+      });
+
+      // 3. Create the owner user
+      const hashedPassword = await bcrypt.hash(tenantData.owner.password, 10);
+      const ownerUser = await this.userService.createUser({
+        name: tenantData.owner.name,
+        email: tenantData.owner.email,
+        password: hashedPassword,
+        tenantId: tenant.id,
+        branchId: mainBranch.id,
+        role: 'owner',
+      });
+
+      return {
+        tenant,
+        branch: mainBranch,
+        user: {
+          id: ownerUser.id,
+          name: ownerUser.name,
+          email: ownerUser.email,
+        },
+      };
+    });
   }
 
   async createOwnerUser(data: {

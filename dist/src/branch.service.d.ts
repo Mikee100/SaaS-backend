@@ -14,12 +14,13 @@ export declare class BranchService {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     }>;
     findAllByTenant(tenantId: string): Promise<{
@@ -34,12 +35,13 @@ export declare class BranchService {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     }[]>;
     findById(id: string, tenantId: string): Promise<{
@@ -54,12 +56,13 @@ export declare class BranchService {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     } | null>;
     updateBranch(id: string, data: any, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

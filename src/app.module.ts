@@ -19,9 +19,14 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { BranchModule } from './branch/branch.module';
 import { UsageModule } from './usage.module';
 import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{
+      ttl: 60,
+      limit: 5,
+    }]),
     AuthModule,
     ConfigModule.forRoot(),
     PrismaModule,

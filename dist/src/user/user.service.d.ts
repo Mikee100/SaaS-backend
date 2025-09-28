@@ -77,9 +77,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -102,9 +102,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -180,15 +180,15 @@ export declare class UserService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         } | {
             id: string;
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         })[] | {
             id: string;
             tenantId: string;
@@ -226,9 +226,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -277,8 +277,8 @@ export declare class UserService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;
@@ -377,9 +377,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -402,9 +402,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -480,15 +480,15 @@ export declare class UserService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         } | {
             id: string;
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         })[] | {
             id: string;
             tenantId: string;
@@ -526,9 +526,9 @@ export declare class UserService {
             tenantId: string;
             updatedAt: Date;
             userId: string | null;
+            status: string;
             phoneNumber: string;
             amount: number;
-            status: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -577,8 +577,8 @@ export declare class UserService {
             tenantId: string;
             permission: string;
             userId: string;
-            grantedBy: string | null;
             grantedAt: Date;
+            grantedBy: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;

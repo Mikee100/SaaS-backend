@@ -17,6 +17,7 @@ const audit_log_service_1 = require("../audit-log.service");
 const prisma_module_1 = require("../prisma.module");
 const configuration_service_1 = require("../config/configuration.service");
 const passport_1 = require("@nestjs/passport");
+const email_module_1 = require("../email/email.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -26,6 +27,7 @@ exports.AuthModule = AuthModule = __decorate([
             user_module_1.UserModule,
             prisma_module_1.PrismaModule,
             passport_1.PassportModule,
+            email_module_1.EmailModule,
             jwt_1.JwtModule.register({
                 secret: process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
                 signOptions: {

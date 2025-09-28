@@ -31,6 +31,10 @@ export declare class InventoryService {
         branchId: string | null;
         productId: string;
         quantity: number;
+        minStock: number;
+        maxStock: number;
+        reorderPoint: number;
+        location: string;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         branch: {
@@ -45,12 +49,13 @@ export declare class InventoryService {
             country: string | null;
             postalCode: string | null;
             state: string | null;
-            status: string | null;
-            logo: string | null;
             customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
             manager: string | null;
             openingHours: string | null;
             phone: string | null;
+            status: string | null;
             street: string | null;
         } | null;
         product: {
@@ -75,8 +80,213 @@ export declare class InventoryService {
         branchId: string | null;
         productId: string;
         quantity: number;
+        minStock: number;
+        maxStock: number;
+        reorderPoint: number;
+        location: string;
     })[]>;
     createInventory(dto: CreateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     updateInventory(id: string, dto: UpdateInventoryDto, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteInventory(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
+    findAdvanced(tenantId: string, branchId?: string): Promise<({
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            status: string | null;
+            street: string | null;
+        } | null;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            branchId: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        updatedAt: Date;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
+        minStock: number;
+        maxStock: number;
+        reorderPoint: number;
+        location: string;
+    })[]>;
+    getMovements(tenantId: string, branchId?: string): Promise<({
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            status: string | null;
+            street: string | null;
+        } | null;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            branchId: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
+        location: string;
+        type: string;
+        previousQuantity: number;
+        newQuantity: number;
+        reason: string | null;
+        createdBy: string;
+    })[]>;
+    getAlerts(tenantId: string, branchId?: string): Promise<({
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            status: string | null;
+            street: string | null;
+        } | null;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            branchId: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        branchId: string | null;
+        productId: string;
+        message: string;
+        type: string;
+        isRead: boolean;
+        severity: string;
+    })[]>;
+    getLocations(tenantId: string, branchId?: string): Promise<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        tenantId: string;
+        updatedAt: Date;
+        branchId: string | null;
+        address: string | null;
+        type: string;
+    }[]>;
+    getForecast(tenantId: string, branchId?: string): Promise<{
+        productId: string;
+        product: {
+            id: string;
+            name: string;
+            description: string | null;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            branchId: string | null;
+            sku: string;
+            price: number;
+            stock: number;
+            customFields: import("@prisma/client/runtime/library").JsonValue | null;
+            cost: number;
+        };
+        currentStock: number;
+        averageDailySales: number;
+        daysUntilStockout: number;
+        recommendedOrder: number;
+        confidence: number;
+    }[]>;
+    createMovement(dto: {
+        productId: string;
+        type: 'in' | 'out' | 'adjustment' | 'transfer';
+        quantity: number;
+        reason?: string;
+        location: string;
+        destinationLocation?: string;
+        branchId?: string;
+    }, tenantId: string, actorUserId?: string, ip?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        branchId: string | null;
+        productId: string;
+        quantity: number;
+        location: string;
+        type: string;
+        previousQuantity: number;
+        newQuantity: number;
+        reason: string | null;
+        createdBy: string;
+    }>;
+    private checkAndCreateAlerts;
 }

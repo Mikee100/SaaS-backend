@@ -14,12 +14,13 @@ export declare class BranchController {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     }>;
     findAll(req: any): Promise<{
@@ -34,12 +35,13 @@ export declare class BranchController {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     }[]>;
     findOne(id: string, req: any): Promise<{
@@ -54,12 +56,13 @@ export declare class BranchController {
         country: string | null;
         postalCode: string | null;
         state: string | null;
-        status: string | null;
-        logo: string | null;
         customField: string | null;
+        isMainBranch: boolean;
+        logo: string | null;
         manager: string | null;
         openingHours: string | null;
         phone: string | null;
+        status: string | null;
         street: string | null;
     } | null>;
     update(id: string, body: any, req: any): Promise<import(".prisma/client").Prisma.BatchPayload>;

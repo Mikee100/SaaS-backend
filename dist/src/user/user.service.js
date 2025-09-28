@@ -142,12 +142,12 @@ let UserService = UserService_1 = class UserService {
                             include: {
                                 permissions: {
                                     include: {
-                                        Permission: true,
+                                        permission: true,
                                     },
                                 },
                             },
                         },
-                        Tenant: true,
+                        tenant: true,
                     },
                 },
             };

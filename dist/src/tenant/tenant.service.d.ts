@@ -1,10 +1,12 @@
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
+import { BranchService } from '../branch/branch.service';
 export declare class TenantService {
     private prisma;
     private userService;
+    private branchService;
     private readonly logger;
-    constructor(prisma: PrismaService, userService: UserService);
+    constructor(prisma: PrismaService, userService: UserService, branchService: BranchService);
     createTenant(data: any): Promise<any>;
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
@@ -220,6 +222,47 @@ export declare class TenantService {
         mobileLogoUrl: string | null;
         auditLogsEnabled: boolean;
         credits: number | null;
+    }>;
+    createTenantWithOwner(tenantData: {
+        name: string;
+        businessType: string;
+        contactEmail: string;
+        contactPhone?: string;
+        branchName?: string;
+        owner: {
+            name: string;
+            email: string;
+            password: string;
+        };
+        [key: string]: any;
+    }): Promise<{
+        tenant: any;
+        branch: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            tenantId: string;
+            updatedAt: Date;
+            email: string | null;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
+            manager: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            status: string | null;
+            street: string | null;
+        };
+        user: {
+            id: any;
+            name: any;
+            email: any;
+        };
     }>;
     createOwnerUser(data: {
         name: string;

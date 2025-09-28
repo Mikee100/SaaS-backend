@@ -74,6 +74,9 @@ let ProductService = class ProductService {
         if (productData.price !== undefined) {
             productData.price = parseFloat(String(productData.price));
         }
+        if (productData.cost !== undefined) {
+            productData.cost = parseFloat(String(productData.cost));
+        }
         const product = await this.prisma.product.create({
             data: productData,
         });
@@ -83,7 +86,7 @@ let ProductService = class ProductService {
         return product;
     }
     async updateProduct(id, data, tenantId, actorUserId, ip) {
-        const { name, sku, price, description, stock, ...customFields } = data;
+        const { name, sku, price, description, stock, cost, ...customFields } = data;
         const updateData = {};
         if (name !== undefined)
             updateData.name = name;
@@ -95,6 +98,8 @@ let ProductService = class ProductService {
             updateData.description = description;
         if (stock !== undefined)
             updateData.stock = parseInt(stock);
+        if (cost !== undefined)
+            updateData.cost = parseFloat(cost);
         if (Object.keys(customFields).length > 0) {
             updateData.customFields = customFields;
         }
@@ -165,13 +170,23 @@ let ProductService = class ProductService {
         const priceCandidates = [
             'price',
             'unit price',
-            'cost',
+            'selling price',
+            'sale price',
             'price usd',
             'amount',
+        ];
+        const costCandidates = [
+            'cost',
+            'purchase cost',
+            'unit cost',
+            'buy price',
+            'cost price',
+            'wholesale price',
         ];
         const nameCol = findColumnMatch(headers, nameCandidates);
         const skuCol = findColumnMatch(headers, skuCandidates);
         const priceCol = findColumnMatch(headers, priceCandidates);
+        const costCol = findColumnMatch(headers, costCandidates);
         const requiredFields = ['name', 'sku', 'price'];
         const results = [];
         const createdProducts = [];
@@ -186,16 +201,19 @@ let ProductService = class ProductService {
                             mappedRow.sku = row[skuCol];
                         if (priceCol)
                             mappedRow.price = row[priceCol];
+                        if (costCol)
+                            mappedRow.cost = row[costCol];
                         for (const field of requiredFields) {
                             if (!mappedRow[field])
                                 throw new Error(`Missing required field: ${field}`);
                         }
-                        const { name, sku, price, description, stock, ...customFields } = mappedRow;
+                        const { name, sku, price, cost, description, stock, ...customFields } = mappedRow;
                         const productData = {
                             id: (0, uuid_1.v4)(),
                             name: String(name).trim(),
                             sku: sku !== undefined ? String(sku).trim() : '',
                             price: parseFloat(price),
+                            cost: cost !== undefined ? parseFloat(String(cost)) : 0,
                             description: description ? String(description).trim() : '',
                             stock: stock !== undefined ? parseInt(String(stock)) : 0,
                             tenantId: user.tenantId,
