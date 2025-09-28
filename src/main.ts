@@ -8,6 +8,7 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
+import { spawn } from 'child_process';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -172,6 +173,15 @@ async function bootstrap() {
 
     // Start the application
     await app.listen(9000, '0.0.0.0');
+
+    // Start AI service
+    const aiServicePath = join(process.cwd(), 'ai_services', 'app.py');
+    const aiProcess = spawn('python', [aiServicePath], {
+      stdio: 'inherit',
+      detached: true,
+    });
+    aiProcess.unref();
+    logger.log('🤖 AI service started on port 5001');
 
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);

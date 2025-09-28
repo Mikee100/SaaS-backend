@@ -20,6 +20,7 @@ import { BranchModule } from './branch/branch.module';
 import { UsageModule } from './usage.module';
 import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuditLogModule } from './audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
     BranchModule,
     UsageModule,
     AdminTenantStatsModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

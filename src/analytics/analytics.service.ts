@@ -111,7 +111,7 @@ export class AnalyticsService {
     // Generate AI summary
     let aiSummary = 'AI summary generation failed.';
     try {
-      const summaryResponse = await axios.post('http://localhost:5000/generate_summary', {
+      const summaryResponse = await axios.post('http://localhost:5001/generate_summary', {
         metrics: {
           totalSales,
           totalRevenue: totalRevenue._sum.total || 0,

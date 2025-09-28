@@ -162,5 +162,5 @@ def generate_summary():
 
 if __name__ == '__main__':
     # To run: python app.py
-    # The app will be available at http://localhost:5000
-    app.run(port=5000)
+    # The app will be available at http://localhost:5001
+    app.run(port=5001)
