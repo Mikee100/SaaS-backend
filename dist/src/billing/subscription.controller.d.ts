@@ -10,13 +10,13 @@ export declare class SubscriptionController {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -60,13 +60,13 @@ export declare class SubscriptionController {
         Plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -109,13 +109,13 @@ export declare class SubscriptionController {
             Plan: {
                 id: string;
                 name: string;
+                price: number;
                 description: string;
+                customFields: boolean;
                 backupRestore: boolean;
                 customIntegrations: boolean;
                 ssoEnabled: boolean;
                 whiteLabel: boolean;
-                price: number;
-                customFields: boolean;
                 stripePriceId: string | null;
                 isActive: boolean;
                 interval: string;
@@ -182,8 +182,8 @@ export declare class SubscriptionController {
         Invoice: {
             number: string;
             id: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
             status: string;
             amount: number;
@@ -194,13 +194,13 @@ export declare class SubscriptionController {
         Plan: {
             id: string;
             name: string;
+            price: number;
             description: string;
+            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;

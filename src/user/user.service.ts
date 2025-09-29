@@ -116,14 +116,12 @@ export class UserService {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    // Create the user
+    // Create the user (password should already be hashed by caller)
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
-        password: hashedPassword,
+        password: data.password, // Already hashed
         tenantId: data.tenantId,
         branchId: data.branchId,
       },

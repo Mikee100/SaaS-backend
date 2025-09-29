@@ -7,9 +7,10 @@ export declare class AuditLogService {
         User: {
             id: string;
             name: string;
-            createdAt: Date;
             tenantId: string | null;
+            createdAt: Date;
             updatedAt: Date;
+            branchId: string | null;
             email: string;
             password: string;
             resetPasswordExpires: Date | null;
@@ -18,7 +19,6 @@ export declare class AuditLogService {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             region: string | null;
             isSuperadmin: boolean;
-            branchId: string | null;
         } | null;
     } & {
         id: string;

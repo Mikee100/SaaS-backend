@@ -80,12 +80,11 @@ let UserService = UserService_1 = class UserService {
             throw new common_1.BadRequestException(`A user with email '${data.email}' already exists. ` +
                 `Please use a different email address or contact support if you need assistance.`);
         }
-        const hashedPassword = await bcrypt.hash(data.password, 10);
         const user = await prisma.user.create({
             data: {
                 name: data.name,
                 email: data.email,
-                password: hashedPassword,
+                password: data.password,
                 tenantId: data.tenantId,
                 branchId: data.branchId,
             },

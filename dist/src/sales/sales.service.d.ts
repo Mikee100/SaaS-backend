@@ -86,45 +86,47 @@ export declare class SalesService {
                 price: number;
             };
             id: string;
-            quantity: number;
             saleId: string;
+            quantity: number;
         }[];
         Branch: {
             id: string;
-            name: string;
-            createdAt: Date;
             tenantId: string;
-            updatedAt: Date;
+            createdAt: Date;
             email: string | null;
+            name: string;
+            updatedAt: Date;
+            status: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
-            postalCode: string | null;
-            state: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
             manager: string | null;
             openingHours: string | null;
             phone: string | null;
-            status: string | null;
+            postalCode: string | null;
+            state: string | null;
             street: string | null;
         } | null;
         Tenant: {
             id: string;
-            name: string;
             createdAt: Date;
+            name: string;
             updatedAt: Date;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
-            address: string | null;
             currency: string | null;
             logoUrl: string | null;
             timezone: string | null;
             vatNumber: string | null;
-            city: string | null;
-            country: string | null;
             taxId: string | null;
             website: string | null;
             annualRevenue: string | null;
@@ -145,7 +147,6 @@ export declare class SalesService {
             kraPin: string | null;
             latitude: number | null;
             longitude: number | null;
-            postalCode: string | null;
             primaryColor: string | null;
             primaryProducts: Prisma.JsonValue | null;
             rateLimit: number | null;
@@ -154,7 +155,6 @@ export declare class SalesService {
             secondaryProducts: Prisma.JsonValue | null;
             socialMedia: Prisma.JsonValue | null;
             ssoEnabled: boolean;
-            state: string | null;
             stripeCustomerId: string | null;
             watermark: string | null;
             webhookUrl: string | null;
@@ -169,8 +169,8 @@ export declare class SalesService {
         };
         User: {
             id: string;
-            name: string;
             email: string;
+            name: string;
         };
         SaleItem: ({
             product: {
@@ -182,22 +182,22 @@ export declare class SalesService {
         } & {
             id: string;
             price: number;
+            saleId: string;
             productId: string;
             quantity: number;
-            saleId: string;
         })[];
         id: string;
-        createdAt: Date;
+        mpesaTransactionId: string | null;
         tenantId: string;
         userId: string;
-        branchId: string | null;
         total: number;
         paymentType: string;
+        createdAt: Date;
         customerName: string | null;
         customerPhone: string | null;
-        mpesaTransactionId: string | null;
         idempotencyKey: string | null;
         vatAmount: number | null;
+        branchId: string | null;
     }>;
     getSales(tenantId: string, page?: number, limit?: number): Promise<{
         data: TransformedSale[];
@@ -263,9 +263,9 @@ export declare class SalesService {
     }>;
     getTenantInfo(tenantId: string): Promise<{
         name: string;
+        address: string | null;
         contactEmail: string;
         contactPhone: string | null;
-        address: string | null;
     } | null>;
     getRecentSales(tenantId: string, limit?: number): Promise<{
         id: string;

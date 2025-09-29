@@ -82,6 +82,8 @@ async function bootstrap() {
                 'Accept',
                 'Authorization',
                 'X-XSRF-TOKEN',
+                'x-csrf-token',
+                'X-CSRF-Token',
                 'x-branch-id',
                 'Cache-Control',
                 'Pragma',

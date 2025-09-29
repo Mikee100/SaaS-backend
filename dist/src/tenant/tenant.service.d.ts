@@ -240,8 +240,8 @@ export declare class TenantService {
         branch: {
             id: string;
             name: string;
-            createdAt: Date;
             tenantId: string;
+            createdAt: Date;
             updatedAt: Date;
             email: string | null;
             address: string | null;
