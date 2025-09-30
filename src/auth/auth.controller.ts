@@ -28,9 +28,12 @@ export class AuthController {
       throw new BadRequestException('Email and password are required');
     }
 
+    // Lowercase the email before authentication to match stored email
+    const emailLower = body.email.trim().toLowerCase();
+
     try {
       const result = await this.authService.login(
-        body.email,
+        emailLower,
         body.password,
         req.ip,
       );
@@ -40,11 +43,11 @@ export class AuthController {
         throw new InternalServerErrorException('Authentication failed');
       }
 
-      this.logger.log(`Successful login for user: ${body.email}`);
+      this.logger.log(`Successful login for user: ${emailLower}`);
       return result;
     } catch (error) {
       this.logger.error(
-        `Login error for ${body.email}: ${error.message}`,
+        `Login error for ${emailLower}: ${error.message}`,
         error.stack,
       );
 
@@ -59,7 +62,9 @@ export class AuthController {
 
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
-    return this.authService.forgotPassword(body.email);
+    // Lowercase the email to match stored email
+    const emailLower = body.email.trim().toLowerCase();
+    return this.authService.forgotPassword(emailLower);
   }
 
   @Post('reset-password')

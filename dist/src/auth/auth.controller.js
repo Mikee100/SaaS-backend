@@ -29,17 +29,18 @@ let AuthController = AuthController_1 = class AuthController {
             this.logger.warn('Missing email or password in login request');
             throw new common_1.BadRequestException('Email and password are required');
         }
+        const emailLower = body.email.trim().toLowerCase();
         try {
-            const result = await this.authService.login(body.email, body.password, req.ip);
+            const result = await this.authService.login(emailLower, body.password, req.ip);
             if (!result || !result.access_token) {
                 this.logger.error('Login failed: No access token in response');
                 throw new common_1.InternalServerErrorException('Authentication failed');
             }
-            this.logger.log(`Successful login for user: ${body.email}`);
+            this.logger.log(`Successful login for user: ${emailLower}`);
             return result;
         }
         catch (error) {
-            this.logger.error(`Login error for ${body.email}: ${error.message}`, error.stack);
+            this.logger.error(`Login error for ${emailLower}: ${error.message}`, error.stack);
             if (error instanceof common_1.HttpException) {
                 throw error;
             }
@@ -47,7 +48,8 @@ let AuthController = AuthController_1 = class AuthController {
         }
     }
     async forgotPassword(body) {
-        return this.authService.forgotPassword(body.email);
+        const emailLower = body.email.trim().toLowerCase();
+        return this.authService.forgotPassword(emailLower);
     }
     async resetPassword(body) {
         return this.authService.resetPassword(body.token, body.newPassword);
