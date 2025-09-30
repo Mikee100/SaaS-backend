@@ -7,7 +7,6 @@ const path_1 = require("path");
 const app_module_1 = require("./app.module");
 const config_1 = require("@nestjs/config");
 const express_1 = require("express");
-const child_process_1 = require("child_process");
 async function bootstrap() {
     const logger = new common_1.Logger('Bootstrap');
     try {
@@ -126,13 +125,6 @@ async function bootstrap() {
         }
         console.log('Signing JWT with secret:', process.env.JWT_SECRET);
         await app.listen(9000, '0.0.0.0');
-        const aiServicePath = (0, path_1.join)(process.cwd(), 'ai_services', 'app.py');
-        const aiProcess = (0, child_process_1.spawn)('python', [aiServicePath], {
-            stdio: 'inherit',
-            detached: true,
-        });
-        aiProcess.unref();
-        logger.log('🤖 AI service started on port 5001');
         logger.log(`🚀 Application is running on: http://localhost:${port}`);
         const dbUrl = configService.get('DATABASE_URL');
         if (dbUrl) {
