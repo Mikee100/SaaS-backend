@@ -80,13 +80,13 @@ export declare class BillingService {
         })[];
         id: string;
         name: string;
-        price: number;
         description: string;
-        customFields: boolean;
         backupRestore: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         whiteLabel: boolean;
+        price: number;
+        customFields: boolean;
         stripePriceId: string | null;
         isActive: boolean;
         interval: string;
@@ -136,13 +136,13 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
-            price: number;
             description: string;
-            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
+            price: number;
+            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;
@@ -163,13 +163,13 @@ export declare class BillingService {
         Plan: {
             id: string;
             name: string;
-            price: number;
             description: string;
-            customFields: boolean;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
+            price: number;
+            customFields: boolean;
             stripePriceId: string | null;
             isActive: boolean;
             interval: string;

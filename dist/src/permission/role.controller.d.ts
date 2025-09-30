@@ -10,8 +10,8 @@ export declare class RoleController {
         id: string;
         name: string;
         description: string | null;
-        tenantId: string | null;
         createdAt: Date;
+        tenantId: string | null;
         updatedAt: Date;
     }>;
     getRoles(): Promise<({
@@ -30,8 +30,8 @@ export declare class RoleController {
         id: string;
         name: string;
         description: string | null;
-        tenantId: string | null;
         createdAt: Date;
+        tenantId: string | null;
         updatedAt: Date;
     })[]>;
     updateRole(body: any): Promise<void>;
@@ -40,8 +40,8 @@ export declare class RoleController {
             id: string;
             name: string;
             description: string | null;
-            tenantId: string | null;
             createdAt: Date;
+            tenantId: string | null;
             updatedAt: Date;
         };
         permission: {
@@ -59,8 +59,8 @@ export declare class RoleController {
             id: string;
             name: string;
             description: string | null;
-            tenantId: string | null;
             createdAt: Date;
+            tenantId: string | null;
             updatedAt: Date;
         };
         permission: {

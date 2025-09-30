@@ -14,8 +14,8 @@ export declare class MpesaService {
         tenantId: string;
     }): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         userId: string | null;
         status: string;

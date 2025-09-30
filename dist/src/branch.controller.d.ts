@@ -5,8 +5,8 @@ export declare class BranchController {
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;
@@ -26,8 +26,8 @@ export declare class BranchController {
     findAll(req: any): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;
@@ -47,8 +47,8 @@ export declare class BranchController {
     findOne(id: string, req: any): Promise<{
         id: string;
         name: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         updatedAt: Date;
         email: string | null;
         address: string | null;

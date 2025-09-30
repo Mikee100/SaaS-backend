@@ -273,8 +273,8 @@ export declare class TenantController {
             branch: {
                 id: string;
                 name: string;
-                tenantId: string;
                 createdAt: Date;
+                tenantId: string;
                 updatedAt: Date;
                 email: string | null;
                 address: string | null;
