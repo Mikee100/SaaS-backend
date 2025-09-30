@@ -268,10 +268,15 @@ export class TenantController {
     @Headers('x-csrf-token') csrfToken?: string,
   ) {
     this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
+    this.logger.debug('Received CSRF token from header (x-csrf-token):', csrfToken);
+    this.logger.debug('CSRF token from request body:', createTenantDto.csrfToken);
+    this.logger.debug('All request headers:', JSON.stringify(req.headers));
 
     try {
       // CSRF validation (simple presence check for stateless API)
-      if (!this.validateCsrf(csrfToken)) {
+      const isValidCsrf = this.validateCsrf(csrfToken);
+      this.logger.debug('CSRF token validation result:', isValidCsrf, 'Token length:', csrfToken?.length);
+      if (!isValidCsrf) {
         throw new HttpException('Invalid CSRF token', HttpStatus.FORBIDDEN);
       }
 
