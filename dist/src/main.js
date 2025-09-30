@@ -20,6 +20,7 @@ async function bootstrap() {
                 'http://localhost:3000',
                 'http://localhost:5000',
                 'http://localhost:9000',
+                'https://saas-business.duckdns.org/',
             ];
         logger.debug('CORS Configuration:');
         logger.debug(`- Allowed Origins: ${JSON.stringify(allowedOrigins)}`);
@@ -30,16 +31,20 @@ async function bootstrap() {
                     logger.debug('Allowing request with no origin');
                     return callback(null, true);
                 }
+                const localhostOrigins = [
+                    'http://localhost:3000',
+                    'http://localhost:5000',
+                    'http://localhost:9000',
+                    'http://127.0.0.1:3000',
+                    'http://127.0.0.1:5000',
+                    'http://127.0.0.1:9000',
+                    'https://saas-business.duckdns.org/',
+                ];
                 const allowedOriginsList = isProduction
-                    ? allowedOrigins
+                    ? [...allowedOrigins, ...localhostOrigins]
                     : [
                         ...allowedOrigins,
-                        'http://localhost:3000',
-                        'http://localhost:5000',
-                        'http://localhost:9000',
-                        'http://127.0.0.1:3000',
-                        'http://127.0.0.1:5000',
-                        'http://127.0.0.1:9000',
+                        ...localhostOrigins,
                     ];
                 const isAllowed = !isProduction ||
                     allowedOriginsList.some((allowedOrigin) => {
