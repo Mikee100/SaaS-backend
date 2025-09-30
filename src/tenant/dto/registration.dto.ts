@@ -172,7 +172,5 @@ export class RegistrationDto {
   @IsNotEmpty()
   recaptchaToken: string;
 
-  @IsString()
-  @IsOptional()
-  csrfToken?: string;
+
 }

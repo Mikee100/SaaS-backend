@@ -61,9 +61,6 @@ let TenantController = TenantController_1 = class TenantController {
             return false;
         }
     }
-    validateCsrf(csrfToken) {
-        return !!csrfToken && csrfToken.length > 10;
-    }
     async getMyTenant(req) {
         const tenantId = req.user.tenantId;
         return this.tenantService.getTenantById(tenantId);
@@ -153,16 +150,9 @@ let TenantController = TenantController_1 = class TenantController {
         await this.tenantService.updateTenant(tenantId, { apiKey });
         return { apiKey };
     }
-    async getCsrfToken() {
-        const csrfToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        return { csrfToken };
-    }
-    async createTenant(req, createTenantDto, csrfToken) {
+    async createTenant(req, createTenantDto) {
         this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
         try {
-            if (!this.validateCsrf(csrfToken)) {
-                throw new common_1.HttpException('Invalid CSRF token', common_1.HttpStatus.FORBIDDEN);
-            }
             if (!(await this.validateRecaptcha(createTenantDto.recaptchaToken))) {
                 throw new common_1.HttpException('Invalid reCAPTCHA. Please try again.', common_1.HttpStatus.BAD_REQUEST);
             }
@@ -304,19 +294,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "generateApiKey", null);
 __decorate([
-    (0, common_1.Get)('csrf-token'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], TenantController.prototype, "getCsrfToken", null);
-__decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)(new common_1.ValidationPipe({ transform: true }))),
-    __param(2, (0, common_1.Headers)('x-csrf-token')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, registration_dto_1.RegistrationDto, String]),
+    __metadata("design:paramtypes", [Object, registration_dto_1.RegistrationDto]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "createTenant", null);
 exports.TenantController = TenantController = TenantController_1 = __decorate([

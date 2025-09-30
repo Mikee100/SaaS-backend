@@ -10,7 +10,6 @@ export declare class TenantController {
     private readonly recaptchaSecretKey;
     constructor(tenantService: TenantService, userService: UserService, logoService: LogoService);
     private validateRecaptcha;
-    private validateCsrf;
     getMyTenant(req: any): Promise<{
         id: string;
         name: string;
@@ -263,10 +262,7 @@ export declare class TenantController {
     generateApiKey(req: any): Promise<{
         apiKey: string;
     }>;
-    getCsrfToken(): Promise<{
-        csrfToken: string;
-    }>;
-    createTenant(req: any, createTenantDto: RegistrationDto, csrfToken?: string): Promise<{
+    createTenant(req: any, createTenantDto: RegistrationDto): Promise<{
         success: boolean;
         data: {
             tenant: any;

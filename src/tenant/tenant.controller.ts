@@ -67,10 +67,7 @@ export class TenantController {
     }
   }
 
-  private validateCsrf(csrfToken: string | undefined): boolean {
-    // For stateless API, check if token is present and valid format (in production, use proper validation)
-    return !!csrfToken && csrfToken.length > 10;
-  }
+
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
@@ -252,12 +249,7 @@ export class TenantController {
     return { apiKey };
   }
 
-  // Public endpoint for CSRF token generation
-  @Get('csrf-token')
-  async getCsrfToken() {
-    const csrfToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    return { csrfToken };
-  }
+
 
   // Public endpoint for business registration
   @Post()
@@ -265,20 +257,10 @@ export class TenantController {
   async createTenant(
     @Req() req,
     @Body(new ValidationPipe({ transform: true })) createTenantDto: RegistrationDto,
-    @Headers('x-csrf-token') csrfToken?: string,
   ) {
     this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
-    this.logger.debug('Received CSRF token from header (x-csrf-token):', csrfToken);
-    this.logger.debug('CSRF token from request body:', createTenantDto.csrfToken);
-    this.logger.debug('All request headers:', JSON.stringify(req.headers));
 
     try {
-      // CSRF validation (simple presence check for stateless API)
-      const isValidCsrf = this.validateCsrf(csrfToken);
-      this.logger.debug('CSRF token validation result:', isValidCsrf, 'Token length:', csrfToken?.length);
-      if (!isValidCsrf) {
-        throw new HttpException('Invalid CSRF token', HttpStatus.FORBIDDEN);
-      }
 
       // reCAPTCHA validation
       if (!(await this.validateRecaptcha(createTenantDto.recaptchaToken))) {
