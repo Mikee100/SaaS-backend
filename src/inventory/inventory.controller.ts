@@ -25,7 +25,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async findAll(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     if (branchId) {
       return this.inventoryService.findAllByBranch(tenantId, branchId);
     }
@@ -36,7 +36,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async findAdvanced(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.inventoryService.findAdvanced(tenantId, branchId);
   }
 
@@ -44,7 +44,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async getMovements(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.inventoryService.getMovements(tenantId, branchId);
   }
 
@@ -52,7 +52,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async getAlerts(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.inventoryService.getAlerts(tenantId, branchId);
   }
 
@@ -60,7 +60,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async getLocations(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.inventoryService.getLocations(tenantId, branchId);
   }
 
@@ -68,7 +68,7 @@ export class InventoryController {
   @Permissions('view_inventory')
   async getForecast(@Req() req) {
     const tenantId = req.user.tenantId;
-    const branchId = req.query.branchId as string | undefined;
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
     return this.inventoryService.getForecast(tenantId, branchId);
   }
 

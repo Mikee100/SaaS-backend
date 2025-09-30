@@ -36,7 +36,7 @@ export class UserService {
           `Assigning permission '${permKey}' (id: ${perm.id}) to user ${userId} for tenant ${tenantId}`,
         );
         await this.prisma.userPermission.create({
-          data: { userId, tenantId, permission: perm.id },
+          data: { userId, tenantId, permission: perm.name },
         });
       } else {
         this.logger.warn(
@@ -59,7 +59,7 @@ export class UserService {
     const defaultInclude = {
       userRoles: {
         include: {
-          Role: true,
+          role: true,
         },
       },
     };
@@ -116,12 +116,15 @@ export class UserService {
       );
     }
 
-    // Create the user (password should already be hashed by caller)
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create the user
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
-        password: data.password, // Already hashed
+        password: hashedPassword,
         tenantId: data.tenantId,
         branchId: data.branchId,
       },
@@ -586,6 +589,14 @@ export class UserService {
   ) {
     // First remove user roles for this tenant
     await this.prisma.userRole.deleteMany({
+      where: {
+        userId: id,
+        tenantId,
+      },
+    });
+
+    // Remove user permissions for this tenant
+    await this.prisma.userPermission.deleteMany({
       where: {
         userId: id,
         tenantId,

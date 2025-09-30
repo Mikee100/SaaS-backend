@@ -18,6 +18,7 @@ export declare class InventoryController {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             branchId: string | null;
             cost: number;
+            images: string[];
         };
     } & {
         id: string;
@@ -46,6 +47,7 @@ export declare class InventoryController {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             branchId: string | null;
             cost: number;
+            images: string[];
         };
         branch: {
             id: string;
@@ -95,6 +97,7 @@ export declare class InventoryController {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             branchId: string | null;
             cost: number;
+            images: string[];
         };
         branch: {
             id: string;
@@ -145,6 +148,7 @@ export declare class InventoryController {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             branchId: string | null;
             cost: number;
+            images: string[];
         };
         branch: {
             id: string;
@@ -203,6 +207,7 @@ export declare class InventoryController {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             branchId: string | null;
             cost: number;
+            images: string[];
         };
         currentStock: number;
         averageDailySales: number;

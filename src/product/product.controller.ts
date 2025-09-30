@@ -10,11 +10,12 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   Res,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { AuthGuard } from '@nestjs/passport';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -63,6 +64,37 @@ export class ProductController {
       },
       req.user.userId,
       req.ip,
+    );
+  }
+
+  @Post('upload-images/:id')
+  @Permissions('edit_products')
+  @UseInterceptors(FilesInterceptor('images'))
+  async uploadImages(
+    @Param('id') id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req,
+  ) {
+    return this.productService.uploadProductImages(
+      id,
+      files,
+      req.user.tenantId,
+      req.user.userId,
+    );
+  }
+
+  @Delete('delete-image/:id')
+  @Permissions('edit_products')
+  async deleteImage(
+    @Param('id') id: string,
+    @Body() body: { imageUrl: string },
+    @Req() req,
+  ) {
+    return this.productService.deleteProductImage(
+      id,
+      body.imageUrl,
+      req.user.tenantId,
+      req.user.userId,
     );
   }
 

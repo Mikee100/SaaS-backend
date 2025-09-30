@@ -34,7 +34,7 @@ let UserService = UserService_1 = class UserService {
             if (perm) {
                 this.logger.log(`Assigning permission '${permKey}' (id: ${perm.id}) to user ${userId} for tenant ${tenantId}`);
                 await this.prisma.userPermission.create({
-                    data: { userId, tenantId, permission: perm.id },
+                    data: { userId, tenantId, permission: perm.name },
                 });
             }
             else {
@@ -50,7 +50,7 @@ let UserService = UserService_1 = class UserService {
         const defaultInclude = {
             userRoles: {
                 include: {
-                    Role: true,
+                    role: true,
                 },
             },
         };
@@ -80,11 +80,12 @@ let UserService = UserService_1 = class UserService {
             throw new common_1.BadRequestException(`A user with email '${data.email}' already exists. ` +
                 `Please use a different email address or contact support if you need assistance.`);
         }
+        const hashedPassword = await bcrypt.hash(data.password, 10);
         const user = await prisma.user.create({
             data: {
                 name: data.name,
                 email: data.email,
-                password: data.password,
+                password: hashedPassword,
                 tenantId: data.tenantId,
                 branchId: data.branchId,
             },
@@ -425,6 +426,12 @@ let UserService = UserService_1 = class UserService {
     }
     async deleteUser(id, tenantId, actorUserId, ip) {
         await this.prisma.userRole.deleteMany({
+            where: {
+                userId: id,
+                tenantId,
+            },
+        });
+        await this.prisma.userPermission.deleteMany({
             where: {
                 userId: id,
                 tenantId,

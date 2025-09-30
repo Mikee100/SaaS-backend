@@ -12,12 +12,12 @@ export declare class MpesaController {
     getByCheckoutId(checkoutRequestId: string): Promise<{
         id: string;
         tenantId: string;
-        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        userId: string | null;
+        status: string;
         phoneNumber: string;
         amount: number;
-        status: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         responseCode: string | null;

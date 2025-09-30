@@ -27,7 +27,7 @@ let InventoryController = class InventoryController {
     }
     async findAll(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         if (branchId) {
             return this.inventoryService.findAllByBranch(tenantId, branchId);
         }
@@ -35,27 +35,27 @@ let InventoryController = class InventoryController {
     }
     async findAdvanced(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.inventoryService.findAdvanced(tenantId, branchId);
     }
     async getMovements(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.inventoryService.getMovements(tenantId, branchId);
     }
     async getAlerts(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.inventoryService.getAlerts(tenantId, branchId);
     }
     async getLocations(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.inventoryService.getLocations(tenantId, branchId);
     }
     async getForecast(req) {
         const tenantId = req.user.tenantId;
-        const branchId = req.query.branchId;
+        const branchId = req.headers['x-branch-id'] || req.user.branchId;
         return this.inventoryService.getForecast(tenantId, branchId);
     }
     async createMovement(req, dto) {

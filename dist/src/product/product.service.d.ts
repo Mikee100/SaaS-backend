@@ -19,6 +19,7 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         branchId: string | null;
         cost: number;
+        images: string[];
     }[]>;
     constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
     findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<{
@@ -34,6 +35,7 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         branchId: string | null;
         cost: number;
+        images: string[];
     }[]>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
@@ -48,6 +50,7 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         branchId: string | null;
         cost: number;
+        images: string[];
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
@@ -73,4 +76,35 @@ export declare class ProductService {
         updated: number;
     }>;
     generateQrCode(id: string, tenantId: string, res: Response): Promise<void>;
+    uploadProductImages(productId: string, files: Express.Multer.File[], tenantId: string, userId: string): Promise<{
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        description: string | null;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
+        cost: number;
+        images: string[];
+    }>;
+    deleteProductImage(productId: string, imageUrl: string, tenantId: string, userId: string): Promise<{
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        description: string | null;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
+        cost: number;
+        images: string[];
+    }>;
+    getImageUrl(imagePath: string): string;
 }

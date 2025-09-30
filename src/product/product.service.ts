@@ -10,6 +10,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
 import * as qrcode from 'qrcode';
 import { BillingService } from '../billing/billing.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import sharp from 'sharp';
 
 // In-memory progress store (for demo; use Redis for production)
 const bulkUploadProgress: Record<string, { processed: number; total: number }> =
@@ -60,7 +63,12 @@ export class ProductService {
 
   async findAllByTenantAndBranch(tenantId: string, branchId?: string) {
     const where: any = { tenantId };
-    if (branchId) where.branchId = branchId;
+    if (branchId) {
+      where.OR = [
+        { branchId: branchId },
+        { branchId: null }
+      ];
+    }
     return this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -383,5 +391,149 @@ export class ProductService {
     const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
     const img = Buffer.from(base64Data, 'base64');
     res.send(img);
+  }
+
+  async uploadProductImages(
+    productId: string,
+    files: Express.Multer.File[],
+    tenantId: string,
+    userId: string,
+  ) {
+    // Validate product exists and belongs to tenant
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'products', tenantId);
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const imageUrls: string[] = [];
+
+    for (const file of files) {
+      // Basic validation
+      if (!file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('Only image files are allowed');
+      }
+
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        throw new BadRequestException('Image size must be less than 5MB');
+      }
+
+      // Generate unique filename
+      const fileExtension = path.extname(file.originalname) || '.jpg';
+      const fileName = `${productId}_${Date.now()}_${Math.random().toString(36).substring(7)}${fileExtension}`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      try {
+        // Optimize and save image using Sharp
+        const optimizedBuffer = await sharp(file.buffer)
+          .resize(1200, 1200, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: 85, progressive: true })
+          .toBuffer();
+
+        // Save optimized image
+        fs.writeFileSync(filePath, optimizedBuffer);
+
+        // Create URL for the image
+        const imageUrl = `/uploads/products/${tenantId}/${fileName}`;
+        imageUrls.push(imageUrl);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        throw new BadRequestException('Failed to process image');
+      }
+    }
+
+    // Update product with new images
+    const updatedProduct = await this.prisma.product.update({
+      where: { id: productId },
+      data: {
+        images: {
+          push: imageUrls,
+        },
+      },
+    });
+
+    // Log the action
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'product_images_uploaded',
+        { productId, imageCount: imageUrls.length },
+        undefined,
+      );
+    }
+
+    return updatedProduct;
+  }
+
+  async deleteProductImage(
+    productId: string,
+    imageUrl: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    // Validate product exists and belongs to tenant
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Remove image from product's images array
+    const updatedImages = product.images.filter(img => img !== imageUrl);
+
+    // Delete physical file
+    try {
+      const fileName = path.basename(imageUrl);
+      const filePath = path.join(process.cwd(), 'uploads', 'products', tenantId, fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      console.error('Error deleting image file:', error);
+    }
+
+    // Update product
+    const updatedProduct = await this.prisma.product.update({
+      where: { id: productId },
+      data: { images: updatedImages },
+    });
+
+    // Log the action
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'product_image_deleted',
+        { productId, imageUrl },
+        undefined,
+      );
+    }
+
+    return updatedProduct;
+  }
+
+  getImageUrl(imagePath: string): string {
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    // If it's a relative path starting with /uploads, return as is
+    if (imagePath.startsWith('/uploads')) {
+      return imagePath;
+    }
+    // Otherwise, construct the full URL
+    return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000'}${imagePath}`;
   }
 }

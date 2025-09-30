@@ -23,6 +23,7 @@ export declare class ProductController {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         branchId: string | null;
         cost: number;
+        images: string[];
     }[]>;
     create(body: any, req: any): Promise<{
         id: string;
@@ -37,6 +38,39 @@ export declare class ProductController {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         branchId: string | null;
         cost: number;
+        images: string[];
+    }>;
+    uploadImages(id: string, files: Express.Multer.File[], req: any): Promise<{
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        description: string | null;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
+        cost: number;
+        images: string[];
+    }>;
+    deleteImage(id: string, body: {
+        imageUrl: string;
+    }, req: any): Promise<{
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        description: string | null;
+        tenantId: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stock: number;
+        customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
+        cost: number;
+        images: string[];
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{
         summary: {

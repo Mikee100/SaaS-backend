@@ -39,6 +39,12 @@ let ProductController = class ProductController {
             branchId,
         }, req.user.userId, req.ip);
     }
+    async uploadImages(id, files, req) {
+        return this.productService.uploadProductImages(id, files, req.user.tenantId, req.user.userId);
+    }
+    async deleteImage(id, body, req) {
+        return this.productService.deleteProductImage(id, body.imageUrl, req.user.tenantId, req.user.userId);
+    }
     async bulkUpload(file, req) {
         const branchId = req.headers['x-branch-id'];
         return this.productService.bulkUpload(file, {
@@ -88,6 +94,27 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('upload-images/:id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('images')),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.UploadedFiles)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "uploadImages", null);
+__decorate([
+    (0, common_1.Delete)('delete-image/:id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "deleteImage", null);
 __decorate([
     (0, common_1.Post)('bulk-upload'),
     (0, permissions_decorator_1.Permissions)('create_products'),
