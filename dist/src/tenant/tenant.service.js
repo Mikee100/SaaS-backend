@@ -14,7 +14,6 @@ exports.TenantService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const user_service_1 = require("../user/user.service");
-const bcrypt = require("bcrypt");
 const branch_service_1 = require("../branch/branch.service");
 let TenantService = TenantService_1 = class TenantService {
     prisma;
@@ -183,11 +182,10 @@ let TenantService = TenantService_1 = class TenantService {
                 isMainBranch: true,
                 tenantId: tenant.id,
             });
-            const hashedPassword = await bcrypt.hash(tenantData.owner.password, 10);
             const ownerUser = await this.userService.createUser({
                 name: tenantData.owner.name,
                 email: tenantData.owner.email,
-                password: hashedPassword,
+                password: tenantData.owner.password,
                 tenantId: tenant.id,
                 branchId: mainBranch.id,
                 role: 'owner',
@@ -205,11 +203,10 @@ let TenantService = TenantService_1 = class TenantService {
     }
     async createOwnerUser(data) {
         try {
-            const hashedPassword = await bcrypt.hash(data.password, 10);
             return await this.userService.createUser({
                 name: data.name,
                 email: data.email,
-                password: hashedPassword,
+                password: data.password,
                 tenantId: data.tenantId,
                 role: data.role || 'admin',
             });

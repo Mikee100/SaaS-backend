@@ -264,11 +264,10 @@ export class TenantService {
       });
 
       // 3. Create the owner user
-      const hashedPassword = await bcrypt.hash(tenantData.owner.password, 10);
       const ownerUser = await this.userService.createUser({
         name: tenantData.owner.name,
         email: tenantData.owner.email,
-        password: hashedPassword,
+        password: tenantData.owner.password,
         tenantId: tenant.id,
         branchId: mainBranch.id,
         role: 'owner',
@@ -294,11 +293,10 @@ export class TenantService {
     role?: string;
   }) {
     try {
-      const hashedPassword = await bcrypt.hash(data.password, 10);
       return await this.userService.createUser({
         name: data.name,
         email: data.email,
-        password: hashedPassword,
+        password: data.password,
         tenantId: data.tenantId,
         role: data.role || 'admin',
       });
