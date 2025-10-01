@@ -7,6 +7,7 @@ const path_1 = require("path");
 const app_module_1 = require("./app.module");
 const config_1 = require("@nestjs/config");
 const express_1 = require("express");
+const seed_permissions_1 = require("../scripts/seed-permissions");
 async function bootstrap() {
     const logger = new common_1.Logger('Bootstrap');
     try {
@@ -105,6 +106,12 @@ async function bootstrap() {
             maxAge: 86400,
         });
         const configService = app.get(config_1.ConfigService);
+        try {
+            await (0, seed_permissions_1.seedPermissions)();
+        }
+        catch (error) {
+            logger.warn('Failed to seed permissions on startup', error);
+        }
         const port = configService.get('PORT', 9000);
         const nodeEnv = configService.get('NODE_ENV', 'development');
         app.use((0, express_1.json)({ limit: '10mb' }));

@@ -8,6 +8,7 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
+import { seedPermissions } from '../scripts/seed-permissions';
 
 
 async function bootstrap() {
@@ -132,6 +133,13 @@ async function bootstrap() {
 
     // Get config service
     const configService = app.get(ConfigService);
+
+    // Seed permissions if not present
+    try {
+      await seedPermissions();
+    } catch (error) {
+      logger.warn('Failed to seed permissions on startup', error);
+    }
 
     const port = configService.get<number>('PORT', 9000);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');

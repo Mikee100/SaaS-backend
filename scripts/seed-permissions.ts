@@ -1,4 +1,3 @@
-// Usage: npx ts-node scripts/seed-permissions.ts
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -28,7 +27,7 @@ const permissions = [
   { name: 'edit_billing', description: 'Edit billing' }
 ];
 
-async function seedPermissions() {
+export async function seedPermissions() {
   for (const perm of permissions) {
     const exists = await prisma.permission.findUnique({ where: { name: perm.name } });
     if (!exists) {
@@ -39,8 +38,11 @@ async function seedPermissions() {
     }
   }
   console.log('Permission seeding complete.');
+  await prisma.$disconnect();
 }
 
-seedPermissions()
-  .catch(e => { console.error(e); process.exit(1); })
-  .finally(() => prisma.$disconnect());
+// For standalone execution
+if (require.main === module) {
+  seedPermissions()
+    .catch(e => { console.error(e); process.exit(1); });
+}
