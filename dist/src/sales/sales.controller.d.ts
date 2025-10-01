@@ -8,145 +8,7 @@ export declare class SalesController {
     }>;
     testSale(id: string): Promise<{
         message: string;
-        sale: {
-            saleId: string;
-            cashier: {
-                id: string;
-                name: string;
-                email: string;
-            } | null;
-            mpesaTransaction: {
-                phoneNumber: string;
-                amount: number;
-                status: string;
-                mpesaReceipt: string;
-                message: string;
-                transactionDate: Date;
-            } | null;
-            items: {
-                name: string;
-                price: number;
-                productId: string;
-                product: {
-                    id: string;
-                    name: string;
-                    sku: string;
-                    price: number;
-                };
-                id: string;
-                quantity: number;
-                saleId: string;
-            }[];
-            Branch: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                tenantId: string;
-                updatedAt: Date;
-                email: string | null;
-                address: string | null;
-                city: string | null;
-                country: string | null;
-                postalCode: string | null;
-                state: string | null;
-                customField: string | null;
-                isMainBranch: boolean;
-                logo: string | null;
-                manager: string | null;
-                openingHours: string | null;
-                phone: string | null;
-                status: string | null;
-                street: string | null;
-            } | null;
-            Tenant: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                businessType: string;
-                contactEmail: string;
-                contactPhone: string | null;
-                address: string | null;
-                currency: string | null;
-                logoUrl: string | null;
-                timezone: string | null;
-                vatNumber: string | null;
-                city: string | null;
-                country: string | null;
-                taxId: string | null;
-                website: string | null;
-                annualRevenue: string | null;
-                apiKey: string | null;
-                backupRestore: boolean;
-                businessCategory: string | null;
-                businessDescription: string | null;
-                businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-                businessLicense: string | null;
-                businessSubcategory: string | null;
-                customDomain: string | null;
-                customIntegrations: boolean;
-                employeeCount: string | null;
-                etimsQrUrl: string | null;
-                favicon: string | null;
-                foundedYear: number | null;
-                invoiceFooter: string | null;
-                kraPin: string | null;
-                latitude: number | null;
-                longitude: number | null;
-                postalCode: string | null;
-                primaryColor: string | null;
-                primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-                rateLimit: number | null;
-                receiptLogo: string | null;
-                secondaryColor: string | null;
-                secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-                socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-                ssoEnabled: boolean;
-                state: string | null;
-                stripeCustomerId: string | null;
-                watermark: string | null;
-                webhookUrl: string | null;
-                whiteLabel: boolean;
-                dashboardLogoUrl: string | null;
-                emailLogoUrl: string | null;
-                loginLogoUrl: string | null;
-                logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-                mobileLogoUrl: string | null;
-                auditLogsEnabled: boolean;
-                credits: number | null;
-            };
-            User: {
-                id: string;
-                name: string;
-                email: string;
-            };
-            SaleItem: ({
-                product: {
-                    id: string;
-                    name: string;
-                    sku: string;
-                    price: number;
-                };
-            } & {
-                id: string;
-                price: number;
-                productId: string;
-                quantity: number;
-                saleId: string;
-            })[];
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            userId: string;
-            branchId: string | null;
-            total: number;
-            paymentType: string;
-            customerName: string | null;
-            customerPhone: string | null;
-            mpesaTransactionId: string | null;
-            idempotencyKey: string | null;
-            vatAmount: number | null;
-        };
+        sale: any;
         error?: undefined;
     } | {
         message: string;
@@ -155,27 +17,8 @@ export declare class SalesController {
     }>;
     testDb(): Promise<{
         message: string;
-        salesCount: number;
-        sales: {
-            saleId: string;
-            date: Date;
-            total: number;
-            paymentType: string;
-            customerName: string | null;
-            customerPhone: string | null;
-            cashier: string | null;
-            mpesaTransaction: {
-                phoneNumber: string;
-                amount: number;
-                status: string;
-            } | null;
-            items: {
-                productId: string;
-                name: string;
-                price: number;
-                quantity: number;
-            }[];
-        }[];
+        salesCount: any;
+        sales: any;
         error?: undefined;
     } | {
         message: string;
@@ -185,7 +28,7 @@ export declare class SalesController {
     }>;
     getAnalytics(req: any): Promise<{
         totalSales: number;
-        totalRevenue: number;
+        totalRevenue: any;
         avgSaleValue: number;
         totalProfit: number;
         avgProfitMargin: number;
@@ -210,218 +53,37 @@ export declare class SalesController {
         };
         customerSegments: never[];
         paymentBreakdown: Record<string, number>;
-        lowStock: {
-            id: string;
-            name: string;
-            sku: string;
-            stock: number;
-        }[];
+        lowStock: any;
     }>;
     getReceipt(id: string, req: any): Promise<{
-        id: string;
-        saleId: string;
-        date: Date;
-        customerName: string;
-        customerPhone: string;
-        items: {
-            productId: string;
-            name: string;
-            price: number;
-            quantity: number;
-        }[];
-        total: number;
-        paymentMethod: string;
-        amountReceived: number;
+        id: any;
+        saleId: any;
+        date: any;
+        customerName: any;
+        customerPhone: any;
+        items: any;
+        total: any;
+        paymentMethod: any;
+        amountReceived: any;
         change: number;
         businessInfo: {
-            name: string;
-            address: string | null;
-            phone: string | null;
-            email: string;
+            name: any;
+            address: any;
+            phone: any;
+            email: any;
         };
         branch: {
-            id: string;
-            name: string;
-            address: string;
+            id: any;
+            name: any;
+            address: any;
         } | null;
     }>;
-    getRecentSales(req: any): Promise<{
-        id: string;
-        total: number;
-        paymentMethod: string;
-        customerName: string | null;
-        customerPhone: string | null;
-        date: Date;
-        items: {
-            productId: string;
-            productName: string;
-            quantity: number;
-            price: number;
-            total: number;
-        }[];
-    }[]>;
+    getRecentSales(req: any): Promise<any>;
     create(createSaleDto: CreateSaleDto, req: any): Promise<{
         success: boolean;
         data: import("./sale-receipt.dto").SaleReceiptDto;
         message: string;
     }>;
-    listSales(req: any): Promise<{
-        saleId: string;
-        date: Date;
-        total: number;
-        paymentType: string;
-        customerName: string | null;
-        customerPhone: string | null;
-        cashier: string | null;
-        mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-        } | null;
-        items: {
-            productId: string;
-            name: string;
-            price: number;
-            quantity: number;
-        }[];
-    }[]>;
-    getSaleById(id: string, req: any): Promise<{
-        saleId: string;
-        cashier: {
-            id: string;
-            name: string;
-            email: string;
-        } | null;
-        mpesaTransaction: {
-            phoneNumber: string;
-            amount: number;
-            status: string;
-            mpesaReceipt: string;
-            message: string;
-            transactionDate: Date;
-        } | null;
-        items: {
-            name: string;
-            price: number;
-            productId: string;
-            product: {
-                id: string;
-                name: string;
-                sku: string;
-                price: number;
-            };
-            id: string;
-            quantity: number;
-            saleId: string;
-        }[];
-        Branch: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            tenantId: string;
-            updatedAt: Date;
-            email: string | null;
-            address: string | null;
-            city: string | null;
-            country: string | null;
-            postalCode: string | null;
-            state: string | null;
-            customField: string | null;
-            isMainBranch: boolean;
-            logo: string | null;
-            manager: string | null;
-            openingHours: string | null;
-            phone: string | null;
-            status: string | null;
-            street: string | null;
-        } | null;
-        Tenant: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            businessType: string;
-            contactEmail: string;
-            contactPhone: string | null;
-            address: string | null;
-            currency: string | null;
-            logoUrl: string | null;
-            timezone: string | null;
-            vatNumber: string | null;
-            city: string | null;
-            country: string | null;
-            taxId: string | null;
-            website: string | null;
-            annualRevenue: string | null;
-            apiKey: string | null;
-            backupRestore: boolean;
-            businessCategory: string | null;
-            businessDescription: string | null;
-            businessHours: import("@prisma/client/runtime/library").JsonValue | null;
-            businessLicense: string | null;
-            businessSubcategory: string | null;
-            customDomain: string | null;
-            customIntegrations: boolean;
-            employeeCount: string | null;
-            etimsQrUrl: string | null;
-            favicon: string | null;
-            foundedYear: number | null;
-            invoiceFooter: string | null;
-            kraPin: string | null;
-            latitude: number | null;
-            longitude: number | null;
-            postalCode: string | null;
-            primaryColor: string | null;
-            primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            rateLimit: number | null;
-            receiptLogo: string | null;
-            secondaryColor: string | null;
-            secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
-            socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
-            ssoEnabled: boolean;
-            state: string | null;
-            stripeCustomerId: string | null;
-            watermark: string | null;
-            webhookUrl: string | null;
-            whiteLabel: boolean;
-            dashboardLogoUrl: string | null;
-            emailLogoUrl: string | null;
-            loginLogoUrl: string | null;
-            logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
-            mobileLogoUrl: string | null;
-            auditLogsEnabled: boolean;
-            credits: number | null;
-        };
-        User: {
-            id: string;
-            name: string;
-            email: string;
-        };
-        SaleItem: ({
-            product: {
-                id: string;
-                name: string;
-                sku: string;
-                price: number;
-            };
-        } & {
-            id: string;
-            price: number;
-            productId: string;
-            quantity: number;
-            saleId: string;
-        })[];
-        id: string;
-        createdAt: Date;
-        tenantId: string;
-        userId: string;
-        branchId: string | null;
-        total: number;
-        paymentType: string;
-        customerName: string | null;
-        customerPhone: string | null;
-        mpesaTransactionId: string | null;
-        idempotencyKey: string | null;
-        vatAmount: number | null;
-    }>;
+    listSales(req: any): Promise<any>;
+    getSaleById(id: string, req: any): Promise<any>;
 }

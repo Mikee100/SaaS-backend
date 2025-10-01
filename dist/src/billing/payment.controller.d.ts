@@ -75,9 +75,9 @@ export declare class PaymentController {
             updatedAt: Date;
             status: string;
             amount: number;
-            subscriptionId: string | null;
             dueDate: Date | null;
             paidAt: Date | null;
+            subscriptionId: string | null;
         };
         error?: undefined;
     } | {
@@ -88,7 +88,7 @@ export declare class PaymentController {
     getPaymentAnalytics(period: "month" | "quarter" | "year" | undefined, req: any): Promise<{
         success: boolean;
         analytics: {
-            period: "month" | "year" | "quarter";
+            period: "month" | "quarter" | "year";
             totalRevenue: number;
             paymentCount: number;
             averagePayment: number;

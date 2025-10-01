@@ -88,7 +88,6 @@ export declare class BillingService {
         price: number;
         customFields: boolean;
         stripePriceId: string | null;
-        isActive: boolean;
         interval: string;
         maxUsers: number | null;
         maxProducts: number | null;
@@ -98,6 +97,7 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        isActive: boolean;
         advancedSecurity: boolean;
         auditLogs: boolean;
         bulkOperations: boolean;
@@ -144,7 +144,6 @@ export declare class BillingService {
             price: number;
             customFields: boolean;
             stripePriceId: string | null;
-            isActive: boolean;
             interval: string;
             maxUsers: number | null;
             maxProducts: number | null;
@@ -154,6 +153,7 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            isActive: boolean;
             advancedSecurity: boolean;
             auditLogs: boolean;
             bulkOperations: boolean;
@@ -171,7 +171,6 @@ export declare class BillingService {
             price: number;
             customFields: boolean;
             stripePriceId: string | null;
-            isActive: boolean;
             interval: string;
             maxUsers: number | null;
             maxProducts: number | null;
@@ -181,6 +180,7 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            isActive: boolean;
             advancedSecurity: boolean;
             auditLogs: boolean;
             bulkOperations: boolean;
@@ -192,13 +192,13 @@ export declare class BillingService {
         userId: string;
         stripeCustomerId: string;
         status: string;
+        stripeSubscriptionId: string;
         planId: string;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripePriceId: string;
-        stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;

@@ -11,13 +11,12 @@ export declare class TenantService {
     getAllTenants(): Promise<any[]>;
     getTenantById(tenantId: string): Promise<{
         id: string;
-        stripeCustomerId: string | null;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
-        createdAt: Date;
-        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -55,6 +54,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;
@@ -68,13 +68,12 @@ export declare class TenantService {
     } | null>;
     getTenant(tenantId: string): Promise<{
         id: string;
-        stripeCustomerId: string | null;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
-        createdAt: Date;
-        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -112,6 +111,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;
@@ -168,13 +168,12 @@ export declare class TenantService {
         stripeCustomerId: string | null;
     }>): Promise<{
         id: string;
-        stripeCustomerId: string | null;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
-        createdAt: Date;
-        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -212,6 +211,7 @@ export declare class TenantService {
         socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
         ssoEnabled: boolean;
         state: string | null;
+        stripeCustomerId: string | null;
         watermark: string | null;
         webhookUrl: string | null;
         whiteLabel: boolean;
@@ -241,14 +241,15 @@ export declare class TenantService {
             id: string;
             name: string;
             createdAt: Date;
+            tenantId: string;
             updatedAt: Date;
+            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
             customField: string | null;
-            email: string | null;
             isMainBranch: boolean;
             logo: string | null;
             manager: string | null;
@@ -256,7 +257,6 @@ export declare class TenantService {
             phone: string | null;
             status: string | null;
             street: string | null;
-            tenantId: string;
         };
         user: {
             id: any;

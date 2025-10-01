@@ -3,39 +3,27 @@ export declare class AnalyticsController {
     private analyticsService;
     constructor(analyticsService: AnalyticsService);
     getBasicAnalytics(req: any): Promise<{
-        totalSales: number;
-        totalRevenue: number;
-        totalProducts: number;
+        totalSales: any;
+        totalRevenue: any;
+        totalProducts: any;
         message: string;
     }>;
     getDashboardAnalytics(req: any): Promise<{
         aiSummary: string;
-        totalSales: number;
-        totalRevenue: number;
-        totalProducts: number;
-        totalCustomers: number;
-        salesByDay: Record<string, number>;
-        salesByWeek: Record<string, number>;
-        salesByMonth: Record<string, number>;
-        topProducts: {
-            name: string;
-            sales: number | null;
-            revenue: number;
-            margin: number;
-            cost: number;
-        }[];
+        totalSales: any;
+        totalRevenue: any;
+        totalProducts: any;
+        totalCustomers: any;
+        salesByDay: any;
+        salesByWeek: any;
+        salesByMonth: any;
+        topProducts: any;
         customerRetention: {
-            totalCustomers: number;
+            totalCustomers: any;
             repeatCustomers: number;
             retentionRate: number;
         };
-        inventoryAnalytics: {
-            lowStockItems: number;
-            overstockItems: number;
-            inventoryTurnover: number;
-            stockoutRate: number;
-            totalStockValue: number;
-        };
+        inventoryAnalytics: any;
         performanceMetrics: {
             customerLifetimeValue: number;
             customerAcquisitionCost: number;
@@ -43,46 +31,31 @@ export declare class AnalyticsController {
             netPromoterScore: number;
         };
         realTimeData: {
-            currentUsers: number;
-            activeSales: number;
-            revenueToday: number;
-            ordersInProgress: number;
+            currentUsers: any;
+            activeSales: any;
+            revenueToday: any;
+            ordersInProgress: any;
             averageSessionDuration: number;
             bounceRate: number;
         };
-        forecast: {
-            forecast_months: string[];
-            forecast_sales: number[];
-        };
+        forecast: any;
     }>;
     getAdvancedAnalytics(req: any): Promise<{
         aiSummary: string;
-        totalSales: number;
-        totalRevenue: number;
-        totalProducts: number;
-        totalCustomers: number;
-        salesByDay: Record<string, number>;
-        salesByWeek: Record<string, number>;
-        salesByMonth: Record<string, number>;
-        topProducts: {
-            name: string;
-            sales: number | null;
-            revenue: number;
-            margin: number;
-            cost: number;
-        }[];
+        totalSales: any;
+        totalRevenue: any;
+        totalProducts: any;
+        totalCustomers: any;
+        salesByDay: any;
+        salesByWeek: any;
+        salesByMonth: any;
+        topProducts: any;
         customerRetention: {
-            totalCustomers: number;
+            totalCustomers: any;
             repeatCustomers: number;
             retentionRate: number;
         };
-        inventoryAnalytics: {
-            lowStockItems: number;
-            overstockItems: number;
-            inventoryTurnover: number;
-            stockoutRate: number;
-            totalStockValue: number;
-        };
+        inventoryAnalytics: any;
         performanceMetrics: {
             customerLifetimeValue: number;
             customerAcquisitionCost: number;
@@ -90,46 +63,31 @@ export declare class AnalyticsController {
             netPromoterScore: number;
         };
         realTimeData: {
-            currentUsers: number;
-            activeSales: number;
-            revenueToday: number;
-            ordersInProgress: number;
+            currentUsers: any;
+            activeSales: any;
+            revenueToday: any;
+            ordersInProgress: any;
             averageSessionDuration: number;
             bounceRate: number;
         };
-        forecast: {
-            forecast_months: string[];
-            forecast_sales: number[];
-        };
+        forecast: any;
     }>;
     getEnterpriseAnalytics(req: any): Promise<{
         aiSummary: string;
-        totalSales: number;
-        totalRevenue: number;
-        totalProducts: number;
-        totalCustomers: number;
-        salesByDay: Record<string, number>;
-        salesByWeek: Record<string, number>;
-        salesByMonth: Record<string, number>;
-        topProducts: {
-            name: string;
-            sales: number | null;
-            revenue: number;
-            margin: number;
-            cost: number;
-        }[];
+        totalSales: any;
+        totalRevenue: any;
+        totalProducts: any;
+        totalCustomers: any;
+        salesByDay: any;
+        salesByWeek: any;
+        salesByMonth: any;
+        topProducts: any;
         customerRetention: {
-            totalCustomers: number;
+            totalCustomers: any;
             repeatCustomers: number;
             retentionRate: number;
         };
-        inventoryAnalytics: {
-            lowStockItems: number;
-            overstockItems: number;
-            inventoryTurnover: number;
-            stockoutRate: number;
-            totalStockValue: number;
-        };
+        inventoryAnalytics: any;
         performanceMetrics: {
             customerLifetimeValue: number;
             customerAcquisitionCost: number;
@@ -137,16 +95,13 @@ export declare class AnalyticsController {
             netPromoterScore: number;
         };
         realTimeData: {
-            currentUsers: number;
-            activeSales: number;
-            revenueToday: number;
-            ordersInProgress: number;
+            currentUsers: any;
+            activeSales: any;
+            revenueToday: any;
+            ordersInProgress: any;
             averageSessionDuration: number;
             bounceRate: number;
         };
-        forecast: {
-            forecast_months: string[];
-            forecast_sales: number[];
-        };
+        forecast: any;
     }>;
 }

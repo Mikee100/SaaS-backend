@@ -236,8 +236,8 @@ export declare class InventoryService {
         productId: string;
         message: string;
         type: string;
-        isRead: boolean;
         severity: string;
+        isRead: boolean;
     })[]>;
     getLocations(tenantId: string, branchId?: string): Promise<{
         id: string;

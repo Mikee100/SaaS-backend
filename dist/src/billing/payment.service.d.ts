@@ -25,12 +25,12 @@ export declare class PaymentService {
         updatedAt: Date;
         status: string;
         amount: number;
-        subscriptionId: string | null;
         dueDate: Date | null;
         paidAt: Date | null;
+        subscriptionId: string | null;
     }>;
     getPaymentAnalytics(tenantId: string, period?: 'month' | 'quarter' | 'year'): Promise<{
-        period: "month" | "year" | "quarter";
+        period: "month" | "quarter" | "year";
         totalRevenue: number;
         paymentCount: number;
         averagePayment: number;

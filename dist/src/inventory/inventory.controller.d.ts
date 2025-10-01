@@ -179,8 +179,8 @@ export declare class InventoryController {
         productId: string;
         message: string;
         type: string;
-        isRead: boolean;
         severity: string;
+        isRead: boolean;
     })[]>;
     getLocations(req: any): Promise<{
         id: string;
