@@ -29,8 +29,13 @@ let PermissionService = class PermissionService {
             throw new common_1.BadRequestException('Permission already exists');
         return this.prisma.permission.create({ data: { name: key, description } });
     }
-    async getAllRoles() {
+    async getAllRoles(currentUserRole, tenantId) {
+        let whereClause = {};
+        if (tenantId) {
+            whereClause = { tenantId };
+        }
         return this.prisma.role.findMany({
+            where: whereClause,
             include: {
                 permissions: {
                     include: {

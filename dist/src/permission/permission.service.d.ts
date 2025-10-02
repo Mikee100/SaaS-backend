@@ -12,7 +12,7 @@ export declare class PermissionService {
         name: string;
         description: string | null;
     }>;
-    getAllRoles(): Promise<({
+    getAllRoles(currentUserRole?: string, tenantId?: string): Promise<({
         permissions: ({
             permission: {
                 id: string;
@@ -29,8 +29,8 @@ export declare class PermissionService {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
     })[]>;
     updateRole(name: string, description?: string): Promise<void>;
     createRole(name: string, description?: string, tenantId?: string): Promise<{
@@ -38,22 +38,22 @@ export declare class PermissionService {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string | null;
             updatedAt: Date;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
+            tenantId: string | null;
         };
     } & {
         id: string;
@@ -63,18 +63,18 @@ export declare class PermissionService {
     updateRolePermissions(roleId: string, permissions: {
         key: string;
     }[]): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string | null;
             updatedAt: Date;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
+            tenantId: string | null;
         };
     } & {
         id: string;

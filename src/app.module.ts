@@ -21,6 +21,7 @@ import { UsageModule } from './usage.module';
 import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { SupplierModule } from './supplier/supplier.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AuditLogModule } from './audit-log/audit-log.module';
     UsageModule,
     AdminTenantStatsModule,
     AuditLogModule,
+    SupplierModule,
   ],
   controllers: [AppController],
   providers: [AppService],

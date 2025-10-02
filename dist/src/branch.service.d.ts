@@ -5,19 +5,19 @@ export declare class BranchService {
     createBranch(data: any): Promise<{
         id: string;
         name: string;
+        manager: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
-        email: string | null;
         address: string | null;
         city: string | null;
         country: string | null;
         postalCode: string | null;
         state: string | null;
+        tenantId: string;
+        email: string | null;
         customField: string | null;
         isMainBranch: boolean;
         logo: string | null;
-        manager: string | null;
         openingHours: string | null;
         phone: string | null;
         status: string | null;
@@ -26,19 +26,19 @@ export declare class BranchService {
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
+        manager: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
-        email: string | null;
         address: string | null;
         city: string | null;
         country: string | null;
         postalCode: string | null;
         state: string | null;
+        tenantId: string;
+        email: string | null;
         customField: string | null;
         isMainBranch: boolean;
         logo: string | null;
-        manager: string | null;
         openingHours: string | null;
         phone: string | null;
         status: string | null;
@@ -47,19 +47,19 @@ export declare class BranchService {
     findById(id: string, tenantId: string): Promise<{
         id: string;
         name: string;
+        manager: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
-        email: string | null;
         address: string | null;
         city: string | null;
         country: string | null;
         postalCode: string | null;
         state: string | null;
+        tenantId: string;
+        email: string | null;
         customField: string | null;
         isMainBranch: boolean;
         logo: string | null;
-        manager: string | null;
         openingHours: string | null;
         phone: string | null;
         status: string | null;

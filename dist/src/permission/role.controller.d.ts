@@ -11,10 +11,10 @@ export declare class RoleController {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
     }>;
-    getRoles(): Promise<({
+    getRoles(req: any): Promise<({
         permissions: ({
             permission: {
                 id: string;
@@ -31,23 +31,23 @@ export declare class RoleController {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
     })[]>;
     updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string | null;
             updatedAt: Date;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
+            tenantId: string | null;
         };
     } & {
         id: string;
@@ -55,18 +55,18 @@ export declare class RoleController {
         permissionId: string;
     })[]>;
     updateRolePermissions(id: string, body: any): Promise<({
+        permission: {
+            id: string;
+            name: string;
+            description: string | null;
+        };
         role: {
             id: string;
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string | null;
             updatedAt: Date;
-        };
-        permission: {
-            id: string;
-            name: string;
-            description: string | null;
+            tenantId: string | null;
         };
     } & {
         id: string;

@@ -46,8 +46,15 @@ export class PermissionService {
   */
 
   // Role management methods
-  async getAllRoles() {
+  async getAllRoles(currentUserRole?: string, tenantId?: string) {
+    let whereClause = {};
+    if (tenantId) {
+      whereClause = { tenantId };
+    }
+
+    // Return all roles for the tenant
     return this.prisma.role.findMany({
+      where: whereClause,
       include: {
         permissions: {
           include: {

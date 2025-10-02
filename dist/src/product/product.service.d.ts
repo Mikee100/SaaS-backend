@@ -6,44 +6,16 @@ export declare class ProductService {
     private prisma;
     private auditLogService;
     private billingService;
-    findAllByBranch(branchId: string, tenantId: string): Promise<{
-        id: string;
-        name: string;
-        description: string | null;
-        createdAt: Date;
-        tenantId: string;
-        updatedAt: Date;
-        branchId: string | null;
-        sku: string;
-        price: number;
-        stock: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        cost: number;
-        images: string[];
-    }[]>;
+    findAllByBranch(branchId: string, tenantId: string): Promise<any>;
     constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
-    findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<{
-        id: string;
-        name: string;
-        description: string | null;
-        createdAt: Date;
-        tenantId: string;
-        updatedAt: Date;
-        branchId: string | null;
-        sku: string;
-        price: number;
-        stock: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        cost: number;
-        images: string[];
-    }[]>;
+    findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<any>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -51,6 +23,8 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     updateProduct(id: string, data: any, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deleteProduct(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
@@ -61,7 +35,11 @@ export declare class ProductService {
         }[];
         uploadId?: undefined;
     } | {
-        summary: any[];
+        summary: {
+            successful: number;
+            failed: number;
+            errors: any[];
+        };
         uploadId: string;
     }>;
     getProductCount(tenantId: string, branchId?: string): Promise<number>;
@@ -81,8 +59,8 @@ export declare class ProductService {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -90,14 +68,16 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     deleteProductImage(productId: string, imageUrl: string, tenantId: string, userId: string): Promise<{
         id: string;
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -105,6 +85,8 @@ export declare class ProductService {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     getImageUrl(imagePath: string): string;
 }

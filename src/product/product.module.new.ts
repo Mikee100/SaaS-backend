@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ProductController } from './product.controller';
-import { BulkUploadRecordController } from './bulk-upload-record.controller';
 import { ProductService } from './product.service';
 import { BulkUploadRecordService } from './bulk-upload-record.service';
 import { PrismaModule } from '../prisma.module';
@@ -10,7 +9,7 @@ import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [PrismaModule, BillingModule, UserModule],
-  controllers: [ProductController, BulkUploadRecordController],
+  controllers: [ProductController],
   providers: [ProductService, BulkUploadRecordService, AuditLogService],
   exports: [ProductService, BulkUploadRecordService],
 })

@@ -33,6 +33,8 @@ model User {
   grantedPermissions      UserPermission[]   @relation("UserPermissions")
   userPermissions         UserPermission[]   @relation("UserUserPermissions")
   userRoles               UserRole[]         @relation("UserUserRoles")
+  bulkUploadRecords       BulkUploadRecord[] @relation("UserBulkUploadRecords")
+  productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
 
   @@index([email])
   @@index([branchId])
@@ -155,12 +157,15 @@ model Tenant {
   roles               Role[]
   Sale                Sale[]
   Subscription        Subscription[]
+  suppliers           Supplier[]
   TenantConfiguration TenantConfiguration[]
   TenantModule        TenantModule[]
   users               User[]
   UserBranchRole      UserBranchRole[]      @relation("TenantUserBranchRoles")
   userPermissions     UserPermission[]      @relation("TenantUserPermissions")
   userRoles           UserRole[]            @relation("TenantUserRoles")
+  bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
+  productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
 }
 
 model AuditLog {
@@ -202,6 +207,8 @@ model Branch {
   sales               Sale[]
   users               User[]              @relation("UserBranch")
   UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
+  bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
+  productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
 
   @@index([tenantId])
 }
@@ -458,6 +465,31 @@ model PlanFeatureOnPlan {
   Plan          Plan        @relation(fields: [planId], references: [id])
 }
 
+model Supplier {
+  id          String    @id @default(uuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  postalCode  String?
+  website     String?
+  notes       String?
+  tenantId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isActive    Boolean   @default(true)
+  products    Product[] @relation("SupplierProducts")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  bulkUploadRecords BulkUploadRecord[] @relation("SupplierBulkUploadRecords")
+  productAdditions ProductAdditionRecord[] @relation("SupplierProductAdditions")
+
+  @@index([tenantId])
+  @@index([email])
+}
+
 model Product {
   id           String      @id
   name         String
@@ -472,15 +504,21 @@ model Product {
   branchId     String?
   cost         Float       @default(0)
   images       String[]    // Array of image URLs
+  supplierId   String?
+  bulkUploadRecordId String?
+  supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
   inventoryMovements  InventoryMovement[]
   inventoryAlerts     InventoryAlert[]
   branch              Branch?              @relation("BranchProducts", fields: [branchId], references: [id])
   tenant              Tenant               @relation("TenantProducts", fields: [tenantId], references: [id])
   saleItems           SaleItem[]           @relation("ProductSaleItems")
+  bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
+  productAdditions    ProductAdditionRecord[]
 
   @@index([branchId])
   @@index([tenantId])
+  @@index([supplierId])
 }
 
 model Sale {
@@ -619,4 +657,62 @@ model UserPermission {
   grantedByUser User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
 
   @@unique([userId, permission, tenantId])
+}
+
+model BulkUploadRecord {
+  id            String   @id @default(uuid())
+  tenantId      String
+  branchId      String?
+  userId        String
+  supplierId    String?
+  uploadDate    DateTime @default(now())
+  totalProducts Int
+  totalValue    Float
+  status        String   @default("completed")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  branch        Branch?     @relation("BranchBulkUploadRecords", fields: [branchId], references: [id])
+  supplier      Supplier?   @relation("SupplierBulkUploadRecords", fields: [supplierId], references: [id])
+  tenant        Tenant      @relation("TenantBulkUploadRecords", fields: [tenantId], references: [id])
+  user          User        @relation("UserBulkUploadRecords", fields: [userId], references: [id])
+  products      Product[]   @relation("BulkUploadProducts")
+  productAdditions ProductAdditionRecord[] @relation("BulkUploadProductAdditions")
+
+  @@index([branchId])
+  @@index([supplierId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([uploadDate])
+}
+model ProductAdditionRecord {
+  id            String   @id @default(uuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant   @relation("TenantProductAdditions", fields: [tenantId], references: [id])
+  branchId      String?
+  branch        Branch?  @relation("BranchProductAdditions", fields: [branchId], references: [id])
+  userId        String
+  user          User     @relation("UserProductAdditions", fields: [userId], references: [id])
+  supplierId    String?
+  supplier      Supplier? @relation("SupplierProductAdditions", fields: [supplierId], references: [id])
+  bulkUploadRecordId String?
+  bulkUploadRecord   BulkUploadRecord? @relation("BulkUploadProductAdditions", fields: [bulkUploadRecordId], references: [id])
+  quantity      Int      @default(1)
+  cost          Float?
+  price         Float?
+  addedAt       DateTime @default(now())
+  notes         String?
+  additionType  String   @default("individual") // "individual" or "bulk"
+
+  @@index([productId])
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([supplierId])
+  @@index([bulkUploadRecordId])
+  @@index([addedAt])
 }

@@ -12,11 +12,11 @@ export declare class TenantService {
     getTenantById(tenantId: string): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -69,11 +69,11 @@ export declare class TenantService {
     getTenant(tenantId: string): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -169,11 +169,11 @@ export declare class TenantService {
     }>): Promise<{
         id: string;
         name: string;
-        createdAt: Date;
-        updatedAt: Date;
         businessType: string;
         contactEmail: string;
         contactPhone: string | null;
+        createdAt: Date;
+        updatedAt: Date;
         address: string | null;
         currency: string | null;
         logoUrl: string | null;
@@ -240,19 +240,19 @@ export declare class TenantService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
-            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            tenantId: string;
+            email: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
             status: string | null;

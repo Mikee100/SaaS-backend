@@ -9,7 +9,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductModule = void 0;
 const common_1 = require("@nestjs/common");
 const product_controller_1 = require("./product.controller");
+const bulk_upload_record_controller_1 = require("./bulk-upload-record.controller");
 const product_service_1 = require("./product.service");
+const bulk_upload_record_service_1 = require("./bulk-upload-record.service");
 const prisma_module_1 = require("../prisma.module");
 const audit_log_service_1 = require("../audit-log.service");
 const billing_module_1 = require("../billing/billing.module");
@@ -20,9 +22,9 @@ exports.ProductModule = ProductModule;
 exports.ProductModule = ProductModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, billing_module_1.BillingModule, user_module_1.UserModule],
-        controllers: [product_controller_1.ProductController],
-        providers: [product_service_1.ProductService, audit_log_service_1.AuditLogService],
-        exports: [product_service_1.ProductService],
+        controllers: [product_controller_1.ProductController, bulk_upload_record_controller_1.BulkUploadRecordController],
+        providers: [product_service_1.ProductService, bulk_upload_record_service_1.BulkUploadRecordService, audit_log_service_1.AuditLogService],
+        exports: [product_service_1.ProductService, bulk_upload_record_service_1.BulkUploadRecordService],
     })
 ], ProductModule);
 //# sourceMappingURL=product.module.js.map

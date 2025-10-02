@@ -106,7 +106,7 @@ export class ProductController {
     @Req() req: Request,
   ) {
     // Extract branchId from header or user context
-    const branchId = req.headers['x-branch-id'];
+    const branchId = req.headers['x-branch-id'] || (req.user as any)?.branchId;
     // Pass branchId explicitly to service
     return this.productService.bulkUpload(file, {
       ...(req.user as any),

@@ -7,6 +7,7 @@ import {
   BadRequestException,
   UseGuards,
   Post,
+  Req,
 } from '@nestjs/common';
 import { PermissionService } from './permission.service';
 import { Permissions } from '../auth/permissions.decorator';
@@ -34,8 +35,10 @@ export class RoleController {
 
   @Get()
   @Permissions('edit_roles')
-  async getRoles() {
-    return this.permissionService.getAllRoles();
+  async getRoles(@Req() req) {
+    const currentUserRole = req.user?.roles?.includes('owner') ? 'owner' : undefined;
+    const tenantId = req.user?.tenantId;
+    return this.permissionService.getAllRoles(currentUserRole, tenantId);
   }
 
   // Renamed from createRole to updateRole

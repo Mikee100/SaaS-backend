@@ -7,8 +7,8 @@ export declare class AuditLogController {
             id: string;
             name: string;
             createdAt: Date;
-            tenantId: string | null;
             updatedAt: Date;
+            tenantId: string | null;
             email: string;
             password: string;
             resetPasswordExpires: Date | null;

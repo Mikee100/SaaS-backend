@@ -30,8 +30,10 @@ let RoleController = class RoleController {
             throw new common_1.BadRequestException('Tenant ID is required');
         return this.permissionService.createRole(body.name, body.description, body.tenantId);
     }
-    async getRoles() {
-        return this.permissionService.getAllRoles();
+    async getRoles(req) {
+        const currentUserRole = req.user?.roles?.includes('owner') ? 'owner' : undefined;
+        const tenantId = req.user?.tenantId;
+        return this.permissionService.getAllRoles(currentUserRole, tenantId);
     }
     async updateRole(body) {
         if (!body.name)
@@ -59,8 +61,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('edit_roles'),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], RoleController.prototype, "getRoles", null);
 __decorate([

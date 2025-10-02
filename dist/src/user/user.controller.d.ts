@@ -26,8 +26,8 @@ export declare class UserController {
                 name: string;
                 description: string | null;
                 createdAt: Date;
-                tenantId: string | null;
                 updatedAt: Date;
+                tenantId: string | null;
             };
         } & {
             id: string;
@@ -38,8 +38,8 @@ export declare class UserController {
         id: string;
         name: string;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -66,8 +66,8 @@ export declare class UserController {
         id: string;
         name: string;
         createdAt: Date;
-        tenantId: string | null;
         updatedAt: Date;
+        tenantId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;

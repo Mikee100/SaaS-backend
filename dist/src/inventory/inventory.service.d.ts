@@ -14,8 +14,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -23,12 +23,14 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         productId: string;
         quantity: number;
@@ -41,19 +43,19 @@ export declare class InventoryService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
-            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            tenantId: string;
+            email: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
             status: string | null;
@@ -64,8 +66,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -73,12 +75,14 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         productId: string;
         quantity: number;
@@ -94,19 +98,19 @@ export declare class InventoryService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
-            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            tenantId: string;
+            email: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
             status: string | null;
@@ -117,8 +121,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -126,12 +130,14 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         productId: string;
         quantity: number;
@@ -144,19 +150,19 @@ export declare class InventoryService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
-            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            tenantId: string;
+            email: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
             status: string | null;
@@ -167,8 +173,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -176,6 +182,8 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
     } & {
         id: string;
@@ -195,19 +203,19 @@ export declare class InventoryService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
-            email: string | null;
             address: string | null;
             city: string | null;
             country: string | null;
             postalCode: string | null;
             state: string | null;
+            tenantId: string;
+            email: string | null;
             customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
             status: string | null;
@@ -218,8 +226,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -227,6 +235,8 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
     } & {
         id: string;
@@ -236,17 +246,17 @@ export declare class InventoryService {
         productId: string;
         message: string;
         type: string;
-        severity: string;
         isRead: boolean;
+        severity: string;
     })[]>;
     getLocations(tenantId: string, branchId?: string): Promise<{
         id: string;
         name: string;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
-        branchId: string | null;
         address: string | null;
+        tenantId: string;
+        branchId: string | null;
         type: string;
     }[]>;
     getForecast(tenantId: string, branchId?: string): Promise<{
@@ -256,8 +266,8 @@ export declare class InventoryService {
             name: string;
             description: string | null;
             createdAt: Date;
-            tenantId: string;
             updatedAt: Date;
+            tenantId: string;
             branchId: string | null;
             sku: string;
             price: number;
@@ -265,6 +275,8 @@ export declare class InventoryService {
             customFields: import("@prisma/client/runtime/library").JsonValue | null;
             cost: number;
             images: string[];
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
         };
         currentStock: number;
         averageDailySales: number;

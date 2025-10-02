@@ -50,8 +50,11 @@ export class ProductService {
       tenantId,
     );
     console.log('------------------------------');
-    return this.prisma.product.findMany({
+    return (this.prisma as any).product.findMany({
       where: { branchId, tenantId },
+      include: {
+        supplier: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -69,8 +72,11 @@ export class ProductService {
         { branchId: null }
       ];
     }
-    return this.prisma.product.findMany({
+    return (this.prisma as any).product.findMany({
       where,
+      include: {
+        supplier: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -91,6 +97,20 @@ export class ProductService {
       ...data,
       id: uuidv4(), // Generate a new UUID for the product
     };
+
+    // Handle supplier field - if supplier name is provided, find the supplier and set supplierId
+    if (productData.supplier && typeof productData.supplier === 'string') {
+      const supplier = await (this.prisma as any).supplier.findFirst({
+        where: {
+          name: productData.supplier,
+          tenantId: data.tenantId,
+        },
+      });
+      if (supplier) {
+        productData.supplierId = supplier.id;
+      }
+      delete productData.supplier; // Remove the supplier name field
+    }
 
     // Ensure stock is an integer
     if (productData.stock !== undefined) {
@@ -133,8 +153,28 @@ export class ProductService {
     ip?: string,
   ) {
     // Separate standard and custom fields
-    const { name, sku, price, description, stock, cost, ...customFields } = data;
+    const { name, sku, price, description, stock, cost, supplier, ...customFields } = data;
     const updateData: any = {};
+
+    // Handle supplier field - if supplier name is provided, find the supplier and set supplierId
+    if (supplier !== undefined) {
+      if (supplier && typeof supplier === 'string') {
+        const supplierRecord = await (this.prisma as any).supplier.findFirst({
+          where: {
+            name: supplier,
+            tenantId: tenantId,
+          },
+        });
+        if (supplierRecord) {
+          updateData.supplierId = supplierRecord.id;
+        } else {
+          updateData.supplierId = null; // Clear supplier if not found
+        }
+      } else {
+        updateData.supplierId = null; // Clear supplier if empty
+      }
+    }
+
     if (name !== undefined) updateData.name = name;
     if (sku !== undefined) updateData.sku = String(sku);
     if (price !== undefined) updateData.price = parseFloat(price);
@@ -218,6 +258,18 @@ export class ProductService {
 
     console.log(`Using branch ID for bulk upload: ${branchId}`);
 
+    // Create a bulk upload record for this upload
+    const bulkUploadRecord = await this.prisma.bulkUploadRecord.create({
+      data: {
+        tenantId: user.tenantId,
+        branchId: branchId,
+        userId: user.userId,
+        totalProducts: rows.length,
+        totalValue: 0, // Will update later
+        status: 'processing',
+      },
+    });
+
     // Get headers from the first row
     const headers = Object.keys(rows[0]);
 
@@ -264,57 +316,75 @@ export class ProductService {
     // Required fields for Product
     const requiredFields = ['name', 'sku', 'price'];
     const results: any[] = [];
-    const createdProducts: any[] = []; // Temporarily using any[] to fix the type error
+    const createdProducts: any[] = [];
+
+    // Process in batches to avoid transaction timeout
+    const BATCH_SIZE = 10;
+    let successfulCount = 0;
+    let failedCount = 0;
 
     try {
-      // Process all rows in a transaction
-      await this.prisma.$transaction(async (prisma) => {
-        for (const [i, row] of rows.entries()) {
-          try {
-            // Map the best-matched columns to required fields
-            const mappedRow: Record<string, any> = { ...row };
-            if (nameCol) mappedRow.name = row[nameCol];
-            if (skuCol) mappedRow.sku = row[skuCol];
-            if (priceCol) mappedRow.price = row[priceCol];
-            if (costCol) mappedRow.cost = row[costCol];
+      for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, rows.length);
+        const batch = rows.slice(batchStart, batchEnd);
 
-            // Validate required fields
-            for (const field of requiredFields) {
-              if (!mappedRow[field])
-                throw new Error(`Missing required field: ${field}`);
+        console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: rows ${batchStart + 1}-${batchEnd}`);
+
+        // Process each batch in its own transaction with extended timeout
+        await this.prisma.$transaction(async (prisma) => {
+          for (const [batchIndex, row] of batch.entries()) {
+            const globalIndex = batchStart + batchIndex;
+
+            try {
+              // Map the best-matched columns to required fields
+              const mappedRow: Record<string, any> = { ...row };
+              if (nameCol) mappedRow.name = row[nameCol];
+              if (skuCol) mappedRow.sku = row[skuCol];
+              if (priceCol) mappedRow.price = row[priceCol];
+              if (costCol) mappedRow.cost = row[costCol];
+
+              // Validate required fields
+              for (const field of requiredFields) {
+                if (!mappedRow[field])
+                  throw new Error(`Missing required field: ${field}`);
+              }
+
+              // Extract standard fields
+              const { name, sku, price, cost, description, stock, supplierId: extractedSupplierId, ...customFields } =
+                mappedRow;
+
+              const productData = {
+                id: uuidv4(),
+                name: String(name).trim(),
+                sku: sku !== undefined ? String(sku).trim() : '',
+                price: parseFloat(price),
+                cost: cost !== undefined ? parseFloat(String(cost)) : 0,
+                description: description ? String(description).trim() : '',
+                stock: stock !== undefined ? parseInt(String(stock)) : 0,
+                tenantId: user.tenantId,
+                branchId: branchId, // Use the resolved branch ID
+                supplierId: extractedSupplierId || null,
+                bulkUploadRecordId: bulkUploadRecord.id,
+                ...(Object.keys(customFields).length > 0 && { customFields }),
+              };
+
+              console.log('Creating product:', productData);
+              const createdProduct = await prisma.product.create({
+                data: productData,
+              });
+              createdProducts.push(createdProduct);
+              results.push({ row: mappedRow, status: 'success' });
+              successfulCount++;
+            } catch (error) {
+              console.error('Error processing row:', error);
+              results.push({ row, status: 'error', error: error.message });
+              failedCount++;
+            } finally {
+              bulkUploadProgress[uploadId].processed = globalIndex + 1;
             }
-
-            // Extract standard fields
-            const { name, sku, price, cost, description, stock, ...customFields } =
-              mappedRow;
-
-            const productData = {
-              id: uuidv4(),
-              name: String(name).trim(),
-              sku: sku !== undefined ? String(sku).trim() : '',
-              price: parseFloat(price),
-              cost: cost !== undefined ? parseFloat(String(cost)) : 0,
-              description: description ? String(description).trim() : '',
-              stock: stock !== undefined ? parseInt(String(stock)) : 0,
-              tenantId: user.tenantId,
-              branchId: branchId, // Use the resolved branch ID
-              ...(Object.keys(customFields).length > 0 && { customFields }),
-            };
-
-            console.log('Creating product:', productData);
-            const createdProduct = await prisma.product.create({
-              data: productData,
-            });
-            createdProducts.push(createdProduct);
-            results.push({ row: mappedRow, status: 'success' });
-          } catch (error) {
-            console.error('Error processing row:', error);
-            results.push({ row, status: 'error', error: error.message });
-          } finally {
-            bulkUploadProgress[uploadId].processed = i + 1;
           }
-        }
-      });
+        });
+      }
 
       // Log successful bulk upload
       if (this.auditLogService) {
@@ -323,21 +393,30 @@ export class ProductService {
           'products_bulk_upload',
           {
             total: rows.length,
-            successful: results.filter((r) => r.status === 'success').length,
-            failed: results.filter((r) => r.status === 'error').length,
+            successful: successfulCount,
+            failed: failedCount,
             branchId,
           },
           user.ip,
         );
       }
     } catch (error) {
-      console.error('Bulk upload transaction failed:', error);
+      console.error('Bulk upload failed:', error);
       throw new Error(`Bulk upload failed: ${error.message}`);
     }
+
     setTimeout(() => {
       delete bulkUploadProgress[uploadId];
     }, 60000); // Clean up after 1 min
-    return { summary: results, uploadId };
+
+    return {
+      summary: {
+        successful: successfulCount,
+        failed: failedCount,
+        errors: results.filter(r => r.status === 'error').map(r => r.error)
+      },
+      uploadId
+    };
   }
 
   async getProductCount(tenantId: string, branchId?: string): Promise<number> {

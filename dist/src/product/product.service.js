@@ -42,6 +42,9 @@ let ProductService = class ProductService {
         console.log('------------------------------');
         return this.prisma.product.findMany({
             where: { branchId, tenantId },
+            include: {
+                supplier: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -60,6 +63,9 @@ let ProductService = class ProductService {
         }
         return this.prisma.product.findMany({
             where,
+            include: {
+                supplier: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -72,6 +78,18 @@ let ProductService = class ProductService {
             ...data,
             id: (0, uuid_1.v4)(),
         };
+        if (productData.supplier && typeof productData.supplier === 'string') {
+            const supplier = await this.prisma.supplier.findFirst({
+                where: {
+                    name: productData.supplier,
+                    tenantId: data.tenantId,
+                },
+            });
+            if (supplier) {
+                productData.supplierId = supplier.id;
+            }
+            delete productData.supplier;
+        }
         if (productData.stock !== undefined) {
             productData.stock = parseInt(String(productData.stock), 10);
             if (isNaN(productData.stock)) {
@@ -93,8 +111,27 @@ let ProductService = class ProductService {
         return product;
     }
     async updateProduct(id, data, tenantId, actorUserId, ip) {
-        const { name, sku, price, description, stock, cost, ...customFields } = data;
+        const { name, sku, price, description, stock, cost, supplier, ...customFields } = data;
         const updateData = {};
+        if (supplier !== undefined) {
+            if (supplier && typeof supplier === 'string') {
+                const supplierRecord = await this.prisma.supplier.findFirst({
+                    where: {
+                        name: supplier,
+                        tenantId: tenantId,
+                    },
+                });
+                if (supplierRecord) {
+                    updateData.supplierId = supplierRecord.id;
+                }
+                else {
+                    updateData.supplierId = null;
+                }
+            }
+            else {
+                updateData.supplierId = null;
+            }
+        }
         if (name !== undefined)
             updateData.name = name;
         if (sku !== undefined)
@@ -157,6 +194,16 @@ let ProductService = class ProductService {
             }
         }
         console.log(`Using branch ID for bulk upload: ${branchId}`);
+        const bulkUploadRecord = await this.prisma.bulkUploadRecord.create({
+            data: {
+                tenantId: user.tenantId,
+                branchId: branchId,
+                userId: user.userId,
+                totalProducts: rows.length,
+                totalValue: 0,
+                status: 'processing',
+            },
+        });
         const headers = Object.keys(rows[0]);
         const nameCandidates = [
             'name',
@@ -197,69 +244,89 @@ let ProductService = class ProductService {
         const requiredFields = ['name', 'sku', 'price'];
         const results = [];
         const createdProducts = [];
+        const BATCH_SIZE = 10;
+        let successfulCount = 0;
+        let failedCount = 0;
         try {
-            await this.prisma.$transaction(async (prisma) => {
-                for (const [i, row] of rows.entries()) {
-                    try {
-                        const mappedRow = { ...row };
-                        if (nameCol)
-                            mappedRow.name = row[nameCol];
-                        if (skuCol)
-                            mappedRow.sku = row[skuCol];
-                        if (priceCol)
-                            mappedRow.price = row[priceCol];
-                        if (costCol)
-                            mappedRow.cost = row[costCol];
-                        for (const field of requiredFields) {
-                            if (!mappedRow[field])
-                                throw new Error(`Missing required field: ${field}`);
+            for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
+                const batchEnd = Math.min(batchStart + BATCH_SIZE, rows.length);
+                const batch = rows.slice(batchStart, batchEnd);
+                console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: rows ${batchStart + 1}-${batchEnd}`);
+                await this.prisma.$transaction(async (prisma) => {
+                    for (const [batchIndex, row] of batch.entries()) {
+                        const globalIndex = batchStart + batchIndex;
+                        try {
+                            const mappedRow = { ...row };
+                            if (nameCol)
+                                mappedRow.name = row[nameCol];
+                            if (skuCol)
+                                mappedRow.sku = row[skuCol];
+                            if (priceCol)
+                                mappedRow.price = row[priceCol];
+                            if (costCol)
+                                mappedRow.cost = row[costCol];
+                            for (const field of requiredFields) {
+                                if (!mappedRow[field])
+                                    throw new Error(`Missing required field: ${field}`);
+                            }
+                            const { name, sku, price, cost, description, stock, supplierId: extractedSupplierId, ...customFields } = mappedRow;
+                            const productData = {
+                                id: (0, uuid_1.v4)(),
+                                name: String(name).trim(),
+                                sku: sku !== undefined ? String(sku).trim() : '',
+                                price: parseFloat(price),
+                                cost: cost !== undefined ? parseFloat(String(cost)) : 0,
+                                description: description ? String(description).trim() : '',
+                                stock: stock !== undefined ? parseInt(String(stock)) : 0,
+                                tenantId: user.tenantId,
+                                branchId: branchId,
+                                supplierId: extractedSupplierId || null,
+                                bulkUploadRecordId: bulkUploadRecord.id,
+                                ...(Object.keys(customFields).length > 0 && { customFields }),
+                            };
+                            console.log('Creating product:', productData);
+                            const createdProduct = await prisma.product.create({
+                                data: productData,
+                            });
+                            createdProducts.push(createdProduct);
+                            results.push({ row: mappedRow, status: 'success' });
+                            successfulCount++;
                         }
-                        const { name, sku, price, cost, description, stock, ...customFields } = mappedRow;
-                        const productData = {
-                            id: (0, uuid_1.v4)(),
-                            name: String(name).trim(),
-                            sku: sku !== undefined ? String(sku).trim() : '',
-                            price: parseFloat(price),
-                            cost: cost !== undefined ? parseFloat(String(cost)) : 0,
-                            description: description ? String(description).trim() : '',
-                            stock: stock !== undefined ? parseInt(String(stock)) : 0,
-                            tenantId: user.tenantId,
-                            branchId: branchId,
-                            ...(Object.keys(customFields).length > 0 && { customFields }),
-                        };
-                        console.log('Creating product:', productData);
-                        const createdProduct = await prisma.product.create({
-                            data: productData,
-                        });
-                        createdProducts.push(createdProduct);
-                        results.push({ row: mappedRow, status: 'success' });
+                        catch (error) {
+                            console.error('Error processing row:', error);
+                            results.push({ row, status: 'error', error: error.message });
+                            failedCount++;
+                        }
+                        finally {
+                            bulkUploadProgress[uploadId].processed = globalIndex + 1;
+                        }
                     }
-                    catch (error) {
-                        console.error('Error processing row:', error);
-                        results.push({ row, status: 'error', error: error.message });
-                    }
-                    finally {
-                        bulkUploadProgress[uploadId].processed = i + 1;
-                    }
-                }
-            });
+                });
+            }
             if (this.auditLogService) {
                 await this.auditLogService.log(user.userId || null, 'products_bulk_upload', {
                     total: rows.length,
-                    successful: results.filter((r) => r.status === 'success').length,
-                    failed: results.filter((r) => r.status === 'error').length,
+                    successful: successfulCount,
+                    failed: failedCount,
                     branchId,
                 }, user.ip);
             }
         }
         catch (error) {
-            console.error('Bulk upload transaction failed:', error);
+            console.error('Bulk upload failed:', error);
             throw new Error(`Bulk upload failed: ${error.message}`);
         }
         setTimeout(() => {
             delete bulkUploadProgress[uploadId];
         }, 60000);
-        return { summary: results, uploadId };
+        return {
+            summary: {
+                successful: successfulCount,
+                failed: failedCount,
+                errors: results.filter(r => r.status === 'error').map(r => r.error)
+            },
+            uploadId
+        };
     }
     async getProductCount(tenantId, branchId) {
         return this.prisma.product.count({

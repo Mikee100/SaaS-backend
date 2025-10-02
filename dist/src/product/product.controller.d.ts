@@ -10,28 +10,14 @@ declare global {
 export declare class ProductController {
     private readonly productService;
     constructor(productService: ProductService);
-    findAll(req: any): Promise<{
-        id: string;
-        name: string;
-        description: string | null;
-        createdAt: Date;
-        tenantId: string;
-        updatedAt: Date;
-        branchId: string | null;
-        sku: string;
-        price: number;
-        stock: number;
-        customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        cost: number;
-        images: string[];
-    }[]>;
+    findAll(req: any): Promise<any>;
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -39,14 +25,16 @@ export declare class ProductController {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     uploadImages(id: string, files: Express.Multer.File[], req: any): Promise<{
         id: string;
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -54,6 +42,8 @@ export declare class ProductController {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     deleteImage(id: string, body: {
         imageUrl: string;
@@ -62,8 +52,8 @@ export declare class ProductController {
         name: string;
         description: string | null;
         createdAt: Date;
-        tenantId: string;
         updatedAt: Date;
+        tenantId: string;
         branchId: string | null;
         sku: string;
         price: number;
@@ -71,6 +61,8 @@ export declare class ProductController {
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
         cost: number;
         images: string[];
+        supplierId: string | null;
+        bulkUploadRecordId: string | null;
     }>;
     bulkUpload(file: Express.Multer.File, req: Request): Promise<{
         summary: {
@@ -79,7 +71,11 @@ export declare class ProductController {
         }[];
         uploadId?: undefined;
     } | {
-        summary: any[];
+        summary: {
+            successful: number;
+            failed: number;
+            errors: any[];
+        };
         uploadId: string;
     }>;
     getBulkUploadProgress(uploadId: string): Promise<{

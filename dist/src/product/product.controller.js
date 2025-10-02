@@ -46,7 +46,7 @@ let ProductController = class ProductController {
         return this.productService.deleteProductImage(id, body.imageUrl, req.user.tenantId, req.user.userId);
     }
     async bulkUpload(file, req) {
-        const branchId = req.headers['x-branch-id'];
+        const branchId = req.headers['x-branch-id'] || req.user?.branchId;
         return this.productService.bulkUpload(file, {
             ...req.user,
             branchId,
