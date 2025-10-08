@@ -17,15 +17,15 @@ export declare class MpesaService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         userId: string | null;
-        amount: number;
-        message: string | null;
+        status: string;
         phoneNumber: string;
+        amount: number;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         responseCode: string | null;
         responseDesc: string | null;
+        message: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
         billRefNumber: string | null;
         businessShortCode: string | null;

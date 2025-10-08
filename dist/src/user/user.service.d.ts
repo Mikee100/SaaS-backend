@@ -11,88 +11,26 @@ export declare class UserService {
     }): Promise<({
         [x: string]: ({
             id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
             tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        } | {
-            id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
-            tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        })[] | ({
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        })[] | ({
-            id: string;
-            tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         } | {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[] | ({
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         } | {
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         })[] | ({
             id: string;
             createdAt: Date;
@@ -138,15 +76,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -163,15 +101,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -185,110 +123,141 @@ export declare class UserService {
             transactionType: string | null;
         })[] | ({
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         } | {
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         })[] | ({
             id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        } | {
+            id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        })[] | ({
+            id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         } | {
             id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         })[] | ({
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
+            supplierId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
+            notes: string | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string;
+            branchId: string | null;
+            supplierId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
+            notes: string | null;
+        })[] | ({
+            id: string;
+            tenantId: string;
             price: number | null;
-            cost: number | null;
+            userId: string;
             branchId: string | null;
+            cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
-            notes: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         } | {
             id: string;
             tenantId: string;
-            userId: string;
             price: number | null;
-            cost: number | null;
+            userId: string;
             branchId: string | null;
+            cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
-            notes: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         })[] | {
             id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
             tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        }[] | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        }[] | {
-            id: string;
-            tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         }[] | {
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         }[] | {
             id: string;
             createdAt: Date;
@@ -314,15 +283,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -336,34 +305,65 @@ export declare class UserService {
             transactionType: string | null;
         }[] | {
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         }[] | {
             id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        }[] | {
+            id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         }[] | {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             userId: string;
-            price: number | null;
-            cost: number | null;
             branchId: string | null;
             supplierId: string | null;
-            bulkUploadRecordId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
             notes: string | null;
+        }[] | {
+            id: string;
+            tenantId: string;
+            price: number | null;
+            userId: string;
+            branchId: string | null;
+            cost: number | null;
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         }[];
@@ -375,7 +375,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -384,6 +383,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }) | null>;
     private readonly logger;
     constructor(prisma: PrismaService, auditLogService: AuditLogService);
@@ -398,88 +398,26 @@ export declare class UserService {
     findByEmail(email: string, include?: any): Promise<({
         [x: string]: ({
             id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
             tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        } | {
-            id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
-            tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        })[] | ({
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        })[] | ({
-            id: string;
-            tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         } | {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[] | ({
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         } | {
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         })[] | ({
             id: string;
             createdAt: Date;
@@ -525,15 +463,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -550,15 +488,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -572,110 +510,141 @@ export declare class UserService {
             transactionType: string | null;
         })[] | ({
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         } | {
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         })[] | ({
             id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        } | {
+            id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        })[] | ({
+            id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         } | {
             id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         })[] | ({
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             userId: string;
+            branchId: string | null;
+            supplierId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
+            notes: string | null;
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            userId: string;
+            branchId: string | null;
+            supplierId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
+            notes: string | null;
+        })[] | ({
+            id: string;
+            tenantId: string;
             price: number | null;
-            cost: number | null;
+            userId: string;
             branchId: string | null;
+            cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
-            notes: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         } | {
             id: string;
             tenantId: string;
-            userId: string;
             price: number | null;
-            cost: number | null;
+            userId: string;
             branchId: string | null;
+            cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
-            notes: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         })[] | {
             id: string;
-            stripeCustomerId: string;
-            currentPeriodStart: Date;
             tenantId: string;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            status: string;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripePriceId: string;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            userId: string | null;
-        }[] | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            status: string;
-            userId: string;
-            branchId: string | null;
-            supplierId: string | null;
-            uploadDate: Date;
-            totalProducts: number;
-            totalValue: number;
-            notes: string | null;
-        }[] | {
-            id: string;
-            tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         }[] | {
             id: string;
             tenantId: string;
+            roleId: string;
             userId: string;
             branchId: string;
-            roleId: string;
         }[] | {
             id: string;
             createdAt: Date;
@@ -701,15 +670,15 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             userId: string | null;
-            amount: number;
-            message: string | null;
+            status: string;
             phoneNumber: string;
+            amount: number;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
             responseDesc: string | null;
+            message: string | null;
             saleData: import("@prisma/client/runtime/library").JsonValue | null;
             billRefNumber: string | null;
             businessShortCode: string | null;
@@ -723,34 +692,65 @@ export declare class UserService {
             transactionType: string | null;
         }[] | {
             id: string;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
             message: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
             type: string;
             title: string;
             isRead: boolean;
             readAt: Date | null;
         }[] | {
             id: string;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+        }[] | {
+            id: string;
+            permission: string;
             tenantId: string;
             userId: string;
-            permission: string;
             grantedAt: Date;
             grantedBy: string | null;
         }[] | {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             tenantId: string;
             userId: string;
-            price: number | null;
-            cost: number | null;
             branchId: string | null;
             supplierId: string | null;
-            bulkUploadRecordId: string | null;
+            status: string;
+            uploadDate: Date;
+            totalProducts: number;
+            totalValue: number;
             notes: string | null;
+        }[] | {
+            id: string;
+            tenantId: string;
+            price: number | null;
+            userId: string;
+            branchId: string | null;
+            cost: number | null;
+            supplierId: string | null;
+            bulkUploadRecordId: string | null;
             productId: string;
             quantity: number;
+            notes: string | null;
             addedAt: Date;
             additionType: string;
         }[];
@@ -762,7 +762,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -771,14 +770,15 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }) | {
         isActive: boolean;
         id: string;
         name: string;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
+        branchId: string | null;
     } | null>;
     getUserRoles(tenantId: string): Promise<({
         tenant: {
@@ -846,10 +846,10 @@ export declare class UserService {
     } & {
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        description: string | null;
     })[]>;
     findAllByTenant(tenantId: string): Promise<({
         userRoles: ({
@@ -913,16 +913,16 @@ export declare class UserService {
             role: {
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
-                description: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     } & {
         id: string;
@@ -930,7 +930,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -939,22 +938,23 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     })[]>;
     findByTenantAndBranch(tenantId: string, branchId: string | null): Promise<({
         userRoles: ({
             role: {
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
-                description: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     } & {
         id: string;
@@ -962,7 +962,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -971,6 +970,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     })[]>;
     updateUser(id: string, data: {
         name?: string;
@@ -982,7 +982,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -991,6 +990,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
         notificationPreferences?: any;
@@ -1003,7 +1003,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -1012,6 +1011,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
         id: string;
@@ -1019,7 +1019,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -1028,6 +1027,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }>;
     getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{
         name: string;
@@ -1093,10 +1093,10 @@ export declare class UserService {
             };
             id: string;
             name: string;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string | null;
-            description: string | null;
         }[];
         userRoles: {
             tenant: {
@@ -1159,10 +1159,10 @@ export declare class UserService {
             role: {
                 id: string;
                 name: string;
+                description: string | null;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
-                description: string | null;
             };
         }[];
         id: string;
@@ -1170,7 +1170,6 @@ export declare class UserService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -1179,6 +1178,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;
     getAllPermissions(): Promise<{

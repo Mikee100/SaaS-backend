@@ -73,19 +73,18 @@ export declare class BillingService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            planId: string;
             stripePriceId: string | null;
+            planId: string;
             isEnabled: boolean;
             featureId: string;
         })[];
         id: string;
         name: string;
+        description: string;
         backupRestore: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         whiteLabel: boolean;
-        stripePriceId: string | null;
-        description: string;
         price: number;
         interval: string;
         maxUsers: number | null;
@@ -103,6 +102,7 @@ export declare class BillingService {
         customFields: boolean;
         dataExport: boolean;
         dedicatedSupport: boolean;
+        stripePriceId: string | null;
     }[] | ({
         id: string;
         name: string;
@@ -136,12 +136,11 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
+            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            stripePriceId: string | null;
-            description: string;
             price: number;
             interval: string;
             maxUsers: number | null;
@@ -159,16 +158,16 @@ export declare class BillingService {
             customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
+            stripePriceId: string | null;
         };
         Plan: {
             id: string;
             name: string;
+            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            stripePriceId: string | null;
-            description: string;
             price: number;
             interval: string;
             maxUsers: number | null;
@@ -186,24 +185,25 @@ export declare class BillingService {
             customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
+            stripePriceId: string | null;
         };
         id: string;
         stripeCustomerId: string;
-        currentPeriodStart: Date;
         tenantId: string;
-        currentPeriodEnd: Date;
+        stripePriceId: string;
+        userId: string | null;
+        status: string;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
-        stripePriceId: string;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
-        userId: string | null;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{

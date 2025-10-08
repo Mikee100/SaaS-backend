@@ -14,34 +14,34 @@ export declare class ProductController {
     create(body: any, req: any): Promise<{
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
         cost: number;
         images: string[];
-        branchId: string | null;
         supplierId: string | null;
         bulkUploadRecordId: string | null;
     }>;
     uploadImages(id: string, files: Express.Multer.File[], req: any): Promise<{
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
         cost: number;
         images: string[];
-        branchId: string | null;
         supplierId: string | null;
         bulkUploadRecordId: string | null;
     }>;
@@ -50,17 +50,17 @@ export declare class ProductController {
     }, req: any): Promise<{
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
         cost: number;
         images: string[];
-        branchId: string | null;
         supplierId: string | null;
         bulkUploadRecordId: string | null;
     }>;

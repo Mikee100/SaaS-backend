@@ -240,6 +240,7 @@ export declare class TenantService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
             updatedAt: Date;
             address: string | null;
@@ -248,14 +249,13 @@ export declare class TenantService {
             postalCode: string | null;
             state: string | null;
             tenantId: string;
-            status: string | null;
-            logo: string | null;
-            customField: string | null;
             email: string | null;
+            customField: string | null;
             isMainBranch: boolean;
-            manager: string | null;
+            logo: string | null;
             openingHours: string | null;
             phone: string | null;
+            status: string | null;
             street: string | null;
         };
         user: {
