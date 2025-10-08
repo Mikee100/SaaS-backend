@@ -80,15 +80,13 @@ export declare class BillingService {
         })[];
         id: string;
         name: string;
-        description: string;
         backupRestore: boolean;
         customIntegrations: boolean;
         ssoEnabled: boolean;
         whiteLabel: boolean;
-        price: number;
-        customFields: boolean;
         stripePriceId: string | null;
-        isActive: boolean;
+        description: string;
+        price: number;
         interval: string;
         maxUsers: number | null;
         maxProducts: number | null;
@@ -98,9 +96,11 @@ export declare class BillingService {
         prioritySupport: boolean;
         customBranding: boolean;
         apiAccess: boolean;
+        isActive: boolean;
         advancedSecurity: boolean;
         auditLogs: boolean;
         bulkOperations: boolean;
+        customFields: boolean;
         dataExport: boolean;
         dedicatedSupport: boolean;
     }[] | ({
@@ -136,15 +136,13 @@ export declare class BillingService {
         plan: {
             id: string;
             name: string;
-            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
-            isActive: boolean;
+            description: string;
+            price: number;
             interval: string;
             maxUsers: number | null;
             maxProducts: number | null;
@@ -154,24 +152,24 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            isActive: boolean;
             advancedSecurity: boolean;
             auditLogs: boolean;
             bulkOperations: boolean;
+            customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
         };
         Plan: {
             id: string;
             name: string;
-            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            price: number;
-            customFields: boolean;
             stripePriceId: string | null;
-            isActive: boolean;
+            description: string;
+            price: number;
             interval: string;
             maxUsers: number | null;
             maxProducts: number | null;
@@ -181,20 +179,23 @@ export declare class BillingService {
             prioritySupport: boolean;
             customBranding: boolean;
             apiAccess: boolean;
+            isActive: boolean;
             advancedSecurity: boolean;
             auditLogs: boolean;
             bulkOperations: boolean;
+            customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
         };
         id: string;
         stripeCustomerId: string;
-        tenantId: string;
-        userId: string;
-        status: string;
-        planId: string;
         currentPeriodStart: Date;
+        tenantId: string;
         currentPeriodEnd: Date;
+        planId: string;
+        scheduledPlanId: string | null;
+        scheduledEffectiveDate: Date | null;
+        status: string;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripePriceId: string;
@@ -202,6 +203,7 @@ export declare class BillingService {
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        userId: string | null;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{
@@ -270,5 +272,58 @@ export declare class BillingService {
         apiAccess: boolean;
         advancedSecurity: boolean;
         dedicatedSupport: boolean;
+    }>;
+    getBillingMetrics(): Promise<{
+        mrr: number;
+        activeSubscriptions: number;
+        trialSubscriptions: number;
+        delinquentSubscriptions: number;
+        revenueThisMonth: number;
+        totalSubscriptions: number;
+    }>;
+    getAllSubscriptions(filters?: {
+        status?: string;
+        planId?: string;
+        tenantId?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{
+        subscriptions: {
+            id: any;
+            tenantId: any;
+            tenantName: any;
+            tenantEmail: any;
+            plan: {
+                id: any;
+                name: any;
+                price: any;
+                interval: any;
+            } | null;
+            status: any;
+            currentPeriodStart: any;
+            currentPeriodEnd: any;
+            cancelAtPeriodEnd: any;
+            canceledAt: any;
+            scheduledPlan: {
+                id: any;
+                name: any;
+                price: any;
+                effectiveDate: any;
+            } | null;
+        }[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+        };
+    }>;
+    getSubscriptionAnalytics(): Promise<{
+        churnRate: number;
+        arr: number;
+        ltv: number;
+        newSubscriptionsThisMonth: number;
+        totalRevenue: number;
+        totalCustomers: number;
     }>;
 }

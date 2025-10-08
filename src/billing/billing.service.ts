@@ -528,4 +528,225 @@ export class BillingService {
       dedicatedSupport: subscription.Plan.dedicatedSupport,
     };
   }
+
+  // ADMIN: Get billing metrics (MRR, active subscriptions, trials, delinquency)
+  async getBillingMetrics() {
+    const now = new Date();
+
+    // Active subscriptions
+    const activeSubscriptions = await this.prisma.subscription.count({
+      where: {
+        status: 'active',
+      },
+    });
+
+    // Trial subscriptions
+    const trialSubscriptions = await this.prisma.subscription.count({
+      where: {
+        status: 'trialing',
+      },
+    });
+
+    // Delinquent subscriptions (past due)
+    const delinquentSubscriptions = await this.prisma.subscription.count({
+      where: {
+        status: 'past_due',
+      },
+    });
+
+    // Calculate MRR (Monthly Recurring Revenue)
+    const activeSubsWithPlans = await this.prisma.subscription.findMany({
+      where: {
+        status: 'active',
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    const mrr = activeSubsWithPlans.reduce((total, sub) => {
+      if (sub.Plan) {
+        const monthlyPrice = sub.Plan.interval === 'yearly'
+          ? sub.Plan.price / 12
+          : sub.Plan.price;
+        return total + monthlyPrice;
+      }
+      return total;
+    }, 0);
+
+    // Total revenue this month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const paymentsThisMonth = await this.prisma.payment.findMany({
+      where: {
+        createdAt: { gte: startOfMonth },
+        status: 'completed',
+      },
+    });
+
+    const revenueThisMonth = paymentsThisMonth.reduce((total, payment) => {
+      return total + payment.amount;
+    }, 0);
+
+    return {
+      mrr: Math.round(mrr * 100) / 100, // Round to 2 decimal places
+      activeSubscriptions,
+      trialSubscriptions,
+      delinquentSubscriptions,
+      revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
+      totalSubscriptions: activeSubscriptions + trialSubscriptions + delinquentSubscriptions,
+    };
+  }
+
+  // ADMIN: Get all subscriptions with filtering and pagination
+  async getAllSubscriptions(filters?: {
+    status?: string;
+    planId?: string;
+    tenantId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { status, planId, tenantId, page = 1, limit = 50 } = filters || {};
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (planId) where.planId = planId;
+    if (tenantId) where.tenantId = tenantId;
+
+    const total = await this.prisma.subscription.count({ where });
+
+    const subscriptions = await this.prisma.subscription.findMany({
+      where,
+      include: {
+        Plan: true,
+        Tenant: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+          },
+        },
+        ScheduledPlan: true,
+      },
+      orderBy: { currentPeriodStart: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      subscriptions: subscriptions.map((sub: any) => ({
+        id: sub.id,
+        tenantId: sub.tenantId,
+        tenantName: sub.Tenant?.name,
+        tenantEmail: sub.Tenant?.contactEmail,
+        plan: sub.Plan ? {
+          id: sub.Plan.id,
+          name: sub.Plan.name,
+          price: sub.Plan.price,
+          interval: sub.Plan.interval,
+        } : null,
+        status: sub.status,
+        currentPeriodStart: sub.currentPeriodStart,
+        currentPeriodEnd: sub.currentPeriodEnd,
+        cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+        canceledAt: sub.canceledAt,
+        scheduledPlan: sub.ScheduledPlan ? {
+          id: sub.ScheduledPlan.id,
+          name: sub.ScheduledPlan.name,
+          price: sub.ScheduledPlan.price,
+          effectiveDate: sub.scheduledEffectiveDate,
+        } : null,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // ADMIN: Get subscription analytics (churn, LTV, ARR)
+  async getSubscriptionAnalytics() {
+    const now = new Date();
+
+    // Churn rate calculation (last 30 days)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const churnedSubscriptions = await this.prisma.subscription.count({
+      where: {
+        canceledAt: { gte: thirtyDaysAgo },
+        status: 'cancelled',
+      },
+    });
+
+    const activeAtStart = await this.prisma.subscription.count({
+      where: {
+        currentPeriodStart: { lt: thirtyDaysAgo },
+        OR: [
+          { status: 'active' },
+          { canceledAt: { gte: thirtyDaysAgo } },
+        ],
+      },
+    });
+
+    const churnRate = activeAtStart > 0 ? (churnedSubscriptions / activeAtStart) * 100 : 0;
+
+    // ARR (Annual Recurring Revenue)
+    const activeSubsWithPlans = await this.prisma.subscription.findMany({
+      where: {
+        status: 'active',
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    const arr = activeSubsWithPlans.reduce((total, sub) => {
+      if (sub.Plan) {
+        const annualPrice = sub.Plan.interval === 'monthly'
+          ? sub.Plan.price * 12
+          : sub.Plan.price;
+        return total + annualPrice;
+      }
+      return total;
+    }, 0);
+
+    // LTV (Lifetime Value) - simplified calculation
+    const totalRevenue = await this.prisma.payment.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        status: 'completed',
+      },
+    });
+
+    const totalCustomers = await this.prisma.tenant.count({
+      where: {
+        Subscription: {
+          some: {
+            status: { in: ['active', 'cancelled'] },
+          },
+        },
+      },
+    });
+
+    const ltv = totalCustomers > 0 ? totalRevenue._sum.amount! / totalCustomers : 0;
+
+    // New subscriptions this month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newSubscriptionsThisMonth = await this.prisma.subscription.count({
+      where: {
+        currentPeriodStart: { gte: startOfMonth },
+      },
+    });
+
+    return {
+      churnRate: Math.round(churnRate * 100) / 100,
+      arr: Math.round(arr * 100) / 100,
+      ltv: Math.round(ltv * 100) / 100,
+      newSubscriptionsThisMonth,
+      totalRevenue: totalRevenue._sum.amount || 0,
+      totalCustomers,
+    };
+  }
 }

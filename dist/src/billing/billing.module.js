@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const billing_controller_1 = require("./billing.controller");
 const payment_controller_1 = require("./payment.controller");
 const subscription_controller_1 = require("./subscription.controller");
+const account_controller_1 = require("./account.controller");
 const billing_service_1 = require("./billing.service");
 const payment_service_1 = require("./payment.service");
 const stripe_service_1 = require("./stripe.service");
@@ -31,7 +32,7 @@ exports.BillingModule = BillingModule = __decorate([
             prisma_module_1.PrismaModule,
             config_module_1.ConfigModule,
         ],
-        controllers: [billing_controller_1.BillingController, payment_controller_1.PaymentController, subscription_controller_1.SubscriptionController],
+        controllers: [billing_controller_1.BillingController, payment_controller_1.PaymentController, subscription_controller_1.SubscriptionController, account_controller_1.AccountController],
         providers: [
             billing_service_1.BillingService,
             payment_service_1.PaymentService,

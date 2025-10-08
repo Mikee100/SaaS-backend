@@ -23,7 +23,7 @@ let AnalyticsService = class AnalyticsService {
         const now = new Date();
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const [totalSales, totalRevenue, totalProducts, totalCustomers, salesByDay, salesByWeek, salesByMonth, topProducts, inventoryAnalytics, forecastData,] = await Promise.all([
+        const [totalSales, totalRevenue, totalProducts, totalCustomers, salesByDay, salesByWeek, salesByMonth, topProducts, inventoryAnalytics, forecastData, anomaliesData, customerSegmentsData, churnPredictionData,] = await Promise.all([
             this.prisma.sale.count({
                 where: {
                     tenantId,
@@ -54,6 +54,9 @@ let AnalyticsService = class AnalyticsService {
             this.getTopProducts(tenantId, 5),
             this.getInventoryAnalytics(tenantId),
             this.generateSalesForecast(tenantId),
+            this.getAnomaliesData(tenantId),
+            this.getCustomerSegmentsData(tenantId),
+            this.getChurnPredictionData(tenantId),
         ]);
         const repeatCustomers = await this.getRepeatCustomers(tenantId);
         const totalUniqueCustomers = totalCustomers.length;
@@ -79,6 +82,9 @@ let AnalyticsService = class AnalyticsService {
             performanceMetrics,
             realTimeData: await this.getRealTimeData(tenantId),
             forecast: forecastData,
+            anomalies: anomaliesData,
+            customerSegmentsAI: customerSegmentsData,
+            churnPrediction: churnPredictionData,
         };
         let aiSummary = 'AI summary generation failed.';
         try {
@@ -375,6 +381,104 @@ let AnalyticsService = class AnalyticsService {
             forecast_months: forecastMonths,
             forecast_sales: forecastSales,
         };
+    }
+    async getAnomaliesData(tenantId) {
+        try {
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            const salesData = await this.prisma.$queryRaw(client_1.Prisma.sql `
+          SELECT
+            TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') as date,
+            COUNT(*) as sales_count,
+            COALESCE(SUM(total), 0) as total_revenue
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "createdAt" >= ${sixMonthsAgo}
+          GROUP BY date
+          ORDER BY date ASC
+        `);
+            const sales = salesData.map(item => ({
+                date: item.date,
+                value: parseFloat(item.total_revenue),
+            }));
+            if (sales.length < 5) {
+                return [];
+            }
+            const response = await axios_1.default.post('http://localhost:5001/anomalies', {
+                sales,
+            });
+            return response.data || [];
+        }
+        catch (error) {
+            console.error('Failed to get anomalies data:', error);
+            return [];
+        }
+    }
+    async getCustomerSegmentsData(tenantId) {
+        try {
+            const customerData = await this.prisma.$queryRaw(client_1.Prisma.sql `
+          SELECT
+            COALESCE("customerName", 'Unknown') as name,
+            COUNT(*) as count,
+            COALESCE(SUM(total), 0) as total,
+            MAX("createdAt") as last_purchase
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "customerPhone" IS NOT NULL
+          GROUP BY "customerPhone", "customerName"
+          HAVING COUNT(*) > 0
+        `);
+            const customers = customerData.map(item => ({
+                name: item.name,
+                total: parseFloat(item.total),
+                count: Number(item.count),
+                last_purchase: item.last_purchase.toISOString().split('T')[0],
+            }));
+            if (customers.length < 2) {
+                return [];
+            }
+            const response = await axios_1.default.post('http://localhost:5001/customer_segments', {
+                customers,
+            });
+            return response.data || [];
+        }
+        catch (error) {
+            console.error('Failed to get customer segments data:', error);
+            return [];
+        }
+    }
+    async getChurnPredictionData(tenantId) {
+        try {
+            const customerData = await this.prisma.$queryRaw(client_1.Prisma.sql `
+          SELECT
+            COALESCE("customerName", 'Unknown') as name,
+            COUNT(*) as count,
+            COALESCE(SUM(total), 0) as total,
+            MAX("createdAt") as last_purchase
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "customerPhone" IS NOT NULL
+          GROUP BY "customerPhone", "customerName"
+          HAVING COUNT(*) > 0
+        `);
+            const customers = customerData.map(item => ({
+                name: item.name,
+                total: parseFloat(item.total),
+                count: Number(item.count),
+                last_purchase: item.last_purchase.toISOString().split('T')[0],
+            }));
+            if (customers.length < 2) {
+                return [];
+            }
+            const response = await axios_1.default.post('http://localhost:5001/churn_prediction', {
+                customers,
+            });
+            return response.data || [];
+        }
+        catch (error) {
+            console.error('Failed to get churn prediction data:', error);
+            return [];
+        }
     }
 };
 exports.AnalyticsService = AnalyticsService;

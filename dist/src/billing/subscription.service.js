@@ -71,25 +71,38 @@ let SubscriptionService = class SubscriptionService {
                 return await this.handleUpgrade(existingSubscription, plan);
             }
             const now = new Date();
-            const endDate = this.calculateEndDate(plan.interval);
-            console.log('Creating subscription with dates:', { now, endDate });
+            let endDate = this.calculateEndDate(plan.interval);
+            let status = 'active';
+            let trialEnd = null;
+            let trialStart = null;
+            if (plan.name.toLowerCase().includes('trial')) {
+                trialEnd = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
+                endDate = trialEnd;
+                status = 'trialing';
+                trialStart = now;
+            }
+            console.log('Creating subscription with dates:', { now, endDate, status });
+            const subscriptionData = {
+                id: `sub_${Date.now()}`,
+                tenantId: data.tenantId,
+                planId: data.planId,
+                status,
+                currentPeriodStart: now,
+                currentPeriodEnd: endDate,
+                stripeSubscriptionId: 'manual_' + Date.now(),
+                stripeCustomerId: 'cust_' + data.tenantId,
+                stripePriceId: plan.stripePriceId ?? '',
+                stripeCurrentPeriodEnd: endDate,
+                cancelAtPeriodEnd: false,
+                trialEnd,
+                trialStart,
+                canceledAt: null,
+            };
+            if (data.userId !== undefined && data.userId !== null) {
+                subscriptionData.userId = data.userId;
+            }
             const subscription = await this.prisma.subscription.create({
-                data: {
-                    id: `sub_${Date.now()}`,
-                    tenantId: data.tenantId,
-                    planId: data.planId,
-                    status: 'active',
-                    currentPeriodStart: now,
-                    currentPeriodEnd: endDate,
-                    stripeSubscriptionId: 'manual_' + Date.now(),
-                    stripeCustomerId: 'cust_' + data.tenantId,
-                    stripePriceId: plan.stripePriceId ?? '',
-                    stripeCurrentPeriodEnd: endDate,
-                    userId: 'system',
-                    cancelAtPeriodEnd: false,
-                    trialEnd: null,
-                    canceledAt: null,
-                },
+                data: subscriptionData,
                 include: {
                     Plan: true,
                 },
@@ -148,7 +161,7 @@ let SubscriptionService = class SubscriptionService {
         return await this.prisma.subscription.update({
             where: { id: subscription.id },
             data: {
-                status: 'cancelled',
+                cancelAtPeriodEnd: true,
                 canceledAt: new Date(),
             },
         });
@@ -204,7 +217,7 @@ let SubscriptionService = class SubscriptionService {
             currentSubscription.currentPeriodStart.getTime()) /
             (1000 * 60 * 60 * 24));
         const prorationRatio = daysRemaining / totalDays;
-        const currentPlanPrice = currentSubscription.plan.price;
+        const currentPlanPrice = currentSubscription.Plan.price;
         const newPlanPrice = newPlan.price;
         const proratedCredit = currentPlanPrice * prorationRatio;
         const proratedCharge = newPlanPrice * prorationRatio;
@@ -221,8 +234,10 @@ let SubscriptionService = class SubscriptionService {
         if (netCharge > 0) {
             await this.createInvoice(currentSubscription.id, netCharge, currentSubscription.tenantId);
         }
+        const { Plan, ...sub } = updatedSubscription;
+        const transformedSubscription = { ...sub, plan: Plan };
         return {
-            subscription: updatedSubscription,
+            subscription: transformedSubscription,
             proration: {
                 credit: proratedCredit,
                 charge: proratedCharge,
@@ -232,12 +247,151 @@ let SubscriptionService = class SubscriptionService {
     }
     async handleDowngrade(currentSubscription, newPlan, effectiveDate) {
         const effective = effectiveDate || currentSubscription.currentPeriodEnd;
+        const updatedSubscription = await this.prisma.subscription.update({
+            where: { id: currentSubscription.id },
+            data: {
+                scheduledPlanId: newPlan.id,
+                scheduledEffectiveDate: effective,
+            },
+            include: {
+                Plan: true,
+            },
+        });
+        const { Plan, ...sub } = updatedSubscription;
+        const transformedSubscription = { ...sub, plan: Plan };
         return {
-            message: 'Downgrade scheduled for next billing cycle',
+            message: 'Downgrade scheduled successfully',
+            subscription: transformedSubscription,
             effectiveDate: effective,
-            currentPlan: currentSubscription.plan.name,
+            currentPlan: currentSubscription.Plan.name,
             newPlan: newPlan.name,
         };
+    }
+    async getCurrentSubscription(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+                status: 'active',
+            },
+            include: {
+                Plan: true,
+                ScheduledPlan: true,
+            },
+        });
+        if (!subscription) {
+            throw new common_1.NotFoundException('No active subscription found');
+        }
+        const { Plan, ScheduledPlan, ...sub } = subscription;
+        return {
+            ...sub,
+            plan: Plan,
+            scheduledPlan: ScheduledPlan,
+        };
+    }
+    async upgradeSubscription(tenantId, planId, effectiveDate) {
+        const currentSubscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+                status: 'active',
+            },
+            include: {
+                Plan: true,
+            },
+        });
+        if (!currentSubscription) {
+            throw new common_1.NotFoundException('No active subscription found');
+        }
+        const newPlan = await this.prisma.plan.findUnique({
+            where: { id: planId },
+        });
+        if (!newPlan) {
+            throw new common_1.NotFoundException('Plan not found');
+        }
+        const isUpgrade = this.isPlanUpgrade(currentSubscription.Plan.name, newPlan.name);
+        if (isUpgrade) {
+            return await this.handleUpgrade(currentSubscription, newPlan);
+        }
+        else {
+            return await this.handleDowngrade(currentSubscription, newPlan, effectiveDate);
+        }
+    }
+    async resumeSubscription(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+                status: 'active',
+                cancelAtPeriodEnd: true,
+            },
+        });
+        if (!subscription) {
+            throw new common_1.NotFoundException('No cancelled subscription found to resume');
+        }
+        const updatedSubscription = await this.prisma.subscription.update({
+            where: { id: subscription.id },
+            data: {
+                cancelAtPeriodEnd: false,
+                canceledAt: null,
+            },
+            include: {
+                Plan: true,
+            },
+        });
+        const { Plan, ...sub } = updatedSubscription;
+        return { ...sub, plan: Plan };
+    }
+    async getPlans() {
+        const plans = await this.prisma.plan.findMany({
+            where: { isActive: true },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                price: true,
+                interval: true,
+                maxUsers: true,
+                maxProducts: true,
+                maxSalesPerMonth: true,
+                analyticsEnabled: true,
+                advancedReports: true,
+                prioritySupport: true,
+                customBranding: true,
+                apiAccess: true,
+                bulkOperations: true,
+                dataExport: true,
+                customFields: true,
+                advancedSecurity: true,
+                whiteLabel: true,
+                dedicatedSupport: true,
+                ssoEnabled: true,
+                auditLogs: true,
+                backupRestore: true,
+                customIntegrations: true,
+                PlanFeatureOnPlan: {
+                    include: {
+                        PlanFeature: true,
+                    },
+                },
+            },
+        });
+        return plans.map(plan => ({
+            ...plan,
+            features: plan.PlanFeatureOnPlan
+                .filter(pf => pf.isEnabled)
+                .map(pf => pf.PlanFeature.featureName),
+        }));
+    }
+    async getInvoices(tenantId) {
+        return await this.prisma.invoice.findMany({
+            where: { tenantId },
+            include: {
+                Subscription: {
+                    include: {
+                        Plan: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
     }
 };
 exports.SubscriptionService = SubscriptionService;

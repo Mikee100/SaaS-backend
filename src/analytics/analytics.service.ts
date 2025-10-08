@@ -25,6 +25,9 @@ export class AnalyticsService {
       topProducts,
       inventoryAnalytics,
       forecastData,
+      anomaliesData,
+      customerSegmentsData,
+      churnPredictionData,
     ] = await Promise.all([
       // Total Sales (count of sales in the last 30 days)
       this.prisma.sale.count({
@@ -75,6 +78,15 @@ export class AnalyticsService {
 
       // Sales forecasting
       this.generateSalesForecast(tenantId),
+
+      // AI-powered anomaly detection
+      this.getAnomaliesData(tenantId),
+
+      // AI-powered customer segmentation
+      this.getCustomerSegmentsData(tenantId),
+
+      // AI-powered churn prediction
+      this.getChurnPredictionData(tenantId),
     ]);
 
     // Calculate customer retention (simplified)
@@ -106,6 +118,9 @@ export class AnalyticsService {
       performanceMetrics,
       realTimeData: await this.getRealTimeData(tenantId),
       forecast: forecastData,
+      anomalies: anomaliesData,
+      customerSegmentsAI: customerSegmentsData,
+      churnPrediction: churnPredictionData,
     };
 
     // Generate AI summary
@@ -501,5 +516,128 @@ export class AnalyticsService {
       forecast_months: forecastMonths,
       forecast_sales: forecastSales,
     };
+  }
+
+  private async getAnomaliesData(tenantId: string) {
+    try {
+      // Get sales data for anomaly detection (last 6 months)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const salesData = await this.prisma.$queryRaw(
+        Prisma.sql`
+          SELECT
+            TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') as date,
+            COUNT(*) as sales_count,
+            COALESCE(SUM(total), 0) as total_revenue
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "createdAt" >= ${sixMonthsAgo}
+          GROUP BY date
+          ORDER BY date ASC
+        `
+      );
+
+      type SalesData = { date: string; sales_count: bigint; total_revenue: string };
+      const sales = (salesData as SalesData[]).map(item => ({
+        date: item.date,
+        value: parseFloat(item.total_revenue),
+      }));
+
+      if (sales.length < 5) {
+        return []; // Not enough data for anomaly detection
+      }
+
+      const response = await axios.post('http://localhost:5001/anomalies', {
+        sales,
+      });
+
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to get anomalies data:', error);
+      return [];
+    }
+  }
+
+  private async getCustomerSegmentsData(tenantId: string) {
+    try {
+      // Get customer data for segmentation
+      const customerData = await this.prisma.$queryRaw(
+        Prisma.sql`
+          SELECT
+            COALESCE("customerName", 'Unknown') as name,
+            COUNT(*) as count,
+            COALESCE(SUM(total), 0) as total,
+            MAX("createdAt") as last_purchase
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "customerPhone" IS NOT NULL
+          GROUP BY "customerPhone", "customerName"
+          HAVING COUNT(*) > 0
+        `
+      );
+
+      type CustomerData = { name: string; count: bigint; total: string; last_purchase: Date };
+      const customers = (customerData as CustomerData[]).map(item => ({
+        name: item.name,
+        total: parseFloat(item.total),
+        count: Number(item.count),
+        last_purchase: item.last_purchase.toISOString().split('T')[0],
+      }));
+
+      if (customers.length < 2) {
+        return []; // Not enough data for segmentation
+      }
+
+      const response = await axios.post('http://localhost:5001/customer_segments', {
+        customers,
+      });
+
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to get customer segments data:', error);
+      return [];
+    }
+  }
+
+  private async getChurnPredictionData(tenantId: string) {
+    try {
+      // Get customer data for churn prediction
+      const customerData = await this.prisma.$queryRaw(
+        Prisma.sql`
+          SELECT
+            COALESCE("customerName", 'Unknown') as name,
+            COUNT(*) as count,
+            COALESCE(SUM(total), 0) as total,
+            MAX("createdAt") as last_purchase
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "customerPhone" IS NOT NULL
+          GROUP BY "customerPhone", "customerName"
+          HAVING COUNT(*) > 0
+        `
+      );
+
+      type CustomerData = { name: string; count: bigint; total: string; last_purchase: Date };
+      const customers = (customerData as CustomerData[]).map(item => ({
+        name: item.name,
+        total: parseFloat(item.total),
+        count: Number(item.count),
+        last_purchase: item.last_purchase.toISOString().split('T')[0],
+      }));
+
+      if (customers.length < 2) {
+        return []; // Not enough data for churn prediction
+      }
+
+      const response = await axios.post('http://localhost:5001/churn_prediction', {
+        customers,
+      });
+
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to get churn prediction data:', error);
+      return [];
+    }
   }
 }

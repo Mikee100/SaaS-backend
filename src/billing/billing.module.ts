@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { BillingController } from './billing.controller';
 import { PaymentController } from './payment.controller';
 import { SubscriptionController } from './subscription.controller';
+import { AccountController } from './account.controller';
 import { BillingService } from './billing.service';
 import { PaymentService } from './payment.service';
 import { StripeService } from './stripe.service';
@@ -19,7 +20,7 @@ import { ConfigModule } from '../config/config.module';
     PrismaModule,
     ConfigModule, // Add ConfigModule to provide CONFIG_OPTIONS
   ],
-  controllers: [BillingController, PaymentController, SubscriptionController],
+  controllers: [BillingController, PaymentController, SubscriptionController, AccountController],
   providers: [
     BillingService,
     PaymentService,

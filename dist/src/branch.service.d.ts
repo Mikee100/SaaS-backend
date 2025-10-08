@@ -5,7 +5,6 @@ export declare class BranchService {
     createBranch(data: any): Promise<{
         id: string;
         name: string;
-        manager: string | null;
         createdAt: Date;
         updatedAt: Date;
         address: string | null;
@@ -14,19 +13,19 @@ export declare class BranchService {
         postalCode: string | null;
         state: string | null;
         tenantId: string;
-        email: string | null;
-        customField: string | null;
-        isMainBranch: boolean;
+        status: string | null;
         logo: string | null;
+        customField: string | null;
+        email: string | null;
+        isMainBranch: boolean;
+        manager: string | null;
         openingHours: string | null;
         phone: string | null;
-        status: string | null;
         street: string | null;
     }>;
     findAllByTenant(tenantId: string): Promise<{
         id: string;
         name: string;
-        manager: string | null;
         createdAt: Date;
         updatedAt: Date;
         address: string | null;
@@ -35,19 +34,19 @@ export declare class BranchService {
         postalCode: string | null;
         state: string | null;
         tenantId: string;
-        email: string | null;
-        customField: string | null;
-        isMainBranch: boolean;
+        status: string | null;
         logo: string | null;
+        customField: string | null;
+        email: string | null;
+        isMainBranch: boolean;
+        manager: string | null;
         openingHours: string | null;
         phone: string | null;
-        status: string | null;
         street: string | null;
     }[]>;
     findById(id: string, tenantId: string): Promise<{
         id: string;
         name: string;
-        manager: string | null;
         createdAt: Date;
         updatedAt: Date;
         address: string | null;
@@ -56,13 +55,14 @@ export declare class BranchService {
         postalCode: string | null;
         state: string | null;
         tenantId: string;
-        email: string | null;
-        customField: string | null;
-        isMainBranch: boolean;
+        status: string | null;
         logo: string | null;
+        customField: string | null;
+        email: string | null;
+        isMainBranch: boolean;
+        manager: string | null;
         openingHours: string | null;
         phone: string | null;
-        status: string | null;
         street: string | null;
     } | null>;
     updateBranch(id: string, data: any, tenantId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

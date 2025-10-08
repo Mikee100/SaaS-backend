@@ -54,6 +54,9 @@ export declare class AnalyticsController {
             forecast_months: string[];
             forecast_sales: number[];
         };
+        anomalies: any;
+        customerSegmentsAI: any;
+        churnPrediction: any;
     }>;
     getAdvancedAnalytics(req: any): Promise<{
         aiSummary: string;
@@ -101,6 +104,9 @@ export declare class AnalyticsController {
             forecast_months: string[];
             forecast_sales: number[];
         };
+        anomalies: any;
+        customerSegmentsAI: any;
+        churnPrediction: any;
     }>;
     getEnterpriseAnalytics(req: any): Promise<{
         aiSummary: string;
@@ -148,5 +154,8 @@ export declare class AnalyticsController {
             forecast_months: string[];
             forecast_sales: number[];
         };
+        anomalies: any;
+        customerSegmentsAI: any;
+        churnPrediction: any;
     }>;
 }

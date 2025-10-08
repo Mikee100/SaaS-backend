@@ -8,6 +8,7 @@ import { BillingService } from './billing.service';
 
 interface CreateSubscriptionDto {
   tenantId: string;
+  userId?: string | null;
   planId: string;
   paymentMethodId?: string;
 }
@@ -84,28 +85,45 @@ export class SubscriptionService {
       }
 
       const now = new Date();
-      const endDate = this.calculateEndDate(plan.interval);
+      let endDate: Date = this.calculateEndDate(plan.interval);
+      let status = 'active';
+      let trialEnd: Date | null = null;
+      let trialStart: Date | null = null;
 
-      console.log('Creating subscription with dates:', { now, endDate });
+      // If the plan is a trial plan, set trialEnd to 15 days from now and status to 'trialing'
+      if (plan.name.toLowerCase().includes('trial')) {
+        trialEnd = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
+        endDate = trialEnd;
+        status = 'trialing';
+        trialStart = now;
+      }
+
+      console.log('Creating subscription with dates:', { now, endDate, status });
 
       // Create new subscription
+      const subscriptionData: any = {
+        id: `sub_${Date.now()}`,
+        tenantId: data.tenantId,
+        planId: data.planId,
+        status,
+        currentPeriodStart: now,
+        currentPeriodEnd: endDate,
+        stripeSubscriptionId: 'manual_' + Date.now(), // Temp value, will be updated by webhook
+        stripeCustomerId: 'cust_' + data.tenantId, // Temp value
+        stripePriceId: plan.stripePriceId ?? '',
+        stripeCurrentPeriodEnd: endDate,
+        cancelAtPeriodEnd: false,
+        trialEnd,
+        trialStart,
+        canceledAt: null,
+      };
+
+      if (data.userId !== undefined && data.userId !== null) {
+        subscriptionData.userId = data.userId;
+      }
+
       const subscription = await this.prisma.subscription.create({
-        data: {
-          id: `sub_${Date.now()}`,
-          tenantId: data.tenantId,
-          planId: data.planId,
-          status: 'active',
-          currentPeriodStart: now,
-          currentPeriodEnd: endDate,
-          stripeSubscriptionId: 'manual_' + Date.now(), // Temp value, will be updated by webhook
-          stripeCustomerId: 'cust_' + data.tenantId, // Temp value
-          stripePriceId: plan.stripePriceId ?? '',
-          stripeCurrentPeriodEnd: endDate,
-          userId: 'system', // This should be the admin user ID,
-          cancelAtPeriodEnd: false,
-          trialEnd: null,
-          canceledAt: null,
-        },
+        data: subscriptionData,
         include: {
           Plan: true,
         },
@@ -182,7 +200,7 @@ export class SubscriptionService {
     return await this.prisma.subscription.update({
       where: { id: subscription.id },
       data: {
-        status: 'cancelled',
+        cancelAtPeriodEnd: true,
         canceledAt: new Date(),
       },
     });
@@ -256,7 +274,7 @@ export class SubscriptionService {
     );
     const prorationRatio = daysRemaining / totalDays;
 
-    const currentPlanPrice = currentSubscription.plan.price;
+    const currentPlanPrice = currentSubscription.Plan.price;
     const newPlanPrice = newPlan.price;
     const proratedCredit = currentPlanPrice * prorationRatio;
     const proratedCharge = newPlanPrice * prorationRatio;
@@ -283,8 +301,12 @@ export class SubscriptionService {
       );
     }
 
+    // Transform subscription
+    const { Plan, ...sub } = updatedSubscription;
+    const transformedSubscription = { ...sub, plan: Plan };
+
     return {
-      subscription: updatedSubscription,
+      subscription: transformedSubscription,
       proration: {
         credit: proratedCredit,
         charge: proratedCharge,
@@ -300,13 +322,176 @@ export class SubscriptionService {
   ) {
     const effective = effectiveDate || currentSubscription.currentPeriodEnd;
 
-    // For now, just return a message about scheduling
-    // TODO: Implement proper downgrade scheduling when schema supports it
+    // Schedule the downgrade by setting scheduledPlanId and scheduledEffectiveDate
+    const updatedSubscription = await this.prisma.subscription.update({
+      where: { id: currentSubscription.id },
+      data: {
+        scheduledPlanId: newPlan.id,
+        scheduledEffectiveDate: effective,
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    // Transform subscription
+    const { Plan, ...sub } = updatedSubscription;
+    const transformedSubscription = { ...sub, plan: Plan };
+
     return {
-      message: 'Downgrade scheduled for next billing cycle',
+      message: 'Downgrade scheduled successfully',
+      subscription: transformedSubscription,
       effectiveDate: effective,
-      currentPlan: currentSubscription.plan.name,
+      currentPlan: currentSubscription.Plan.name,
       newPlan: newPlan.name,
     };
   }
+
+  async getCurrentSubscription(tenantId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        tenantId,
+        status: 'active',
+      },
+      include: {
+        Plan: true,
+        ScheduledPlan: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No active subscription found');
+    }
+
+    // Transform to match frontend expectations
+    const { Plan, ScheduledPlan, ...sub } = subscription;
+    return {
+      ...sub,
+      plan: Plan,
+      scheduledPlan: ScheduledPlan,
+    };
+  }
+
+  async upgradeSubscription(tenantId: string, planId: string, effectiveDate?: Date) {
+    const currentSubscription = await this.prisma.subscription.findFirst({
+      where: {
+        tenantId,
+        status: 'active',
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    if (!currentSubscription) {
+      throw new NotFoundException('No active subscription found');
+    }
+
+    const newPlan = await this.prisma.plan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!newPlan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    const isUpgrade = this.isPlanUpgrade(currentSubscription.Plan.name, newPlan.name);
+
+    if (isUpgrade) {
+      // Immediate upgrade
+      return await this.handleUpgrade(currentSubscription, newPlan);
+    } else {
+      // Schedule downgrade
+      return await this.handleDowngrade(currentSubscription, newPlan, effectiveDate);
+    }
+  }
+
+  async resumeSubscription(tenantId: string) {
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        tenantId,
+        status: 'active',
+        cancelAtPeriodEnd: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No cancelled subscription found to resume');
+    }
+
+    const updatedSubscription = await this.prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    // Transform
+    const { Plan, ...sub } = updatedSubscription;
+    return { ...sub, plan: Plan };
+  }
+
+  async getPlans() {
+    const plans = await this.prisma.plan.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        price: true,
+        interval: true,
+        maxUsers: true,
+        maxProducts: true,
+        maxSalesPerMonth: true,
+        analyticsEnabled: true,
+        advancedReports: true,
+        prioritySupport: true,
+        customBranding: true,
+        apiAccess: true,
+        bulkOperations: true,
+        dataExport: true,
+        customFields: true,
+        advancedSecurity: true,
+        whiteLabel: true,
+        dedicatedSupport: true,
+        ssoEnabled: true,
+        auditLogs: true,
+        backupRestore: true,
+        customIntegrations: true,
+        PlanFeatureOnPlan: {
+          include: {
+            PlanFeature: true,
+          },
+        },
+      },
+    });
+
+    // Transform to include features array
+    return plans.map(plan => ({
+      ...plan,
+      features: plan.PlanFeatureOnPlan
+        .filter(pf => pf.isEnabled)
+        .map(pf => pf.PlanFeature.featureName),
+    }));
+  }
+
+  async getInvoices(tenantId: string) {
+    return await this.prisma.invoice.findMany({
+      where: { tenantId },
+      include: {
+        Subscription: {
+          include: {
+            Plan: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
+
+

@@ -410,7 +410,7 @@ model PaymentMethod {
 }
 
 model Plan {
-  id                 String              @id
+  id                 String              @id @default(uuid())
   name               String
   description        String
   price              Float
@@ -437,6 +437,7 @@ model Plan {
   stripePriceId      String?             @unique
   PlanFeatureOnPlan  PlanFeatureOnPlan[]
   Subscription       Subscription[]
+  ScheduledSubscriptions Subscription[] @relation("ScheduledPlan")
 
   @@index([isActive])
   @@index([name])
@@ -563,6 +564,8 @@ model Subscription {
   id                     String    @id
   tenantId               String
   planId                 String
+  scheduledPlanId        String?   // For scheduled downgrade/upgrade
+  scheduledEffectiveDate DateTime? // When the scheduled plan change takes effect
   status                 String
   currentPeriodStart     DateTime
   currentPeriodEnd       DateTime
@@ -574,17 +577,19 @@ model Subscription {
   stripeCustomerId       String
   trialEnd               DateTime?
   trialStart             DateTime?
-  userId                 String
+  userId                 String?
   Invoice                Invoice[]
   Plan                   Plan      @relation(fields: [planId], references: [id])
+  ScheduledPlan          Plan?     @relation("ScheduledPlan", fields: [scheduledPlanId], references: [id])
   Tenant                 Tenant    @relation(fields: [tenantId], references: [id])
-  User                   User      @relation(fields: [userId], references: [id])
+  User                   User?     @relation(fields: [userId], references: [id])
 
   @@index([status])
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([tenantId])
   @@index([userId])
+  @@index([scheduledPlanId])
 }
 
 model SystemConfiguration {

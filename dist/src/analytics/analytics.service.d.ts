@@ -48,6 +48,9 @@ export declare class AnalyticsService {
             forecast_months: string[];
             forecast_sales: number[];
         };
+        anomalies: any;
+        customerSegmentsAI: any;
+        churnPrediction: any;
     }>;
     private getSalesByTimePeriod;
     private getTopProducts;
@@ -57,4 +60,7 @@ export declare class AnalyticsService {
     private calculatePerformanceMetrics;
     private getRealTimeData;
     private generateSalesForecast;
+    private getAnomaliesData;
+    private getCustomerSegmentsData;
+    private getChurnPredictionData;
 }

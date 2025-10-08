@@ -14,15 +14,15 @@ export declare class MpesaController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        userId: string | null;
         status: string;
-        phoneNumber: string;
+        userId: string | null;
         amount: number;
+        message: string | null;
+        phoneNumber: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         responseCode: string | null;
         responseDesc: string | null;
-        message: string | null;
         saleData: import("@prisma/client/runtime/library").JsonValue | null;
         billRefNumber: string | null;
         businessShortCode: string | null;
