@@ -74,6 +74,7 @@ export class TenantService {
       'auditLogsEnabled',
       'backupRestore',
       'stripeCustomerId',
+      'pdfTemplate',
     ];
     const filtered: any = {};
     for (const key of allowedFields) {
@@ -162,6 +163,7 @@ export class TenantService {
       webhookUrl: string | null;
       rateLimit: number | null;
       stripeCustomerId: string | null;
+      pdfTemplate: any;
     }>,
   ) {
     // Get existing tenant
@@ -220,6 +222,7 @@ export class TenantService {
       'webhookUrl',
       'rateLimit',
       'stripeCustomerId',
+      'pdfTemplate',
     ];
 
     for (const key of validTenantFields) {

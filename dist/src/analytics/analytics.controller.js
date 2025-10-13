@@ -85,6 +85,45 @@ let AnalyticsController = class AnalyticsController {
             throw new Error('Failed to fetch enterprise analytics');
         }
     }
+    async getDailySales(req) {
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            return await this.analyticsService.getDailySales(tenantId);
+        }
+        catch (error) {
+            console.error('Error fetching daily sales:', error);
+            throw new Error('Failed to fetch daily sales');
+        }
+    }
+    async getWeeklySales(req) {
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            return await this.analyticsService.getWeeklySales(tenantId);
+        }
+        catch (error) {
+            console.error('Error fetching weekly sales:', error);
+            throw new Error('Failed to fetch weekly sales');
+        }
+    }
+    async getYearlySales(req) {
+        const tenantId = req.user.tenantId;
+        if (!tenantId) {
+            throw new Error('Tenant ID not found in user session');
+        }
+        try {
+            return await this.analyticsService.getYearlySales(tenantId);
+        }
+        catch (error) {
+            console.error('Error fetching yearly sales:', error);
+            throw new Error('Failed to fetch yearly sales');
+        }
+    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
@@ -119,6 +158,30 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getEnterpriseAnalytics", null);
+__decorate([
+    (0, common_1.Get)('sales/daily'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getDailySales", null);
+__decorate([
+    (0, common_1.Get)('sales/weekly'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getWeeklySales", null);
+__decorate([
+    (0, common_1.Get)('sales/yearly'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getYearlySales", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
     __metadata("design:paramtypes", [analytics_service_1.AnalyticsService])

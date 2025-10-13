@@ -5,3 +5,8 @@ numpy
 flask-cors
 transformers
 torch
+sqlalchemy
+psycopg2-binary
+spacy
+nltk
+openai

@@ -30,6 +30,7 @@ const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-sta
 const throttler_1 = require("@nestjs/throttler");
 const audit_log_module_1 = require("./audit-log/audit-log.module");
 const supplier_module_1 = require("./supplier/supplier.module");
+const ai_module_1 = require("./ai/ai.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -59,6 +60,7 @@ exports.AppModule = AppModule = __decorate([
             admin_tenant_stats_module_1.AdminTenantStatsModule,
             audit_log_module_1.AuditLogModule,
             supplier_module_1.SupplierModule,
+            ai_module_1.AiModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

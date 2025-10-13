@@ -89,4 +89,55 @@ export class AnalyticsController {
       throw new Error('Failed to fetch enterprise analytics');
     }
   }
+
+  @Get('sales/daily')
+  @UseGuards(AuthGuard('jwt'))
+  async getDailySales(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+
+    try {
+      return await this.analyticsService.getDailySales(tenantId);
+    } catch (error) {
+      console.error('Error fetching daily sales:', error);
+      throw new Error('Failed to fetch daily sales');
+    }
+  }
+
+  @Get('sales/weekly')
+  @UseGuards(AuthGuard('jwt'))
+  async getWeeklySales(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+
+    try {
+      return await this.analyticsService.getWeeklySales(tenantId);
+    } catch (error) {
+      console.error('Error fetching weekly sales:', error);
+      throw new Error('Failed to fetch weekly sales');
+    }
+  }
+
+  @Get('sales/yearly')
+  @UseGuards(AuthGuard('jwt'))
+  async getYearlySales(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+
+    try {
+      return await this.analyticsService.getYearlySales(tenantId);
+    } catch (error) {
+      console.error('Error fetching yearly sales:', error);
+      throw new Error('Failed to fetch yearly sales');
+    }
+  }
 }

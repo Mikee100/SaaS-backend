@@ -53,6 +53,9 @@ export declare class AnalyticsService {
         churnPrediction: any;
     }>;
     private getSalesByTimePeriod;
+    getDailySales(tenantId: string): Promise<Record<string, number>>;
+    getWeeklySales(tenantId: string): Promise<Record<string, number>>;
+    getYearlySales(tenantId: string): Promise<Record<string, number>>;
     private getTopProducts;
     private getInventoryAnalytics;
     private getCostOfGoodsSold;

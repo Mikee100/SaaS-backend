@@ -241,6 +241,13 @@ export class TenantController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Put('pdf-template')
+  async updatePdfTemplate(@Req() req, @Body() pdfTemplate: any) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.updateTenant(tenantId, { pdfTemplate });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('generate-api-key')
   async generateApiKey(@Req() req) {
     const tenantId = req.user.tenantId;

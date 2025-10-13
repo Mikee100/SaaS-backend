@@ -22,6 +22,7 @@ import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.mo
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SupplierModule } from './supplier/supplier.module';
     AdminTenantStatsModule,
     AuditLogModule,
     SupplierModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

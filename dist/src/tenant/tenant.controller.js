@@ -144,6 +144,10 @@ let TenantController = TenantController_1 = class TenantController {
             rateLimit: apiSettings.rateLimit,
         });
     }
+    async updatePdfTemplate(req, pdfTemplate) {
+        const tenantId = req.user.tenantId;
+        return this.tenantService.updateTenant(tenantId, { pdfTemplate });
+    }
     async generateApiKey(req) {
         const tenantId = req.user.tenantId;
         const apiKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
@@ -285,6 +289,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updateApiSettings", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Put)('pdf-template'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], TenantController.prototype, "updatePdfTemplate", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Post)('generate-api-key'),

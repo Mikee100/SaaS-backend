@@ -158,4 +158,7 @@ export declare class AnalyticsController {
         customerSegmentsAI: any;
         churnPrediction: any;
     }>;
+    getDailySales(req: any): Promise<Record<string, number>>;
+    getWeeklySales(req: any): Promise<Record<string, number>>;
+    getYearlySales(req: any): Promise<Record<string, number>>;
 }

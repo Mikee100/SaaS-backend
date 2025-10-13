@@ -150,7 +150,7 @@ export class AnalyticsService {
 
   private async getSalesByTimePeriod(
     tenantId: string,
-    period: 'day' | 'week' | 'month',
+    period: 'day' | 'week' | 'month' | 'year',
   ) {
     const now = new Date();
     const format =
@@ -158,19 +158,22 @@ export class AnalyticsService {
         ? 'YYYY-MM-DD'
         : period === 'week'
           ? "'Week' WW"
-          : 'YYYY-MM';
+          : period === 'month'
+            ? 'YYYY-MM'
+            : 'YYYY';
 
     const groupBy =
-      period === 'day' ? 'day' : period === 'week' ? 'week' : 'month';
+      period === 'day' ? 'day' : period === 'week' ? 'week' : period === 'month' ? 'month' : 'year';
 
     const date = new Date();
     if (period === 'day') date.setDate(date.getDate() - 7);
     else if (period === 'week')
       date.setDate(date.getDate() - 28); // 4 weeks
-    else date.setMonth(date.getMonth() - 6); // 6 months
+    else if (period === 'month') date.setMonth(date.getMonth() - 6); // 6 months
+    else date.setFullYear(date.getFullYear() - 5); // 5 years
 
-    const sales = await this.prisma.$queryRaw` 
-      SELECT 
+    const sales = await this.prisma.$queryRaw`
+      SELECT
         TO_CHAR("createdAt" AT TIME ZONE 'UTC', ${format}) as period,
         COUNT(*) as count,
         COALESCE(SUM(total), 0) as total
@@ -189,6 +192,18 @@ export class AnalyticsService {
       }),
       {},
     );
+  }
+
+  async getDailySales(tenantId: string) {
+    return this.getSalesByTimePeriod(tenantId, 'day');
+  }
+
+  async getWeeklySales(tenantId: string) {
+    return this.getSalesByTimePeriod(tenantId, 'week');
+  }
+
+  async getYearlySales(tenantId: string) {
+    return this.getSalesByTimePeriod(tenantId, 'year');
   }
 
   private async getTopProducts(tenantId: string, limit: number) {

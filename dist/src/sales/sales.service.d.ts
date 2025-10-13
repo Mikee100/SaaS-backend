@@ -163,6 +163,7 @@ export declare class SalesService {
             emailLogoUrl: string | null;
             loginLogoUrl: string | null;
             logoSettings: Prisma.JsonValue | null;
+            pdfTemplate: Prisma.JsonValue | null;
             mobileLogoUrl: string | null;
             auditLogsEnabled: boolean;
             credits: number | null;

@@ -140,7 +140,6 @@ model Tenant {
   emailLogoUrl        String?
   loginLogoUrl        String?
   logoSettings        Json?
-  pdfTemplate         Json?
   mobileLogoUrl       String?
   auditLogsEnabled    Boolean               @default(false)
   credits             Float?                @default(0)
@@ -609,21 +608,19 @@ model SystemConfiguration {
 }
 
 model AIChatInteraction {
-  id            String   @id @default(uuid())
-  userId        String
-  tenantId      String
-  branchId      String?
-  conversationId String?
-  userMessage   String
-  aiResponse    String
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  tenantId     String
+  branchId     String?
+  userMessage  String
+  aiResponse   String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([userId])
   @@index([tenantId])
   @@index([branchId])
-  @@index([conversationId])
 }
 
 model TenantConfiguration {

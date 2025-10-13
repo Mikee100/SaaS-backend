@@ -79,6 +79,7 @@ let TenantService = TenantService_1 = class TenantService {
             'auditLogsEnabled',
             'backupRestore',
             'stripeCustomerId',
+            'pdfTemplate',
         ];
         const filtered = {};
         for (const key of allowedFields) {
@@ -159,6 +160,7 @@ let TenantService = TenantService_1 = class TenantService {
             'webhookUrl',
             'rateLimit',
             'stripeCustomerId',
+            'pdfTemplate',
         ];
         for (const key of validTenantFields) {
             if (dto[key] !== undefined && dto[key] !== null) {

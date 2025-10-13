@@ -834,6 +834,7 @@ export declare class UserService {
             emailLogoUrl: string | null;
             loginLogoUrl: string | null;
             logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+            pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
             mobileLogoUrl: string | null;
             auditLogsEnabled: boolean;
             credits: number | null;
@@ -906,6 +907,7 @@ export declare class UserService {
                 emailLogoUrl: string | null;
                 loginLogoUrl: string | null;
                 logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
                 mobileLogoUrl: string | null;
                 auditLogsEnabled: boolean;
                 credits: number | null;
@@ -1087,6 +1089,7 @@ export declare class UserService {
                 emailLogoUrl: string | null;
                 loginLogoUrl: string | null;
                 logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
                 mobileLogoUrl: string | null;
                 auditLogsEnabled: boolean;
                 credits: number | null;
@@ -1152,6 +1155,7 @@ export declare class UserService {
                 emailLogoUrl: string | null;
                 loginLogoUrl: string | null;
                 logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
                 mobileLogoUrl: string | null;
                 auditLogsEnabled: boolean;
                 credits: number | null;
