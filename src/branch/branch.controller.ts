@@ -76,14 +76,10 @@ export class BranchController {
       throw new NotFoundException('Branch not found');
     }
 
-    // Only allow managers to switch branches
-    if (
-      !userRoles.includes('manager') &&
-      !userRoles.includes('admin') &&
-      !userRoles.includes('owner')
-    ) {
+    // Only allow owners to switch branches
+    if (!userRoles.includes('owner')) {
       throw new ForbiddenException(
-        'Only managers and above can switch branches',
+        'Only owners can switch branches',
       );
     }
 

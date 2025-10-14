@@ -237,7 +237,8 @@ export class SalesController {
   @Get()
   @Permissions('view_sales')
   async listSales(@Req() req) {
-    return this.salesService.listSales(req.user.tenantId);
+    const branchId = req.headers['x-branch-id'] as string;
+    return this.salesService.listSales(req.user.tenantId, branchId);
   }
 
   @Get(':id')

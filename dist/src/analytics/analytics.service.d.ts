@@ -66,4 +66,66 @@ export declare class AnalyticsService {
     private getAnomaliesData;
     private getCustomerSegmentsData;
     private getChurnPredictionData;
+    getBranchSales(tenantId: string, timeRange?: string, branchId?: string): Promise<{
+        totalOrders: number;
+        totalSales: number;
+        averageOrderValue: number;
+        topProducts: {
+            productId: any;
+            productName: any;
+            quantitySold: number;
+            totalRevenue: number;
+        }[];
+        paymentMethods: {
+            method: any;
+            count: number;
+            amount: number;
+        }[];
+        salesTrend: {
+            date: any;
+            sales: number;
+            orders: number;
+        }[];
+    }>;
+    getBranchComparisonTimeSeries(tenantId: string, timeRange?: string): Promise<{
+        timeRange: string;
+        branches: unknown[];
+        totals: {
+            branchId: any;
+            branchName: any;
+            totalOrders: number;
+            totalSales: number;
+        }[];
+        periodType: string;
+    }>;
+    getBranchProductComparison(tenantId: string, timeRange?: string): Promise<{
+        timeRange: string;
+        products: {
+            productId: any;
+            productName: any;
+            totalQuantitySold: number;
+            totalRevenue: number;
+            totalOrders: number;
+            branchCount: number;
+            branchBreakdown: {
+                branchId: any;
+                branchName: any;
+                quantitySold: number;
+                totalRevenue: number;
+                orderCount: number;
+            }[];
+        }[];
+        branches: {
+            branchId: any;
+            branchName: any;
+            totalOrders: number;
+            totalSales: number;
+        }[];
+        summary: {
+            totalProducts: number;
+            totalBranches: number;
+            totalRevenue: number;
+            totalQuantitySold: number;
+        };
+    }>;
 }

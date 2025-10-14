@@ -191,7 +191,8 @@ let SalesController = class SalesController {
         }
     }
     async listSales(req) {
-        return this.salesService.listSales(req.user.tenantId);
+        const branchId = req.headers['x-branch-id'];
+        return this.salesService.listSales(req.user.tenantId, branchId);
     }
     async getSaleById(id, req) {
         return this.salesService.getSaleById(id, req.user?.tenantId);

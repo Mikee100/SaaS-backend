@@ -493,6 +493,347 @@ let AnalyticsService = class AnalyticsService {
             return [];
         }
     }
+    async getBranchSales(tenantId, timeRange = '30days', branchId) {
+        try {
+            const endDate = new Date();
+            let startDate = new Date();
+            switch (timeRange) {
+                case '7days':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '90days':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1year':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+                case '30days':
+                default:
+                    startDate.setDate(endDate.getDate() - 30);
+            }
+            const whereClause = {
+                tenantId,
+                createdAt: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            };
+            if (branchId) {
+                whereClause.branchId = branchId;
+            }
+            const salesAggregate = await this.prisma.sale.aggregate({
+                where: whereClause,
+                _sum: {
+                    total: true,
+                },
+                _count: true,
+            });
+            const totalOrders = salesAggregate._count;
+            const totalSales = salesAggregate._sum.total || 0;
+            const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+            const topProductsData = await this.prisma.$queryRaw `
+        SELECT
+          p.id as "productId",
+          p.name as "productName",
+          SUM(si.quantity) as "quantitySold",
+          SUM(si.quantity * si.price) as "totalRevenue"
+        FROM "SaleItem" si
+        JOIN "Sale" s ON si."saleId" = s.id
+        JOIN "Product" p ON si."productId" = p.id
+        WHERE s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+          ${branchId ? client_1.Prisma.sql `AND s."branchId" = ${branchId}` : client_1.Prisma.empty}
+        GROUP BY p.id, p.name
+        ORDER BY "totalRevenue" DESC
+        LIMIT 5
+      `;
+            const paymentMethodsData = await this.prisma.$queryRaw `
+        SELECT
+          "paymentType" as method,
+          COUNT(*) as count,
+          COALESCE(SUM(total), 0) as amount
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "createdAt" >= ${startDate}
+          AND "createdAt" <= ${endDate}
+          ${branchId ? client_1.Prisma.sql `AND "branchId" = ${branchId}` : client_1.Prisma.empty}
+        GROUP BY "paymentType"
+        ORDER BY amount DESC
+      `;
+            const salesTrendData = await this.prisma.$queryRaw `
+        SELECT
+          DATE_TRUNC('day', "createdAt") as date,
+          COUNT(*) as orders,
+          COALESCE(SUM(total), 0) as sales
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "createdAt" >= ${startDate}
+          AND "createdAt" <= ${endDate}
+          ${branchId ? client_1.Prisma.sql `AND "branchId" = ${branchId}` : client_1.Prisma.empty}
+        GROUP BY DATE_TRUNC('day', "createdAt")
+        ORDER BY date ASC
+      `;
+            const topProducts = topProductsData.map(p => ({
+                productId: p.productId,
+                productName: p.productName,
+                quantitySold: Number(p.quantitySold) || 0,
+                totalRevenue: Number(p.totalRevenue) || 0,
+            }));
+            const paymentMethods = paymentMethodsData.map(pm => ({
+                method: pm.method,
+                count: Number(pm.count) || 0,
+                amount: Number(pm.amount) || 0,
+            }));
+            const salesTrend = salesTrendData.map(st => ({
+                date: st.date.toISOString().split('T')[0],
+                sales: Number(st.sales) || 0,
+                orders: Number(st.orders) || 0,
+            }));
+            return {
+                totalOrders,
+                totalSales: Number(totalSales),
+                averageOrderValue: Number(averageOrderValue.toFixed(2)),
+                topProducts,
+                paymentMethods,
+                salesTrend,
+            };
+        }
+        catch (error) {
+            console.error('Error in getBranchSales:', error);
+            throw new Error('Failed to fetch branch sales data');
+        }
+    }
+    async getBranchComparisonTimeSeries(tenantId, timeRange = '30days') {
+        try {
+            const endDate = new Date();
+            let startDate = new Date();
+            switch (timeRange) {
+                case '7days':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '90days':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1year':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+                case '30days':
+                default:
+                    startDate.setDate(endDate.getDate() - 30);
+            }
+            let dateTrunc;
+            let format;
+            if (timeRange === '7days') {
+                dateTrunc = 'day';
+                format = 'YYYY-MM-DD';
+            }
+            else if (timeRange === '30days') {
+                dateTrunc = 'day';
+                format = 'YYYY-MM-DD';
+            }
+            else if (timeRange === '90days') {
+                dateTrunc = 'week';
+                format = "'Week' WW YYYY";
+            }
+            else if (timeRange === '1year') {
+                dateTrunc = 'month';
+                format = 'YYYY-MM';
+            }
+            else {
+                dateTrunc = 'day';
+                format = 'YYYY-MM-DD';
+            }
+            const branches = await this.prisma.branch.findMany({
+                where: { tenantId },
+                select: { id: true, name: true },
+            });
+            const timeSeriesData = await this.prisma.$queryRaw `
+        SELECT
+          b.id as "branchId",
+          b.name as "branchName",
+          TO_CHAR(s."createdAt" AT TIME ZONE 'UTC', ${format}) as period,
+          COUNT(s.id) as orders,
+          COALESCE(SUM(s.total), 0) as sales
+        FROM "Branch" b
+        LEFT JOIN "Sale" s ON b.id = s."branchId"
+          AND s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+        WHERE b."tenantId" = ${tenantId}
+        GROUP BY b.id, b.name, period
+        ORDER BY b.name, period ASC
+      `;
+            const branchTotals = await this.prisma.$queryRaw `
+        SELECT
+          b.id as "branchId",
+          b.name as "branchName",
+          COUNT(s.id) as total_orders,
+          COALESCE(SUM(s.total), 0) as total_sales
+        FROM "Branch" b
+        LEFT JOIN "Sale" s ON b.id = s."branchId"
+          AND s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+        WHERE b."tenantId" = ${tenantId}
+        GROUP BY b.id, b.name
+        ORDER BY total_sales DESC
+      `;
+            const processedData = timeSeriesData.reduce((acc, item) => {
+                const branchId = item.branchId;
+                if (!acc[branchId]) {
+                    acc[branchId] = {
+                        branchId,
+                        branchName: item.branchName,
+                        data: [],
+                    };
+                }
+                acc[branchId].data.push({
+                    period: item.period,
+                    orders: Number(item.orders) || 0,
+                    sales: Number(item.sales) || 0,
+                });
+                return acc;
+            }, {});
+            const branchComparison = Object.values(processedData).sort((a, b) => {
+                const aTotal = a.data.reduce((sum, item) => sum + item.sales, 0);
+                const bTotal = b.data.reduce((sum, item) => sum + item.sales, 0);
+                return bTotal - aTotal;
+            });
+            const totals = branchTotals.map(item => ({
+                branchId: item.branchId,
+                branchName: item.branchName,
+                totalOrders: Number(item.total_orders) || 0,
+                totalSales: Number(item.total_sales) || 0,
+            }));
+            return {
+                timeRange,
+                branches: branchComparison,
+                totals,
+                periodType: dateTrunc,
+            };
+        }
+        catch (error) {
+            console.error('Error in getBranchComparisonTimeSeries:', error);
+            throw new Error('Failed to fetch branch comparison time series data');
+        }
+    }
+    async getBranchProductComparison(tenantId, timeRange = '30days') {
+        try {
+            const endDate = new Date();
+            let startDate = new Date();
+            switch (timeRange) {
+                case '7days':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '90days':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1year':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+                case '30days':
+                default:
+                    startDate.setDate(endDate.getDate() - 30);
+            }
+            const productComparisonData = await this.prisma.$queryRaw `
+        SELECT
+          p.id as "productId",
+          p.name as "productName",
+          b.id as "branchId",
+          b.name as "branchName",
+          SUM(si.quantity) as "quantitySold",
+          SUM(si.quantity * si.price) as "totalRevenue",
+          COUNT(DISTINCT s.id) as "orderCount"
+        FROM "Product" p
+        CROSS JOIN "Branch" b
+        LEFT JOIN "Sale" s ON s."branchId" = b.id
+          AND s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+        LEFT JOIN "SaleItem" si ON si."saleId" = s.id AND si."productId" = p.id
+        WHERE b."tenantId" = ${tenantId}
+        GROUP BY p.id, p.name, b.id, b.name
+        ORDER BY p.name, b.name
+      `;
+            const overallProductTotals = await this.prisma.$queryRaw `
+        SELECT
+          p.id as "productId",
+          p.name as "productName",
+          SUM(si.quantity) as "totalQuantitySold",
+          SUM(si.quantity * si.price) as "totalRevenue",
+          COUNT(DISTINCT s.id) as "totalOrders",
+          COUNT(DISTINCT s."branchId") as "branchCount"
+        FROM "Product" p
+        LEFT JOIN "SaleItem" si ON si."productId" = p.id
+        LEFT JOIN "Sale" s ON si."saleId" = s.id
+          AND s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+        WHERE p."tenantId" = ${tenantId}
+        GROUP BY p.id, p.name
+        HAVING SUM(si.quantity) > 0
+        ORDER BY "totalRevenue" DESC
+        LIMIT 20
+      `;
+            const branchTotals = await this.prisma.$queryRaw `
+        SELECT
+          b.id as "branchId",
+          b.name as "branchName",
+          COUNT(DISTINCT s.id) as "totalOrders",
+          COALESCE(SUM(s.total), 0) as "totalSales"
+        FROM "Branch" b
+        LEFT JOIN "Sale" s ON b.id = s."branchId"
+          AND s."tenantId" = ${tenantId}
+          AND s."createdAt" >= ${startDate}
+          AND s."createdAt" <= ${endDate}
+        WHERE b."tenantId" = ${tenantId}
+        GROUP BY b.id, b.name
+        ORDER BY "totalSales" DESC
+      `;
+            const products = overallProductTotals.map(product => {
+                const branchData = productComparisonData
+                    .filter(item => item.productId === product.productId)
+                    .map(item => ({
+                    branchId: item.branchId,
+                    branchName: item.branchName,
+                    quantitySold: Number(item.quantitySold) || 0,
+                    totalRevenue: Number(item.totalRevenue) || 0,
+                    orderCount: Number(item.orderCount) || 0,
+                }));
+                return {
+                    productId: product.productId,
+                    productName: product.productName,
+                    totalQuantitySold: Number(product.totalQuantitySold) || 0,
+                    totalRevenue: Number(product.totalRevenue) || 0,
+                    totalOrders: Number(product.totalOrders) || 0,
+                    branchCount: Number(product.branchCount) || 0,
+                    branchBreakdown: branchData,
+                };
+            });
+            const branches = branchTotals.map(branch => ({
+                branchId: branch.branchId,
+                branchName: branch.branchName,
+                totalOrders: Number(branch.totalOrders) || 0,
+                totalSales: Number(branch.totalSales) || 0,
+            }));
+            return {
+                timeRange,
+                products,
+                branches,
+                summary: {
+                    totalProducts: products.length,
+                    totalBranches: branches.length,
+                    totalRevenue: products.reduce((sum, p) => sum + p.totalRevenue, 0),
+                    totalQuantitySold: products.reduce((sum, p) => sum + p.totalQuantitySold, 0),
+                },
+            };
+        }
+        catch (error) {
+            console.error('Error in getBranchProductComparison:', error);
+            throw new Error('Failed to fetch branch product comparison data');
+        }
+    }
 };
 exports.AnalyticsService = AnalyticsService;
 exports.AnalyticsService = AnalyticsService = __decorate([

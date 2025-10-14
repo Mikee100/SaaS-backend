@@ -211,6 +211,13 @@ let SalesService = class SalesService {
                     price: item.price || 0,
                     productId: item.product?.id || '',
                 })),
+                branch: sale.Branch
+                    ? {
+                        id: sale.Branch.id,
+                        name: sale.Branch.name,
+                        address: sale.Branch.address,
+                    }
+                    : null,
             };
             return result;
         }
@@ -312,13 +319,17 @@ let SalesService = class SalesService {
             },
         };
     }
-    async listSales(tenantId, limit = 100) {
+    async listSales(tenantId, branchId, limit = 100) {
         if (!tenantId)
             throw new common_1.BadRequestException('Tenant ID is required');
         if (limit < 1 || limit > 1000)
             limit = 100;
+        const whereClause = { tenantId };
+        if (branchId && branchId !== 'all') {
+            whereClause.branchId = branchId;
+        }
         const sales = await this.prisma.sale.findMany({
-            where: { tenantId },
+            where: whereClause,
             orderBy: { createdAt: 'desc' },
             take: limit,
             include: {
@@ -354,6 +365,13 @@ let SalesService = class SalesService {
                 price: item.price,
                 quantity: item.quantity,
             })),
+            branch: sale.Branch
+                ? {
+                    id: sale.Branch.id,
+                    name: sale.Branch.name,
+                    address: sale.Branch.address,
+                }
+                : null,
         }));
     }
     async getAnalytics(tenantId, startDate, endDate) {

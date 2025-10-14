@@ -124,10 +124,52 @@ let AnalyticsController = class AnalyticsController {
             throw new Error('Failed to fetch yearly sales');
         }
     }
+    async getBranchSales(req) {
+        const { tenantId } = req.params;
+        const { timeRange = '30days', branchId } = req.query;
+        if (!tenantId) {
+            throw new Error('Tenant ID is required');
+        }
+        try {
+            return await this.analyticsService.getBranchSales(tenantId, timeRange, branchId);
+        }
+        catch (error) {
+            console.error('Error fetching branch sales:', error);
+            throw new Error('Failed to fetch branch sales data');
+        }
+    }
+    async getBranchComparisonTimeSeries(req) {
+        const { tenantId } = req.params;
+        const { timeRange = '30days' } = req.query;
+        if (!tenantId) {
+            throw new Error('Tenant ID is required');
+        }
+        try {
+            return await this.analyticsService.getBranchComparisonTimeSeries(tenantId, timeRange);
+        }
+        catch (error) {
+            console.error('Error fetching branch comparison time series:', error);
+            throw new Error('Failed to fetch branch comparison time series data');
+        }
+    }
+    async getBranchProductComparison(req) {
+        const { tenantId } = req.params;
+        const { timeRange = '30days' } = req.query;
+        if (!tenantId) {
+            throw new Error('Tenant ID is required');
+        }
+        try {
+            return await this.analyticsService.getBranchProductComparison(tenantId, timeRange);
+        }
+        catch (error) {
+            console.error('Error fetching branch product comparison:', error);
+            throw new Error('Failed to fetch branch product comparison data');
+        }
+    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
-    (0, common_1.Get)('basic'),
+    (0, common_1.Get)('/analytics/basic'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -135,7 +177,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getBasicAnalytics", null);
 __decorate([
-    (0, common_1.Get)('dashboard'),
+    (0, common_1.Get)('/analytics/dashboard'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -143,7 +185,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getDashboardAnalytics", null);
 __decorate([
-    (0, common_1.Get)('advanced'),
+    (0, common_1.Get)('/analytics/advanced'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -151,7 +193,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getAdvancedAnalytics", null);
 __decorate([
-    (0, common_1.Get)('enterprise'),
+    (0, common_1.Get)('/analytics/enterprise'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -159,7 +201,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getEnterpriseAnalytics", null);
 __decorate([
-    (0, common_1.Get)('sales/daily'),
+    (0, common_1.Get)('/analytics/sales/daily'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -167,7 +209,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getDailySales", null);
 __decorate([
-    (0, common_1.Get)('sales/weekly'),
+    (0, common_1.Get)('/analytics/sales/weekly'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -175,15 +217,39 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getWeeklySales", null);
 __decorate([
-    (0, common_1.Get)('sales/yearly'),
+    (0, common_1.Get)('/analytics/sales/yearly'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getYearlySales", null);
+__decorate([
+    (0, common_1.Get)('/api/reports/branches/:tenantId/sales'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getBranchSales", null);
+__decorate([
+    (0, common_1.Get)('/api/reports/branches/:tenantId/comparison/timeseries'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getBranchComparisonTimeSeries", null);
+__decorate([
+    (0, common_1.Get)('/api/reports/branches/:tenantId/comparison/products'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getBranchProductComparison", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
-    (0, common_1.Controller)('analytics'),
+    (0, common_1.Controller)(),
     __metadata("design:paramtypes", [analytics_service_1.AnalyticsService])
 ], AnalyticsController);
 //# sourceMappingURL=analytics.controller.js.map

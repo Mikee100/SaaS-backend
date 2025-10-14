@@ -89,6 +89,11 @@ export declare class SalesService {
             quantity: number;
             saleId: string;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
         Branch: {
             id: string;
             name: string;
@@ -208,7 +213,7 @@ export declare class SalesService {
             lastPage: number;
         };
     }>;
-    listSales(tenantId: string, limit?: number): Promise<{
+    listSales(tenantId: string, branchId?: string, limit?: number): Promise<{
         saleId: string;
         date: Date;
         total: number;
@@ -227,6 +232,11 @@ export declare class SalesService {
             price: number;
             quantity: number;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
     }[]>;
     getAnalytics(tenantId: string, startDate?: Date, endDate?: Date): Promise<{
         totalSales: number;

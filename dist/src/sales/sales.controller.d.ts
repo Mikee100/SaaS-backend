@@ -37,6 +37,11 @@ export declare class SalesController {
                 quantity: number;
                 saleId: string;
             }[];
+            branch: {
+                id: string;
+                name: string;
+                address: string | null;
+            } | null;
             Branch: {
                 id: string;
                 name: string;
@@ -176,6 +181,11 @@ export declare class SalesController {
                 price: number;
                 quantity: number;
             }[];
+            branch: {
+                id: string;
+                name: string;
+                address: string | null;
+            } | null;
         }[];
         error?: undefined;
     } | {
@@ -285,6 +295,11 @@ export declare class SalesController {
             price: number;
             quantity: number;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
     }[]>;
     getSaleById(id: string, req: any): Promise<{
         saleId: string;
@@ -315,6 +330,11 @@ export declare class SalesController {
             quantity: number;
             saleId: string;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            address: string | null;
+        } | null;
         Branch: {
             id: string;
             name: string;

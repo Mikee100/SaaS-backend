@@ -308,6 +308,13 @@ export class SalesService {
           price: item.price || 0,
           productId: item.product?.id || '',
         })),
+        branch: sale.Branch
+          ? {
+              id: sale.Branch.id,
+              name: sale.Branch.name,
+              address: sale.Branch.address,
+            }
+          : null,
       };
 
       return result;
@@ -451,11 +458,17 @@ export class SalesService {
     };
   }
 
-  async listSales(tenantId: string, limit: number = 100) {
+  async listSales(tenantId: string, branchId?: string, limit: number = 100) {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
     if (limit < 1 || limit > 1000) limit = 100; // Enforce reasonable limit
+
+    const whereClause: any = { tenantId };
+    if (branchId && branchId !== 'all') {
+      whereClause.branchId = branchId;
+    }
+
     const sales = await this.prisma.sale.findMany({
-      where: { tenantId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       take: limit,
       include: {
@@ -491,6 +504,13 @@ export class SalesService {
         price: item.price,
         quantity: item.quantity,
       })),
+      branch: sale.Branch
+        ? {
+            id: sale.Branch.id,
+            name: sale.Branch.name,
+            address: sale.Branch.address,
+          }
+        : null,
     }));
   }
 

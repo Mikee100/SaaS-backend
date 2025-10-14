@@ -161,4 +161,66 @@ export declare class AnalyticsController {
     getDailySales(req: any): Promise<Record<string, number>>;
     getWeeklySales(req: any): Promise<Record<string, number>>;
     getYearlySales(req: any): Promise<Record<string, number>>;
+    getBranchSales(req: any): Promise<{
+        totalOrders: number;
+        totalSales: number;
+        averageOrderValue: number;
+        topProducts: {
+            productId: any;
+            productName: any;
+            quantitySold: number;
+            totalRevenue: number;
+        }[];
+        paymentMethods: {
+            method: any;
+            count: number;
+            amount: number;
+        }[];
+        salesTrend: {
+            date: any;
+            sales: number;
+            orders: number;
+        }[];
+    }>;
+    getBranchComparisonTimeSeries(req: any): Promise<{
+        timeRange: string;
+        branches: unknown[];
+        totals: {
+            branchId: any;
+            branchName: any;
+            totalOrders: number;
+            totalSales: number;
+        }[];
+        periodType: string;
+    }>;
+    getBranchProductComparison(req: any): Promise<{
+        timeRange: string;
+        products: {
+            productId: any;
+            productName: any;
+            totalQuantitySold: number;
+            totalRevenue: number;
+            totalOrders: number;
+            branchCount: number;
+            branchBreakdown: {
+                branchId: any;
+                branchName: any;
+                quantitySold: number;
+                totalRevenue: number;
+                orderCount: number;
+            }[];
+        }[];
+        branches: {
+            branchId: any;
+            branchName: any;
+            totalOrders: number;
+            totalSales: number;
+        }[];
+        summary: {
+            totalProducts: number;
+            totalBranches: number;
+            totalRevenue: number;
+            totalQuantitySold: number;
+        };
+    }>;
 }
