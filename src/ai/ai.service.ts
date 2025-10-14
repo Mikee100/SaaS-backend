@@ -40,12 +40,17 @@ interface DetectedCommand {
 
 @Injectable()
 export class AiService {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
 
   constructor(private prisma: PrismaService) {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Only initialize OpenAI if API key is available
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '') {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    } else {
+      console.log('OpenAI API key not configured. AI features will use fallback methods.');
+    }
   }
 
   async processChat(message: string, userId: string, tenantId: string, branchId: string, conversationId?: string): Promise<ChatResult> {
@@ -1879,6 +1884,12 @@ export class AiService {
       // Check if OpenAI API key is available
       if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
         console.log('OpenAI API key not configured, using fallback visualization generation');
+        return this.generateFallbackVisualization(data, chartType, title);
+      }
+
+      // Check if OpenAI client is initialized
+      if (!this.openai) {
+        console.log('OpenAI client not initialized, using fallback visualization generation');
         return this.generateFallbackVisualization(data, chartType, title);
       }
 
