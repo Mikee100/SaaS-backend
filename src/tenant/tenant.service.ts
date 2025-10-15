@@ -256,7 +256,40 @@ export class TenantService {
       // 1. Create the tenant
       const tenant = await this.createTenant(tenantData);
 
-      // 2. Create the main branch
+      // 2. Create a trial subscription for the tenant
+      const trialPlan = await this.prisma.plan.findFirst({
+        where: {
+          name: {
+            contains: 'trial',
+            mode: 'insensitive',
+          },
+          isActive: true,
+        },
+      });
+
+      if (trialPlan) {
+        await this.prisma.subscription.create({
+          data: {
+            id: `trial_${Date.now()}`,
+            tenantId: tenant.id,
+            planId: trialPlan.id,
+            status: 'trialing',
+            currentPeriodStart: new Date(),
+            currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days trial
+            stripeSubscriptionId: 'trial_' + Date.now(),
+            stripeCustomerId: 'trial_' + tenant.id,
+            stripePriceId: trialPlan.stripePriceId ?? '',
+            stripeCurrentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+            cancelAtPeriodEnd: false,
+            trialEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+            trialStart: new Date(),
+            isTrial: true,
+            canceledAt: null,
+          },
+        });
+      }
+
+      // 3. Create the main branch
       const branchName = tenantData.branchName || 'Main Branch';
       const mainBranch = await this.branchService.createBranch({
         name: branchName,
@@ -266,7 +299,7 @@ export class TenantService {
         tenantId: tenant.id,
       });
 
-      // 3. Create the owner user
+      // 4. Create the owner user
       const ownerUser = await this.userService.createUser({
         name: tenantData.owner.name,
         email: tenantData.owner.email,

@@ -18,17 +18,20 @@ const bcrypt = require("bcrypt");
 const audit_log_service_1 = require("../audit-log.service");
 const uuid_1 = require("uuid");
 const email_service_1 = require("../email/email.service");
+const subscription_service_1 = require("../billing/subscription.service");
 let AuthService = AuthService_1 = class AuthService {
     userService;
     jwtService;
     auditLogService;
     emailService;
+    subscriptionService;
     logger = new common_1.Logger(AuthService_1.name);
-    constructor(userService, jwtService, auditLogService, emailService) {
+    constructor(userService, jwtService, auditLogService, emailService, subscriptionService) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.auditLogService = auditLogService;
         this.emailService = emailService;
+        this.subscriptionService = subscriptionService;
     }
     async validateUser(email, password) {
         const user = await this.userService.findByEmail(email);
@@ -63,22 +66,36 @@ let AuthService = AuthService_1 = class AuthService {
                 }
                 throw new common_1.UnauthorizedException('Invalid credentials');
             }
+            if (user.isDisabled) {
+                if (this.auditLogService) {
+                    await this.auditLogService.log(null, 'login_failed_disabled', { email }, ip);
+                }
+                throw new common_1.UnauthorizedException('Account disabled. Contact admin.');
+            }
             const userWithRoles = user;
             const userRoles = userWithRoles.userRoles || [];
             let tenantId = null;
             if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
                 tenantId = userRoles[0].tenantId;
             }
-            if (!tenantId) {
+            if (!tenantId && !user.isSuperadmin) {
                 throw new common_1.UnauthorizedException('No tenant assigned to this user. Please contact support.');
+            }
+            if (tenantId) {
+                const trialStatus = await this.subscriptionService.checkTrialStatus(tenantId);
+                if (trialStatus.isTrial && trialStatus.trialExpired) {
+                    throw new common_1.ForbiddenException('Trial period has expired. Please upgrade your subscription.');
+                }
             }
             const userPermissions = [];
             try {
-                const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
-                perms.forEach((perm) => {
-                    if (perm.name)
-                        userPermissions.push(perm.name);
-                });
+                if (tenantId) {
+                    const perms = await this.userService.getEffectivePermissions(user.id, tenantId);
+                    perms.forEach((perm) => {
+                        if (perm.name)
+                            userPermissions.push(perm.name);
+                    });
+                }
             }
             catch (error) {
                 console.error('Error fetching user permissions:', error);
@@ -86,12 +103,14 @@ let AuthService = AuthService_1 = class AuthService {
             const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
             const payload = {
                 sub: user.id,
+                userId: user.id,
                 email: user.email,
                 name: user.name || '',
                 tenantId: tenantId,
                 branchId: user.branchId || null,
                 roles: roles,
                 permissions: userPermissions,
+                isSuperadmin: user.isSuperadmin || false,
             };
             console.log('JWT Payload:', JSON.stringify(payload, null, 2));
             const accessToken = this.jwtService.sign(payload, {
@@ -118,6 +137,7 @@ let AuthService = AuthService_1 = class AuthService {
                     branchId: payload.branchId,
                     roles: payload.roles,
                     permissions: payload.permissions,
+                    isSuperadmin: payload.isSuperadmin,
                 },
             };
         }
@@ -170,6 +190,7 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
     __metadata("design:paramtypes", [user_service_1.UserService,
         jwt_1.JwtService,
         audit_log_service_1.AuditLogService,
-        email_service_1.EmailService])
+        email_service_1.EmailService,
+        subscription_service_1.SubscriptionService])
 ], AuthService);
 //# sourceMappingURL=auth.services.js.map

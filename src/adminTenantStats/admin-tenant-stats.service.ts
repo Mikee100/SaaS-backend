@@ -16,46 +16,37 @@ interface ProductCountRow {
 export class AdminTenantStatsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAllTenantStats() {
-    // Only tables with tenantId field
+  async getTenantSpace(tenantId: string): Promise<number> {
     const tables = [
-      'User', // nullable tenantId
-      'Product',
-      'Inventory',
-      'Sale',
-      'MpesaTransaction',
-      'Invoice',
-      'Payment',
-      'PaymentMethod',
-      'Branch',
-      'Notification',
+      { name: 'User', displayName: 'Users', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "User" t WHERE "tenantId" = $1` },
+      { name: 'Product', displayName: 'Products', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Product" t WHERE "tenantId" = $1` },
+      { name: 'Inventory', displayName: 'Inventory', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Inventory" t WHERE "tenantId" = $1` },
+      { name: 'Sale', displayName: 'Transactions', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Sale" t WHERE "tenantId" = $1` },
+      { name: 'MpesaTransaction', displayName: 'M-Pesa Transactions', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "MpesaTransaction" t WHERE "tenantId" = $1` },
+      { name: 'Invoice', displayName: 'Invoices', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Invoice" t WHERE "tenantId" = $1` },
+      { name: 'Payment', displayName: 'Payments', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Payment" t WHERE "tenantId" = $1` },
+      { name: 'PaymentMethod', displayName: 'Payment Methods', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "PaymentMethod" t WHERE "tenantId" = $1` },
+      { name: 'Branch', displayName: 'Branches', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Branch" t WHERE "tenantId" = $1` },
+      { name: 'Notification', displayName: 'Notifications', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Notification" t WHERE "tenantId" = $1` },
     ];
-    const tenantSpace: Record<string, number> = {};
 
+    let totalBytes = 0;
     for (const table of tables) {
-      let rows;
-      if (table === 'User') {
-        // User.tenantId is nullable, filter out nulls
-        rows = await this.prisma.$queryRaw<TenantSpaceRow[]>`
-          SELECT "tenantId", SUM(pg_column_size(t)) AS "bytes_used"
-          FROM "User" t
-          WHERE "tenantId" IS NOT NULL
-          GROUP BY "tenantId"
-        `;
-      } else {
-        // Use template literal directly for table name
-        rows = await this.prisma.$queryRaw<TenantSpaceRow[]>`
-          SELECT "tenantId", SUM(pg_column_size(t)) AS "bytes_used"
-          FROM "${table}" t
-          GROUP BY "tenantId"
-        `;
-      }
-      for (const row of rows) {
-        if (!row.tenantId) continue;
-        if (!tenantSpace[row.tenantId]) tenantSpace[row.tenantId] = 0;
-        tenantSpace[row.tenantId] += Number(row.bytes_used) || 0;
+      try {
+        const rows: any = await this.prisma.$queryRawUnsafe(table.query, tenantId);
+        const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
+        totalBytes += bytes;
+      } catch (error) {
+        // Skip tables that don't exist or query fails
+        console.warn(`Failed to query table ${table.name} for tenant ${tenantId}: ${error.message}`);
       }
     }
+    return totalBytes;
+  }
+
+  async getAllTenantStats() {
+    // Fetch all tenant metadata
+    const tenants = await this.prisma.tenant.findMany();
 
     // Fetch product counts per tenant
     const productCounts = await this.prisma.$queryRaw<ProductCountRow[]>`
@@ -69,18 +60,19 @@ export class AdminTenantStatsService {
       productCountMap[row.tenantId] = Number(row.product_count) || 0;
     }
 
-    // Fetch all tenant metadata
-    const tenants = await this.prisma.tenant.findMany();
+    // Calculate space for each tenant using the same method as getTenantById
+    const tenantStats = await Promise.all(
+      tenants.map(async (tenant) => {
+        const bytes = await this.getTenantSpace(tenant.id);
+        return {
+          ...tenant,
+          tenantId: tenant.id,
+          spaceUsedMB: (bytes / (1024 * 1024)).toFixed(2),
+          productCount: productCountMap[tenant.id] || 0,
+        };
+      })
+    );
 
-    // Merge stats with tenant metadata
-    return tenants.map((tenant) => {
-      const bytes = tenantSpace[tenant.id] || 0;
-      return {
-        ...tenant,
-        tenantId: tenant.id,
-        spaceUsedMB: (bytes / (1024 * 1024)).toFixed(2),
-        productCount: productCountMap[tenant.id] || 0,
-      };
-    });
+    return tenantStats;
   }
 }

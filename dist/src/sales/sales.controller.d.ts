@@ -143,8 +143,8 @@ export declare class SalesController {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -436,8 +436,8 @@ export declare class SalesController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;

@@ -8,30 +8,46 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var SuperadminGuard_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SuperadminGuard = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
-let SuperadminGuard = class SuperadminGuard {
+let SuperadminGuard = SuperadminGuard_1 = class SuperadminGuard {
     prisma;
+    logger = new common_1.Logger(SuperadminGuard_1.name);
     constructor(prisma) {
         this.prisma = prisma;
     }
     async canActivate(context) {
         const request = context.switchToHttp().getRequest();
         const user = request.user;
+        this.logger.log(`SuperadminGuard: Checking user: ${JSON.stringify(user)}`);
         if (!user) {
+            this.logger.warn('SuperadminGuard: No user found in request');
+            return false;
+        }
+        if (user.isSuperadmin === true) {
+            this.logger.log(`SuperadminGuard: User ${user.email} is superadmin from JWT`);
+            return true;
+        }
+        const userId = user.userId || user.sub || user.id;
+        if (!userId) {
+            this.logger.warn('SuperadminGuard: User has no userId, sub, or id field');
             return false;
         }
         const dbUser = await this.prisma.user.findUnique({
-            where: { id: user.id },
-            select: { isSuperadmin: true },
+            where: { id: userId },
+            select: { isSuperadmin: true, email: true },
         });
-        return dbUser?.isSuperadmin === true;
+        this.logger.log(`SuperadminGuard: DB user result: ${JSON.stringify(dbUser)}`);
+        const isSuperadmin = dbUser?.isSuperadmin === true;
+        this.logger.log(`SuperadminGuard: User ${user.email} isSuperadmin: ${isSuperadmin}`);
+        return isSuperadmin;
     }
 };
 exports.SuperadminGuard = SuperadminGuard;
-exports.SuperadminGuard = SuperadminGuard = __decorate([
+exports.SuperadminGuard = SuperadminGuard = SuperadminGuard_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], SuperadminGuard);

@@ -19,6 +19,7 @@ const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path = require("path");
 const section_logo_service_1 = require("./section-logo.service");
+const trial_guard_1 = require("../auth/trial.guard");
 let SectionLogoController = class SectionLogoController {
     sectionLogoService;
     constructor(sectionLogoService) {
@@ -147,7 +148,7 @@ __decorate([
 ], SectionLogoController.prototype, "validateSectionLogoConfig", null);
 exports.SectionLogoController = SectionLogoController = __decorate([
     (0, common_1.Controller)('api/tenant/section-logos'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __metadata("design:paramtypes", [section_logo_service_1.SectionLogoService])
 ], SectionLogoController);
 //# sourceMappingURL=section-logo.controller.js.map

@@ -20,6 +20,7 @@ const passport_1 = require("@nestjs/passport");
 const common_2 = require("@nestjs/common");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 const common_3 = require("@nestjs/common");
 let SalesController = class SalesController {
     salesService;
@@ -272,7 +273,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getSaleById", null);
 exports.SalesController = SalesController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('sales'),
     __metadata("design:paramtypes", [sales_service_1.SalesService])
 ], SalesController);

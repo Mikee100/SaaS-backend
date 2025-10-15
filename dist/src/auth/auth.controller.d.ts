@@ -12,10 +12,11 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
-            tenantId: string;
+            tenantId: string | null;
             branchId: string | null;
             roles: any;
             permissions: string[];
+            isSuperadmin: any;
         };
     }>;
     forgotPassword(body: {

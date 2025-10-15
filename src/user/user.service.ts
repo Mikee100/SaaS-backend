@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
+import { SubscriptionService } from '../billing/subscription.service';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
@@ -74,6 +76,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   // ...existing code...
@@ -101,6 +104,26 @@ export class UserService {
       throw new BadRequestException(
         `Tenant with id '${data.tenantId}' does not exist. Cannot create user.`,
       );
+    }
+
+    // Skip plan limits check for new tenant registration (trial setup)
+    // Check plan limits for users only if not during initial tenant creation
+    try {
+      const canAddUser = await this.subscriptionService.canAddUser(data.tenantId);
+      if (!canAddUser) {
+        const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+        const maxUsers = subscription.plan?.maxUsers || 0;
+        throw new ForbiddenException(
+          `User limit exceeded. Your plan allows up to ${maxUsers} users. Please upgrade your plan to add more users.`,
+        );
+      }
+    } catch (error) {
+      // If no subscription found (during tenant creation), allow user creation
+      if (error instanceof NotFoundException && error.message.includes('No active subscription found')) {
+        // Allow user creation for new tenants
+      } else {
+        throw error;
+      }
     }
 
     // Check if user with this email already exists in any tenant
@@ -435,6 +458,41 @@ export class UserService {
         updatedAt: new Date(),
       },
     });
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    // Get user with password hash
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        updatedAt: new Date(),
+      },
+    });
+
+    return { success: true, message: 'Password updated successfully' };
   }
 
   // ...existing code...

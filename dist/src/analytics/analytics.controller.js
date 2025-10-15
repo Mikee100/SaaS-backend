@@ -16,6 +16,7 @@ exports.AnalyticsController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const analytics_service_1 = require("./analytics.service");
+const trial_guard_1 = require("../auth/trial.guard");
 let AnalyticsController = class AnalyticsController {
     analyticsService;
     constructor(analyticsService) {
@@ -170,7 +171,7 @@ let AnalyticsController = class AnalyticsController {
 exports.AnalyticsController = AnalyticsController;
 __decorate([
     (0, common_1.Get)('/analytics/basic'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -178,7 +179,7 @@ __decorate([
 ], AnalyticsController.prototype, "getBasicAnalytics", null);
 __decorate([
     (0, common_1.Get)('/analytics/dashboard'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -186,7 +187,7 @@ __decorate([
 ], AnalyticsController.prototype, "getDashboardAnalytics", null);
 __decorate([
     (0, common_1.Get)('/analytics/advanced'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -194,7 +195,7 @@ __decorate([
 ], AnalyticsController.prototype, "getAdvancedAnalytics", null);
 __decorate([
     (0, common_1.Get)('/analytics/enterprise'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -202,7 +203,7 @@ __decorate([
 ], AnalyticsController.prototype, "getEnterpriseAnalytics", null);
 __decorate([
     (0, common_1.Get)('/analytics/sales/daily'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -210,7 +211,7 @@ __decorate([
 ], AnalyticsController.prototype, "getDailySales", null);
 __decorate([
     (0, common_1.Get)('/analytics/sales/weekly'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -218,7 +219,7 @@ __decorate([
 ], AnalyticsController.prototype, "getWeeklySales", null);
 __decorate([
     (0, common_1.Get)('/analytics/sales/yearly'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -226,7 +227,7 @@ __decorate([
 ], AnalyticsController.prototype, "getYearlySales", null);
 __decorate([
     (0, common_1.Get)('/api/reports/branches/:tenantId/sales'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -234,7 +235,7 @@ __decorate([
 ], AnalyticsController.prototype, "getBranchSales", null);
 __decorate([
     (0, common_1.Get)('/api/reports/branches/:tenantId/comparison/timeseries'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -242,7 +243,7 @@ __decorate([
 ], AnalyticsController.prototype, "getBranchComparisonTimeSeries", null);
 __decorate([
     (0, common_1.Get)('/api/reports/branches/:tenantId/comparison/products'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

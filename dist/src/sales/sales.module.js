@@ -15,6 +15,9 @@ const audit_log_service_1 = require("../audit-log.service");
 const realtime_module_1 = require("../realtime.module");
 const user_module_1 = require("../user/user.module");
 const config_module_1 = require("../config/config.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let SalesModule = class SalesModule {
 };
 exports.SalesModule = SalesModule;
@@ -26,7 +29,7 @@ exports.SalesModule = SalesModule = __decorate([
             config_module_1.ConfigModule,
         ],
         controllers: [sales_controller_1.SalesController],
-        providers: [sales_service_1.SalesService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
+        providers: [sales_service_1.SalesService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         exports: [sales_service_1.SalesService],
     })
 ], SalesModule);

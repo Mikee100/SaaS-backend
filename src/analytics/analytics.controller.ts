@@ -1,13 +1,14 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
+import { TrialGuard } from '../auth/trial.guard';
 
 @Controller()
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
   @Get('/analytics/basic')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBasicAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
@@ -31,7 +32,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/dashboard')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getDashboardAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
@@ -49,7 +50,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/advanced')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getAdvancedAnalytics(@Req() req: any) {
     const tenantId = req.user.tenantId;
 
@@ -70,7 +71,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/enterprise')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getEnterpriseAnalytics(@Req() req: any) {
     const tenantId = req.user.tenantId;
 
@@ -91,7 +92,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/sales/daily')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getDailySales(@Req() req: any) {
     const tenantId = req.user.tenantId;
 
@@ -108,7 +109,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/sales/weekly')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getWeeklySales(@Req() req: any) {
     const tenantId = req.user.tenantId;
 
@@ -125,7 +126,7 @@ export class AnalyticsController {
   }
 
   @Get('/analytics/sales/yearly')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getYearlySales(@Req() req: any) {
     const tenantId = req.user.tenantId;
 
@@ -142,7 +143,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/sales')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchSales(@Req() req: any) {
     const { tenantId } = req.params;
     const { timeRange = '30days', branchId } = req.query;
@@ -160,7 +161,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/comparison/timeseries')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchComparisonTimeSeries(@Req() req: any) {
     const { tenantId } = req.params;
     const { timeRange = '30days' } = req.query;
@@ -178,7 +179,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/comparison/products')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchProductComparison(@Req() req: any) {
     const { tenantId } = req.params;
     const { timeRange = '30days' } = req.query;

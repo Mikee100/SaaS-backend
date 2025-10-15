@@ -18,6 +18,7 @@ const audit_log_service_1 = require("./audit-log.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("./auth/permissions.decorator");
 const permissions_guard_1 = require("./auth/permissions.guard");
+const trial_guard_1 = require("./auth/trial.guard");
 let AuditLogController = class AuditLogController {
     auditLogService;
     constructor(auditLogService) {
@@ -37,7 +38,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuditLogController.prototype, "getLogs", null);
 exports.AuditLogController = AuditLogController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('audit-logs'),
     __metadata("design:paramtypes", [audit_log_service_1.AuditLogService])
 ], AuditLogController);

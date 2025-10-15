@@ -75,11 +75,13 @@ let SubscriptionService = class SubscriptionService {
             let status = 'active';
             let trialEnd = null;
             let trialStart = null;
+            let isTrial = false;
             if (plan.name.toLowerCase().includes('trial')) {
                 trialEnd = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000);
                 endDate = trialEnd;
                 status = 'trialing';
                 trialStart = now;
+                isTrial = true;
             }
             console.log('Creating subscription with dates:', { now, endDate, status });
             const subscriptionData = {
@@ -96,6 +98,7 @@ let SubscriptionService = class SubscriptionService {
                 cancelAtPeriodEnd: false,
                 trialEnd,
                 trialStart,
+                isTrial,
                 canceledAt: null,
             };
             if (data.userId !== undefined && data.userId !== null) {
@@ -176,6 +179,7 @@ let SubscriptionService = class SubscriptionService {
                     take: 10,
                 },
             },
+            orderBy: { currentPeriodStart: 'desc' },
         });
     }
     async createInvoice(subscriptionId, amount, tenantId) {
@@ -392,6 +396,296 @@ let SubscriptionService = class SubscriptionService {
             },
             orderBy: { createdAt: 'desc' },
         });
+    }
+    async createTrialSubscription(tenantId, durationHours, planId) {
+        const now = new Date();
+        const trialEnd = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
+        const plan = await this.prisma.plan.findUnique({
+            where: { id: planId },
+        });
+        if (!plan) {
+            throw new common_1.NotFoundException('Plan not found');
+        }
+        const subscription = await this.prisma.subscription.create({
+            data: {
+                id: `trial_${Date.now()}`,
+                tenantId,
+                planId,
+                status: 'trialing',
+                currentPeriodStart: now,
+                currentPeriodEnd: trialEnd,
+                stripeSubscriptionId: 'trial_' + Date.now(),
+                stripeCustomerId: 'trial_' + tenantId,
+                stripePriceId: plan.stripePriceId ?? '',
+                stripeCurrentPeriodEnd: trialEnd,
+                cancelAtPeriodEnd: false,
+                trialEnd,
+                trialStart: now,
+                isTrial: true,
+                canceledAt: null,
+            },
+            include: {
+                Plan: true,
+            },
+        });
+        return subscription;
+    }
+    async checkTrialStatus(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+                isTrial: true,
+                status: {
+                    in: ['trialing', 'expired'],
+                },
+            },
+            include: {
+                Plan: true,
+            },
+            orderBy: {
+                currentPeriodStart: 'desc',
+            },
+        });
+        if (!subscription) {
+            return { isTrial: false, trialExpired: false };
+        }
+        const now = new Date();
+        const trialExpired = subscription.trialEnd ? now > subscription.trialEnd : false;
+        if (trialExpired && subscription.status === 'trialing') {
+            await this.prisma.subscription.update({
+                where: { id: subscription.id },
+                data: { status: 'expired' },
+            });
+        }
+        return {
+            isTrial: true,
+            trialExpired,
+            trialEnd: subscription.trialEnd,
+            remainingTime: trialExpired || !subscription.trialEnd ? 0 : Math.max(0, subscription.trialEnd.getTime() - now.getTime()),
+        };
+    }
+    async isSubscriptionValid(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+            },
+            include: {
+                Plan: true,
+            },
+            orderBy: {
+                currentPeriodStart: 'desc',
+            },
+        });
+        if (!subscription) {
+            return { valid: false, reason: 'No subscription found' };
+        }
+        const now = new Date();
+        if (subscription.status === 'expired' || subscription.status === 'canceled') {
+            return { valid: false, reason: 'Subscription expired or canceled' };
+        }
+        if (subscription.status === 'trialing') {
+            const trialExpired = subscription.trialEnd ? now > subscription.trialEnd : false;
+            if (trialExpired) {
+                await this.prisma.subscription.update({
+                    where: { id: subscription.id },
+                    data: { status: 'expired' },
+                });
+                return { valid: false, reason: 'Trial period has expired' };
+            }
+            return {
+                valid: true,
+                status: 'trialing',
+                remainingTime: subscription.trialEnd ? subscription.trialEnd.getTime() - now.getTime() : 0,
+            };
+        }
+        if (subscription.status === 'active') {
+            const subscriptionExpired = subscription.currentPeriodEnd ? now > subscription.currentPeriodEnd : false;
+            if (subscriptionExpired) {
+                await this.prisma.subscription.update({
+                    where: { id: subscription.id },
+                    data: { status: 'expired' },
+                });
+                return { valid: false, reason: 'Subscription period has expired' };
+            }
+            return {
+                valid: true,
+                status: 'active',
+                remainingTime: subscription.currentPeriodEnd ? subscription.currentPeriodEnd.getTime() - now.getTime() : 0,
+            };
+        }
+        return { valid: false, reason: `Invalid subscription status: ${subscription.status}` };
+    }
+    async canAddUser(tenantId) {
+        const subscription = await this.getCurrentSubscription(tenantId);
+        if (!subscription || !subscription.plan) {
+            return false;
+        }
+        const plan = subscription.plan;
+        const maxUsers = plan.maxUsers || 0;
+        if (maxUsers === 0) {
+            return true;
+        }
+        const currentUsers = await this.prisma.user.count({
+            where: { tenantId },
+        });
+        return currentUsers < maxUsers;
+    }
+    async canAddBranch(tenantId) {
+        const subscription = await this.getCurrentSubscription(tenantId);
+        if (!subscription || !subscription.plan) {
+            return false;
+        }
+        const plan = subscription.plan;
+        const maxBranches = plan.maxBranches || 0;
+        if (maxBranches === 0) {
+            return true;
+        }
+        const currentBranches = await this.prisma.branch.count({
+            where: { tenantId },
+        });
+        return currentBranches < maxBranches;
+    }
+    async canAddProduct(tenantId) {
+        const subscription = await this.getCurrentSubscription(tenantId);
+        if (!subscription || !subscription.plan) {
+            return false;
+        }
+        const plan = subscription.plan;
+        const maxProducts = plan.maxProducts || 0;
+        if (maxProducts === 0) {
+            return true;
+        }
+        const currentProducts = await this.prisma.product.count({
+            where: { tenantId },
+        });
+        return currentProducts < maxProducts;
+    }
+    async canCreateSale(tenantId) {
+        const subscription = await this.getCurrentSubscription(tenantId);
+        if (!subscription || !subscription.plan) {
+            return false;
+        }
+        const plan = subscription.plan;
+        const maxSalesPerMonth = plan.maxSalesPerMonth || 0;
+        if (maxSalesPerMonth === 0) {
+            return true;
+        }
+        const currentMonthStart = new Date();
+        currentMonthStart.setDate(1);
+        currentMonthStart.setHours(0, 0, 0, 0);
+        const currentMonthSales = await this.prisma.sale.count({
+            where: {
+                tenantId,
+                createdAt: {
+                    gte: currentMonthStart,
+                },
+            },
+        });
+        return currentMonthSales < maxSalesPerMonth;
+    }
+    async getTrialUsage(tenantId) {
+        const subscription = await this.prisma.subscription.findFirst({
+            where: {
+                tenantId,
+                status: 'trialing',
+            },
+            include: {
+                Plan: true,
+            },
+            orderBy: {
+                currentPeriodStart: 'desc',
+            },
+        });
+        if (!subscription || !subscription.isTrial || !subscription.trialStart) {
+            return { isTrial: false, usage: null };
+        }
+        const trialStart = subscription.trialStart;
+        const now = new Date();
+        const userCount = await this.prisma.user.count({
+            where: {
+                tenantId,
+                createdAt: {
+                    gte: trialStart,
+                },
+            },
+        });
+        const productCount = await this.prisma.product.count({
+            where: {
+                tenantId,
+                createdAt: {
+                    gte: trialStart,
+                },
+            },
+        });
+        const branchCount = await this.prisma.branch.count({
+            where: {
+                tenantId,
+                createdAt: {
+                    gte: trialStart,
+                },
+            },
+        });
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const salesCount = await this.prisma.sale.count({
+            where: {
+                tenantId,
+                createdAt: {
+                    gte: currentMonthStart,
+                },
+            },
+        });
+        const plan = subscription.Plan;
+        const limits = {
+            maxUsers: plan.maxUsers || 0,
+            maxProducts: plan.maxProducts || 0,
+            maxBranches: plan.maxBranches || 0,
+            maxSalesPerMonth: plan.maxSalesPerMonth || 0,
+        };
+        const usagePercentages = {
+            users: limits.maxUsers > 0 ? (userCount / limits.maxUsers) * 100 : 0,
+            products: limits.maxProducts > 0 ? (productCount / limits.maxProducts) * 100 : 0,
+            branches: limits.maxBranches > 0 ? (branchCount / limits.maxBranches) * 100 : 0,
+            sales: limits.maxSalesPerMonth > 0 ? (salesCount / limits.maxSalesPerMonth) * 100 : 0,
+        };
+        const approachingLimits = {
+            users: usagePercentages.users >= 80,
+            products: usagePercentages.products >= 80,
+            branches: usagePercentages.branches >= 80,
+            sales: usagePercentages.sales >= 80,
+        };
+        return {
+            isTrial: true,
+            trialStart: subscription.trialStart,
+            trialEnd: subscription.trialEnd,
+            daysRemaining: subscription.trialEnd ? Math.ceil((subscription.trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0,
+            usage: {
+                users: {
+                    current: userCount,
+                    limit: limits.maxUsers,
+                    percentage: Math.round(usagePercentages.users * 100) / 100,
+                    approachingLimit: approachingLimits.users,
+                },
+                products: {
+                    current: productCount,
+                    limit: limits.maxProducts,
+                    percentage: Math.round(usagePercentages.products * 100) / 100,
+                    approachingLimit: approachingLimits.products,
+                },
+                branches: {
+                    current: branchCount,
+                    limit: limits.maxBranches,
+                    percentage: Math.round(usagePercentages.branches * 100) / 100,
+                    approachingLimit: approachingLimits.branches,
+                },
+                salesThisMonth: {
+                    current: salesCount,
+                    limit: limits.maxSalesPerMonth,
+                    percentage: Math.round(usagePercentages.sales * 100) / 100,
+                    approachingLimit: approachingLimits.sales,
+                },
+            },
+            planName: plan.name,
+        };
     }
 };
 exports.SubscriptionService = SubscriptionService;

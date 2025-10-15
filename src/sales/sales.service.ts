@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma, Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
@@ -79,6 +80,7 @@ export interface TransformedSale
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
 import { ConfigurationService } from '../config/configuration.service';
+import { SubscriptionService } from '../billing/subscription.service';
 import axios from 'axios';
 
 @Injectable()
@@ -88,6 +90,7 @@ export class SalesService {
     private auditLogService: AuditLogService,
     private realtimeGateway: RealtimeGateway, // Inject gateway
     private configurationService: ConfigurationService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async createSale(
@@ -120,6 +123,17 @@ export class SalesService {
         customerPhone: existing.customerPhone || undefined,
       };
     }
+
+    // Check plan limits for sales
+    const canCreateSale = await this.subscriptionService.canCreateSale(tenantId);
+    if (!canCreateSale) {
+      const subscription = await this.subscriptionService.getCurrentSubscription(tenantId);
+      const maxSalesPerMonth = subscription.plan?.maxSalesPerMonth || 0;
+      throw new ForbiddenException(
+        `Sales limit exceeded. Your plan allows up to ${maxSalesPerMonth} sales per month. Please upgrade your plan to create more sales.`,
+      );
+    }
+
     const saleId = uuidv4();
     const now = new Date();
     let subtotal = 0;

@@ -14,13 +14,16 @@ const tenant_controller_1 = require("./tenant.controller");
 const prisma_service_1 = require("../prisma.service");
 const user_module_1 = require("../user/user.module");
 const branch_module_1 = require("../branch/branch.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let TenantModule = class TenantModule {
 };
 exports.TenantModule = TenantModule;
 exports.TenantModule = TenantModule = __decorate([
     (0, common_1.Module)({
         imports: [user_module_1.UserModule, branch_module_1.BranchModule],
-        providers: [tenant_service_1.TenantService, prisma_service_1.PrismaService, logo_service_1.LogoService],
+        providers: [tenant_service_1.TenantService, prisma_service_1.PrismaService, logo_service_1.LogoService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         controllers: [tenant_controller_1.TenantController],
     })
 ], TenantModule);

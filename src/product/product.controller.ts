@@ -19,6 +19,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
 declare global {
   namespace Express {
@@ -28,7 +29,7 @@ declare global {
   }
 }
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('products')
 export class ProductController {
   // Use console.log for maximum visibility

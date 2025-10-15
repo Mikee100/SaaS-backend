@@ -18,6 +18,8 @@ const axios_1 = require("axios");
 const mpesa_service_1 = require("./mpesa.service");
 const sales_service_1 = require("./sales/sales.service");
 const prisma_service_1 = require("./prisma.service");
+const passport_1 = require("@nestjs/passport");
+const trial_guard_1 = require("./auth/trial.guard");
 let MpesaController = class MpesaController {
     mpesaService;
     salesService;
@@ -192,6 +194,7 @@ let MpesaController = class MpesaController {
 exports.MpesaController = MpesaController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.Res)()),
@@ -209,6 +212,7 @@ __decorate([
 ], MpesaController.prototype, "mpesaWebhook", null);
 __decorate([
     (0, common_1.Get)('by-checkout-id/:checkoutRequestId'),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     __param(0, (0, common_1.Param)('checkoutRequestId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

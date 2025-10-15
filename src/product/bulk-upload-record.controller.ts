@@ -3,8 +3,9 @@ import { BulkUploadRecordService } from './bulk-upload-record.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('bulk-upload-records')
 export class BulkUploadRecordController {
   constructor(private readonly bulkUploadRecordService: BulkUploadRecordService) {}

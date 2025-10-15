@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const permission_service_1 = require("./permission.service");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 const passport_1 = require("@nestjs/passport");
 let PermissionController = PermissionController_1 = class PermissionController {
     permissionService;
@@ -54,7 +55,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PermissionController.prototype, "createPermission", null);
 exports.PermissionController = PermissionController = PermissionController_1 = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('permissions'),
     __metadata("design:paramtypes", [permission_service_1.PermissionService])
 ], PermissionController);

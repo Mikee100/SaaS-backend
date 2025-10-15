@@ -1,8 +1,10 @@
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
+import { SubscriptionService } from '../billing/subscription.service';
 export declare class UserService {
     private prisma;
     private auditLogService;
+    private subscriptionService;
     updateUserPermissions(userId: string, permissions: string[], tenantId: string, actorUserId?: string, ip?: string): Promise<{
         success: boolean;
     }>;
@@ -22,21 +24,63 @@ export declare class UserService {
         })[] | ({
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         } | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
         })[] | ({
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -48,8 +92,8 @@ export declare class UserService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -78,8 +122,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -103,8 +147,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -145,42 +189,6 @@ export declare class UserService {
             readAt: Date | null;
         })[] | ({
             id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        } | {
-            id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        })[] | ({
-            id: string;
             permission: string;
             tenantId: string;
             userId: string;
@@ -198,8 +206,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -211,8 +219,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -223,8 +231,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -237,8 +245,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -255,15 +263,36 @@ export declare class UserService {
         }[] | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
         }[] | {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -285,8 +314,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -316,24 +345,6 @@ export declare class UserService {
             readAt: Date | null;
         }[] | {
             id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        }[] | {
-            id: string;
             permission: string;
             tenantId: string;
             userId: string;
@@ -344,8 +355,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -356,8 +367,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -383,10 +394,11 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }) | null>;
     private readonly logger;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService);
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, subscriptionService: SubscriptionService);
     createUser(data: {
         email: string;
         password: string;
@@ -409,21 +421,63 @@ export declare class UserService {
         })[] | ({
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
         } | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
+        })[] | ({
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
+        } | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
         })[] | ({
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -435,8 +489,8 @@ export declare class UserService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -465,8 +519,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -490,8 +544,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -532,42 +586,6 @@ export declare class UserService {
             readAt: Date | null;
         })[] | ({
             id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        } | {
-            id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        })[] | ({
-            id: string;
             permission: string;
             tenantId: string;
             userId: string;
@@ -585,8 +603,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -598,8 +616,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -610,8 +628,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -624,8 +642,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -642,15 +660,36 @@ export declare class UserService {
         }[] | {
             id: string;
             tenantId: string;
+            branchId: string;
             roleId: string;
             userId: string;
-            branchId: string;
+        }[] | {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            stripeCustomerId: string;
+            tenantId: string;
+            stripePriceId: string;
+            userId: string | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
         }[] | {
             id: string;
             createdAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -672,8 +711,8 @@ export declare class UserService {
             tenantId: string;
             userId: string | null;
             status: string;
-            phoneNumber: string;
             amount: number;
+            phoneNumber: string;
             mpesaReceipt: string | null;
             merchantRequestId: string | null;
             responseCode: string | null;
@@ -703,24 +742,6 @@ export declare class UserService {
             readAt: Date | null;
         }[] | {
             id: string;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-        }[] | {
-            id: string;
             permission: string;
             tenantId: string;
             userId: string;
@@ -731,8 +752,8 @@ export declare class UserService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            userId: string;
             branchId: string | null;
+            userId: string;
             supplierId: string | null;
             status: string;
             uploadDate: Date;
@@ -743,8 +764,8 @@ export declare class UserService {
             id: string;
             tenantId: string;
             price: number | null;
-            userId: string;
             branchId: string | null;
+            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -770,6 +791,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }) | {
         isActive: boolean;
@@ -940,6 +962,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     })[]>;
     findByTenantAndBranch(tenantId: string, branchId: string | null): Promise<({
@@ -972,6 +995,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     })[]>;
     updateUser(id: string, data: {
@@ -992,6 +1016,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }>;
     updateUserPreferences(userId: string, data: {
@@ -1013,6 +1038,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }>;
     resetPassword(token: string, newPassword: string): Promise<{
@@ -1029,7 +1055,12 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
+    }>;
+    changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{
+        success: boolean;
+        message: string;
     }>;
     getEffectivePermissions(userId: string, tenantId?: string): Promise<Array<{
         name: string;
@@ -1182,6 +1213,7 @@ export declare class UserService {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }>;
     deleteUser(id: string, tenantId: string, actorUserId?: string, ip?: string): Promise<any>;

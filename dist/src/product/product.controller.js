@@ -19,6 +19,7 @@ const passport_1 = require("@nestjs/passport");
 const platform_express_1 = require("@nestjs/platform-express");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 let ProductController = class ProductController {
     productService;
     constructor(productService) {
@@ -185,7 +186,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "getProductCount", null);
 exports.ProductController = ProductController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('products'),
     __metadata("design:paramtypes", [product_service_1.ProductService])
 ], ProductController);

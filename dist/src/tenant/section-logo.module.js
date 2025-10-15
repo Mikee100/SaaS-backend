@@ -12,13 +12,16 @@ const section_logo_controller_1 = require("./section-logo.controller");
 const section_logo_service_1 = require("./section-logo.service");
 const prisma_service_1 = require("../prisma.service");
 const logo_service_1 = require("./logo.service");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let SectionLogoModule = class SectionLogoModule {
 };
 exports.SectionLogoModule = SectionLogoModule;
 exports.SectionLogoModule = SectionLogoModule = __decorate([
     (0, common_1.Module)({
         controllers: [section_logo_controller_1.SectionLogoController],
-        providers: [section_logo_service_1.SectionLogoService, prisma_service_1.PrismaService, logo_service_1.LogoService],
+        providers: [section_logo_service_1.SectionLogoService, prisma_service_1.PrismaService, logo_service_1.LogoService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         exports: [section_logo_service_1.SectionLogoService],
     })
 ], SectionLogoModule);

@@ -7,11 +7,12 @@ import { PrismaModule } from '../prisma.module';
 import { AuditLogService } from '../audit-log.service';
 import { BillingModule } from '../billing/billing.module';
 import { UserModule } from '../user/user.module';
+import { TrialGuard } from '../auth/trial.guard';
 
 @Module({
   imports: [PrismaModule, BillingModule, UserModule],
   controllers: [ProductController, BulkUploadRecordController],
-  providers: [ProductService, BulkUploadRecordService, AuditLogService],
+  providers: [ProductService, BulkUploadRecordService, AuditLogService, TrialGuard],
   exports: [ProductService, BulkUploadRecordService],
 })
 export class ProductModule {}

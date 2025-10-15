@@ -15,8 +15,9 @@ import { CreateInventoryDto } from './create-inventory.dto';
 import { UpdateInventoryDto } from './update-inventory.dto';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}

@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from './prisma.service';
+import { TrialGuard } from './auth/trial.guard';
 
 @Controller()
 export class AppController {
@@ -11,7 +12,7 @@ export class AppController {
     return 'Hello World!';
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('dashboard/stats')
   async getDashboardStats(@Req() req: any) {
     const tenantId = req.user.tenantId;
@@ -121,7 +122,7 @@ export class AppController {
     }
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('usage/stats')
   async getUsageStats(@Req() req: any) {
     const tenantId = req.user.tenantId;

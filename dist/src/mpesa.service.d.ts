@@ -19,8 +19,8 @@ export declare class MpesaService {
         tenantId: string;
         userId: string | null;
         status: string;
-        phoneNumber: string;
         amount: number;
+        phoneNumber: string;
         mpesaReceipt: string | null;
         merchantRequestId: string | null;
         responseCode: string | null;

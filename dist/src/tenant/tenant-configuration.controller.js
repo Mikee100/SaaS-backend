@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 const tenant_configuration_service_1 = require("../config/tenant-configuration.service");
 let TenantConfigurationController = class TenantConfigurationController {
     tenantConfigurationService;
@@ -239,7 +240,7 @@ __decorate([
 ], TenantConfigurationController.prototype, "updateStripePrices", null);
 exports.TenantConfigurationController = TenantConfigurationController = __decorate([
     (0, common_1.Controller)('tenant/configurations'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     __metadata("design:paramtypes", [tenant_configuration_service_1.TenantConfigurationService])
 ], TenantConfigurationController);
 //# sourceMappingURL=tenant-configuration.controller.js.map

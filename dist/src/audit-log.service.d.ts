@@ -18,6 +18,7 @@ export declare class AuditLogService {
             notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
             region: string | null;
             isSuperadmin: boolean;
+            isDisabled: boolean;
             branchId: string | null;
         } | null;
     } & {

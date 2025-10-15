@@ -14,13 +14,16 @@ const prisma_service_1 = require("../prisma.service");
 const audit_log_service_1 = require("../audit-log.service");
 const realtime_module_1 = require("../realtime.module");
 const user_module_1 = require("../user/user.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let InventoryModule = class InventoryModule {
 };
 exports.InventoryModule = InventoryModule;
 exports.InventoryModule = InventoryModule = __decorate([
     (0, common_1.Module)({
         controllers: [inventory_controller_1.InventoryController],
-        providers: [inventory_service_1.InventoryService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService],
+        providers: [inventory_service_1.InventoryService, prisma_service_1.PrismaService, audit_log_service_1.AuditLogService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         imports: [realtime_module_1.RealtimeModule, user_module_1.UserModule],
     })
 ], InventoryModule);

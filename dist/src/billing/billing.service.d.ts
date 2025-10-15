@@ -90,6 +90,7 @@ export declare class BillingService {
         maxUsers: number | null;
         maxProducts: number | null;
         maxSalesPerMonth: number | null;
+        maxBranches: number | null;
         analyticsEnabled: boolean;
         advancedReports: boolean;
         prioritySupport: boolean;
@@ -146,6 +147,7 @@ export declare class BillingService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -173,6 +175,7 @@ export declare class BillingService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -188,22 +191,25 @@ export declare class BillingService {
             stripePriceId: string | null;
         };
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     }>;
     hasFeature(tenantId: string, feature: string): Promise<boolean>;
     getPlanLimits(tenantId: string): Promise<{

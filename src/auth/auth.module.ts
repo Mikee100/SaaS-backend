@@ -9,6 +9,10 @@ import { PrismaModule } from '../prisma.module';
 import { ConfigurationService } from '../config/configuration.service';
 import { PassportModule } from '@nestjs/passport';
 import { EmailModule } from '../email/email.module';
+import { BillingModule } from '../billing/billing.module';
+import { SubscriptionService } from '../billing/subscription.service';
+import { PrismaService } from '../prisma.service';
+import { TrialGuard } from './trial.guard';
 
 @Module({
   imports: [
@@ -16,6 +20,7 @@ import { EmailModule } from '../email/email.module';
     PrismaModule,
     PassportModule,
     EmailModule,
+    BillingModule,
     JwtModule.register({
       secret:
         process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
@@ -33,7 +38,7 @@ import { EmailModule } from '../email/email.module';
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, AuditLogService, ConfigurationService],
+  providers: [AuthService, JwtStrategy, AuditLogService, ConfigurationService, TrialGuard, SubscriptionService],
   controllers: [AuthController],
 })
 export class AuthModule {}

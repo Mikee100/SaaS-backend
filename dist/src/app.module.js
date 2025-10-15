@@ -27,6 +27,7 @@ const analytics_module_1 = require("./analytics/analytics.module");
 const branch_module_1 = require("./branch/branch.module");
 const usage_module_1 = require("./usage.module");
 const admin_tenant_stats_module_1 = require("./adminTenantStats/admin-tenant-stats.module");
+const admin_module_1 = require("./admin/admin.module");
 const throttler_1 = require("@nestjs/throttler");
 const audit_log_module_1 = require("./audit-log/audit-log.module");
 const supplier_module_1 = require("./supplier/supplier.module");
@@ -58,6 +59,7 @@ exports.AppModule = AppModule = __decorate([
             branch_module_1.BranchModule,
             usage_module_1.UsageModule,
             admin_tenant_stats_module_1.AdminTenantStatsModule,
+            admin_module_1.AdminModule,
             audit_log_module_1.AuditLogModule,
             supplier_module_1.SupplierModule,
             ai_module_1.AiModule,

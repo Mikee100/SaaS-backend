@@ -2,12 +2,14 @@ import { PrismaService } from '../prisma.service';
 import { Response } from 'express';
 import { AuditLogService } from '../audit-log.service';
 import { BillingService } from '../billing/billing.service';
+import { SubscriptionService } from '../billing/subscription.service';
 export declare class ProductService {
     private prisma;
     private auditLogService;
     private billingService;
+    private subscriptionService;
     findAllByBranch(branchId: string, tenantId: string): Promise<any>;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService);
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, billingService: BillingService, subscriptionService: SubscriptionService);
     findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<any>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;

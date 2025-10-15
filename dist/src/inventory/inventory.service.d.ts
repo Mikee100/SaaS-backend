@@ -193,10 +193,10 @@ export declare class InventoryService {
         productId: string;
         quantity: number;
         location: string;
+        reason: string | null;
         type: string;
         previousQuantity: number;
         newQuantity: number;
-        reason: string | null;
         createdBy: string;
     })[]>;
     getAlerts(tenantId: string, branchId?: string): Promise<({
@@ -300,10 +300,10 @@ export declare class InventoryService {
         productId: string;
         quantity: number;
         location: string;
+        reason: string | null;
         type: string;
         previousQuantity: number;
         newQuantity: number;
-        reason: string | null;
         createdBy: string;
     }>;
     private checkAndCreateAlerts;

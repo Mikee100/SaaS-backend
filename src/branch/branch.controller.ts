@@ -15,8 +15,9 @@ import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), TrialGuard)
 @Controller('api/branches') // <-- change this line
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}

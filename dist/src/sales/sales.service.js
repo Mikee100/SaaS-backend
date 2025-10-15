@@ -16,17 +16,20 @@ const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
 const realtime_gateway_1 = require("../realtime.gateway");
 const configuration_service_1 = require("../config/configuration.service");
+const subscription_service_1 = require("../billing/subscription.service");
 const axios_1 = require("axios");
 let SalesService = class SalesService {
     prisma;
     auditLogService;
     realtimeGateway;
     configurationService;
-    constructor(prisma, auditLogService, realtimeGateway, configurationService) {
+    subscriptionService;
+    constructor(prisma, auditLogService, realtimeGateway, configurationService, subscriptionService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
         this.realtimeGateway = realtimeGateway;
         this.configurationService = configurationService;
+        this.subscriptionService = subscriptionService;
     }
     async createSale(dto, tenantId, userId) {
         if (!dto.idempotencyKey)
@@ -48,6 +51,12 @@ let SalesService = class SalesService {
                 customerName: existing.customerName || undefined,
                 customerPhone: existing.customerPhone || undefined,
             };
+        }
+        const canCreateSale = await this.subscriptionService.canCreateSale(tenantId);
+        if (!canCreateSale) {
+            const subscription = await this.subscriptionService.getCurrentSubscription(tenantId);
+            const maxSalesPerMonth = subscription.plan?.maxSalesPerMonth || 0;
+            throw new common_1.ForbiddenException(`Sales limit exceeded. Your plan allows up to ${maxSalesPerMonth} sales per month. Please upgrade your plan to create more sales.`);
         }
         const saleId = (0, uuid_1.v4)();
         const now = new Date();
@@ -667,6 +676,7 @@ exports.SalesService = SalesService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_log_service_1.AuditLogService,
         realtime_gateway_1.RealtimeGateway,
-        configuration_service_1.ConfigurationService])
+        configuration_service_1.ConfigurationService,
+        subscription_service_1.SubscriptionService])
 ], SalesService);
 //# sourceMappingURL=sales.service.js.map

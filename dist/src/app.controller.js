@@ -16,6 +16,7 @@ exports.AppController = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const prisma_service_1 = require("./prisma.service");
+const trial_guard_1 = require("./auth/trial.guard");
 let AppController = class AppController {
     prisma;
     constructor(prisma) {
@@ -168,7 +169,7 @@ __decorate([
     __metadata("design:returntype", String)
 ], AppController.prototype, "getHello", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('dashboard/stats'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -176,7 +177,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AppController.prototype, "getDashboardStats", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('usage/stats'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),

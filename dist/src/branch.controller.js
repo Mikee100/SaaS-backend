@@ -16,6 +16,7 @@ exports.BranchController = void 0;
 const common_1 = require("@nestjs/common");
 const branch_service_1 = require("./branch.service");
 const passport_1 = require("@nestjs/passport");
+const trial_guard_1 = require("./auth/trial.guard");
 let BranchController = class BranchController {
     branchService;
     constructor(branchService) {
@@ -82,7 +83,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BranchController.prototype, "remove", null);
 exports.BranchController = BranchController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Controller)('branches'),
     __metadata("design:paramtypes", [branch_service_1.BranchService])
 ], BranchController);

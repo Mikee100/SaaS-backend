@@ -18,6 +18,7 @@ const user_service_1 = require("./user.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -86,6 +87,10 @@ let UserController = class UserController {
     async updatePreferences(req, body) {
         return this.userService.updateUserPreferences(req.user.userId, body);
     }
+    async changePassword(req, body) {
+        const { currentPassword, newPassword } = body;
+        return this.userService.changePassword(req.user.userId, currentPassword, newPassword);
+    }
     async deleteUser(req, id) {
         const tenantId = req.user.tenantId;
         return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
@@ -153,6 +158,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "updatePreferences", null);
 __decorate([
+    (0, common_1.Put)('me/password'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "changePassword", null);
+__decorate([
     (0, common_1.Delete)(':id'),
     (0, permissions_decorator_1.Permissions)('edit_users'),
     __param(0, (0, common_1.Req)()),
@@ -162,7 +175,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
 exports.UserController = UserController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

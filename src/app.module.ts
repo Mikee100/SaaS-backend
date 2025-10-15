@@ -19,6 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { BranchModule } from './branch/branch.module';
 import { UsageModule } from './usage.module';
 import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
+import { AdminModule } from './admin/admin.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
@@ -47,6 +48,7 @@ import { AiModule } from './ai/ai.module';
     BranchModule,
     UsageModule,
     AdminTenantStatsModule,
+    AdminModule,
     AuditLogModule,
     SupplierModule,
     AiModule,

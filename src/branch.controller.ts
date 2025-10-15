@@ -11,8 +11,9 @@ import {
 } from '@nestjs/common';
 import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
+import { TrialGuard } from './auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), TrialGuard)
 @Controller('branches')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}

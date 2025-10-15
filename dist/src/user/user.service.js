@@ -15,10 +15,12 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma.service");
 const bcrypt = require("bcrypt");
 const audit_log_service_1 = require("../audit-log.service");
+const subscription_service_1 = require("../billing/subscription.service");
 const common_2 = require("@nestjs/common");
 let UserService = UserService_1 = class UserService {
     prisma;
     auditLogService;
+    subscriptionService;
     async updateUserPermissions(userId, permissions, tenantId, actorUserId, ip) {
         await this.prisma.userPermission.deleteMany({
             where: { userId, tenantId },
@@ -60,9 +62,10 @@ let UserService = UserService_1 = class UserService {
         });
     }
     logger = new common_2.Logger(UserService_1.name);
-    constructor(prisma, auditLogService) {
+    constructor(prisma, auditLogService, subscriptionService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
+        this.subscriptionService = subscriptionService;
     }
     async createUser(data, actorUserId, ip, prismaClient) {
         const prisma = prismaClient || this.prisma;
@@ -71,6 +74,21 @@ let UserService = UserService_1 = class UserService {
         });
         if (!tenant) {
             throw new common_1.BadRequestException(`Tenant with id '${data.tenantId}' does not exist. Cannot create user.`);
+        }
+        try {
+            const canAddUser = await this.subscriptionService.canAddUser(data.tenantId);
+            if (!canAddUser) {
+                const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+                const maxUsers = subscription.plan?.maxUsers || 0;
+                throw new common_1.ForbiddenException(`User limit exceeded. Your plan allows up to ${maxUsers} users. Please upgrade your plan to add more users.`);
+            }
+        }
+        catch (error) {
+            if (error instanceof common_1.NotFoundException && error.message.includes('No active subscription found')) {
+            }
+            else {
+                throw error;
+            }
         }
         const existingUser = await prisma.user.findUnique({
             where: { email: data.email },
@@ -328,6 +346,27 @@ let UserService = UserService_1 = class UserService {
             },
         });
     }
+    async changePassword(userId, currentPassword, newPassword) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.BadRequestException('Current password is incorrect');
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                password: hashedPassword,
+                updatedAt: new Date(),
+            },
+        });
+        return { success: true, message: 'Password updated successfully' };
+    }
     async getEffectivePermissions(userId, tenantId) {
         try {
             this.logger.log(`getEffectivePermissions called for userId=${userId}, tenantId=${tenantId}`);
@@ -464,6 +503,7 @@ exports.UserService = UserService;
 exports.UserService = UserService = UserService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_log_service_1.AuditLogService])
+        audit_log_service_1.AuditLogService,
+        subscription_service_1.SubscriptionService])
 ], UserService);
 //# sourceMappingURL=user.service.js.map

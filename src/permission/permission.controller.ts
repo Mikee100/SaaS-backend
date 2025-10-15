@@ -11,9 +11,10 @@ import {
 import { PermissionService } from './permission.service';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 import { AuthGuard } from '@nestjs/passport';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('permissions')
 export class PermissionController {
   private readonly logger = new Logger(PermissionController.name);

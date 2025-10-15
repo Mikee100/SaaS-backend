@@ -3,8 +3,9 @@ import { AiService } from './ai.service';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
+import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}

@@ -13,13 +13,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { NotFoundException } from '@nestjs/common';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 import {
   BadRequestException,
   UnauthorizedException,
   InternalServerErrorException,
 } from '@nestjs/common';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}

@@ -16,8 +16,9 @@ import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -150,6 +151,15 @@ export class UserController {
     body: { notificationPreferences?: any; language?: string; region?: string },
   ) {
     return this.userService.updateUserPreferences(req.user.userId, body);
+  }
+
+  @Put('me/password')
+  async changePassword(
+    @Req() req,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    const { currentPassword, newPassword } = body;
+    return this.userService.changePassword(req.user.userId, currentPassword, newPassword);
   }
 
   @Delete(':id')

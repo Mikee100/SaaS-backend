@@ -121,4 +121,75 @@ export class SubscriptionAdminService {
       },
     });
   }
+
+  async assignPlanToTenant(tenantId: string, planId: string) {
+    // Check if tenant exists
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Check if plan exists
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    // Check for existing active subscription
+    const existingSubscription = await this.prisma.subscription.findFirst({
+      where: {
+        tenantId,
+        status: 'active',
+      },
+    });
+
+    if (existingSubscription) {
+      // Update existing subscription
+      return await this.prisma.subscription.update({
+        where: { id: existingSubscription.id },
+        data: {
+          planId: plan.id,
+          scheduledPlanId: null,
+          scheduledEffectiveDate: null,
+        },
+        include: {
+          Plan: true,
+        },
+      });
+    } else {
+      // Create new subscription
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setMonth(endDate.getMonth() + 1); // Default to 1 month
+
+      return await this.prisma.subscription.create({
+        data: {
+          id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+          tenantId,
+          planId: plan.id,
+          status: 'active',
+          currentPeriodStart: now,
+          currentPeriodEnd: endDate,
+          cancelAtPeriodEnd: false,
+          stripePriceId: plan.stripePriceId || '',
+          stripeSubscriptionId: `manual-${tenantId}-${Date.now()}`, // Placeholder for manual assignment
+          stripeCurrentPeriodEnd: endDate,
+          stripeCustomerId: tenant.stripeCustomerId || '',
+          trialEnd: null,
+          trialStart: null,
+          isTrial: false,
+          userId: null, // Optional field
+        },
+        include: {
+          Plan: true,
+        },
+      });
+    }
+  }
 }

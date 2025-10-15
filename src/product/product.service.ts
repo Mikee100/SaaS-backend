@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AuditLogService } from '../audit-log.service';
 import * as qrcode from 'qrcode';
 import { BillingService } from '../billing/billing.service';
+import { SubscriptionService } from '../billing/subscription.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
@@ -62,6 +63,7 @@ export class ProductService {
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
     private billingService: BillingService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async findAllByTenantAndBranch(tenantId: string, branchId?: string) {
@@ -82,14 +84,13 @@ export class ProductService {
   }
 
   async createProduct(data: any, actorUserId?: string, ip?: string) {
-    // Check product limit
-    const productLimit = await this.billingService.checkLimit(
-      data.tenantId,
-      'products',
-    );
-    if (!productLimit.allowed) {
+    // Check plan limits for products
+    const canAddProduct = await this.subscriptionService.canAddProduct(data.tenantId);
+    if (!canAddProduct) {
+      const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+      const maxProducts = subscription.plan?.maxProducts || 0;
       throw new BadRequestException(
-        `Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`,
+        `Product limit exceeded. Your plan allows up to ${maxProducts} products. Please upgrade your plan to add more products.`,
       );
     }
 

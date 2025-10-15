@@ -13,13 +13,16 @@ const role_controller_1 = require("./role.controller");
 const permission_service_1 = require("./permission.service");
 const prisma_service_1 = require("../prisma.service");
 const user_module_1 = require("../user/user.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let PermissionModule = class PermissionModule {
 };
 exports.PermissionModule = PermissionModule;
 exports.PermissionModule = PermissionModule = __decorate([
     (0, common_1.Module)({
         controllers: [permission_controller_1.PermissionController, role_controller_1.RoleController],
-        providers: [permission_service_1.PermissionService, prisma_service_1.PrismaService],
+        providers: [permission_service_1.PermissionService, prisma_service_1.PrismaService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         imports: [user_module_1.UserModule],
     })
 ], PermissionModule);

@@ -20,6 +20,7 @@ model User {
   notificationPreferences Json?
   region                  String?
   isSuperadmin            Boolean            @default(false)
+  isDisabled              Boolean            @default(false)
   tenantId                String?
   branchId                String?
   AuditLog                AuditLog[]
@@ -419,6 +420,7 @@ model Plan {
   maxUsers           Int?
   maxProducts        Int?
   maxSalesPerMonth   Int?
+  maxBranches        Int?
   analyticsEnabled   Boolean             @default(false)
   advancedReports    Boolean             @default(false)
   prioritySupport    Boolean             @default(false)
@@ -578,7 +580,10 @@ model Subscription {
   stripeCustomerId       String
   trialEnd               DateTime?
   trialStart             DateTime?
+  isTrial                Boolean   @default(false)
   userId                 String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
   Invoice                Invoice[]
   Plan                   Plan      @relation(fields: [planId], references: [id])
   ScheduledPlan          Plan?     @relation("ScheduledPlan", fields: [scheduledPlanId], references: [id])

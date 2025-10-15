@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { SubscriptionService } from '../billing/subscription.service';
 
 @Injectable()
 export class BranchService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private subscriptionService: SubscriptionService,
+  ) {}
 
   async createBranch(data: any) {
     // Only use tenantId for linking branch to tenant
@@ -12,6 +16,26 @@ export class BranchService {
     if ('tenant' in branchData) delete branchData.tenant;
     if (!branchData.tenantId)
       throw new Error('tenantId is required to create a branch');
+
+    // Skip plan limits check for new tenant registration (trial setup)
+    // Check plan limits for branches only if not during initial tenant creation
+    try {
+      const canAddBranch = await this.subscriptionService.canAddBranch(branchData.tenantId);
+      if (!canAddBranch) {
+        const subscription = await this.subscriptionService.getCurrentSubscription(branchData.tenantId);
+        const maxBranches = subscription.plan?.maxBranches || 0;
+        throw new ForbiddenException(
+          `Branch limit exceeded. Your plan allows up to ${maxBranches} branches. Please upgrade your plan to add more branches.`,
+        );
+      }
+    } catch (error) {
+      // If no subscription found (during tenant creation), allow branch creation
+      if (error instanceof NotFoundException && error.message.includes('No active subscription found')) {
+        // Allow branch creation for new tenants
+      } else {
+        throw error;
+      }
+    }
 
     // Set default status to 'active' if not provided
     if (!branchData.status) {

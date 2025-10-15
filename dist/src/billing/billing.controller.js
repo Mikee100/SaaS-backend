@@ -21,6 +21,7 @@ const subscription_service_1 = require("./subscription.service");
 const passport_1 = require("@nestjs/passport");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 const prisma_service_1 = require("../prisma.service");
 let BillingController = BillingController_1 = class BillingController {
     billingService;
@@ -286,7 +287,7 @@ __decorate([
 ], BillingController.prototype, "healthCheck", null);
 __decorate([
     (0, common_1.Get)('plans'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -294,7 +295,7 @@ __decorate([
 ], BillingController.prototype, "getPlans", null);
 __decorate([
     (0, common_1.Get)('subscription-with-permissions'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -311,7 +312,7 @@ __decorate([
 ], BillingController.prototype, "getPlanLimits", null);
 __decorate([
     (0, common_1.Get)('invoices'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -320,7 +321,7 @@ __decorate([
 ], BillingController.prototype, "getInvoices", null);
 __decorate([
     (0, common_1.Post)('create-subscription'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -330,7 +331,7 @@ __decorate([
 ], BillingController.prototype, "createSubscription", null);
 __decorate([
     (0, common_1.Post)('create-checkout-session'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -340,7 +341,7 @@ __decorate([
 ], BillingController.prototype, "createCheckoutSession", null);
 __decorate([
     (0, common_1.Post)('create-portal-session'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -350,7 +351,7 @@ __decorate([
 ], BillingController.prototype, "createPortalSession", null);
 __decorate([
     (0, common_1.Post)('cancel-subscription'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -359,7 +360,7 @@ __decorate([
 ], BillingController.prototype, "cancelSubscription", null);
 __decorate([
     (0, common_1.Get)('subscription-details'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('view_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -368,7 +369,7 @@ __decorate([
 ], BillingController.prototype, "getSubscriptionDetails", null);
 __decorate([
     (0, common_1.Post)('cleanup-orphaned-subscriptions'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, permissions_decorator_1.Permissions)('edit_billing'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),

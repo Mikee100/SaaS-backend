@@ -17,6 +17,7 @@ const uuid_1 = require("uuid");
 const audit_log_service_1 = require("../audit-log.service");
 const qrcode = require("qrcode");
 const billing_service_1 = require("../billing/billing.service");
+const subscription_service_1 = require("../billing/subscription.service");
 const fs = require("fs");
 const path = require("path");
 const sharp_1 = require("sharp");
@@ -36,6 +37,7 @@ let ProductService = class ProductService {
     prisma;
     auditLogService;
     billingService;
+    subscriptionService;
     async findAllByBranch(branchId, tenantId) {
         console.log('------------------------------');
         console.log('[ProductService] Filtering products by branchId:', branchId, 'tenantId:', tenantId);
@@ -48,10 +50,11 @@ let ProductService = class ProductService {
             orderBy: { createdAt: 'desc' },
         });
     }
-    constructor(prisma, auditLogService, billingService) {
+    constructor(prisma, auditLogService, billingService, subscriptionService) {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
         this.billingService = billingService;
+        this.subscriptionService = subscriptionService;
     }
     async findAllByTenantAndBranch(tenantId, branchId) {
         const where = { tenantId };
@@ -70,9 +73,11 @@ let ProductService = class ProductService {
         });
     }
     async createProduct(data, actorUserId, ip) {
-        const productLimit = await this.billingService.checkLimit(data.tenantId, 'products');
-        if (!productLimit.allowed) {
-            throw new common_1.BadRequestException(`Product limit exceeded. You can create up to ${productLimit.limit} products with your current plan. Please upgrade to create more products.`);
+        const canAddProduct = await this.subscriptionService.canAddProduct(data.tenantId);
+        if (!canAddProduct) {
+            const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+            const maxProducts = subscription.plan?.maxProducts || 0;
+            throw new common_1.BadRequestException(`Product limit exceeded. Your plan allows up to ${maxProducts} products. Please upgrade your plan to add more products.`);
         }
         const productData = {
             ...data,
@@ -465,6 +470,7 @@ exports.ProductService = ProductService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_log_service_1.AuditLogService,
-        billing_service_1.BillingService])
+        billing_service_1.BillingService,
+        subscription_service_1.SubscriptionService])
 ], ProductService);
 //# sourceMappingURL=product.service.js.map

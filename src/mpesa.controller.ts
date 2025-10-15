@@ -1,9 +1,11 @@
-import { Controller, Post, Body, Res, Req, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, Get, Param, UseGuards } from '@nestjs/common';
 import axios from 'axios';
 import { Response, Request } from 'express';
 import { MpesaService } from './mpesa.service';
 import { SalesService } from './sales/sales.service';
 import { PrismaService } from './prisma.service';
+import { AuthGuard } from '@nestjs/passport';
+import { TrialGuard } from './auth/trial.guard';
 
 @Controller('mpesa')
 export class MpesaController {
@@ -14,6 +16,7 @@ export class MpesaController {
   ) {}
 
   @Post()
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async initiateMpesa(
     @Body() body: any,
     @Req() req: Request,
@@ -203,6 +206,7 @@ export class MpesaController {
   }
 
   @Get('by-checkout-id/:checkoutRequestId')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getByCheckoutId(@Param('checkoutRequestId') checkoutRequestId: string) {
     return this.mpesaService.prisma.mpesaTransaction.findFirst({
       where: { checkoutRequestID: checkoutRequestId },

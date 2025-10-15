@@ -11,6 +11,9 @@ const common_1 = require("@nestjs/common");
 const analytics_controller_1 = require("./analytics.controller");
 const analytics_service_1 = require("./analytics.service");
 const prisma_module_1 = require("../prisma.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const subscription_service_1 = require("../billing/subscription.service");
+const billing_service_1 = require("../billing/billing.service");
 let AnalyticsModule = class AnalyticsModule {
 };
 exports.AnalyticsModule = AnalyticsModule;
@@ -18,7 +21,7 @@ exports.AnalyticsModule = AnalyticsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
         controllers: [analytics_controller_1.AnalyticsController],
-        providers: [analytics_service_1.AnalyticsService],
+        providers: [analytics_service_1.AnalyticsService, trial_guard_1.TrialGuard, subscription_service_1.SubscriptionService, billing_service_1.BillingService],
         exports: [analytics_service_1.AnalyticsService],
     })
 ], AnalyticsModule);

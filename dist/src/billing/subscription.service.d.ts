@@ -29,6 +29,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -44,22 +45,25 @@ export declare class SubscriptionService {
                 stripePriceId: string | null;
             };
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         };
         proration: {
             credit: number;
@@ -80,6 +84,7 @@ export declare class SubscriptionService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -96,22 +101,25 @@ export declare class SubscriptionService {
         };
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     })>;
     updateSubscription(tenantId: string, data: UpdateSubscriptionDto): Promise<{
         subscription: {
@@ -128,6 +136,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -143,22 +152,25 @@ export declare class SubscriptionService {
                 stripePriceId: string | null;
             };
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         };
         proration: {
             credit: number;
@@ -181,6 +193,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -196,22 +209,25 @@ export declare class SubscriptionService {
                 stripePriceId: string | null;
             };
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         };
         effectiveDate: any;
         currentPlan: any;
@@ -219,22 +235,25 @@ export declare class SubscriptionService {
     }>;
     cancelSubscription(tenantId: string): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     }>;
     getSubscriptionHistory(tenantId: string): Promise<({
         Invoice: {
@@ -244,8 +263,8 @@ export declare class SubscriptionService {
             updatedAt: Date;
             tenantId: string;
             status: string;
-            amount: number;
             subscriptionId: string | null;
+            amount: number;
             dueDate: Date | null;
             paidAt: Date | null;
         }[];
@@ -262,6 +281,7 @@ export declare class SubscriptionService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -278,22 +298,25 @@ export declare class SubscriptionService {
         };
     } & {
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     })[]>;
     createInvoice(subscriptionId: string, amount: number, tenantId: string): Promise<{
         number: string;
@@ -302,8 +325,8 @@ export declare class SubscriptionService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        amount: number;
         subscriptionId: string | null;
+        amount: number;
         dueDate: Date | null;
         paidAt: Date | null;
     }>;
@@ -325,6 +348,7 @@ export declare class SubscriptionService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -352,6 +376,7 @@ export declare class SubscriptionService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -367,22 +392,25 @@ export declare class SubscriptionService {
             stripePriceId: string | null;
         } | null;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     }>;
     upgradeSubscription(tenantId: string, planId: string, effectiveDate?: Date): Promise<{
         subscription: {
@@ -399,6 +427,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -414,22 +443,25 @@ export declare class SubscriptionService {
                 stripePriceId: string | null;
             };
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         };
         proration: {
             credit: number;
@@ -452,6 +484,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -467,22 +500,25 @@ export declare class SubscriptionService {
                 stripePriceId: string | null;
             };
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         };
         effectiveDate: any;
         currentPlan: any;
@@ -502,6 +538,7 @@ export declare class SubscriptionService {
             maxUsers: number | null;
             maxProducts: number | null;
             maxSalesPerMonth: number | null;
+            maxBranches: number | null;
             analyticsEnabled: boolean;
             advancedReports: boolean;
             prioritySupport: boolean;
@@ -517,22 +554,25 @@ export declare class SubscriptionService {
             stripePriceId: string | null;
         };
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         stripeCustomerId: string;
         tenantId: string;
         stripePriceId: string;
         userId: string | null;
         status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        currentPeriodStart: Date;
-        currentPeriodEnd: Date;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
+        isTrial: boolean;
     }>;
     getPlans(): Promise<{
         features: string[];
@@ -594,6 +634,7 @@ export declare class SubscriptionService {
                 maxUsers: number | null;
                 maxProducts: number | null;
                 maxSalesPerMonth: number | null;
+                maxBranches: number | null;
                 analyticsEnabled: boolean;
                 advancedReports: boolean;
                 prioritySupport: boolean;
@@ -610,22 +651,25 @@ export declare class SubscriptionService {
             };
         } & {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             stripeCustomerId: string;
             tenantId: string;
             stripePriceId: string;
             userId: string | null;
             status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
             trialEnd: Date | null;
             trialStart: Date | null;
+            isTrial: boolean;
         }) | null;
     } & {
         number: string;
@@ -634,10 +678,127 @@ export declare class SubscriptionService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        amount: number;
         subscriptionId: string | null;
+        amount: number;
         dueDate: Date | null;
         paidAt: Date | null;
     })[]>;
+    createTrialSubscription(tenantId: string, durationHours: number, planId: string): Promise<{
+        Plan: {
+            id: string;
+            name: string;
+            description: string;
+            backupRestore: boolean;
+            customIntegrations: boolean;
+            ssoEnabled: boolean;
+            whiteLabel: boolean;
+            price: number;
+            interval: string;
+            maxUsers: number | null;
+            maxProducts: number | null;
+            maxSalesPerMonth: number | null;
+            maxBranches: number | null;
+            analyticsEnabled: boolean;
+            advancedReports: boolean;
+            prioritySupport: boolean;
+            customBranding: boolean;
+            apiAccess: boolean;
+            isActive: boolean;
+            advancedSecurity: boolean;
+            auditLogs: boolean;
+            bulkOperations: boolean;
+            customFields: boolean;
+            dataExport: boolean;
+            dedicatedSupport: boolean;
+            stripePriceId: string | null;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        stripeCustomerId: string;
+        tenantId: string;
+        stripePriceId: string;
+        userId: string | null;
+        status: string;
+        currentPeriodStart: Date;
+        currentPeriodEnd: Date;
+        planId: string;
+        scheduledPlanId: string | null;
+        scheduledEffectiveDate: Date | null;
+        cancelAtPeriodEnd: boolean;
+        canceledAt: Date | null;
+        stripeSubscriptionId: string;
+        stripeCurrentPeriodEnd: Date;
+        trialEnd: Date | null;
+        trialStart: Date | null;
+        isTrial: boolean;
+    }>;
+    checkTrialStatus(tenantId: string): Promise<{
+        isTrial: boolean;
+        trialExpired: boolean;
+        trialEnd?: undefined;
+        remainingTime?: undefined;
+    } | {
+        isTrial: boolean;
+        trialExpired: boolean;
+        trialEnd: Date | null;
+        remainingTime: number;
+    }>;
+    isSubscriptionValid(tenantId: string): Promise<{
+        valid: boolean;
+        reason: string;
+        status?: undefined;
+        remainingTime?: undefined;
+    } | {
+        valid: boolean;
+        status: string;
+        remainingTime: number;
+        reason?: undefined;
+    }>;
+    canAddUser(tenantId: string): Promise<boolean>;
+    canAddBranch(tenantId: string): Promise<boolean>;
+    canAddProduct(tenantId: string): Promise<boolean>;
+    canCreateSale(tenantId: string): Promise<boolean>;
+    getTrialUsage(tenantId: string): Promise<{
+        isTrial: boolean;
+        usage: null;
+        trialStart?: undefined;
+        trialEnd?: undefined;
+        daysRemaining?: undefined;
+        planName?: undefined;
+    } | {
+        isTrial: boolean;
+        trialStart: Date;
+        trialEnd: Date | null;
+        daysRemaining: number;
+        usage: {
+            users: {
+                current: number;
+                limit: number;
+                percentage: number;
+                approachingLimit: boolean;
+            };
+            products: {
+                current: number;
+                limit: number;
+                percentage: number;
+                approachingLimit: boolean;
+            };
+            branches: {
+                current: number;
+                limit: number;
+                percentage: number;
+                approachingLimit: boolean;
+            };
+            salesThisMonth: {
+                current: number;
+                limit: number;
+                percentage: number;
+                approachingLimit: boolean;
+            };
+        };
+        planName: string;
+    }>;
 }
 export {};

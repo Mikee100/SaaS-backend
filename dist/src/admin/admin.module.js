@@ -10,21 +10,35 @@ exports.AdminModule = void 0;
 const common_1 = require("@nestjs/common");
 const admin_controller_1 = require("./admin.controller");
 const admin_service_1 = require("./admin.service");
-const prisma_service_1 = require("../prisma.service");
 const superadmin_guard_1 = require("./superadmin.guard");
 const configuration_controller_1 = require("./configuration.controller");
+const subscription_admin_controller_1 = require("./subscription-admin.controller");
+const subscription_admin_service_1 = require("./subscription-admin.service");
 const configuration_service_1 = require("../config/configuration.service");
+const billing_module_1 = require("../billing/billing.module");
+const admin_tenant_stats_module_1 = require("../adminTenantStats/admin-tenant-stats.module");
+const trial_guard_1 = require("../auth/trial.guard");
+const tenant_service_1 = require("../tenant/tenant.service");
+const user_service_1 = require("../user/user.service");
+const branch_service_1 = require("../branch/branch.service");
+const audit_log_service_1 = require("../audit-log.service");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
-        controllers: [admin_controller_1.AdminController, configuration_controller_1.ConfigurationController],
+        imports: [billing_module_1.BillingModule, admin_tenant_stats_module_1.AdminTenantStatsModule],
+        controllers: [admin_controller_1.AdminController, configuration_controller_1.ConfigurationController, subscription_admin_controller_1.SubscriptionAdminController],
         providers: [
             admin_service_1.AdminService,
-            prisma_service_1.PrismaService,
             superadmin_guard_1.SuperadminGuard,
+            subscription_admin_service_1.SubscriptionAdminService,
             configuration_service_1.ConfigurationService,
+            trial_guard_1.TrialGuard,
+            tenant_service_1.TenantService,
+            user_service_1.UserService,
+            branch_service_1.BranchService,
+            audit_log_service_1.AuditLogService,
         ],
         exports: [admin_service_1.AdminService, configuration_service_1.ConfigurationService],
     })

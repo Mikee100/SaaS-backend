@@ -20,6 +20,7 @@ const create_inventory_dto_1 = require("./create-inventory.dto");
 const update_inventory_dto_1 = require("./update-inventory.dto");
 const permissions_decorator_1 = require("../auth/permissions.decorator");
 const permissions_guard_1 = require("../auth/permissions.guard");
+const trial_guard_1 = require("../auth/trial.guard");
 let InventoryController = class InventoryController {
     inventoryService;
     constructor(inventoryService) {
@@ -162,7 +163,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "remove", null);
 exports.InventoryController = InventoryController = __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('inventory'),
     __metadata("design:paramtypes", [inventory_service_1.InventoryService])
 ], InventoryController);

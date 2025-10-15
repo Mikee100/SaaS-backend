@@ -134,10 +134,10 @@ export declare class InventoryController {
         productId: string;
         quantity: number;
         location: string;
+        reason: string | null;
         type: string;
         previousQuantity: number;
         newQuantity: number;
-        reason: string | null;
         createdBy: string;
     })[]>;
     getAlerts(req: any): Promise<({
@@ -233,10 +233,10 @@ export declare class InventoryController {
         productId: string;
         quantity: number;
         location: string;
+        reason: string | null;
         type: string;
         previousQuantity: number;
         newQuantity: number;
-        reason: string | null;
         createdBy: string;
     }>;
     create(req: any, dto: CreateInventoryDto): Promise<any>;

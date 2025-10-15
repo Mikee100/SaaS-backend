@@ -22,6 +22,7 @@ import {
   SectionLogoConfig,
 } from './section-logo.service';
 import { Request } from 'express';
+import { TrialGuard } from '../auth/trial.guard';
 
 // Define the user type that will be attached to the request
 interface UserPayload {
@@ -36,7 +37,7 @@ interface RequestWithUser extends Request {
 }
 
 @Controller('api/tenant/section-logos')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), TrialGuard)
 export class SectionLogoController {
   constructor(private readonly sectionLogoService: SectionLogoService) {}
 

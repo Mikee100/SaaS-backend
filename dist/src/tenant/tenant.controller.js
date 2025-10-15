@@ -26,6 +26,7 @@ const tenant_service_1 = require("./tenant.service");
 const common_2 = require("@nestjs/common");
 const user_service_1 = require("../user/user.service");
 const logo_service_1 = require("./logo.service");
+const trial_guard_1 = require("../auth/trial.guard");
 let TenantController = TenantController_1 = class TenantController {
     tenantService;
     userService;
@@ -192,7 +193,7 @@ let TenantController = TenantController_1 = class TenantController {
 };
 exports.TenantController = TenantController;
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('me'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -200,7 +201,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "getMyTenant", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Put)('me'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -209,7 +210,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updateMyTenant", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Post)('logo'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
         storage: (0, multer_1.diskStorage)({
@@ -248,7 +249,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "uploadLogo", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('logo/compliance'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -256,7 +257,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "getLogoCompliance", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('logo/statistics'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -264,7 +265,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "getLogoStatistics", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Put)('branding'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -273,7 +274,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updateBranding", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('api-settings'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -281,7 +282,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "getApiSettings", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Put)('api-settings'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -290,7 +291,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updateApiSettings", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Put)('pdf-template'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -299,7 +300,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TenantController.prototype, "updatePdfTemplate", null);
 __decorate([
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Post)('generate-api-key'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),

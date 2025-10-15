@@ -12,6 +12,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 import {
   TenantConfigurationService,
   TenantConfigurationItem,
@@ -47,7 +48,7 @@ interface StripeConfigurationDto {
 }
 
 @Controller('tenant/configurations')
-@UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 export class TenantConfigurationController {
   constructor(
     private readonly tenantConfigurationService: TenantConfigurationService,

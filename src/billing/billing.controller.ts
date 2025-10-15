@@ -13,6 +13,7 @@ import { SubscriptionService } from './subscription.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { TrialGuard } from '../auth/trial.guard';
 import { RawBodyRequest } from '@nestjs/common';
 import { Response } from 'express';
 import { PrismaService } from '../prisma.service';
@@ -96,14 +97,14 @@ export class BillingController {
   }
 
   @Get('plans')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('view_billing')
   async getPlans() {
     return this.billingService.getPlans();
   }
 
   @Get('subscription-with-permissions')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('view_billing')
   async getCurrentSubscriptionWithPermissions(@Req() req) {
     try {
@@ -132,14 +133,14 @@ export class BillingController {
   }
 
   @Get('invoices')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('view_billing')
   async getInvoices(@Req() req) {
     return this.billingService.getInvoices(req.user.tenantId);
   }
 
   @Post('create-subscription')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async createSubscription(@Body() body: { planId: string }, @Req() req) {
     try {
@@ -162,7 +163,7 @@ export class BillingController {
   }
 
   @Post('create-checkout-session')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async createCheckoutSession(
     @Body() body: { priceId: string; successUrl: string; cancelUrl: string },
@@ -179,7 +180,7 @@ export class BillingController {
   }
 
   @Post('create-portal-session')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async createPortalSession(@Body() body: { returnUrl: string }, @Req() req) {
     const session = await this.stripeService.createBillingPortalSession(
@@ -191,7 +192,7 @@ export class BillingController {
   }
 
   @Post('cancel-subscription')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async cancelSubscription(@Req() req) {
     await this.stripeService.cancelSubscription(req.user.tenantId, req.user.id);
@@ -201,7 +202,7 @@ export class BillingController {
   }
 
   @Get('subscription-details')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('view_billing')
   async getSubscriptionDetails(@Req() req) {
     const subscription = await this.stripeService.getSubscription(
@@ -211,7 +212,7 @@ export class BillingController {
   }
 
   @Post('cleanup-orphaned-subscriptions')
-  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async cleanupOrphanedSubscriptions(@Req() req) {
     await this.stripeService.cleanupOrphanedSubscriptions(req.user.tenantId);

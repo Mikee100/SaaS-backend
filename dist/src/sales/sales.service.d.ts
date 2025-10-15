@@ -50,12 +50,14 @@ export interface TransformedSale extends Omit<RawSaleResult, 'branchId' | 'branc
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
 import { ConfigurationService } from '../config/configuration.service';
+import { SubscriptionService } from '../billing/subscription.service';
 export declare class SalesService {
     private prisma;
     private auditLogService;
     private realtimeGateway;
     private configurationService;
-    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway, configurationService: ConfigurationService);
+    private subscriptionService;
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, realtimeGateway: RealtimeGateway, configurationService: ConfigurationService, subscriptionService: SubscriptionService);
     createSale(dto: CreateSaleDto & {
         mpesaTransactionId?: string;
         idempotencyKey: string;
@@ -195,8 +197,8 @@ export declare class SalesService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;

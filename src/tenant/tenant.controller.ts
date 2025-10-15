@@ -25,6 +25,7 @@ import { TenantService } from './tenant.service';
 import { Logger } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
+import { TrialGuard } from '../auth/trial.guard';
 import * as bcrypt from 'bcrypt';
 
 @Controller('tenant')
@@ -69,21 +70,21 @@ export class TenantController {
 
 
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('me')
   async getMyTenant(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.tenantService.getTenantById(tenantId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('me')
   async updateMyTenant(@Req() req, @Body() dto: any) {
     const tenantId = req.user.tenantId;
     return this.tenantService.updateTenant(tenantId, dto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Post('logo')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -159,7 +160,7 @@ export class TenantController {
     return { logoUrl, type: logoType };
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('logo/compliance')
   async getLogoCompliance(@Req() req) {
     const tenantId = req.user.tenantId;
@@ -180,7 +181,7 @@ export class TenantController {
   //   return this.logoService.getLogoUsage(tenantId);
   // }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('logo/statistics')
   async getLogoStatistics(@Req() req) {
     const tenantId = req.user.tenantId;
@@ -188,7 +189,7 @@ export class TenantController {
   }
 
   // Enterprise branding endpoints
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('branding')
   async updateBranding(@Req() req, @Body() dto: any) {
     const tenantId = req.user.tenantId;
@@ -214,7 +215,7 @@ export class TenantController {
   }
 
   // Enterprise API endpoints
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('api-settings')
   async getApiSettings(@Req() req) {
     const tenant = await this.tenantService.getTenantById(req.user.tenantId);
@@ -229,7 +230,7 @@ export class TenantController {
     };
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('api-settings')
   async updateApiSettings(@Req() req, @Body() apiSettings: any) {
     const tenantId = req.user.tenantId;
@@ -240,14 +241,14 @@ export class TenantController {
     });
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('pdf-template')
   async updatePdfTemplate(@Req() req, @Body() pdfTemplate: any) {
     const tenantId = req.user.tenantId;
     return this.tenantService.updateTenant(tenantId, { pdfTemplate });
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Post('generate-api-key')
   async generateApiKey(@Req() req) {
     const tenantId = req.user.tenantId;

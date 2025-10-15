@@ -16,6 +16,7 @@ const prisma_module_1 = require("../prisma.module");
 const audit_log_service_1 = require("../audit-log.service");
 const billing_module_1 = require("../billing/billing.module");
 const user_module_1 = require("../user/user.module");
+const trial_guard_1 = require("../auth/trial.guard");
 let ProductModule = class ProductModule {
 };
 exports.ProductModule = ProductModule;
@@ -23,7 +24,7 @@ exports.ProductModule = ProductModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, billing_module_1.BillingModule, user_module_1.UserModule],
         controllers: [product_controller_1.ProductController, bulk_upload_record_controller_1.BulkUploadRecordController],
-        providers: [product_service_1.ProductService, bulk_upload_record_service_1.BulkUploadRecordService, audit_log_service_1.AuditLogService],
+        providers: [product_service_1.ProductService, bulk_upload_record_service_1.BulkUploadRecordService, audit_log_service_1.AuditLogService, trial_guard_1.TrialGuard],
         exports: [product_service_1.ProductService, bulk_upload_record_service_1.BulkUploadRecordService],
     })
 ], ProductModule);

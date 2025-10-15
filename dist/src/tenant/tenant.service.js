@@ -176,6 +176,36 @@ let TenantService = TenantService_1 = class TenantService {
     async createTenantWithOwner(tenantData) {
         return this.prisma.$transaction(async (prisma) => {
             const tenant = await this.createTenant(tenantData);
+            const trialPlan = await this.prisma.plan.findFirst({
+                where: {
+                    name: {
+                        contains: 'trial',
+                        mode: 'insensitive',
+                    },
+                    isActive: true,
+                },
+            });
+            if (trialPlan) {
+                await this.prisma.subscription.create({
+                    data: {
+                        id: `trial_${Date.now()}`,
+                        tenantId: tenant.id,
+                        planId: trialPlan.id,
+                        status: 'trialing',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+                        stripeSubscriptionId: 'trial_' + Date.now(),
+                        stripeCustomerId: 'trial_' + tenant.id,
+                        stripePriceId: trialPlan.stripePriceId ?? '',
+                        stripeCurrentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+                        cancelAtPeriodEnd: false,
+                        trialEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+                        trialStart: new Date(),
+                        isTrial: true,
+                        canceledAt: null,
+                    },
+                });
+            }
             const branchName = tenantData.branchName || 'Main Branch';
             const mainBranch = await this.branchService.createBranch({
                 name: branchName,

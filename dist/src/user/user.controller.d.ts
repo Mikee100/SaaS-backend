@@ -48,6 +48,7 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
     }[]>;
     getProtected(req: any): {
@@ -76,7 +77,15 @@ export declare class UserController {
         notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
         region: string | null;
         isSuperadmin: boolean;
+        isDisabled: boolean;
         branchId: string | null;
+    }>;
+    changePassword(req: any, body: {
+        currentPassword: string;
+        newPassword: string;
+    }): Promise<{
+        success: boolean;
+        message: string;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
 }

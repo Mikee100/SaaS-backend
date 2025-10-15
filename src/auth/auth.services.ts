@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
+import { SubscriptionService } from '../billing/subscription.service';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +16,7 @@ export class AuthService {
     private jwtService: JwtService,
     private auditLogService: AuditLogService,
     private emailService: EmailService,
+    private subscriptionService: SubscriptionService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -56,6 +58,14 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      // 2.5. Check if user account is disabled
+      if ((user as any).isDisabled) {
+        if (this.auditLogService) {
+          await this.auditLogService.log(null, 'login_failed_disabled', { email }, ip);
+        }
+        throw new UnauthorizedException('Account disabled. Contact admin.');
+      }
+
       // 3. Get user's roles and tenant from user.userRoles
       const userWithRoles = user as any; // Cast to include userRoles
       const userRoles = userWithRoles.userRoles || [];
@@ -63,40 +73,53 @@ export class AuthService {
       if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
         tenantId = userRoles[0].tenantId;
       }
-      if (!tenantId) {
+      // Allow superadmin to login without tenant
+      if (!tenantId && !(user as any).isSuperadmin) {
         throw new UnauthorizedException(
           'No tenant assigned to this user. Please contact support.',
         );
       }
-      // 4. Get user's permissions
+      // 4. Check if trial has expired before allowing login (skip for superadmin)
+      if (tenantId) {
+        const trialStatus = await this.subscriptionService.checkTrialStatus(tenantId);
+        if (trialStatus.isTrial && trialStatus.trialExpired) {
+          throw new ForbiddenException('Trial period has expired. Please upgrade your subscription.');
+        }
+      }
+
+      // 5. Get user's permissions
       const userPermissions: string[] = [];
       try {
-        const perms = await this.userService.getEffectivePermissions(
-          user.id,
-          tenantId,
-        );
-        perms.forEach((perm) => {
-          if (perm.name) userPermissions.push(perm.name);
-        });
+        if (tenantId) {
+          const perms = await this.userService.getEffectivePermissions(
+            user.id,
+            tenantId,
+          );
+          perms.forEach((perm) => {
+            if (perm.name) userPermissions.push(perm.name);
+          });
+        }
       } catch (error) {
         console.error('Error fetching user permissions:', error);
       }
 
-      // 5. Prepare JWT payload with all necessary user data
+      // 6. Prepare JWT payload with all necessary user data
       const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
       const payload = {
         sub: user.id,
+        userId: user.id,
         email: user.email,
         name: user.name || '',
         tenantId: tenantId,
         branchId: user.branchId || null,
         roles: roles,
         permissions: userPermissions,
+        isSuperadmin: (user as any).isSuperadmin || false,
       };
 
       console.log('JWT Payload:', JSON.stringify(payload, null, 2));
 
-      // 6. Generate JWT token with all required claims and options
+      // 7. Generate JWT token with all required claims and options
       const accessToken = this.jwtService.sign(payload, {
         secret: process.env.JWT_SECRET || 'waweru',
         issuer: 'saas-platform',
@@ -106,7 +129,7 @@ export class AuthService {
       console.log('[JWT_SECRET]', process.env.JWT_SECRET);
       console.log('Generated JWT Token:', accessToken);
 
-      // 7. Log successful login
+      // 8. Log successful login
       if (this.auditLogService) {
         await this.auditLogService.log(
           user.id,
@@ -120,7 +143,7 @@ export class AuthService {
         );
       }
 
-      // 8. Return token and user info
+      // 9. Return token and user info
       return {
         access_token: accessToken,
         user: {
@@ -131,6 +154,7 @@ export class AuthService {
           branchId: payload.branchId,
           roles: payload.roles,
           permissions: payload.permissions,
+          isSuperadmin: payload.isSuperadmin,
         },
       };
     } catch (error) {
