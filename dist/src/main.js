@@ -125,7 +125,7 @@ async function bootstrap() {
         }));
         const uploadsPath = (0, path_1.join)(process.cwd(), 'uploads');
         app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
-        app.setGlobalPrefix('api');
+        app.setGlobalPrefix('api', { exclude: [''] });
         if (!isProduction) {
             logger.log('API documentation will be available at /api when @nestjs/swagger is installed');
         }
