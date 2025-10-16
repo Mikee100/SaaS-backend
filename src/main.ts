@@ -166,9 +166,6 @@ async function bootstrap() {
     const uploadsPath = join(process.cwd(), 'uploads');
     app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
 
-    // Set global API prefix (excluding root controller)
-    app.setGlobalPrefix('api', { exclude: [''] });
-
     // API documentation endpoint will be available when @nestjs/swagger is installed
     if (!isProduction) {
       logger.log(
