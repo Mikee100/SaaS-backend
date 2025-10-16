@@ -8,8 +8,8 @@ export class AppController {
   constructor(private prisma: PrismaService) {}
 
   @Get()
-  getHello(): string {
-    return 'Hello World!';
+  getRoot() {
+    return { message: 'SaaS API is running 🚀' };
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)

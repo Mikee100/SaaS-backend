@@ -22,8 +22,8 @@ let AppController = class AppController {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    getHello() {
-        return 'Hello World!';
+    getRoot() {
+        return { message: 'SaaS API is running 🚀' };
     }
     async getDashboardStats(req) {
         const tenantId = req.user.tenantId;
@@ -166,8 +166,8 @@ __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", String)
-], AppController.prototype, "getHello", null);
+    __metadata("design:returntype", void 0)
+], AppController.prototype, "getRoot", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), trial_guard_1.TrialGuard),
     (0, common_1.Get)('dashboard/stats'),

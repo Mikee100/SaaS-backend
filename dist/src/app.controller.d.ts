@@ -2,7 +2,9 @@ import { PrismaService } from './prisma.service';
 export declare class AppController {
     private prisma;
     constructor(prisma: PrismaService);
-    getHello(): string;
+    getRoot(): {
+        message: string;
+    };
     getDashboardStats(req: any): Promise<{
         totalSales: number;
         totalProducts: number;
