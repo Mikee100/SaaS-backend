@@ -167,6 +167,19 @@ export class SalesService {
         quantity: item.quantity,
       });
     }
+    // Validate branchId if provided
+    let validBranchId: string | null = dto.branchId || null;
+    if (dto.branchId) {
+      const branchExists = await this.prisma.branch.findUnique({
+        where: { id: dto.branchId },
+        select: { id: true, tenantId: true },
+      });
+      if (!branchExists || branchExists.tenantId !== tenantId) {
+        console.warn(`Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`);
+        validBranchId = null;
+      }
+    }
+
     // Calculate VAT (16%)
     const vatRate = 0.16; // 16% VAT rate
     const vatAmount = Math.round(subtotal * vatRate * 100) / 100;
@@ -197,7 +210,7 @@ export class SalesService {
           customerName: dto.customerName,
           customerPhone: dto.customerPhone,
           idempotencyKey: dto.idempotencyKey,
-          branchId: dto.branchId,
+          branchId: validBranchId,
         },
       });
 
