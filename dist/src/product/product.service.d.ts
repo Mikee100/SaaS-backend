@@ -13,16 +13,16 @@ export declare class ProductService {
     findAllByTenantAndBranch(tenantId: string, branchId?: string): Promise<any>;
     createProduct(data: any, actorUserId?: string, ip?: string): Promise<{
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
+        name: string;
+        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         sku: string;
         stock: number;
+        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
@@ -58,16 +58,16 @@ export declare class ProductService {
     generateQrCode(id: string, tenantId: string, res: Response): Promise<void>;
     uploadProductImages(productId: string, files: Express.Multer.File[], tenantId: string, userId: string): Promise<{
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
+        name: string;
+        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         sku: string;
         stock: number;
+        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
@@ -75,16 +75,16 @@ export declare class ProductService {
     }>;
     deleteProductImage(productId: string, imageUrl: string, tenantId: string, userId: string): Promise<{
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
+        name: string;
+        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         sku: string;
         stock: number;
+        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;

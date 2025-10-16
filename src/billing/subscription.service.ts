@@ -40,6 +40,7 @@ export class SubscriptionService {
           isActive: true,
           maxUsers: true,
           maxProducts: true,
+          maxBranches: true,
           maxSalesPerMonth: true,
           stripePriceId: true,
           analyticsEnabled: true,
@@ -848,6 +849,118 @@ export class SubscriptionService {
       },
       planName: plan.name,
     };
+  }
+
+  async getPlanLimits(tenantId: string) {
+    try {
+      // Count current usage first
+      const userCount = await this.prisma.user.count({ where: { tenantId } });
+      const productCount = await this.prisma.product.count({ where: { tenantId } });
+      const branchCount = await this.prisma.branch.count({ where: { tenantId } });
+
+      // Sales this month
+      const currentMonthStart = new Date();
+      currentMonthStart.setDate(1);
+      currentMonthStart.setHours(0, 0, 0, 0);
+      const salesCount = await this.prisma.sale.count({
+        where: {
+          tenantId,
+          createdAt: { gte: currentMonthStart },
+        },
+      });
+
+      // First, let's see all subscriptions for this tenant to debug
+      const allSubscriptions = await this.prisma.subscription.findMany({
+        where: { tenantId },
+        include: { Plan: true },
+        orderBy: { currentPeriodStart: 'desc' },
+      });
+      console.log('All subscriptions for tenant', tenantId, ':', allSubscriptions.map(s => ({ id: s.id, status: s.status, planName: s.Plan?.name })));
+
+      const subscription = await this.prisma.subscription.findFirst({
+        where: {
+          tenantId,
+          status: {
+            in: ['active', 'trialing', 'past_due'],
+          },
+        },
+        include: {
+          Plan: true,
+        },
+        orderBy: {
+          currentPeriodStart: 'desc',
+        },
+      });
+
+      let currentPlan: string | null = null;
+      let features = {
+        analytics: false,
+        advanced_reports: false,
+        custom_branding: false,
+        api_access: false,
+        bulk_operations: false,
+        data_export: false,
+        custom_fields: false,
+      };
+
+      if (subscription && subscription.Plan) {
+        const plan = subscription.Plan;
+        currentPlan = plan.name;
+        console.log('Found subscription for tenant, plan name:', plan.name);
+
+        features = {
+          analytics: plan.analyticsEnabled || false,
+          advanced_reports: plan.advancedReports || false,
+          custom_branding: plan.customBranding || false,
+          api_access: plan.apiAccess || false,
+          bulk_operations: plan.bulkOperations || false,
+          data_export: plan.dataExport || false,
+          custom_fields: plan.customFields || false,
+        };
+      } else {
+        console.log('No active subscription found for tenant');
+      }
+
+      const usage = {
+        users: { current: userCount, limit: subscription?.Plan?.maxUsers || 1 },
+        products: { current: productCount, limit: subscription?.Plan?.maxProducts || 10 },
+        branches: { current: branchCount, limit: subscription?.Plan?.maxBranches || 1 },
+        sales: { current: salesCount, limit: subscription?.Plan?.maxSalesPerMonth || 100 },
+      };
+
+      // For Basic plan, ensure the first branch and user are accounted for
+      if (subscription?.Plan?.name === 'Basic') {
+        usage.branches.limit = Math.max(usage.branches.limit, 1); // At least 1 branch for Basic
+        usage.users.limit = Math.max(usage.users.limit, 1); // At least 1 user for Basic
+      }
+
+      return {
+        currentPlan,
+        usage,
+        features,
+      };
+    } catch (error) {
+      console.error('Error fetching plan limits:', error);
+      // Return basic defaults on error (assuming Basic plan)
+      return {
+        currentPlan: 'Basic',
+        usage: {
+          users: { current: 1, limit: 1 }, // First user (owner) is included
+          products: { current: 0, limit: 10 },
+          branches: { current: 1, limit: 1 }, // First branch is included
+          sales: { current: 0, limit: 100 },
+        },
+        features: {
+          analytics: false,
+          advanced_reports: false,
+          custom_branding: false,
+          api_access: false,
+          bulk_operations: true,
+          data_export: false,
+          custom_fields: false,
+        },
+      };
+    }
   }
 }
 

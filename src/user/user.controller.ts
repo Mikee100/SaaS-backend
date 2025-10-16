@@ -168,4 +168,13 @@ export class UserController {
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
   }
+
+  @Get('me/plan-limits')
+  async getPlanLimits(@Req() req) {
+    const tenantId = req.user.tenantId;
+    console.log('UserController.getPlanLimits called for tenantId:', tenantId);
+    const result = await this.userService.getPlanLimits(tenantId);
+    console.log('UserController.getPlanLimits result:', result);
+    return result;
+  }
 }

@@ -23,23 +23,24 @@ export declare class UserController {
         userRoles: ({
             role: {
                 id: string;
-                name: string;
-                description: string | null;
+                tenantId: string | null;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string | null;
+                name: string;
+                description: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            roleId: string;
             userId: string;
+            roleId: string;
         })[];
         id: string;
-        name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -49,7 +50,6 @@ export declare class UserController {
         region: string | null;
         isSuperadmin: boolean;
         isDisabled: boolean;
-        branchId: string | null;
     }[]>;
     getProtected(req: any): {
         message: string;
@@ -65,10 +65,11 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
-        name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        branchId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -78,7 +79,6 @@ export declare class UserController {
         region: string | null;
         isSuperadmin: boolean;
         isDisabled: boolean;
-        branchId: string | null;
     }>;
     changePassword(req: any, body: {
         currentPassword: string;
@@ -88,4 +88,34 @@ export declare class UserController {
         message: string;
     }>;
     deleteUser(req: any, id: string): Promise<any>;
+    getPlanLimits(req: any): Promise<{
+        currentPlan: string | null;
+        usage: {
+            users: {
+                current: number;
+                limit: number;
+            };
+            products: {
+                current: number;
+                limit: number;
+            };
+            branches: {
+                current: number;
+                limit: number;
+            };
+            sales: {
+                current: number;
+                limit: number;
+            };
+        };
+        features: {
+            analytics: boolean;
+            advanced_reports: boolean;
+            custom_branding: boolean;
+            api_access: boolean;
+            bulk_operations: boolean;
+            data_export: boolean;
+            custom_fields: boolean;
+        };
+    }>;
 }

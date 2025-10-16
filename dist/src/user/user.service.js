@@ -498,6 +498,12 @@ let UserService = UserService_1 = class UserService {
             select: { name: true },
         });
     }
+    async getPlanLimits(tenantId) {
+        console.log('UserService.getPlanLimits called for tenantId:', tenantId);
+        const result = await this.subscriptionService.getPlanLimits(tenantId);
+        console.log('UserService.getPlanLimits result:', result);
+        return result;
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = UserService_1 = __decorate([

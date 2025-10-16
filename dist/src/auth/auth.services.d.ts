@@ -12,76 +12,67 @@ export declare class AuthService {
     private readonly logger;
     constructor(userService: UserService, jwtService: JwtService, auditLogService: AuditLogService, emailService: EmailService, subscriptionService: SubscriptionService);
     validateUser(email: string, password: string): Promise<{
-        [x: string]: ({
+        [x: string]: {
             id: string;
             tenantId: string;
-            roleId: string;
             userId: string;
-        } | {
-            id: string;
-            tenantId: string;
-            roleId: string;
-            userId: string;
-        })[] | ({
-            id: string;
-            tenantId: string;
-            branchId: string;
-            roleId: string;
-            userId: string;
-        } | {
-            id: string;
-            tenantId: string;
-            branchId: string;
-            roleId: string;
-            userId: string;
-        })[] | ({
-            id: string;
             createdAt: Date;
-            updatedAt: Date;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            isTrial: boolean;
-        } | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
-            planId: string;
-            scheduledPlanId: string | null;
-            scheduledEffectiveDate: Date | null;
-            cancelAtPeriodEnd: boolean;
-            canceledAt: Date | null;
-            stripeSubscriptionId: string;
-            stripeCurrentPeriodEnd: Date;
-            trialEnd: Date | null;
-            trialStart: Date | null;
-            isTrial: boolean;
-        })[] | ({
-            id: string;
-            createdAt: Date;
-            tenantId: string;
             branchId: string | null;
+            total: number;
+            paymentType: string;
+            customerName: string | null;
+            customerPhone: string | null;
+            mpesaTransactionId: string | null;
+            idempotencyKey: string | null;
+            vatAmount: number | null;
+        }[] | ({
+            id: string;
+            tenantId: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripePriceId: string;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            stripeCustomerId: string;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+        } | {
+            id: string;
+            tenantId: string;
+            planId: string;
+            scheduledPlanId: string | null;
+            scheduledEffectiveDate: Date | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
+            cancelAtPeriodEnd: boolean;
+            canceledAt: Date | null;
+            stripePriceId: string;
+            stripeSubscriptionId: string;
+            stripeCurrentPeriodEnd: Date;
+            stripeCustomerId: string;
+            trialEnd: Date | null;
+            trialStart: Date | null;
+            isTrial: boolean;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+        })[] | ({
+            id: string;
+            tenantId: string;
             userId: string;
+            createdAt: Date;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -91,10 +82,10 @@ export declare class AuthService {
             vatAmount: number | null;
         } | {
             id: string;
-            createdAt: Date;
             tenantId: string;
-            branchId: string | null;
             userId: string;
+            createdAt: Date;
+            branchId: string | null;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -104,25 +95,11 @@ export declare class AuthService {
             vatAmount: number | null;
         })[] | ({
             id: string;
-            createdAt: Date;
+            tenantId: string;
+            status: string;
             userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        } | {
-            id: string;
-            createdAt: Date;
-            userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        })[] | ({
-            id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
-            userId: string | null;
-            status: string;
             amount: number;
             phoneNumber: string;
             mpesaReceipt: string | null;
@@ -143,11 +120,11 @@ export declare class AuthService {
             transactionType: string | null;
         } | {
             id: string;
+            tenantId: string;
+            status: string;
+            userId: string | null;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
-            userId: string | null;
-            status: string;
             amount: number;
             phoneNumber: string;
             mpesaReceipt: string | null;
@@ -168,10 +145,10 @@ export declare class AuthService {
             transactionType: string | null;
         })[] | ({
             id: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
             tenantId: string;
             userId: string | null;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
@@ -179,10 +156,10 @@ export declare class AuthService {
             readAt: Date | null;
         } | {
             id: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
             tenantId: string;
             userId: string | null;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
@@ -190,40 +167,62 @@ export declare class AuthService {
             readAt: Date | null;
         })[] | ({
             id: string;
-            permission: string;
             tenantId: string;
             userId: string;
-            grantedAt: Date;
-            grantedBy: string | null;
+            branchId: string;
+            roleId: string;
         } | {
             id: string;
-            permission: string;
             tenantId: string;
             userId: string;
-            grantedAt: Date;
-            grantedBy: string | null;
+            branchId: string;
+            roleId: string;
         })[] | ({
             id: string;
+            tenantId: string;
+            userId: string;
+            permission: string;
+            grantedBy: string | null;
+            grantedAt: Date;
+        } | {
+            id: string;
+            tenantId: string;
+            userId: string;
+            permission: string;
+            grantedBy: string | null;
+            grantedAt: Date;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            userId: string;
+            roleId: string;
+        } | {
+            id: string;
+            tenantId: string;
+            userId: string;
+            roleId: string;
+        })[] | ({
+            id: string;
+            tenantId: string;
+            status: string;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             branchId: string | null;
-            userId: string;
             supplierId: string | null;
-            status: string;
             uploadDate: Date;
             totalProducts: number;
             totalValue: number;
             notes: string | null;
         } | {
             id: string;
+            tenantId: string;
+            status: string;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             branchId: string | null;
-            userId: string;
             supplierId: string | null;
-            status: string;
             uploadDate: Date;
             totalProducts: number;
             totalValue: number;
@@ -231,9 +230,9 @@ export declare class AuthService {
         })[] | ({
             id: string;
             tenantId: string;
+            userId: string;
             price: number | null;
             branchId: string | null;
-            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -245,9 +244,9 @@ export declare class AuthService {
         } | {
             id: string;
             tenantId: string;
+            userId: string;
             price: number | null;
             branchId: string | null;
-            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -256,65 +255,48 @@ export declare class AuthService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        })[] | ({
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
+        } | {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
         })[] | {
             id: string;
             tenantId: string;
-            roleId: string;
-            userId: string;
-        }[] | {
-            id: string;
-            tenantId: string;
-            branchId: string;
-            roleId: string;
-            userId: string;
-        }[] | {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            stripeCustomerId: string;
-            tenantId: string;
-            stripePriceId: string;
-            userId: string | null;
-            status: string;
-            currentPeriodStart: Date;
-            currentPeriodEnd: Date;
             planId: string;
             scheduledPlanId: string | null;
             scheduledEffectiveDate: Date | null;
+            status: string;
+            currentPeriodStart: Date;
+            currentPeriodEnd: Date;
             cancelAtPeriodEnd: boolean;
             canceledAt: Date | null;
+            stripePriceId: string;
             stripeSubscriptionId: string;
             stripeCurrentPeriodEnd: Date;
+            stripeCustomerId: string;
             trialEnd: Date | null;
             trialStart: Date | null;
             isTrial: boolean;
-        }[] | {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            branchId: string | null;
-            userId: string;
-            total: number;
-            paymentType: string;
-            customerName: string | null;
-            customerPhone: string | null;
-            mpesaTransactionId: string | null;
-            idempotencyKey: string | null;
-            vatAmount: number | null;
-        }[] | {
-            id: string;
-            createdAt: Date;
             userId: string | null;
-            action: string;
-            details: import("@prisma/client/runtime/library").JsonValue | null;
-            ip: string | null;
-        }[] | {
-            id: string;
             createdAt: Date;
             updatedAt: Date;
+        }[] | {
+            id: string;
             tenantId: string;
-            userId: string | null;
             status: string;
+            userId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
             amount: number;
             phoneNumber: string;
             mpesaReceipt: string | null;
@@ -335,10 +317,10 @@ export declare class AuthService {
             transactionType: string | null;
         }[] | {
             id: string;
-            data: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
             tenantId: string;
             userId: string | null;
+            createdAt: Date;
+            data: import("@prisma/client/runtime/library").JsonValue | null;
             message: string;
             type: string;
             title: string;
@@ -346,20 +328,31 @@ export declare class AuthService {
             readAt: Date | null;
         }[] | {
             id: string;
-            permission: string;
             tenantId: string;
             userId: string;
-            grantedAt: Date;
-            grantedBy: string | null;
+            branchId: string;
+            roleId: string;
         }[] | {
             id: string;
+            tenantId: string;
+            userId: string;
+            permission: string;
+            grantedBy: string | null;
+            grantedAt: Date;
+        }[] | {
+            id: string;
+            tenantId: string;
+            userId: string;
+            roleId: string;
+        }[] | {
+            id: string;
+            tenantId: string;
+            status: string;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             branchId: string | null;
-            userId: string;
             supplierId: string | null;
-            status: string;
             uploadDate: Date;
             totalProducts: number;
             totalValue: number;
@@ -367,9 +360,9 @@ export declare class AuthService {
         }[] | {
             id: string;
             tenantId: string;
+            userId: string;
             price: number | null;
             branchId: string | null;
-            userId: string;
             cost: number | null;
             supplierId: string | null;
             bulkUploadRecordId: string | null;
@@ -378,14 +371,22 @@ export declare class AuthService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        }[] | {
+            id: string;
+            userId: string | null;
+            createdAt: Date;
+            action: string;
+            details: import("@prisma/client/runtime/library").JsonValue | null;
+            ip: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;
         id: string;
-        name: string;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        branchId: string | null;
         email: string;
         resetPasswordExpires: Date | null;
         resetPasswordToken: string | null;
@@ -394,14 +395,13 @@ export declare class AuthService {
         region: string | null;
         isSuperadmin: boolean;
         isDisabled: boolean;
-        branchId: string | null;
     } | {
         isActive: boolean;
         id: string;
-        name: string;
         tenantId: string | null;
-        email: string;
+        name: string;
         branchId: string | null;
+        email: string;
     } | null>;
     login(email: string, password: string, ip?: string): Promise<{
         access_token: string;

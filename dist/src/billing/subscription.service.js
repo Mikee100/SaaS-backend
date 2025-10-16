@@ -34,6 +34,7 @@ let SubscriptionService = class SubscriptionService {
                     isActive: true,
                     maxUsers: true,
                     maxProducts: true,
+                    maxBranches: true,
                     maxSalesPerMonth: true,
                     stripePriceId: true,
                     analyticsEnabled: true,
@@ -686,6 +687,105 @@ let SubscriptionService = class SubscriptionService {
             },
             planName: plan.name,
         };
+    }
+    async getPlanLimits(tenantId) {
+        try {
+            const userCount = await this.prisma.user.count({ where: { tenantId } });
+            const productCount = await this.prisma.product.count({ where: { tenantId } });
+            const branchCount = await this.prisma.branch.count({ where: { tenantId } });
+            const currentMonthStart = new Date();
+            currentMonthStart.setDate(1);
+            currentMonthStart.setHours(0, 0, 0, 0);
+            const salesCount = await this.prisma.sale.count({
+                where: {
+                    tenantId,
+                    createdAt: { gte: currentMonthStart },
+                },
+            });
+            const allSubscriptions = await this.prisma.subscription.findMany({
+                where: { tenantId },
+                include: { Plan: true },
+                orderBy: { currentPeriodStart: 'desc' },
+            });
+            console.log('All subscriptions for tenant', tenantId, ':', allSubscriptions.map(s => ({ id: s.id, status: s.status, planName: s.Plan?.name })));
+            const subscription = await this.prisma.subscription.findFirst({
+                where: {
+                    tenantId,
+                    status: {
+                        in: ['active', 'trialing', 'past_due'],
+                    },
+                },
+                include: {
+                    Plan: true,
+                },
+                orderBy: {
+                    currentPeriodStart: 'desc',
+                },
+            });
+            let currentPlan = null;
+            let features = {
+                analytics: false,
+                advanced_reports: false,
+                custom_branding: false,
+                api_access: false,
+                bulk_operations: false,
+                data_export: false,
+                custom_fields: false,
+            };
+            if (subscription && subscription.Plan) {
+                const plan = subscription.Plan;
+                currentPlan = plan.name;
+                console.log('Found subscription for tenant, plan name:', plan.name);
+                features = {
+                    analytics: plan.analyticsEnabled || false,
+                    advanced_reports: plan.advancedReports || false,
+                    custom_branding: plan.customBranding || false,
+                    api_access: plan.apiAccess || false,
+                    bulk_operations: plan.bulkOperations || false,
+                    data_export: plan.dataExport || false,
+                    custom_fields: plan.customFields || false,
+                };
+            }
+            else {
+                console.log('No active subscription found for tenant');
+            }
+            const usage = {
+                users: { current: userCount, limit: subscription?.Plan?.maxUsers || 1 },
+                products: { current: productCount, limit: subscription?.Plan?.maxProducts || 10 },
+                branches: { current: branchCount, limit: subscription?.Plan?.maxBranches || 1 },
+                sales: { current: salesCount, limit: subscription?.Plan?.maxSalesPerMonth || 100 },
+            };
+            if (subscription?.Plan?.name === 'Basic') {
+                usage.branches.limit = Math.max(usage.branches.limit, 1);
+                usage.users.limit = Math.max(usage.users.limit, 1);
+            }
+            return {
+                currentPlan,
+                usage,
+                features,
+            };
+        }
+        catch (error) {
+            console.error('Error fetching plan limits:', error);
+            return {
+                currentPlan: 'Basic',
+                usage: {
+                    users: { current: 1, limit: 1 },
+                    products: { current: 0, limit: 10 },
+                    branches: { current: 1, limit: 1 },
+                    sales: { current: 0, limit: 100 },
+                },
+                features: {
+                    analytics: false,
+                    advanced_reports: false,
+                    custom_branding: false,
+                    api_access: false,
+                    bulk_operations: true,
+                    data_export: false,
+                    custom_fields: false,
+                },
+            };
+        }
     }
 };
 exports.SubscriptionService = SubscriptionService;

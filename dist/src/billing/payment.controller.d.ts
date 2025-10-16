@@ -70,10 +70,10 @@ export declare class PaymentController {
         invoice: {
             number: string;
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
             tenantId: string;
             status: string;
+            createdAt: Date;
+            updatedAt: Date;
             subscriptionId: string | null;
             amount: number;
             dueDate: Date | null;

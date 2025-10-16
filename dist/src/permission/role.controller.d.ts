@@ -8,11 +8,11 @@ export declare class RoleController {
         tenantId: string;
     }): Promise<{
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        description: string | null;
     }>;
     getRoles(req: any): Promise<({
         permissions: ({
@@ -28,26 +28,26 @@ export declare class RoleController {
         })[];
     } & {
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        description: string | null;
     })[]>;
     updateRole(body: any): Promise<void>;
     getRolePermissions(id: string): Promise<({
+        role: {
+            id: string;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            description: string | null;
+        };
         permission: {
             id: string;
             name: string;
             description: string | null;
-        };
-        role: {
-            id: string;
-            name: string;
-            description: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
         };
     } & {
         id: string;
@@ -55,18 +55,18 @@ export declare class RoleController {
         permissionId: string;
     })[]>;
     updateRolePermissions(id: string, body: any): Promise<({
+        role: {
+            id: string;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            description: string | null;
+        };
         permission: {
             id: string;
             name: string;
             description: string | null;
-        };
-        role: {
-            id: string;
-            name: string;
-            description: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
         };
     } & {
         id: string;

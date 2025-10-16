@@ -693,4 +693,11 @@ export class UserService {
       select: { name: true },
     });
   }
+
+  async getPlanLimits(tenantId: string) {
+    console.log('UserService.getPlanLimits called for tenantId:', tenantId);
+    const result = await this.subscriptionService.getPlanLimits(tenantId);
+    console.log('UserService.getPlanLimits result:', result);
+    return result;
+  }
 }

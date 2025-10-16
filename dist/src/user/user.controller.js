@@ -95,6 +95,13 @@ let UserController = class UserController {
         const tenantId = req.user.tenantId;
         return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
     }
+    async getPlanLimits(req) {
+        const tenantId = req.user.tenantId;
+        console.log('UserController.getPlanLimits called for tenantId:', tenantId);
+        const result = await this.userService.getPlanLimits(tenantId);
+        console.log('UserController.getPlanLimits result:', result);
+        return result;
+    }
 };
 exports.UserController = UserController;
 __decorate([
@@ -174,6 +181,13 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteUser", null);
+__decorate([
+    (0, common_1.Get)('me/plan-limits'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getPlanLimits", null);
 exports.UserController = UserController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('user'),

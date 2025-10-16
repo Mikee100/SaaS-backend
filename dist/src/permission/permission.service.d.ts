@@ -26,34 +26,34 @@ export declare class PermissionService {
         })[];
     } & {
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        description: string | null;
     })[]>;
     updateRole(name: string, description?: string): Promise<void>;
     createRole(name: string, description?: string, tenantId?: string): Promise<{
         id: string;
-        name: string;
-        description: string | null;
+        tenantId: string | null;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
+        name: string;
+        description: string | null;
     }>;
     getRolePermissions(roleId: string): Promise<({
+        role: {
+            id: string;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            description: string | null;
+        };
         permission: {
             id: string;
             name: string;
             description: string | null;
-        };
-        role: {
-            id: string;
-            name: string;
-            description: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
         };
     } & {
         id: string;
@@ -63,18 +63,18 @@ export declare class PermissionService {
     updateRolePermissions(roleId: string, permissions: {
         key: string;
     }[]): Promise<({
+        role: {
+            id: string;
+            tenantId: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            description: string | null;
+        };
         permission: {
             id: string;
             name: string;
             description: string | null;
-        };
-        role: {
-            id: string;
-            name: string;
-            description: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string | null;
         };
     } & {
         id: string;

@@ -20,10 +20,10 @@ export declare class PaymentService {
     generateInvoice(subscriptionId: string, amount: number, currency?: string): Promise<{
         number: string;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         tenantId: string;
         status: string;
+        createdAt: Date;
+        updatedAt: Date;
         subscriptionId: string | null;
         amount: number;
         dueDate: Date | null;
