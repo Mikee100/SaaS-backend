@@ -13,16 +13,16 @@ export declare class ProductController {
     findAll(req: any): Promise<any>;
     create(body: any, req: any): Promise<{
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
-        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
@@ -30,16 +30,16 @@ export declare class ProductController {
     }>;
     uploadImages(id: string, files: Express.Multer.File[], req: any): Promise<{
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
-        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
@@ -49,16 +49,16 @@ export declare class ProductController {
         imageUrl: string;
     }, req: any): Promise<{
         id: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
-        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;

@@ -6,11 +6,10 @@ export declare class AuditLogService {
     getLogs(limit?: number): Promise<({
         User: {
             id: string;
-            tenantId: string | null;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            branchId: string | null;
+            tenantId: string | null;
             email: string;
             password: string;
             resetPasswordExpires: Date | null;
@@ -20,11 +19,12 @@ export declare class AuditLogService {
             region: string | null;
             isSuperadmin: boolean;
             isDisabled: boolean;
+            branchId: string | null;
         } | null;
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
+        userId: string | null;
         action: string;
         details: import("@prisma/client/runtime/library").JsonValue | null;
         ip: string | null;

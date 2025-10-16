@@ -145,6 +145,13 @@ model Tenant {
   mobileLogoUrl       String?
   auditLogsEnabled    Boolean               @default(false)
   credits             Float?                @default(0)
+  mpesaConsumerKey    String?
+  mpesaConsumerSecret String?
+  mpesaShortCode      String?
+  mpesaPasskey        String?
+  mpesaCallbackUrl    String?
+  mpesaIsActive       Boolean               @default(false)
+  mpesaEnvironment    String?               @default("sandbox")
   Branch              Branch[]
   Inventory           Inventory[]
   InventoryMovement   InventoryMovement[]

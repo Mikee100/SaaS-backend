@@ -42,19 +42,35 @@ export declare class SalesController {
                 name: string;
                 address: string | null;
             } | null;
-            Tenant: {
+            Branch: {
                 id: string;
-                stripeCustomerId: string | null;
+                name: string;
+                manager: string | null;
                 createdAt: Date;
                 updatedAt: Date;
+                address: string | null;
+                city: string | null;
+                country: string | null;
+                postalCode: string | null;
+                state: string | null;
+                tenantId: string;
+                email: string | null;
+                customField: string | null;
+                isMainBranch: boolean;
+                logo: string | null;
+                openingHours: string | null;
+                phone: string | null;
+                status: string | null;
+                street: string | null;
+            } | null;
+            Tenant: {
+                id: string;
                 name: string;
-                backupRestore: boolean;
-                customIntegrations: boolean;
-                ssoEnabled: boolean;
-                whiteLabel: boolean;
                 businessType: string;
                 contactEmail: string;
                 contactPhone: string | null;
+                createdAt: Date;
+                updatedAt: Date;
                 address: string | null;
                 currency: string | null;
                 logoUrl: string | null;
@@ -66,12 +82,14 @@ export declare class SalesController {
                 website: string | null;
                 annualRevenue: string | null;
                 apiKey: string | null;
+                backupRestore: boolean;
                 businessCategory: string | null;
                 businessDescription: string | null;
                 businessHours: import("@prisma/client/runtime/library").JsonValue | null;
                 businessLicense: string | null;
                 businessSubcategory: string | null;
                 customDomain: string | null;
+                customIntegrations: boolean;
                 employeeCount: string | null;
                 etimsQrUrl: string | null;
                 favicon: string | null;
@@ -88,9 +106,12 @@ export declare class SalesController {
                 secondaryColor: string | null;
                 secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
                 socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+                ssoEnabled: boolean;
                 state: string | null;
+                stripeCustomerId: string | null;
                 watermark: string | null;
                 webhookUrl: string | null;
+                whiteLabel: boolean;
                 dashboardLogoUrl: string | null;
                 emailLogoUrl: string | null;
                 loginLogoUrl: string | null;
@@ -99,33 +120,19 @@ export declare class SalesController {
                 mobileLogoUrl: string | null;
                 auditLogsEnabled: boolean;
                 credits: number | null;
+                mpesaConsumerKey: string | null;
+                mpesaConsumerSecret: string | null;
+                mpesaShortCode: string | null;
+                mpesaPasskey: string | null;
+                mpesaCallbackUrl: string | null;
+                mpesaIsActive: boolean;
+                mpesaEnvironment: string | null;
             };
             User: {
                 id: string;
                 name: string;
                 email: string;
             };
-            Branch: {
-                id: string;
-                tenantId: string;
-                status: string | null;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                address: string | null;
-                city: string | null;
-                country: string | null;
-                postalCode: string | null;
-                state: string | null;
-                customField: string | null;
-                email: string | null;
-                isMainBranch: boolean;
-                logo: string | null;
-                manager: string | null;
-                openingHours: string | null;
-                phone: string | null;
-                street: string | null;
-            } | null;
             SaleItem: ({
                 product: {
                     id: string;
@@ -141,10 +148,10 @@ export declare class SalesController {
                 saleId: string;
             })[];
             id: string;
-            tenantId: string;
-            userId: string;
             createdAt: Date;
+            tenantId: string;
             branchId: string | null;
+            userId: string;
             total: number;
             paymentType: string;
             customerName: string | null;
@@ -335,19 +342,35 @@ export declare class SalesController {
             name: string;
             address: string | null;
         } | null;
-        Tenant: {
+        Branch: {
             id: string;
-            stripeCustomerId: string | null;
+            name: string;
+            manager: string | null;
             createdAt: Date;
             updatedAt: Date;
+            address: string | null;
+            city: string | null;
+            country: string | null;
+            postalCode: string | null;
+            state: string | null;
+            tenantId: string;
+            email: string | null;
+            customField: string | null;
+            isMainBranch: boolean;
+            logo: string | null;
+            openingHours: string | null;
+            phone: string | null;
+            status: string | null;
+            street: string | null;
+        } | null;
+        Tenant: {
+            id: string;
             name: string;
-            backupRestore: boolean;
-            customIntegrations: boolean;
-            ssoEnabled: boolean;
-            whiteLabel: boolean;
             businessType: string;
             contactEmail: string;
             contactPhone: string | null;
+            createdAt: Date;
+            updatedAt: Date;
             address: string | null;
             currency: string | null;
             logoUrl: string | null;
@@ -359,12 +382,14 @@ export declare class SalesController {
             website: string | null;
             annualRevenue: string | null;
             apiKey: string | null;
+            backupRestore: boolean;
             businessCategory: string | null;
             businessDescription: string | null;
             businessHours: import("@prisma/client/runtime/library").JsonValue | null;
             businessLicense: string | null;
             businessSubcategory: string | null;
             customDomain: string | null;
+            customIntegrations: boolean;
             employeeCount: string | null;
             etimsQrUrl: string | null;
             favicon: string | null;
@@ -381,9 +406,12 @@ export declare class SalesController {
             secondaryColor: string | null;
             secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
             socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+            ssoEnabled: boolean;
             state: string | null;
+            stripeCustomerId: string | null;
             watermark: string | null;
             webhookUrl: string | null;
+            whiteLabel: boolean;
             dashboardLogoUrl: string | null;
             emailLogoUrl: string | null;
             loginLogoUrl: string | null;
@@ -392,33 +420,19 @@ export declare class SalesController {
             mobileLogoUrl: string | null;
             auditLogsEnabled: boolean;
             credits: number | null;
+            mpesaConsumerKey: string | null;
+            mpesaConsumerSecret: string | null;
+            mpesaShortCode: string | null;
+            mpesaPasskey: string | null;
+            mpesaCallbackUrl: string | null;
+            mpesaIsActive: boolean;
+            mpesaEnvironment: string | null;
         };
         User: {
             id: string;
             name: string;
             email: string;
         };
-        Branch: {
-            id: string;
-            tenantId: string;
-            status: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            address: string | null;
-            city: string | null;
-            country: string | null;
-            postalCode: string | null;
-            state: string | null;
-            customField: string | null;
-            email: string | null;
-            isMainBranch: boolean;
-            logo: string | null;
-            manager: string | null;
-            openingHours: string | null;
-            phone: string | null;
-            street: string | null;
-        } | null;
         SaleItem: ({
             product: {
                 id: string;
@@ -434,10 +448,10 @@ export declare class SalesController {
             saleId: string;
         })[];
         id: string;
-        tenantId: string;
-        userId: string;
         createdAt: Date;
+        tenantId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;

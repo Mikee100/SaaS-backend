@@ -14,97 +14,140 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MpesaController = void 0;
 const common_1 = require("@nestjs/common");
-const axios_1 = require("axios");
+const mpesa_service_1 = require("./mpesa.service");
+const sales_service_1 = require("../sales/sales.service");
 let MpesaController = class MpesaController {
+    mpesaService;
+    salesService;
+    constructor(mpesaService, salesService) {
+        this.mpesaService = mpesaService;
+        this.salesService = salesService;
+    }
     async initiatePayment(body, res) {
-        let { phoneNumber, amount } = body;
-        amount = parseFloat(amount);
-        if (isNaN(amount) || amount <= 0) {
-            return res
-                .status(common_1.HttpStatus.BAD_REQUEST)
-                .json({ error: 'Invalid amount. Must be a positive number.' });
-        }
-        if (amount < 10) {
-            return res
-                .status(common_1.HttpStatus.BAD_REQUEST)
-                .json({ error: 'Minimum amount is 10 KES' });
-        }
-        amount = Math.floor(amount);
-        const consumerKey = process.env.MPESA_CONSUMER_KEY ||
-            'JFvBXWMm0yPfiDwTWNPbc2TodFikv8VOBcIhDQ1xbRIBr7TE';
-        const consumerSecret = process.env.MPESA_CONSUMER_SECRET ||
-            'Q16rZBLRjCN1VXaBMmzInA3QpGX0MXidMYY0EUweif6PsvbsUQ8GLBLiqZHaebk9';
-        const shortCode = process.env.MPESA_SHORTCODE || '174379';
-        const passkey = process.env.MPESA_PASSKEY ||
-            'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
-        const callbackURL = process.env.MPESA_CALLBACK_URL || 'https://mydomain.com/path';
-        if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
-            return res.status(common_1.HttpStatus.BAD_REQUEST).json({
-                error: 'Invalid phone number format. Use format: 07XXXXXXXX, 2547XXXXXXXX, or +2547XXXXXXXX',
-            });
-        }
-        phoneNumber = phoneNumber.replace(/^0/, '254').replace(/^\+/, '');
-        const now = new Date();
-        const timestamp = [
-            now.getFullYear(),
-            String(now.getMonth() + 1).padStart(2, '0'),
-            String(now.getDate()).padStart(2, '0'),
-            String(now.getHours()).padStart(2, '0'),
-            String(now.getMinutes()).padStart(2, '0'),
-            String(now.getSeconds()).padStart(2, '0'),
-        ].join('');
-        const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString('base64');
         try {
-            const tokenResponse = await axios_1.default.get('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-                auth: {
-                    username: consumerKey,
-                    password: consumerSecret,
-                },
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            const accessToken = tokenResponse.data.access_token;
-            const stkResponse = await axios_1.default.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
-                BusinessShortCode: shortCode,
-                Password: password,
-                Timestamp: timestamp,
-                TransactionType: 'CustomerPayBillOnline',
-                Amount: amount,
-                PartyA: phoneNumber,
-                PartyB: shortCode,
-                PhoneNumber: phoneNumber,
-                CallBackURL: callbackURL,
-                AccountReference: body.reference || 'Saas Platform',
-                TransactionDesc: body.transactionDesc || 'Payment for Saas Platform',
-            }, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
+            const { phoneNumber, amount, reference, transactionDesc, tenantId } = body;
+            if (!tenantId) {
+                return res.status(common_1.HttpStatus.BAD_REQUEST).json({ error: 'Tenant ID required' });
+            }
+            const stkData = await this.mpesaService.initiateStkPush(tenantId, phoneNumber, amount, reference, transactionDesc);
+            await this.mpesaService.createTransaction({
+                phoneNumber,
+                amount,
+                status: 'pending',
+                merchantRequestID: stkData.MerchantRequestID,
+                checkoutRequestID: stkData.CheckoutRequestID,
+                tenantId,
+                saleData: body.saleData,
             });
             return res.status(common_1.HttpStatus.OK).json({
                 success: true,
                 message: 'Payment request initiated successfully',
-                data: stkResponse.data,
+                data: stkData,
             });
         }
         catch (error) {
-            console.error('M-Pesa API Error:', {
-                request: error.config?.data,
-                response: error.response?.data,
-                message: error.message,
-            });
-            const errorMessage = error.response?.data?.errorMessage ||
-                error.response?.data?.message ||
-                'Failed to process payment';
-            return res
-                .status(error.response?.status || common_1.HttpStatus.INTERNAL_SERVER_ERROR)
-                .json({
+            console.error('M-Pesa Initiation Error:', error.message);
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({
                 success: false,
-                error: errorMessage,
-                code: error.response?.data?.errorCode,
+                error: error.message,
             });
+        }
+    }
+    async mpesaWebhook(body, res) {
+        try {
+            const { Body: callbackBody } = body;
+            const result = callbackBody.stkCallback;
+            const checkoutRequestId = result.CheckoutRequestID;
+            const status = result.ResultCode === 0 ? 'success' : 'failed';
+            let mpesaReceipt = undefined;
+            const message = result.ResultDesc;
+            if (status === 'success') {
+                const callbackMetadata = result.CallbackMetadata.Item;
+                const receiptItem = callbackMetadata.find((item) => item.Name === 'MpesaReceiptNumber');
+                mpesaReceipt = receiptItem ? receiptItem.Value : undefined;
+            }
+            await this.mpesaService.updateTransaction(checkoutRequestId, {
+                status,
+                mpesaReceipt,
+                responseCode: result.ResultCode.toString(),
+                responseDesc: message,
+            });
+            if (status === 'success') {
+                const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
+                    where: { checkoutRequestID: checkoutRequestId },
+                });
+                if (mpesaTx && mpesaTx.saleData) {
+                    const saleData = mpesaTx.saleData;
+                    await this.salesService.createSale({
+                        items: saleData.items,
+                        paymentMethod: 'mpesa',
+                        amountReceived: mpesaTx.amount,
+                        customerName: saleData.customerName,
+                        customerPhone: saleData.customerPhone,
+                        mpesaTransactionId: mpesaTx.id,
+                        idempotencyKey: `mpesa_${mpesaTx.id}`,
+                    }, mpesaTx.tenantId, mpesaTx.userId || '');
+                }
+            }
+            return res.status(common_1.HttpStatus.OK).json({ success: true });
+        }
+        catch (error) {
+            console.error('Webhook Error:', error);
+            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Webhook processing failed' });
+        }
+    }
+    async getConfig(tenantId, res) {
+        try {
+            const config = await this.mpesaService.getTenantMpesaConfig(tenantId, false);
+            return res.json({
+                consumerKey: config.consumerKey,
+                consumerSecret: config.consumerSecret,
+                shortCode: config.shortCode,
+                passkey: config.passkey,
+                callbackUrl: config.callbackUrl,
+                environment: config.environment,
+                isActive: config.isActive,
+            });
+        }
+        catch (error) {
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ error: error.message });
+        }
+    }
+    async updateConfig(body, res) {
+        try {
+            const { tenantId, mpesaConsumerKey, mpesaConsumerSecret, mpesaShortCode, mpesaPasskey, mpesaCallbackUrl, mpesaIsActive, mpesaEnvironment } = body;
+            if (!mpesaConsumerKey || !mpesaConsumerSecret || !mpesaShortCode || !mpesaPasskey || !mpesaCallbackUrl) {
+                return res.status(common_1.HttpStatus.BAD_REQUEST).json({ error: 'All M-Pesa configuration fields are required' });
+            }
+            const encryptedSecret = this.mpesaService['encrypt'](mpesaConsumerSecret);
+            const encryptedPasskey = this.mpesaService['encrypt'](mpesaPasskey);
+            await this.mpesaService.prisma.tenant.update({
+                where: { id: tenantId },
+                data: {
+                    mpesaConsumerKey,
+                    mpesaConsumerSecret: encryptedSecret,
+                    mpesaShortCode,
+                    mpesaPasskey: encryptedPasskey,
+                    mpesaCallbackUrl,
+                    mpesaIsActive,
+                    mpesaEnvironment,
+                },
+            });
+            return res.json({ success: true, message: 'M-Pesa config updated' });
+        }
+        catch (error) {
+            return res.status(common_1.HttpStatus.BAD_REQUEST).json({ error: error.message });
+        }
+    }
+    async getByCheckoutId(checkoutRequestId, res) {
+        try {
+            const transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst({
+                where: { checkoutRequestID: checkoutRequestId },
+            });
+            return res.json(transaction);
+        }
+        catch (error) {
+            return res.status(common_1.HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch transaction' });
         }
     }
 };
@@ -117,7 +160,41 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], MpesaController.prototype, "initiatePayment", null);
+__decorate([
+    (0, common_1.Post)('webhook'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "mpesaWebhook", null);
+__decorate([
+    (0, common_1.Get)('config'),
+    __param(0, (0, common_1.Query)('tenantId')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getConfig", null);
+__decorate([
+    (0, common_1.Post)('config'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "updateConfig", null);
+__decorate([
+    (0, common_1.Get)('transaction/:checkoutRequestId'),
+    __param(0, (0, common_1.Param)('checkoutRequestId')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MpesaController.prototype, "getByCheckoutId", null);
 exports.MpesaController = MpesaController = __decorate([
-    (0, common_1.Controller)('mpesa')
+    (0, common_1.Controller)('mpesa'),
+    __metadata("design:paramtypes", [mpesa_service_1.MpesaService,
+        sales_service_1.SalesService])
 ], MpesaController);
 //# sourceMappingURL=mpesa.controller.js.map

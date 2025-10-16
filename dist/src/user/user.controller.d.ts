@@ -23,24 +23,23 @@ export declare class UserController {
         userRoles: ({
             role: {
                 id: string;
-                tenantId: string | null;
-                createdAt: Date;
-                updatedAt: Date;
                 name: string;
                 description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string | null;
             };
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
         id: string;
-        tenantId: string | null;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        branchId: string | null;
+        tenantId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -50,6 +49,7 @@ export declare class UserController {
         region: string | null;
         isSuperadmin: boolean;
         isDisabled: boolean;
+        branchId: string | null;
     }[]>;
     getProtected(req: any): {
         message: string;
@@ -65,11 +65,10 @@ export declare class UserController {
         region?: string;
     }): Promise<{
         id: string;
-        tenantId: string | null;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
-        name: string;
-        branchId: string | null;
+        tenantId: string | null;
         email: string;
         password: string;
         resetPasswordExpires: Date | null;
@@ -79,6 +78,7 @@ export declare class UserController {
         region: string | null;
         isSuperadmin: boolean;
         isDisabled: boolean;
+        branchId: string | null;
     }>;
     changePassword(req: any, body: {
         currentPassword: string;

@@ -14,11 +14,11 @@ export declare class MpesaService {
         tenantId: string;
     }): Promise<{
         id: string;
-        tenantId: string;
-        status: string;
-        userId: string | null;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        userId: string | null;
+        status: string;
         amount: number;
         phoneNumber: string;
         mpesaReceipt: string | null;
