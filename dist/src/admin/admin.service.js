@@ -613,6 +613,9 @@ let AdminService = AdminService_1 = class AdminService {
             await prisma.userBranchRole.deleteMany({
                 where: { tenantId },
             });
+            await prisma.rolePermission.deleteMany({
+                where: { role: { tenantId } },
+            });
             await prisma.role.deleteMany({
                 where: { tenantId },
             });

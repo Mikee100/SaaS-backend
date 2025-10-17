@@ -81,15 +81,15 @@ export declare class AdminController {
     } & {
         id: string;
         name: string;
-        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
+        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
-        branchId: string | null;
         sku: string;
         stock: number;
+        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
@@ -99,8 +99,8 @@ export declare class AdminController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        branchId: string | null;
         userId: string;
+        branchId: string | null;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -258,11 +258,12 @@ export declare class AdminController {
         Plan: {
             id: string;
             name: string;
-            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
+            stripePriceId: string | null;
+            description: string;
             price: number;
             interval: string;
             maxUsers: number | null;
@@ -281,29 +282,28 @@ export declare class AdminController {
             customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
-            stripePriceId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string;
-        tenantId: string;
-        stripePriceId: string;
-        userId: string | null;
-        status: string;
         currentPeriodStart: Date;
+        tenantId: string;
         currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
+        status: string;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
+        stripePriceId: string;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
         isTrial: boolean;
+        userId: string | null;
     }>;
     getTrialStatus(tenantId: string): Promise<{
         isTrial: boolean;
@@ -406,7 +406,6 @@ export declare class AdminController {
         branch: {
             id: string;
             name: string;
-            manager: string | null;
             createdAt: Date;
             updatedAt: Date;
             address: string | null;
@@ -415,13 +414,14 @@ export declare class AdminController {
             postalCode: string | null;
             state: string | null;
             tenantId: string;
-            email: string | null;
+            status: string | null;
             customField: string | null;
+            email: string | null;
             isMainBranch: boolean;
             logo: string | null;
+            manager: string | null;
             openingHours: string | null;
             phone: string | null;
-            status: string | null;
             street: string | null;
         };
         user: {
@@ -452,8 +452,8 @@ export declare class AdminController {
         } & {
             id: string;
             tenantId: string;
-            roleId: string;
             userId: string;
+            roleId: string;
         })[];
     }[]>;
     updateUserStatus(userId: string, body: {

@@ -51,7 +51,7 @@ async function bootstrap() {
           'http://localhost:9000',
           'http://127.0.0.1:3000',
           'http://127.0.0.1:5000',
-          'http://127.0.0.1:9000',
+          'https://saas-business.duckdns.org',
           'https://saas-business.duckdns.org/',
         ];
 

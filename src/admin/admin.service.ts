@@ -780,6 +780,11 @@ export class AdminService {
         where: { tenantId },
       });
 
+      // 21.5. Delete RolePermission (depends on Role)
+      await prisma.rolePermission.deleteMany({
+        where: { role: { tenantId } },
+      });
+
       // 22. Delete Role (depends on Tenant)
       await prisma.role.deleteMany({
         where: { tenantId },
