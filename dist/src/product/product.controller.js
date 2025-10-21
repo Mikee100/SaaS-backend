@@ -76,6 +76,60 @@ let ProductController = class ProductController {
         const count = await this.productService.getProductCount(req.user.tenantId, branchId);
         return { count };
     }
+    async findOne(id, req) {
+        return this.productService.findOne(id, req.user.tenantId);
+    }
+    async createCategory(body, req) {
+        return this.productService.createCategory({
+            ...body,
+            tenantId: req.user.tenantId,
+        });
+    }
+    async getCategories(req) {
+        return this.productService.getCategories(req.user.tenantId);
+    }
+    async updateCategory(id, body, req) {
+        return this.productService.updateCategory(id, body, req.user.tenantId);
+    }
+    async deleteCategory(id, req) {
+        return this.productService.deleteCategory(id, req.user.tenantId);
+    }
+    async createAttribute(body, req) {
+        return this.productService.createAttribute({
+            ...body,
+            tenantId: req.user.tenantId,
+        });
+    }
+    async getAttributesByCategory(categoryId, req) {
+        return this.productService.getAttributesByCategory(categoryId, req.user.tenantId);
+    }
+    async updateAttribute(id, body, req) {
+        return this.productService.updateAttribute(id, body, req.user.tenantId);
+    }
+    async deleteAttribute(id, req) {
+        return this.productService.deleteAttribute(id, req.user.tenantId);
+    }
+    async createVariation(productId, body, req) {
+        const branchId = body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+        return this.productService.createVariation({
+            ...body,
+            productId,
+            tenantId: req.user.tenantId,
+            branchId,
+        });
+    }
+    async getVariationsByProduct(productId, req) {
+        return this.productService.getVariationsByProduct(productId, req.user.tenantId);
+    }
+    async updateVariation(id, body, req) {
+        return this.productService.updateVariation(id, body, req.user.tenantId);
+    }
+    async deleteVariation(id, req) {
+        return this.productService.deleteVariation(id, req.user.tenantId);
+    }
+    async generateVariations(id, req) {
+        return this.productService.generateVariationsFromCustomFields(id, req.user.tenantId, req.user.userId);
+    }
 };
 exports.ProductController = ProductController;
 __decorate([
@@ -185,6 +239,135 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "getProductCount", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Post)('categories'),
+    (0, permissions_decorator_1.Permissions)('create_products'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "createCategory", null);
+__decorate([
+    (0, common_1.Get)('categories'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getCategories", null);
+__decorate([
+    (0, common_1.Put)('categories/:id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "updateCategory", null);
+__decorate([
+    (0, common_1.Delete)('categories/:id'),
+    (0, permissions_decorator_1.Permissions)('delete_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "deleteCategory", null);
+__decorate([
+    (0, common_1.Post)('attributes'),
+    (0, permissions_decorator_1.Permissions)('create_products'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "createAttribute", null);
+__decorate([
+    (0, common_1.Get)('attributes/:categoryId'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Param)('categoryId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getAttributesByCategory", null);
+__decorate([
+    (0, common_1.Put)('attributes/:id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "updateAttribute", null);
+__decorate([
+    (0, common_1.Delete)('attributes/:id'),
+    (0, permissions_decorator_1.Permissions)('delete_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "deleteAttribute", null);
+__decorate([
+    (0, common_1.Post)(':productId/variations'),
+    (0, permissions_decorator_1.Permissions)('create_products'),
+    __param(0, (0, common_1.Param)('productId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "createVariation", null);
+__decorate([
+    (0, common_1.Get)(':productId/variations'),
+    (0, permissions_decorator_1.Permissions)('view_products'),
+    __param(0, (0, common_1.Param)('productId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "getVariationsByProduct", null);
+__decorate([
+    (0, common_1.Put)('variations/:id'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "updateVariation", null);
+__decorate([
+    (0, common_1.Delete)('variations/:id'),
+    (0, permissions_decorator_1.Permissions)('delete_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "deleteVariation", null);
+__decorate([
+    (0, common_1.Post)(':id/generate-variations'),
+    (0, permissions_decorator_1.Permissions)('edit_products'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ProductController.prototype, "generateVariations", null);
 exports.ProductController = ProductController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('products'),

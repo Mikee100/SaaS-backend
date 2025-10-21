@@ -25,6 +25,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -77,6 +79,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -132,6 +136,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -184,6 +190,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -237,6 +245,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -277,6 +287,8 @@ export declare class InventoryService {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
         currentStock: number;
         averageDailySales: number;

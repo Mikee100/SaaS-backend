@@ -85,26 +85,28 @@ export declare class AdminService {
     } & {
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
-        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
         bulkUploadRecordId: string | null;
+        categoryId: string | null;
+        hasVariations: boolean;
     })[]>;
     getTenantTransactions(tenantId: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -312,6 +314,7 @@ export declare class AdminService {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
             updatedAt: Date;
             address: string | null;
@@ -320,14 +323,13 @@ export declare class AdminService {
             postalCode: string | null;
             state: string | null;
             tenantId: string;
-            status: string | null;
-            customField: string | null;
             email: string | null;
+            customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
+            status: string | null;
             street: string | null;
         };
         user: {
@@ -354,8 +356,8 @@ export declare class AdminService {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     }[]>;
     updateUserStatus(userId: string, isDisabled: boolean): Promise<{

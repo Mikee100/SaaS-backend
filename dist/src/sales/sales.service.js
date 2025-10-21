@@ -460,6 +460,7 @@ let SalesService = class SalesService {
                     id: item.id,
                     saleId: item.saleId,
                     productId: item.productId,
+                    variationId: null,
                     quantity: item.quantity,
                     price: item.price,
                     product: item.product

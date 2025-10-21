@@ -1,10 +1,12 @@
 import { AdminService } from './admin.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { AuditLogService } from '../audit-log.service';
 export declare class AdminController {
     private readonly adminService;
     private readonly subscriptionService;
+    private readonly auditLogService;
     private readonly logger;
-    constructor(adminService: AdminService, subscriptionService: SubscriptionService);
+    constructor(adminService: AdminService, subscriptionService: SubscriptionService, auditLogService: AuditLogService);
     getBillingMetrics(): Promise<{
         mrr: number;
         activeSubscriptions: number;
@@ -81,26 +83,28 @@ export declare class AdminController {
     } & {
         id: string;
         name: string;
+        description: string | null;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        description: string | null;
         price: number;
         customFields: import("@prisma/client/runtime/library").JsonValue | null;
+        branchId: string | null;
         sku: string;
         stock: number;
-        branchId: string | null;
         cost: number;
         images: string[];
         supplierId: string | null;
         bulkUploadRecordId: string | null;
+        categoryId: string | null;
+        hasVariations: boolean;
     })[]>;
     getTenantTransactions(tenantId: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         branchId: string | null;
+        userId: string;
         total: number;
         paymentType: string;
         customerName: string | null;
@@ -258,12 +262,11 @@ export declare class AdminController {
         Plan: {
             id: string;
             name: string;
+            description: string;
             backupRestore: boolean;
             customIntegrations: boolean;
             ssoEnabled: boolean;
             whiteLabel: boolean;
-            stripePriceId: string | null;
-            description: string;
             price: number;
             interval: string;
             maxUsers: number | null;
@@ -282,28 +285,29 @@ export declare class AdminController {
             customFields: boolean;
             dataExport: boolean;
             dedicatedSupport: boolean;
+            stripePriceId: string | null;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         stripeCustomerId: string;
-        currentPeriodStart: Date;
         tenantId: string;
+        stripePriceId: string;
+        userId: string | null;
+        status: string;
+        currentPeriodStart: Date;
         currentPeriodEnd: Date;
         planId: string;
         scheduledPlanId: string | null;
         scheduledEffectiveDate: Date | null;
-        status: string;
         cancelAtPeriodEnd: boolean;
         canceledAt: Date | null;
-        stripePriceId: string;
         stripeSubscriptionId: string;
         stripeCurrentPeriodEnd: Date;
         trialEnd: Date | null;
         trialStart: Date | null;
         isTrial: boolean;
-        userId: string | null;
     }>;
     getTrialStatus(tenantId: string): Promise<{
         isTrial: boolean;
@@ -406,6 +410,7 @@ export declare class AdminController {
         branch: {
             id: string;
             name: string;
+            manager: string | null;
             createdAt: Date;
             updatedAt: Date;
             address: string | null;
@@ -414,14 +419,13 @@ export declare class AdminController {
             postalCode: string | null;
             state: string | null;
             tenantId: string;
-            status: string | null;
-            customField: string | null;
             email: string | null;
+            customField: string | null;
             isMainBranch: boolean;
             logo: string | null;
-            manager: string | null;
             openingHours: string | null;
             phone: string | null;
+            status: string | null;
             street: string | null;
         };
         user: {
@@ -452,8 +456,8 @@ export declare class AdminController {
         } & {
             id: string;
             tenantId: string;
-            userId: string;
             roleId: string;
+            userId: string;
         })[];
     }[]>;
     updateUserStatus(userId: string, body: {
@@ -464,4 +468,96 @@ export declare class AdminController {
         isDisabled: boolean;
         message: string;
     }>;
+    getAuditLogs(limit: string, tenantId?: string): Promise<({
+        User: ({
+            tenant: {
+                id: string;
+                name: string;
+                businessType: string;
+                contactEmail: string;
+                contactPhone: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                address: string | null;
+                currency: string | null;
+                logoUrl: string | null;
+                timezone: string | null;
+                vatNumber: string | null;
+                city: string | null;
+                country: string | null;
+                taxId: string | null;
+                website: string | null;
+                annualRevenue: string | null;
+                apiKey: string | null;
+                backupRestore: boolean;
+                businessCategory: string | null;
+                businessDescription: string | null;
+                businessHours: import("@prisma/client/runtime/library").JsonValue | null;
+                businessLicense: string | null;
+                businessSubcategory: string | null;
+                customDomain: string | null;
+                customIntegrations: boolean;
+                employeeCount: string | null;
+                etimsQrUrl: string | null;
+                favicon: string | null;
+                foundedYear: number | null;
+                invoiceFooter: string | null;
+                kraPin: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                postalCode: string | null;
+                primaryColor: string | null;
+                primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                rateLimit: number | null;
+                receiptLogo: string | null;
+                secondaryColor: string | null;
+                secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+                ssoEnabled: boolean;
+                state: string | null;
+                stripeCustomerId: string | null;
+                watermark: string | null;
+                webhookUrl: string | null;
+                whiteLabel: boolean;
+                dashboardLogoUrl: string | null;
+                emailLogoUrl: string | null;
+                loginLogoUrl: string | null;
+                logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
+                mobileLogoUrl: string | null;
+                auditLogsEnabled: boolean;
+                credits: number | null;
+                mpesaConsumerKey: string | null;
+                mpesaConsumerSecret: string | null;
+                mpesaShortCode: string | null;
+                mpesaPasskey: string | null;
+                mpesaCallbackUrl: string | null;
+                mpesaIsActive: boolean;
+                mpesaEnvironment: string | null;
+            } | null;
+        } & {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string | null;
+            email: string;
+            password: string;
+            resetPasswordExpires: Date | null;
+            resetPasswordToken: string | null;
+            language: string | null;
+            notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+            region: string | null;
+            isSuperadmin: boolean;
+            isDisabled: boolean;
+            branchId: string | null;
+        }) | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        details: import("@prisma/client/runtime/library").JsonValue | null;
+        ip: string | null;
+    })[]>;
 }

@@ -8,6 +8,8 @@ const app_module_1 = require("./app.module");
 const config_1 = require("@nestjs/config");
 const express_1 = require("express");
 const seed_permissions_1 = require("../scripts/seed-permissions");
+const api_logging_middleware_1 = require("./middleware/api-logging.middleware");
+const audit_log_service_1 = require("./audit-log.service");
 async function bootstrap() {
     const logger = new common_1.Logger('Bootstrap');
     try {
@@ -116,6 +118,9 @@ async function bootstrap() {
         const nodeEnv = configService.get('NODE_ENV', 'development');
         app.use((0, express_1.json)({ limit: '10mb' }));
         app.use((0, express_1.urlencoded)({ extended: true, limit: '10mb' }));
+        const auditLogService = app.get(audit_log_service_1.AuditLogService);
+        const apiLoggingMiddleware = new api_logging_middleware_1.ApiLoggingMiddleware(auditLogService);
+        app.use(apiLoggingMiddleware.use.bind(apiLoggingMiddleware));
         app.useGlobalPipes(new common_1.ValidationPipe({
             whitelist: true,
             transform: true,

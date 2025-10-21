@@ -175,6 +175,9 @@ model Tenant {
   userRoles           UserRole[]            @relation("TenantUserRoles")
   bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
+  productCategories   ProductCategory[]     @relation("TenantProductCategories") // New
+  productAttributes   ProductAttribute[]    @relation("TenantProductAttributes") // New
+  productVariations   ProductVariation[]    @relation("TenantProductVariations") // New
 }
 
 model AuditLog {
@@ -218,6 +221,7 @@ model Branch {
   UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
+  productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
 
   @@index([tenantId])
 }
@@ -501,22 +505,83 @@ model Supplier {
   @@index([email])
 }
 
+model ProductCategory {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  tenant      Tenant   @relation("TenantProductCategories", fields: [tenantId], references: [id])
+  products    Product[] @relation("CategoryProducts")
+  attributes  ProductAttribute[] @relation("CategoryAttributes")
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+}
+
+model ProductAttribute {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Size", "Color", "Material"
+  type        String   // "select", "text", "number"
+  values      String[] // For select type: ["Small", "Medium", "Large"] or ["Red", "Blue"]
+  required    Boolean  @default(false)
+  categoryId  String
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  category    ProductCategory @relation("CategoryAttributes", fields: [categoryId], references: [id])
+  tenant      Tenant   @relation("TenantProductAttributes", fields: [tenantId], references: [id])
+
+  @@unique([name, categoryId, tenantId])
+  @@index([categoryId])
+  @@index([tenantId])
+}
+
+model ProductVariation {
+  id           String   @id @default(uuid())
+  productId    String
+  sku          String   // Unique SKU for this variation
+  price        Float?   // Override price, null means use base price
+  cost         Float?   // Override cost, null means use base cost
+  stock        Int      @default(0)
+  attributes   Json     // {"Size": "8", "Color": "Black"}
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenantId     String
+  branchId     String?
+  product      Product  @relation("ProductVariations", fields: [productId], references: [id])
+  tenant       Tenant   @relation("TenantProductVariations", fields: [tenantId], references: [id])
+  branch       Branch?  @relation("BranchProductVariations", fields: [branchId], references: [id])
+  saleItems    SaleItem[] @relation("VariationSaleItems")
+
+  @@unique([productId, sku])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([branchId])
+}
+
 model Product {
   id           String      @id
   name         String
-  sku          String
-  price        Float
+  sku          String      // Base SKU, variations will have their own
+  price        Float       // Base price
   description  String?
   tenantId     String
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  stock        Int         @default(0)
+  stock        Int         @default(0) // Total stock across all variations
   customFields Json?
   branchId     String?
-  cost         Float       @default(0)
+  cost         Float       @default(0) // Base cost
   images       String[]    // Array of image URLs
   supplierId   String?
   bulkUploadRecordId String?
+  categoryId   String?     // New: Product category
+  hasVariations Boolean    @default(false) // New: Whether this product has variations
   supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
   inventoryMovements  InventoryMovement[]
@@ -526,10 +591,13 @@ model Product {
   saleItems           SaleItem[]           @relation("ProductSaleItems")
   bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
   productAdditions    ProductAdditionRecord[]
+  category            ProductCategory?     @relation("CategoryProducts", fields: [categoryId], references: [id]) // New
+  variations          ProductVariation[]   @relation("ProductVariations") // New
 
   @@index([branchId])
   @@index([tenantId])
   @@index([supplierId])
+  @@index([categoryId]) // New
 }
 
 model Sale {
@@ -559,15 +627,18 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id
-  saleId    String
-  productId String
-  quantity  Int
-  price     Float
-  product   Product @relation("ProductSaleItems", fields: [productId], references: [id])
-  sale      Sale    @relation(fields: [saleId], references: [id])
+  id          String  @id
+  saleId      String
+  productId   String
+  variationId String? // New: Optional variation ID for product variations
+  quantity    Int
+  price       Float
+  product     Product @relation("ProductSaleItems", fields: [productId], references: [id])
+  sale        Sale    @relation(fields: [saleId], references: [id])
+  variation   ProductVariation? @relation("VariationSaleItems", fields: [variationId], references: [id]) // New
 
   @@index([productId])
+  @@index([variationId]) // New
 }
 
 model Subscription {

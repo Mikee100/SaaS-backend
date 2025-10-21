@@ -90,6 +90,7 @@ export declare class SalesService {
             id: string;
             quantity: number;
             saleId: string;
+            variationId: string | null;
         }[];
         branch: {
             id: string;
@@ -200,6 +201,7 @@ export declare class SalesService {
             productId: string;
             quantity: number;
             saleId: string;
+            variationId: string | null;
         })[];
         id: string;
         createdAt: Date;

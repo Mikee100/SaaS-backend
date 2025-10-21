@@ -9,6 +9,8 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import { seedPermissions } from '../scripts/seed-permissions';
+import { ApiLoggingMiddleware } from './middleware/api-logging.middleware';
+import { AuditLogService } from './audit-log.service';
 
 
 async function bootstrap() {
@@ -148,6 +150,11 @@ async function bootstrap() {
     // Request size limits
     app.use(json({ limit: '10mb' }));
     app.use(urlencoded({ extended: true, limit: '10mb' }));
+
+    // API logging middleware
+    const auditLogService = app.get(AuditLogService);
+    const apiLoggingMiddleware = new ApiLoggingMiddleware(auditLogService);
+    app.use(apiLoggingMiddleware.use.bind(apiLoggingMiddleware));
 
     // Global validation pipe
     app.useGlobalPipes(

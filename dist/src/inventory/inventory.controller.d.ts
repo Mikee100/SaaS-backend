@@ -21,6 +21,8 @@ export declare class InventoryController {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -73,6 +75,8 @@ export declare class InventoryController {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -125,6 +129,8 @@ export declare class InventoryController {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -178,6 +184,8 @@ export declare class InventoryController {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
     } & {
         id: string;
@@ -218,6 +226,8 @@ export declare class InventoryController {
             images: string[];
             supplierId: string | null;
             bulkUploadRecordId: string | null;
+            categoryId: string | null;
+            hasVariations: boolean;
         };
         currentStock: number;
         averageDailySales: number;

@@ -20,13 +20,16 @@ const admin_service_1 = require("./admin.service");
 const superadmin_guard_1 = require("./superadmin.guard");
 const subscription_service_1 = require("../billing/subscription.service");
 const trial_guard_1 = require("../auth/trial.guard");
+const audit_log_service_1 = require("../audit-log.service");
 let AdminController = AdminController_1 = class AdminController {
     adminService;
     subscriptionService;
+    auditLogService;
     logger = new common_1.Logger(AdminController_1.name);
-    constructor(adminService, subscriptionService) {
+    constructor(adminService, subscriptionService, auditLogService) {
         this.adminService = adminService;
         this.subscriptionService = subscriptionService;
+        this.auditLogService = auditLogService;
     }
     async getBillingMetrics() {
         this.logger.log('AdminController: getBillingMetrics called');
@@ -114,6 +117,11 @@ let AdminController = AdminController_1 = class AdminController {
     async updateUserStatus(userId, body) {
         this.logger.log(`AdminController: updateUserStatus called for userId: ${userId}, isDisabled: ${body.isDisabled}`);
         return this.adminService.updateUserStatus(userId, body.isDisabled);
+    }
+    async getAuditLogs(limit, tenantId) {
+        this.logger.log('AdminController: getAuditLogs called');
+        const limitNum = limit ? Number(limit) : 100;
+        return this.auditLogService.getLogs(limitNum, tenantId);
     }
 };
 exports.AdminController = AdminController;
@@ -258,10 +266,19 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "updateUserStatus", null);
+__decorate([
+    (0, common_1.Get)('logs'),
+    __param(0, (0, common_1.Query)('limit')),
+    __param(1, (0, common_1.Query)('tenantId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getAuditLogs", null);
 exports.AdminController = AdminController = AdminController_1 = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), superadmin_guard_1.SuperadminGuard, trial_guard_1.TrialGuard),
     __metadata("design:paramtypes", [admin_service_1.AdminService,
-        subscription_service_1.SubscriptionService])
+        subscription_service_1.SubscriptionService,
+        audit_log_service_1.AuditLogService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

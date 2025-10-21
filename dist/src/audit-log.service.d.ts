@@ -3,8 +3,74 @@ export declare class AuditLogService {
     private prisma;
     constructor(prisma: PrismaService);
     log(userId: string | null, action: string, details: any, ip?: string, prismaClient?: any): Promise<any>;
-    getLogs(limit?: number): Promise<({
-        User: {
+    getLogs(limit?: number, tenantId?: string): Promise<({
+        User: ({
+            tenant: {
+                id: string;
+                name: string;
+                businessType: string;
+                contactEmail: string;
+                contactPhone: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                address: string | null;
+                currency: string | null;
+                logoUrl: string | null;
+                timezone: string | null;
+                vatNumber: string | null;
+                city: string | null;
+                country: string | null;
+                taxId: string | null;
+                website: string | null;
+                annualRevenue: string | null;
+                apiKey: string | null;
+                backupRestore: boolean;
+                businessCategory: string | null;
+                businessDescription: string | null;
+                businessHours: import("@prisma/client/runtime/library").JsonValue | null;
+                businessLicense: string | null;
+                businessSubcategory: string | null;
+                customDomain: string | null;
+                customIntegrations: boolean;
+                employeeCount: string | null;
+                etimsQrUrl: string | null;
+                favicon: string | null;
+                foundedYear: number | null;
+                invoiceFooter: string | null;
+                kraPin: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                postalCode: string | null;
+                primaryColor: string | null;
+                primaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                rateLimit: number | null;
+                receiptLogo: string | null;
+                secondaryColor: string | null;
+                secondaryProducts: import("@prisma/client/runtime/library").JsonValue | null;
+                socialMedia: import("@prisma/client/runtime/library").JsonValue | null;
+                ssoEnabled: boolean;
+                state: string | null;
+                stripeCustomerId: string | null;
+                watermark: string | null;
+                webhookUrl: string | null;
+                whiteLabel: boolean;
+                dashboardLogoUrl: string | null;
+                emailLogoUrl: string | null;
+                loginLogoUrl: string | null;
+                logoSettings: import("@prisma/client/runtime/library").JsonValue | null;
+                pdfTemplate: import("@prisma/client/runtime/library").JsonValue | null;
+                mobileLogoUrl: string | null;
+                auditLogsEnabled: boolean;
+                credits: number | null;
+                mpesaConsumerKey: string | null;
+                mpesaConsumerSecret: string | null;
+                mpesaShortCode: string | null;
+                mpesaPasskey: string | null;
+                mpesaCallbackUrl: string | null;
+                mpesaIsActive: boolean;
+                mpesaEnvironment: string | null;
+            } | null;
+        } & {
             id: string;
             name: string;
             createdAt: Date;
@@ -20,7 +86,7 @@ export declare class AuditLogService {
             isSuperadmin: boolean;
             isDisabled: boolean;
             branchId: string | null;
-        } | null;
+        }) | null;
     } & {
         id: string;
         createdAt: Date;

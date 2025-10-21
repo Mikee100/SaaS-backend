@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Logger, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Logger, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminService } from './admin.service';
 import { SuperadminGuard } from './superadmin.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { TrialGuard } from '../auth/trial.guard';
+import { AuditLogService } from '../audit-log.service';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
@@ -13,6 +14,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   @Get('billing/metrics')
@@ -143,5 +145,12 @@ export class AdminController {
   async updateUserStatus(@Param('id') userId: string, @Body() body: { isDisabled: boolean }) {
     this.logger.log(`AdminController: updateUserStatus called for userId: ${userId}, isDisabled: ${body.isDisabled}`);
     return this.adminService.updateUserStatus(userId, body.isDisabled);
+  }
+
+  @Get('logs')
+  async getAuditLogs(@Query('limit') limit: string, @Query('tenantId') tenantId?: string) {
+    this.logger.log('AdminController: getAuditLogs called');
+    const limitNum = limit ? Number(limit) : 100;
+    return this.auditLogService.getLogs(limitNum, tenantId);
   }
 }

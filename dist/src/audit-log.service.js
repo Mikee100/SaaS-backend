@@ -31,11 +31,22 @@ let AuditLogService = class AuditLogService {
             },
         });
     }
-    async getLogs(limit = 100) {
+    async getLogs(limit = 100, tenantId) {
+        const where = {};
+        if (tenantId) {
+            where.User = { tenantId };
+        }
         return this.prisma.auditLog.findMany({
+            where,
             orderBy: { createdAt: 'desc' },
             take: limit,
-            include: { User: true },
+            include: {
+                User: {
+                    include: {
+                        tenant: true,
+                    },
+                },
+            },
         });
     }
 };

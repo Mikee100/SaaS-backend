@@ -26,11 +26,23 @@ export class AuditLogService {
     });
   }
 
-  async getLogs(limit = 100) {
+  async getLogs(limit = 100, tenantId?: string) {
+    const where: any = {};
+    if (tenantId) {
+      where.User = { tenantId };
+    }
+
     return this.prisma.auditLog.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       take: limit,
-      include: { User: true }, // Changed from 'user' to 'User' to match Prisma schema
+      include: {
+        User: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
     });
   }
 }

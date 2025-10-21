@@ -83,15 +83,17 @@ let ProductService = class ProductService {
             ...data,
             id: (0, uuid_1.v4)(),
         };
-        if (productData.supplier && typeof productData.supplier === 'string') {
-            const supplier = await this.prisma.supplier.findFirst({
-                where: {
-                    name: productData.supplier,
-                    tenantId: data.tenantId,
-                },
-            });
-            if (supplier) {
-                productData.supplierId = supplier.id;
+        if (typeof productData.supplier === 'string') {
+            if (productData.supplier) {
+                const supplier = await this.prisma.supplier.findFirst({
+                    where: {
+                        name: productData.supplier,
+                        tenantId: data.tenantId,
+                    },
+                });
+                if (supplier) {
+                    productData.supplierId = supplier.id;
+                }
             }
             delete productData.supplier;
         }
@@ -101,22 +103,61 @@ let ProductService = class ProductService {
                 productData.stock = 0;
             }
         }
-        if (productData.price !== undefined) {
-            productData.price = parseFloat(String(productData.price));
+        if (productData.price !== undefined && productData.price !== null && productData.price !== '') {
+            const parsedPrice = parseFloat(String(productData.price));
+            productData.price = isNaN(parsedPrice) ? 0 : parsedPrice;
+        }
+        else {
+            productData.price = 0;
         }
         if (productData.cost !== undefined) {
             productData.cost = parseFloat(String(productData.cost));
         }
+        let variations = [];
+        if (productData.variations && Array.isArray(productData.variations)) {
+            variations = productData.variations.map((variation) => ({
+                ...variation,
+                id: (0, uuid_1.v4)(),
+                tenantId: data.tenantId,
+                branchId: data.branchId,
+            }));
+            delete productData.variations;
+        }
+        delete productData.manage_stock;
+        delete productData.type;
+        delete productData.category;
+        delete productData.industry;
+        delete productData.attributes;
+        delete productData.branchId;
+        delete productData.tenantId;
+        productData.hasVariations = variations.length > 0;
         const product = await this.prisma.product.create({
-            data: productData,
+            data: {
+                ...productData,
+                tenant: {
+                    connect: { id: data.tenantId }
+                },
+                branch: {
+                    connect: { id: data.branchId }
+                },
+                variations: {
+                    create: variations,
+                },
+            },
+            include: {
+                variations: true,
+                category: true,
+                tenant: true,
+                branch: true,
+            },
         });
         if (this.auditLogService) {
-            await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku }, ip);
+            await this.auditLogService.log(actorUserId || null, 'product_created', { productId: product.id, name: product.name, sku: product.sku, hasVariations: product.hasVariations }, ip);
         }
         return product;
     }
     async updateProduct(id, data, tenantId, actorUserId, ip) {
-        const { name, sku, price, description, stock, cost, supplier, ...customFields } = data;
+        const { name, sku, price, description, stock, cost, supplier, categoryId, variations, ...customFields } = data;
         const updateData = {};
         if (supplier !== undefined) {
             if (supplier && typeof supplier === 'string') {
@@ -149,8 +190,28 @@ let ProductService = class ProductService {
             updateData.stock = parseInt(stock);
         if (cost !== undefined)
             updateData.cost = parseFloat(cost);
+        if (categoryId !== undefined)
+            updateData.categoryId = categoryId;
         if (Object.keys(customFields).length > 0) {
             updateData.customFields = customFields;
+        }
+        if (variations !== undefined) {
+            await this.prisma.productVariation.deleteMany({
+                where: { productId: id, tenantId },
+            });
+            if (Array.isArray(variations) && variations.length > 0) {
+                updateData.variations = {
+                    create: variations.map((variation) => ({
+                        ...variation,
+                        id: (0, uuid_1.v4)(),
+                        tenantId,
+                    })),
+                };
+                updateData.hasVariations = true;
+            }
+            else {
+                updateData.hasVariations = false;
+            }
         }
         const result = await this.prisma.product.updateMany({
             where: { id, tenantId },
@@ -463,6 +524,189 @@ let ProductService = class ProductService {
             return imagePath;
         }
         return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000'}${imagePath}`;
+    }
+    async findOne(id, tenantId) {
+        return this.prisma.product.findFirst({
+            where: { id, tenantId },
+            include: {
+                supplier: true,
+                category: true,
+                variations: {
+                    include: {
+                        branch: true,
+                    },
+                },
+                branch: true,
+                tenant: true,
+            },
+        });
+    }
+    async createCategory(data) {
+        return this.prisma.productCategory.create({
+            data: {
+                ...data,
+                id: (0, uuid_1.v4)(),
+            },
+        });
+    }
+    async getCategories(tenantId) {
+        return this.prisma.productCategory.findMany({
+            where: { tenantId, isActive: true },
+            include: {
+                attributes: {
+                    where: { isActive: true },
+                },
+                _count: {
+                    select: { products: true },
+                },
+            },
+            orderBy: { name: 'asc' },
+        });
+    }
+    async updateCategory(id, data, tenantId) {
+        return this.prisma.productCategory.updateMany({
+            where: { id, tenantId },
+            data,
+        });
+    }
+    async deleteCategory(id, tenantId) {
+        const productCount = await this.prisma.product.count({
+            where: { categoryId: id, tenantId },
+        });
+        if (productCount > 0) {
+            throw new common_1.BadRequestException('Cannot delete category with existing products');
+        }
+        return this.prisma.productCategory.updateMany({
+            where: { id, tenantId },
+            data: { isActive: false },
+        });
+    }
+    async createAttribute(data) {
+        return this.prisma.productAttribute.create({
+            data: {
+                ...data,
+                id: (0, uuid_1.v4)(),
+            },
+        });
+    }
+    async getAttributesByCategory(categoryId, tenantId) {
+        return this.prisma.productAttribute.findMany({
+            where: { categoryId, tenantId, isActive: true },
+            orderBy: { name: 'asc' },
+        });
+    }
+    async updateAttribute(id, data, tenantId) {
+        return this.prisma.productAttribute.updateMany({
+            where: { id, tenantId },
+            data,
+        });
+    }
+    async deleteAttribute(id, tenantId) {
+        return this.prisma.productAttribute.updateMany({
+            where: { id, tenantId },
+            data: { isActive: false },
+        });
+    }
+    async createVariation(data) {
+        return this.prisma.productVariation.create({
+            data: {
+                ...data,
+                id: (0, uuid_1.v4)(),
+            },
+        });
+    }
+    async getVariationsByProduct(productId, tenantId) {
+        return this.prisma.productVariation.findMany({
+            where: { productId, tenantId, isActive: true },
+            orderBy: { createdAt: 'asc' },
+        });
+    }
+    async updateVariation(id, data, tenantId) {
+        return this.prisma.productVariation.updateMany({
+            where: { id, tenantId },
+            data,
+        });
+    }
+    async deleteVariation(id, tenantId) {
+        return this.prisma.productVariation.updateMany({
+            where: { id, tenantId },
+            data: { isActive: false },
+        });
+    }
+    generateVariationsFromAttributes(attributes, baseProduct) {
+        if (!attributes || attributes.length === 0)
+            return [];
+        const combinations = this.cartesianProduct(attributes.map(attr => attr.values));
+        return combinations.map((combination, index) => {
+            const attrsObj = {};
+            attributes.forEach((attr, attrIndex) => {
+                attrsObj[attr.name] = combination[attrIndex];
+            });
+            return {
+                sku: `${baseProduct.sku}-${index + 1}`,
+                price: baseProduct.price,
+                cost: baseProduct.cost,
+                stock: 0,
+                attributes: attrsObj,
+                tenantId: baseProduct.tenantId,
+                branchId: baseProduct.branchId,
+            };
+        });
+    }
+    cartesianProduct(arrays) {
+        if (arrays.length === 0)
+            return [[]];
+        const [first, ...rest] = arrays;
+        const restCombinations = this.cartesianProduct(rest);
+        return first.flatMap(value => restCombinations.map(combination => [value, ...combination]));
+    }
+    async generateVariationsFromCustomFields(productId, tenantId, userId) {
+        const product = await this.prisma.product.findFirst({
+            where: { id: productId, tenantId },
+        });
+        if (!product) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        if (!product.customFields || typeof product.customFields !== 'object') {
+            throw new common_1.BadRequestException('Product has no custom fields to generate variations from');
+        }
+        const attributes = [];
+        const customFields = product.customFields;
+        for (const [key, value] of Object.entries(customFields)) {
+            if (Array.isArray(value) && value.length > 0) {
+                attributes.push({
+                    name: key,
+                    values: value,
+                });
+            }
+        }
+        if (attributes.length === 0) {
+            throw new common_1.BadRequestException('No array-type custom fields found to generate variations');
+        }
+        const variations = this.generateVariationsFromAttributes(attributes, product);
+        await this.prisma.productVariation.deleteMany({
+            where: { productId, tenantId },
+        });
+        const createdVariations = await this.prisma.productVariation.createMany({
+            data: variations.map(variation => ({
+                ...variation,
+                productId,
+                tenantId,
+                branchId: product.branchId,
+            })),
+        });
+        await this.prisma.product.update({
+            where: { id: productId },
+            data: { hasVariations: true },
+        });
+        if (this.auditLogService) {
+            await this.auditLogService.log(userId, 'product_variations_generated', { productId, variationCount: variations.length, attributes: attributes.map(a => a.name) }, undefined);
+        }
+        return {
+            message: `Generated ${variations.length} variations from custom fields`,
+            variations: variations.length,
+            attributes: attributes.map(a => ({ name: a.name, values: a.values })),
+        };
     }
 };
 exports.ProductService = ProductService;

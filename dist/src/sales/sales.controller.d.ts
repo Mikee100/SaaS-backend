@@ -36,6 +36,7 @@ export declare class SalesController {
                 id: string;
                 quantity: number;
                 saleId: string;
+                variationId: string | null;
             }[];
             branch: {
                 id: string;
@@ -146,6 +147,7 @@ export declare class SalesController {
                 productId: string;
                 quantity: number;
                 saleId: string;
+                variationId: string | null;
             })[];
             id: string;
             createdAt: Date;
@@ -336,6 +338,7 @@ export declare class SalesController {
             id: string;
             quantity: number;
             saleId: string;
+            variationId: string | null;
         }[];
         branch: {
             id: string;
@@ -446,6 +449,7 @@ export declare class SalesController {
             productId: string;
             quantity: number;
             saleId: string;
+            variationId: string | null;
         })[];
         id: string;
         createdAt: Date;

@@ -635,6 +635,7 @@ export class SalesService {
           id: item.id,
           saleId: item.saleId,
           productId: item.productId,
+          variationId: null, // Add variationId field
           quantity: item.quantity,
           price: item.price,
           product: item.product
