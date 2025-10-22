@@ -24,6 +24,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AiModule } from './ai/ai.module';
     AuditLogModule,
     SupplierModule,
     AiModule,
+    ExpensesModule
   ],
   controllers: [AppController],
   providers: [AppService],

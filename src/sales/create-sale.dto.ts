@@ -29,7 +29,7 @@ export class CreateSaleDto {
   items: SaleItemDto[];
 
   @IsString()
-  paymentMethod: string;
+  paymentMethod: string; // 'cash', 'mpesa', 'credit', etc.
 
   @IsNumber()
   @IsOptional()
@@ -62,4 +62,17 @@ export class CreateSaleDto {
   @IsString()
   @IsOptional()
   mpesaTransactionId?: string;
+
+  // Credit-specific fields
+  @IsNumber()
+  @IsOptional()
+  creditAmount?: number; // Amount to be paid on credit
+
+  @IsOptional()
+  @IsString()
+  creditDueDate?: string; // Due date for credit payment
+
+  @IsOptional()
+  @IsString()
+  creditNotes?: string; // Notes for credit sale
 }

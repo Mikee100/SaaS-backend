@@ -198,6 +198,78 @@ let SalesController = class SalesController {
     async getSaleById(id, req) {
         return this.salesService.getSaleById(id, req.user?.tenantId);
     }
+    async getCredits(req) {
+        return this.salesService.getCredits(req.user.tenantId);
+    }
+    async getCreditById(id, req) {
+        return this.salesService.getCreditById(id, req.user.tenantId);
+    }
+    async makeCreditPayment(creditId, body, req) {
+        return this.salesService.makeCreditPayment(creditId, body.amount, body.paymentMethod, req.user.tenantId, body.notes);
+    }
+    async getCreditScore(req) {
+        const { customerName, customerPhone } = req.query;
+        console.log('getCreditScore called with:', { customerName, customerPhone, tenantId: req.user.tenantId });
+        try {
+            const result = await this.salesService.calculateCustomerCreditScore(req.user.tenantId, customerName, customerPhone);
+            console.log('getCreditScore result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('getCreditScore error:', error);
+            throw error;
+        }
+    }
+    async checkCreditEligibility(body, req) {
+        console.log('checkCreditEligibility called with:', { body, tenantId: req.user.tenantId });
+        try {
+            const result = await this.salesService.checkCreditEligibility(req.user.tenantId, body.customerName, body.requestedAmount, body.customerPhone);
+            console.log('checkCreditEligibility result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('checkCreditEligibility error:', error);
+            throw error;
+        }
+    }
+    async getCreditAnalytics(req) {
+        const { startDate, endDate } = req.query;
+        console.log('getCreditAnalytics called with:', { tenantId: req.user.tenantId, startDate, endDate });
+        try {
+            const result = await this.salesService.getCreditAnalytics(req.user.tenantId, startDate ? new Date(startDate) : undefined, endDate ? new Date(endDate) : undefined);
+            console.log('getCreditAnalytics result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('getCreditAnalytics error:', error);
+            throw error;
+        }
+    }
+    async getCustomerCreditHistory(req) {
+        const { customerName, customerPhone } = req.query;
+        console.log('getCustomerCreditHistory called with:', { tenantId: req.user.tenantId, customerName, customerPhone });
+        try {
+            const result = await this.salesService.getCustomerCreditHistory(req.user.tenantId, customerName, customerPhone);
+            console.log('getCustomerCreditHistory result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('getCustomerCreditHistory error:', error);
+            throw error;
+        }
+    }
+    async getCreditAgingAnalysis(req) {
+        console.log('getCreditAgingAnalysis called with:', { tenantId: req.user.tenantId });
+        try {
+            const result = await this.salesService.getCreditAgingAnalysis(req.user.tenantId);
+            console.log('getCreditAgingAnalysis result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('getCreditAgingAnalysis error:', error);
+            throw error;
+        }
+    }
 };
 exports.SalesController = SalesController;
 __decorate([
@@ -272,6 +344,74 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesController.prototype, "getSaleById", null);
+__decorate([
+    (0, common_1.Get)('credits/all'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCredits", null);
+__decorate([
+    (0, common_1.Get)('credits/:id'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCreditById", null);
+__decorate([
+    (0, common_1.Post)('credits/:id/payment'),
+    (0, permissions_decorator_1.Permissions)('create_sales'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "makeCreditPayment", null);
+__decorate([
+    (0, common_1.Get)('credits/score'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCreditScore", null);
+__decorate([
+    (0, common_1.Post)('credits/eligibility'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "checkCreditEligibility", null);
+__decorate([
+    (0, common_1.Get)('credits/analytics'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCreditAnalytics", null);
+__decorate([
+    (0, common_1.Get)('credits/customer-history'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCustomerCreditHistory", null);
+__decorate([
+    (0, common_1.Get)('credits/aging'),
+    (0, permissions_decorator_1.Permissions)('view_sales'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesController.prototype, "getCreditAgingAnalysis", null);
 exports.SalesController = SalesController = __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard, trial_guard_1.TrialGuard),
     (0, common_1.Controller)('sales'),

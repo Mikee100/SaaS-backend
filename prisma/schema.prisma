@@ -26,8 +26,8 @@ model User {
   AuditLog                AuditLog[]
   MpesaTransaction        MpesaTransaction[]
   Notification            Notification[]
-  Sale                    Sale[]
-  Subscription            Subscription[]
+  Sale                Sale[]
+  Subscription        Subscription[]
   Branch                  Branch?            @relation("UserBranch", fields: [branchId], references: [id])
   tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
   UserBranchRole          UserBranchRole[]   @relation("UserUserBranchRoles")
@@ -36,6 +36,7 @@ model User {
   userRoles               UserRole[]         @relation("UserUserRoles")
   bulkUploadRecords       BulkUploadRecord[] @relation("UserBulkUploadRecords")
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
+  expenses                Expense[]
 
   @@index([email])
   @@index([branchId])
@@ -165,6 +166,7 @@ model Tenant {
   products            Product[]             @relation("TenantProducts")
   roles               Role[]
   Sale                Sale[]
+  Credit              Credit[]
   Subscription        Subscription[]
   suppliers           Supplier[]
   TenantConfiguration TenantConfiguration[]
@@ -178,6 +180,7 @@ model Tenant {
   productCategories   ProductCategory[]     @relation("TenantProductCategories") // New
   productAttributes   ProductAttribute[]    @relation("TenantProductAttributes") // New
   productVariations   ProductVariation[]    @relation("TenantProductVariations") // New
+  expenses            Expense[]             // New
 }
 
 model AuditLog {
@@ -222,6 +225,7 @@ model Branch {
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
+  expenses            Expense[]           // New
 
   @@index([tenantId])
 }
@@ -619,6 +623,7 @@ model Sale {
   Tenant                                         Tenant             @relation(fields: [tenantId], references: [id])
   User                                           User               @relation(fields: [userId], references: [id])
   SaleItem                                       SaleItem[]
+  credit                                         Credit?            @relation("SaleCredit")
 
   @@unique([idempotencyKey, userId])
   @@index([branchId])
@@ -822,4 +827,76 @@ model ProductAdditionRecord {
   @@index([supplierId])
   @@index([bulkUploadRecordId])
   @@index([addedAt])
+}
+
+model Credit {
+  id            String   @id @default(uuid())
+  tenantId      String
+  customerName  String
+  customerPhone String?
+  customerEmail String?
+  totalAmount   Float    // Total credit amount
+  paidAmount    Float    @default(0) // Amount paid so far
+  balance       Float    // Remaining balance (totalAmount - paidAmount)
+  status        String   @default("active") // "active", "paid", "overdue"
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  sale          Sale     @relation("SaleCredit", fields: [saleId], references: [id])
+  payments      CreditPayment[]
+
+  saleId        String   @unique
+
+  @@index([tenantId])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model CreditPayment {
+  id            String   @id @default(uuid())
+  creditId      String
+  amount        Float
+  paymentMethod String   // "cash", "mpesa", "bank_transfer", etc.
+  transactionId String?  // For M-Pesa or other payment references
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  credit        Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId])
+  @@index([createdAt])
+}
+
+model Expense {
+  id            String     @id @default(uuid())
+  tenantId      String
+  userId        String
+  branchId      String?
+  amount        Float
+  description   String
+  category      String     // "office_supplies", "utilities", "rent", "marketing", "travel", "equipment", "other"
+  expenseType   String     // "one_time", "recurring"
+  frequency     String?    // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
+  nextDueDate   DateTime?  // For recurring expenses
+  isActive      Boolean    @default(true) // For recurring expenses
+  receiptUrl    String?    // URL to uploaded receipt
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tenant        Tenant     @relation(fields: [tenantId], references: [id])
+  user          User       @relation(fields: [userId], references: [id])
+  branch        Branch?    @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([branchId])
+  @@index([expenseType])
+  @@index([category])
+  @@index([nextDueDate])
+  @@index([isActive])
 }

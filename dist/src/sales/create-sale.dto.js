@@ -42,6 +42,9 @@ class CreateSaleDto {
     total;
     vatAmount;
     mpesaTransactionId;
+    creditAmount;
+    creditDueDate;
+    creditNotes;
 }
 exports.CreateSaleDto = CreateSaleDto;
 __decorate([
@@ -93,4 +96,19 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateSaleDto.prototype, "mpesaTransactionId", void 0);
+__decorate([
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateSaleDto.prototype, "creditAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSaleDto.prototype, "creditDueDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSaleDto.prototype, "creditNotes", void 0);
 //# sourceMappingURL=create-sale.dto.js.map

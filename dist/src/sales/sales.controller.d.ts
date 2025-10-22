@@ -464,4 +464,204 @@ export declare class SalesController {
         idempotencyKey: string | null;
         vatAmount: number | null;
     }>;
+    getCredits(req: any): Promise<({
+        sale: {
+            id: string;
+            createdAt: Date;
+            total: number;
+            SaleItem: {
+                price: number;
+                product: {
+                    id: string;
+                    name: string;
+                };
+                quantity: number;
+            }[];
+        };
+        payments: {
+            id: string;
+            createdAt: Date;
+            paymentMethod: string;
+            amount: number;
+            transactionId: string | null;
+            notes: string | null;
+            creditId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        status: string;
+        dueDate: Date | null;
+        customerName: string;
+        customerPhone: string | null;
+        saleId: string;
+        notes: string | null;
+        customerEmail: string | null;
+        totalAmount: number;
+        paidAmount: number;
+        balance: number;
+    })[]>;
+    getCreditById(id: string, req: any): Promise<({
+        sale: {
+            id: string;
+            createdAt: Date;
+            total: number;
+            SaleItem: {
+                price: number;
+                product: {
+                    id: string;
+                    name: string;
+                };
+                quantity: number;
+            }[];
+        };
+        payments: {
+            id: string;
+            createdAt: Date;
+            paymentMethod: string;
+            amount: number;
+            transactionId: string | null;
+            notes: string | null;
+            creditId: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        status: string;
+        dueDate: Date | null;
+        customerName: string;
+        customerPhone: string | null;
+        saleId: string;
+        notes: string | null;
+        customerEmail: string | null;
+        totalAmount: number;
+        paidAmount: number;
+        balance: number;
+    }) | null>;
+    makeCreditPayment(creditId: string, body: {
+        amount: number;
+        paymentMethod: string;
+        notes?: string;
+    }, req: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        status: string;
+        dueDate: Date | null;
+        customerName: string;
+        customerPhone: string | null;
+        saleId: string;
+        notes: string | null;
+        customerEmail: string | null;
+        totalAmount: number;
+        paidAmount: number;
+        balance: number;
+    }>;
+    getCreditScore(req: any): Promise<{
+        score: number;
+        riskLevel: string;
+        factors: {
+            totalCredits: number;
+            paidCredits: number;
+            overdueCredits: number;
+            averagePaymentDays: number;
+            totalCreditAmount: number;
+        };
+    }>;
+    checkCreditEligibility(body: {
+        customerName: string;
+        customerPhone?: string;
+        requestedAmount: number;
+    }, req: any): Promise<{
+        isEligible: boolean;
+        availableCredit: number;
+        requestedAmount: number;
+        currentOutstanding: number;
+        creditScore: number;
+        riskLevel: string;
+        reasons: string[];
+    }>;
+    getCreditAnalytics(req: any): Promise<{
+        summary: {
+            totalCredits: number;
+            totalOutstanding: number;
+            totalPaid: number;
+            totalCreditAmount: number;
+            paidCredits: number;
+            overdueCredits: number;
+            activeCredits: number;
+            avgPaymentTime: number;
+        };
+        trends: {
+            paymentTrends: Record<string, number>;
+            outstandingByMonth: Record<string, number>;
+            overdueByMonth: Record<string, number>;
+        };
+    }>;
+    getCustomerCreditHistory(req: any): Promise<{
+        customer: {
+            name: string;
+            phone: string | undefined;
+        };
+        summary: {
+            totalCredits: number;
+            totalCreditAmount: number;
+            totalPaid: number;
+            totalOutstanding: number;
+            paidCredits: number;
+            overdueCredits: number;
+            paymentRatio: number;
+        };
+        creditHistory: {
+            id: string;
+            saleId: string;
+            totalAmount: number;
+            paidAmount: number;
+            balance: number;
+            status: string;
+            dueDate: Date | null;
+            notes: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            sale: {
+                id: string;
+                total: number;
+                createdAt: Date;
+                items: {
+                    productId: string;
+                    productName: string;
+                    quantity: number;
+                    price: number;
+                    total: number;
+                }[];
+            } | null;
+            payments: {
+                id: string;
+                amount: number;
+                paymentMethod: string;
+                notes: string | null;
+                createdAt: Date;
+            }[];
+        }[];
+    }>;
+    getCreditAgingAnalysis(req: any): Promise<{
+        summary: {
+            current: number;
+            '31-60': number;
+            '61-90': number;
+            '91+': number;
+        };
+        details: {
+            current: any[];
+            '31-60': any[];
+            '61-90': any[];
+            '91+': any[];
+        };
+        totalOutstanding: number;
+    }>;
 }

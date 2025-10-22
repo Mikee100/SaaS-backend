@@ -32,6 +32,7 @@ const throttler_1 = require("@nestjs/throttler");
 const audit_log_module_1 = require("./audit-log/audit-log.module");
 const supplier_module_1 = require("./supplier/supplier.module");
 const ai_module_1 = require("./ai/ai.module");
+const expenses_module_1 = require("./expenses/expenses.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -63,6 +64,7 @@ exports.AppModule = AppModule = __decorate([
             audit_log_module_1.AuditLogModule,
             supplier_module_1.SupplierModule,
             ai_module_1.AiModule,
+            expenses_module_1.ExpensesModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

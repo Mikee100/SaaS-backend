@@ -248,4 +248,126 @@ export class SalesController {
     // Optionally: check tenant/user permissions
     return this.salesService.getSaleById(id, req.user?.tenantId);
   }
+
+  // Credit management endpoints
+  @Get('credits/all')
+  @Permissions('view_sales')
+  async getCredits(@Req() req) {
+    return this.salesService.getCredits(req.user.tenantId);
+  }
+
+  @Get('credits/:id')
+  @Permissions('view_sales')
+  async getCreditById(@Param('id') id: string, @Req() req) {
+    return this.salesService.getCreditById(id, req.user.tenantId);
+  }
+
+  @Post('credits/:id/payment')
+  @Permissions('create_sales')
+  async makeCreditPayment(
+    @Param('id') creditId: string,
+    @Body() body: { amount: number; paymentMethod: string; notes?: string },
+    @Req() req,
+  ) {
+    return this.salesService.makeCreditPayment(
+      creditId,
+      body.amount,
+      body.paymentMethod,
+      req.user.tenantId,
+      body.notes,
+    );
+  }
+
+  @Get('credits/score')
+  @Permissions('view_sales')
+  async getCreditScore(@Req() req) {
+    const { customerName, customerPhone } = req.query;
+    console.log('getCreditScore called with:', { customerName, customerPhone, tenantId: req.user.tenantId });
+    try {
+      const result = await this.salesService.calculateCustomerCreditScore(
+        req.user.tenantId,
+        customerName as string,
+        customerPhone as string,
+      );
+      console.log('getCreditScore result:', result);
+      return result;
+    } catch (error) {
+      console.error('getCreditScore error:', error);
+      throw error;
+    }
+  }
+
+  @Post('credits/eligibility')
+  @Permissions('view_sales')
+  async checkCreditEligibility(
+    @Body() body: { customerName: string; customerPhone?: string; requestedAmount: number },
+    @Req() req,
+  ) {
+    console.log('checkCreditEligibility called with:', { body, tenantId: req.user.tenantId });
+    try {
+      const result = await this.salesService.checkCreditEligibility(
+        req.user.tenantId,
+        body.customerName,
+        body.requestedAmount,
+        body.customerPhone,
+      );
+      console.log('checkCreditEligibility result:', result);
+      return result;
+    } catch (error) {
+      console.error('checkCreditEligibility error:', error);
+      throw error;
+    }
+  }
+
+  @Get('credits/analytics')
+  @Permissions('view_sales')
+  async getCreditAnalytics(@Req() req) {
+    const { startDate, endDate } = req.query;
+    console.log('getCreditAnalytics called with:', { tenantId: req.user.tenantId, startDate, endDate });
+    try {
+      const result = await this.salesService.getCreditAnalytics(
+        req.user.tenantId,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined,
+      );
+      console.log('getCreditAnalytics result:', result);
+      return result;
+    } catch (error) {
+      console.error('getCreditAnalytics error:', error);
+      throw error;
+    }
+  }
+
+  @Get('credits/customer-history')
+  @Permissions('view_sales')
+  async getCustomerCreditHistory(@Req() req) {
+    const { customerName, customerPhone } = req.query;
+    console.log('getCustomerCreditHistory called with:', { tenantId: req.user.tenantId, customerName, customerPhone });
+    try {
+      const result = await this.salesService.getCustomerCreditHistory(
+        req.user.tenantId,
+        customerName as string,
+        customerPhone as string,
+      );
+      console.log('getCustomerCreditHistory result:', result);
+      return result;
+    } catch (error) {
+      console.error('getCustomerCreditHistory error:', error);
+      throw error;
+    }
+  }
+
+  @Get('credits/aging')
+  @Permissions('view_sales')
+  async getCreditAgingAnalysis(@Req() req) {
+    console.log('getCreditAgingAnalysis called with:', { tenantId: req.user.tenantId });
+    try {
+      const result = await this.salesService.getCreditAgingAnalysis(req.user.tenantId);
+      console.log('getCreditAgingAnalysis result:', result);
+      return result;
+    } catch (error) {
+      console.error('getCreditAgingAnalysis error:', error);
+      throw error;
+    }
+  }
 }

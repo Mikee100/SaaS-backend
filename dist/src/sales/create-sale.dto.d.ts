@@ -14,5 +14,8 @@ export declare class CreateSaleDto {
     total?: number;
     vatAmount?: number;
     mpesaTransactionId?: string;
+    creditAmount?: number;
+    creditDueDate?: string;
+    creditNotes?: string;
 }
 export {};

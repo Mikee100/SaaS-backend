@@ -255,6 +255,38 @@ export declare class UserService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        })[] | ({
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
+        } | {
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
         })[] | {
             id: string;
             tenantId: string;
@@ -377,6 +409,22 @@ export declare class UserService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        }[] | {
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;
@@ -652,6 +700,38 @@ export declare class UserService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        })[] | ({
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
+        } | {
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
         })[] | {
             id: string;
             tenantId: string;
@@ -774,6 +854,22 @@ export declare class UserService {
             notes: string | null;
             addedAt: Date;
             additionType: string;
+        }[] | {
+            id: string;
+            description: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            isActive: boolean;
+            branchId: string | null;
+            userId: string;
+            category: string;
+            amount: number;
+            notes: string | null;
+            expenseType: string;
+            frequency: string | null;
+            nextDueDate: Date | null;
+            receiptUrl: string | null;
         }[];
         [x: number]: never;
         [x: symbol]: never;
