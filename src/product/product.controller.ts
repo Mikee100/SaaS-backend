@@ -12,6 +12,7 @@ import {
   UploadedFile,
   UploadedFiles,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -180,20 +181,62 @@ export class ProductController {
     return this.productService.findOne(id, req.user.tenantId);
   }
 
+  @Get('welcome')
+  @Permissions('view_products')
+  async welcome(@Req() req) {
+    console.log('------------------------------');
+    console.log(`Request received: ${req.method} ${req.path}`);
+    console.log('------------------------------');
+    return { message: 'Welcome to the Product API Service!' };
+  }
+
   // Category endpoints
   @Post('categories')
   @Permissions('create_products')
-  async createCategory(@Body() body: { name: string; description?: string }, @Req() req) {
-    return this.productService.createCategory({
-      ...body,
-      tenantId: req.user.tenantId,
-    });
+  async createCategory(@Body() body: { name: string; description?: string; customFields?: Record<string, string[]> }, @Req() req) {
+    try {
+      const category = await this.productService.createCategory({
+        ...body,
+        tenantId: req.user.tenantId,
+      });
+
+      // Automatically create a base product for this category
+      const baseProductData = {
+        name: `${body.name} Base Product`,
+        sku: `${body.name.replace(/\s+/g, '-').toUpperCase()}-BASE`,
+        price: 0,
+        description: `Base product for ${body.name} category`,
+        tenantId: req.user.tenantId,
+        branchId: req.headers['x-branch-id'] || req.user.branchId,
+        categoryId: category.id,
+        customFields: body.customFields || {},
+      };
+
+      const baseProduct = await this.productService.createProduct(baseProductData, req.user.userId, req.ip);
+
+      return {
+        ...category,
+        baseProductId: baseProduct.id,
+      };
+    } catch (error: any) {
+      // Handle unique constraint violation
+      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        throw new BadRequestException(`A category with the name "${body.name}" already exists. Please choose a different name.`);
+      }
+      throw error;
+    }
   }
 
   @Get('categories')
   @Permissions('view_products')
   async getCategories(@Req() req) {
     return this.productService.getCategories(req.user.tenantId);
+  }
+
+  @Get('categories/count')
+  @Permissions('view_products')
+  async getCategoriesWithCount(@Req() req) {
+    return this.productService.getCategoriesWithCount(req.user.tenantId);
   }
 
   @Put('categories/:id')

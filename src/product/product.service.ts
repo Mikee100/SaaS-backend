@@ -78,6 +78,8 @@ export class ProductService {
       where,
       include: {
         supplier: true,
+        category: true,
+        variations: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -148,6 +150,13 @@ export class ProductService {
       delete productData.variations;
     }
 
+    // Handle category connection - category is now required
+    const categoryId = productData.categoryId;
+    if (!categoryId) {
+      throw new BadRequestException('Category is required for all products');
+    }
+    delete productData.categoryId;
+
     // Remove fields that don't exist in Prisma schema
     delete productData.manage_stock;
     delete productData.type;
@@ -168,6 +177,9 @@ export class ProductService {
         },
         branch: {
           connect: { id: data.branchId }
+        },
+        category: {
+          connect: { id: categoryId }
         },
         variations: {
           create: variations,
@@ -377,15 +389,23 @@ export class ProductService {
       'cost price',
       'wholesale price',
     ];
+    const categoryCandidates = [
+      'category',
+      'category name',
+      'product category',
+      'type',
+      'group',
+    ];
 
     // Find the best matching column for each required field
     const nameCol = findColumnMatch(headers, nameCandidates);
     const skuCol = findColumnMatch(headers, skuCandidates);
     const priceCol = findColumnMatch(headers, priceCandidates);
     const costCol = findColumnMatch(headers, costCandidates);
+    const categoryCol = findColumnMatch(headers, categoryCandidates);
 
-    // Required fields for Product
-    const requiredFields = ['name', 'sku', 'price'];
+    // Required fields for Product - now includes category
+    const requiredFields = ['name', 'sku', 'price', 'category'];
     const results: any[] = [];
     const createdProducts: any[] = [];
 
@@ -413,6 +433,7 @@ export class ProductService {
               if (skuCol) mappedRow.sku = row[skuCol];
               if (priceCol) mappedRow.price = row[priceCol];
               if (costCol) mappedRow.cost = row[costCol];
+              if (categoryCol) mappedRow.category = row[categoryCol];
 
               // Validate required fields
               for (const field of requiredFields) {
@@ -420,8 +441,31 @@ export class ProductService {
                   throw new Error(`Missing required field: ${field}`);
               }
 
+              // Find or create category
+              let categoryId: string;
+              const categoryName = String(mappedRow.category).trim();
+              const existingCategory = await this.prisma.productCategory.findFirst({
+                where: {
+                  name: categoryName,
+                  tenantId: user.tenantId,
+                },
+              });
+              if (existingCategory) {
+                categoryId = existingCategory.id;
+              } else {
+                const newCategory = await this.prisma.productCategory.create({
+                  data: {
+                    name: categoryName,
+                    tenantId: user.tenantId,
+                    id: uuidv4(),
+                    isActive: true,
+                  },
+                });
+                categoryId = newCategory.id;
+              }
+
               // Extract standard fields
-              const { name, sku, price, cost, description, stock, supplierId: extractedSupplierId, ...customFields } =
+              const { name, sku, price, cost, description, stock, supplierId: extractedSupplierId, category, ...customFields } =
                 mappedRow;
 
               const productData = {
@@ -434,6 +478,7 @@ export class ProductService {
                 stock: stock !== undefined ? parseInt(String(stock)) : 0,
                 tenantId: user.tenantId,
                 branchId: branchId, // Use the resolved branch ID
+                categoryId: categoryId,
                 supplierId: extractedSupplierId || null,
                 bulkUploadRecordId: bulkUploadRecord.id,
                 ...(Object.keys(customFields).length > 0 && { customFields }),
@@ -705,11 +750,15 @@ export class ProductService {
   }
 
   // Category CRUD methods
-  async createCategory(data: { name: string; description?: string; tenantId: string }) {
+  async createCategory(data: { name: string; description?: string; customFields?: Record<string, string[]>; tenantId: string }) {
     return this.prisma.productCategory.create({
       data: {
-        ...data,
+        name: data.name,
+        description: data.description || '',
+        customFields: data.customFields || {},
+        tenantId: data.tenantId,
         id: uuidv4(),
+        isActive: true,
       },
     });
   }
@@ -721,6 +770,27 @@ export class ProductService {
         attributes: {
           where: { isActive: true },
         },
+        _count: {
+          select: { products: true },
+        },
+        products: {
+          include: {
+            variations: true,
+            supplier: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async getCategoriesWithCount(tenantId: string) {
+    return this.prisma.productCategory.findMany({
+      where: { tenantId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
         _count: {
           select: { products: true },
         },
