@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Res, HttpStatus, Get, Put, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  HttpStatus,
+  Get,
+  Put,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { Response, Request } from 'express';
 import { MpesaService } from './mpesa.service';
 import { SalesService } from '../sales/sales.service';
@@ -14,12 +24,15 @@ export class MpesaController {
   @Post('initiate')
   async initiatePayment(@Body() body: any, @Res() res: Response) {
     try {
-      const { phoneNumber, amount, reference, transactionDesc, tenantId } = body;
+      const { phoneNumber, amount, reference, transactionDesc, tenantId } =
+        body;
 
       // Get tenantId from authenticated user (assuming req.user has tenantId)
       // For now, require tenantId in body; in production, extract from JWT
       if (!tenantId) {
-        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Tenant ID required' });
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .json({ error: 'Tenant ID required' });
       }
 
       // Initiate STK Push using service
@@ -69,7 +82,9 @@ export class MpesaController {
 
       if (status === 'success') {
         const callbackMetadata = result.CallbackMetadata.Item;
-        const receiptItem = callbackMetadata.find((item: any) => item.Name === 'MpesaReceiptNumber');
+        const receiptItem = callbackMetadata.find(
+          (item: any) => item.Name === 'MpesaReceiptNumber',
+        );
         mpesaReceipt = receiptItem ? receiptItem.Value : undefined;
       }
 
@@ -83,9 +98,10 @@ export class MpesaController {
 
       // If success and has saleData, process sale
       if (status === 'success') {
-        const mpesaTx = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-          where: { checkoutRequestID: checkoutRequestId },
-        });
+        const mpesaTx =
+          await this.mpesaService.prisma.mpesaTransaction.findFirst({
+            where: { checkoutRequestID: checkoutRequestId },
+          });
 
         if (mpesaTx && mpesaTx.saleData) {
           const saleData = mpesaTx.saleData as any; // Cast to any for now
@@ -109,14 +125,19 @@ export class MpesaController {
       return res.status(HttpStatus.OK).json({ success: true });
     } catch (error) {
       console.error('Webhook Error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Webhook processing failed' });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Webhook processing failed' });
     }
   }
 
   @Get('config')
   async getConfig(@Query('tenantId') tenantId: string, @Res() res: Response) {
     try {
-      const config = await this.mpesaService.getTenantMpesaConfig(tenantId, false);
+      const config = await this.mpesaService.getTenantMpesaConfig(
+        tenantId,
+        false,
+      );
       // Return config for both users and admins
       return res.json({
         consumerKey: config.consumerKey,
@@ -135,11 +156,28 @@ export class MpesaController {
   @Post('config')
   async updateConfig(@Body() body: any, @Res() res: Response) {
     try {
-      const { tenantId, mpesaConsumerKey, mpesaConsumerSecret, mpesaShortCode, mpesaPasskey, mpesaCallbackUrl, mpesaIsActive, mpesaEnvironment } = body;
+      const {
+        tenantId,
+        mpesaConsumerKey,
+        mpesaConsumerSecret,
+        mpesaShortCode,
+        mpesaPasskey,
+        mpesaCallbackUrl,
+        mpesaIsActive,
+        mpesaEnvironment,
+      } = body;
 
       // Validate required fields
-      if (!mpesaConsumerKey || !mpesaConsumerSecret || !mpesaShortCode || !mpesaPasskey || !mpesaCallbackUrl) {
-        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'All M-Pesa configuration fields are required' });
+      if (
+        !mpesaConsumerKey ||
+        !mpesaConsumerSecret ||
+        !mpesaShortCode ||
+        !mpesaPasskey ||
+        !mpesaCallbackUrl
+      ) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .json({ error: 'All M-Pesa configuration fields are required' });
       }
 
       // Encrypt sensitive fields
@@ -166,14 +204,20 @@ export class MpesaController {
   }
 
   @Get('transaction/:checkoutRequestId')
-  async getByCheckoutId(@Param('checkoutRequestId') checkoutRequestId: string, @Res() res: Response) {
+  async getByCheckoutId(
+    @Param('checkoutRequestId') checkoutRequestId: string,
+    @Res() res: Response,
+  ) {
     try {
-      const transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-        where: { checkoutRequestID: checkoutRequestId },
-      });
+      const transaction =
+        await this.mpesaService.prisma.mpesaTransaction.findFirst({
+          where: { checkoutRequestID: checkoutRequestId },
+        });
       return res.json(transaction);
     } catch (error) {
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'Failed to fetch transaction' });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ error: 'Failed to fetch transaction' });
     }
   }
 }

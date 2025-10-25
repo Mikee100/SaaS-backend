@@ -41,10 +41,19 @@ export class ProductController {
   async findAll(@Req() req) {
     // Get selected branchId from user context or request header
     const branchId = req.headers['x-branch-id'] || req.user.branchId;
-    return this.productService.findAllByTenantAndBranch(
+    console.log(
+      '🚀 Backend: findAll products called with tenantId:',
+      req.user.tenantId,
+      'branchId:',
+      branchId,
+    );
+    console.log('🚀 Backend: findAll Request headers:', req.headers);
+    const result = await this.productService.findAllByTenantAndBranch(
       req.user.tenantId,
       branchId,
     );
+    console.log('🚀 Backend: findAll returning:', result.length, 'products');
+    return result;
   }
 
   @Post()
@@ -63,6 +72,36 @@ export class ProductController {
         ...body,
         tenantId: req.user.tenantId,
         branchId, // Use the resolved branchId
+      },
+      req.user.userId,
+      req.ip,
+    );
+  }
+
+  @Post('categories')
+  @Permissions('create_products')
+  async createCategory(@Body() body, @Req() req) {
+    const branchId =
+      body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+
+    if (!branchId) {
+      throw new Error('Branch ID is required to create a category');
+    }
+
+    console.log('🚀 Backend: createCategory called with:', {
+      name: body.name,
+      tenantId: req.user.tenantId,
+      branchId,
+      customFields: body.customFields,
+    });
+
+    return this.productService.createCategory(
+      {
+        name: body.name,
+        description: body.description,
+        customFields: body.customFields,
+        tenantId: req.user.tenantId,
+        branchId,
       },
       req.user.userId,
       req.ip,
@@ -190,47 +229,31 @@ export class ProductController {
     return { message: 'Welcome to the Product API Service!' };
   }
 
-  // Category endpoints
-  @Post('categories')
-  @Permissions('create_products')
-  async createCategory(@Body() body: { name: string; description?: string; customFields?: Record<string, string[]> }, @Req() req) {
-    try {
-      const category = await this.productService.createCategory({
-        ...body,
-        tenantId: req.user.tenantId,
-      });
-
-      // Automatically create a base product for this category
-      const baseProductData = {
-        name: `${body.name} Base Product`,
-        sku: `${body.name.replace(/\s+/g, '-').toUpperCase()}-BASE`,
-        price: 0,
-        description: `Base product for ${body.name} category`,
-        tenantId: req.user.tenantId,
-        branchId: req.headers['x-branch-id'] || req.user.branchId,
-        categoryId: category.id,
-        customFields: body.customFields || {},
-      };
-
-      const baseProduct = await this.productService.createProduct(baseProductData, req.user.userId, req.ip);
-
-      return {
-        ...category,
-        baseProductId: baseProduct.id,
-      };
-    } catch (error: any) {
-      // Handle unique constraint violation
-      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
-        throw new BadRequestException(`A category with the name "${body.name}" already exists. Please choose a different name.`);
-      }
-      throw error;
-    }
-  }
-
   @Get('categories')
   @Permissions('view_products')
   async getCategories(@Req() req) {
-    return this.productService.getCategories(req.user.tenantId);
+    const branchId = req.headers['x-branch-id'] || req.user.branchId;
+    console.log(
+      '🚀 Backend: getCategories called with tenantId:',
+      req.user.tenantId,
+      'branchId:',
+      branchId,
+    );
+    console.log('🚀 Backend: Request headers:', req.headers);
+    const result = await this.productService.getCategories(
+      req.user.tenantId,
+      branchId,
+    );
+    console.log(
+      '🚀 Backend: getCategories returning:',
+      result.length,
+      'categories',
+    );
+    console.log(
+      '🚀 Backend: Categories data:',
+      JSON.stringify(result, null, 2),
+    );
+    return result;
   }
 
   @Get('categories/count')
@@ -244,7 +267,7 @@ export class ProductController {
   async updateCategory(
     @Param('id') id: string,
     @Body() body: { name?: string; description?: string },
-    @Req() req
+    @Req() req,
   ) {
     return this.productService.updateCategory(id, body, req.user.tenantId);
   }
@@ -258,13 +281,17 @@ export class ProductController {
   // Attribute endpoints
   @Post('attributes')
   @Permissions('create_products')
-  async createAttribute(@Body() body: {
-    name: string;
-    type: string;
-    values?: string[];
-    required?: boolean;
-    categoryId: string;
-  }, @Req() req) {
+  async createAttribute(
+    @Body()
+    body: {
+      name: string;
+      type: string;
+      values?: string[];
+      required?: boolean;
+      categoryId: string;
+    },
+    @Req() req,
+  ) {
     return this.productService.createAttribute({
       ...body,
       tenantId: req.user.tenantId,
@@ -273,21 +300,28 @@ export class ProductController {
 
   @Get('attributes/:categoryId')
   @Permissions('view_products')
-  async getAttributesByCategory(@Param('categoryId') categoryId: string, @Req() req) {
-    return this.productService.getAttributesByCategory(categoryId, req.user.tenantId);
+  async getAttributesByCategory(
+    @Param('categoryId') categoryId: string,
+    @Req() req,
+  ) {
+    return this.productService.getAttributesByCategory(
+      categoryId,
+      req.user.tenantId,
+    );
   }
 
   @Put('attributes/:id')
   @Permissions('edit_products')
   async updateAttribute(
     @Param('id') id: string,
-    @Body() body: Partial<{
+    @Body()
+    body: Partial<{
       name: string;
       type: string;
       values: string[];
       required: boolean;
     }>,
-    @Req() req
+    @Req() req,
   ) {
     return this.productService.updateAttribute(id, body, req.user.tenantId);
   }
@@ -303,7 +337,8 @@ export class ProductController {
   @Permissions('create_products')
   async createVariation(
     @Param('productId') productId: string,
-    @Body() body: {
+    @Body()
+    body: {
       sku: string;
       price?: number;
       cost?: number;
@@ -311,9 +346,10 @@ export class ProductController {
       attributes: any;
       branchId?: string;
     },
-    @Req() req
+    @Req() req,
   ) {
-    const branchId = body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+    const branchId =
+      body.branchId || req.headers['x-branch-id'] || req.user.branchId;
     return this.productService.createVariation({
       ...body,
       productId,
@@ -324,15 +360,22 @@ export class ProductController {
 
   @Get(':productId/variations')
   @Permissions('view_products')
-  async getVariationsByProduct(@Param('productId') productId: string, @Req() req) {
-    return this.productService.getVariationsByProduct(productId, req.user.tenantId);
+  async getVariationsByProduct(
+    @Param('productId') productId: string,
+    @Req() req,
+  ) {
+    return this.productService.getVariationsByProduct(
+      productId,
+      req.user.tenantId,
+    );
   }
 
   @Put('variations/:id')
   @Permissions('edit_products')
   async updateVariation(
     @Param('id') id: string,
-    @Body() body: Partial<{
+    @Body()
+    body: Partial<{
       sku: string;
       price: number;
       cost: number;
@@ -340,7 +383,7 @@ export class ProductController {
       attributes: any;
       isActive: boolean;
     }>,
-    @Req() req
+    @Req() req,
   ) {
     return this.productService.updateVariation(id, body, req.user.tenantId);
   }
@@ -355,6 +398,10 @@ export class ProductController {
   @Post(':id/generate-variations')
   @Permissions('edit_products')
   async generateVariations(@Param('id') id: string, @Req() req) {
-    return this.productService.generateVariationsFromCustomFields(id, req.user.tenantId, req.user.userId);
+    return this.productService.generateVariationsFromCustomFields(
+      id,
+      req.user.tenantId,
+      req.user.userId,
+    );
   }
 }

@@ -28,7 +28,9 @@ export class TrialGuard implements CanActivate {
     }
 
     // Check trial status
-    const trialStatus = await this.subscriptionService.checkTrialStatus(user.tenantId);
+    const trialStatus = await this.subscriptionService.checkTrialStatus(
+      user.tenantId,
+    );
 
     // Only block access if trial is expired AND subscription status is 'expired'
     // This allows continued access even after trial end date if admin hasn't disabled trial mode
@@ -43,7 +45,9 @@ export class TrialGuard implements CanActivate {
       });
 
       if (subscription) {
-        throw new ForbiddenException('Trial period has expired. Please upgrade your subscription.');
+        throw new ForbiddenException(
+          'Trial period has expired. Please upgrade your subscription.',
+        );
       }
     }
 

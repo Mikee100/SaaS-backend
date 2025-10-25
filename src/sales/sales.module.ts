@@ -17,7 +17,14 @@ import { BillingService } from '../billing/billing.service';
     ConfigModule, // Import ConfigModule to provide CONFIG_OPTIONS
   ],
   controllers: [SalesController],
-  providers: [SalesService, PrismaService, AuditLogService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    SalesService,
+    PrismaService,
+    AuditLogService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   exports: [SalesService],
 })
 export class SalesModule {}

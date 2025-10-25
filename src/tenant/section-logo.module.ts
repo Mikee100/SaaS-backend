@@ -9,7 +9,14 @@ import { BillingService } from '../billing/billing.service';
 
 @Module({
   controllers: [SectionLogoController],
-  providers: [SectionLogoService, PrismaService, LogoService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    SectionLogoService,
+    PrismaService,
+    LogoService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   exports: [SectionLogoService],
 })
 export class SectionLogoModule {}

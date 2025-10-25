@@ -8,7 +8,13 @@ import { BillingService } from '../billing/billing.service';
 
 @Module({
   imports: [],
-  providers: [UserService, AuditLogService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    UserService,
+    AuditLogService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   controllers: [UserController],
   exports: [UserService],
 })

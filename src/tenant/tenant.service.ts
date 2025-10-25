@@ -279,7 +279,9 @@ export class TenantService {
             stripeSubscriptionId: 'trial_' + Date.now(),
             stripeCustomerId: 'trial_' + tenant.id,
             stripePriceId: trialPlan.stripePriceId ?? '',
-            stripeCurrentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+            stripeCurrentPeriodEnd: new Date(
+              Date.now() + 15 * 24 * 60 * 60 * 1000,
+            ),
             cancelAtPeriodEnd: false,
             trialEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
             trialStart: new Date(),

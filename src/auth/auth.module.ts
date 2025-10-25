@@ -38,7 +38,14 @@ import { TrialGuard } from './trial.guard';
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, AuditLogService, ConfigurationService, TrialGuard, SubscriptionService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    AuditLogService,
+    ConfigurationService,
+    TrialGuard,
+    SubscriptionService,
+  ],
   controllers: [AuthController],
 })
 export class AuthModule {}

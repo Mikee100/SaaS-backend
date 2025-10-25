@@ -9,7 +9,12 @@ import { BillingService } from '../billing/billing.service';
 @Module({
   imports: [PrismaModule], // <-- Add PrismaModule here
   controllers: [AnalyticsController],
-  providers: [AnalyticsService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    AnalyticsService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

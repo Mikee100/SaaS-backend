@@ -25,7 +25,10 @@ export class EmailService {
       // Verify Gmail first, fallback to Ethereal if fails
       this.transporter.verify((error, success) => {
         if (error) {
-          this.logger.error('Gmail verification failed, falling back to Ethereal:', error);
+          this.logger.error(
+            'Gmail verification failed, falling back to Ethereal:',
+            error,
+          );
           this.setupEthereal();
         } else {
           this.logger.log('Gmail transporter is ready');
@@ -50,8 +53,10 @@ export class EmailService {
         },
       });
 
-      this.logger.warn(`Using Ethereal test email service. Inbox: ${testAccount.user}. Set USE_GMAIL=true and valid GMAIL_USER/GMAIL_PASS for production.`);
-      
+      this.logger.warn(
+        `Using Ethereal test email service. Inbox: ${testAccount.user}. Set USE_GMAIL=true and valid GMAIL_USER/GMAIL_PASS for production.`,
+      );
+
       // Verify Ethereal
       this.transporter.verify((error, success) => {
         if (error) {
@@ -65,7 +70,9 @@ export class EmailService {
       // Ultimate fallback: log emails instead of sending
       this.transporter = {
         sendMail: (options) => {
-          this.logger.log(`[EMAIL LOG] To: ${options.to}, Subject: ${options.subject}, Body: ${options.html}`);
+          this.logger.log(
+            `[EMAIL LOG] To: ${options.to}, Subject: ${options.subject}, Body: ${options.html}`,
+          );
           return Promise.resolve({ messageId: 'logged' });
         },
         verify: () => Promise.resolve(true),
@@ -90,7 +97,8 @@ export class EmailService {
     `;
 
     const mailOptions = {
-      from: process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
+      from:
+        process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
       to,
       subject: 'Password Reset - SaaS Platform',
       html,

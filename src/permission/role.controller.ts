@@ -37,7 +37,9 @@ export class RoleController {
   @Get()
   @Permissions('edit_roles')
   async getRoles(@Req() req) {
-    const currentUserRole = req.user?.roles?.includes('owner') ? 'owner' : undefined;
+    const currentUserRole = req.user?.roles?.includes('owner')
+      ? 'owner'
+      : undefined;
     const tenantId = req.user?.tenantId;
     return this.permissionService.getAllRoles(currentUserRole, tenantId);
   }

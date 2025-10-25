@@ -153,7 +153,11 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getBranchSales(tenantId, timeRange as string, branchId as string);
+      return await this.analyticsService.getBranchSales(
+        tenantId,
+        timeRange as string,
+        branchId as string,
+      );
     } catch (error) {
       console.error('Error fetching branch sales:', error);
       throw new Error('Failed to fetch branch sales data');
@@ -171,7 +175,10 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getBranchComparisonTimeSeries(tenantId, timeRange as string);
+      return await this.analyticsService.getBranchComparisonTimeSeries(
+        tenantId,
+        timeRange as string,
+      );
     } catch (error) {
       console.error('Error fetching branch comparison time series:', error);
       throw new Error('Failed to fetch branch comparison time series data');
@@ -189,7 +196,10 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getBranchProductComparison(tenantId, timeRange as string);
+      return await this.analyticsService.getBranchProductComparison(
+        tenantId,
+        timeRange as string,
+      );
     } catch (error) {
       console.error('Error fetching branch product comparison:', error);
       throw new Error('Failed to fetch branch product comparison data');

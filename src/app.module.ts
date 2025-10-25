@@ -28,10 +28,12 @@ import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{
-      ttl: 60,
-      limit: 5,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60,
+        limit: 5,
+      },
+    ]),
     AuthModule,
     ConfigModule.forRoot(),
     PrismaModule,
@@ -53,7 +55,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     AuditLogModule,
     SupplierModule,
     AiModule,
-    ExpensesModule
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

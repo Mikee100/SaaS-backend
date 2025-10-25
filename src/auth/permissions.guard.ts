@@ -20,15 +20,11 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // DEBUG LOGGING
-    console.log('[PermissionsGuard] user:', JSON.stringify(user));
-
     // Owner/admin bypass
     const roles = Array.isArray(user.roles)
       ? user.roles.map((r) => (typeof r === 'string' ? r : r.name))
       : [];
     if (roles.includes('owner') || roles.includes('admin')) {
-      console.log('[PermissionsGuard] Owner/admin bypass');
       return true;
     }
 

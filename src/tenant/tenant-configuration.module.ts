@@ -9,7 +9,13 @@ import { BillingService } from '../billing/billing.service';
 
 @Module({
   imports: [UserModule],
-  providers: [TenantConfigurationService, PrismaService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    TenantConfigurationService,
+    PrismaService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   controllers: [TenantConfigurationController],
   exports: [TenantConfigurationService],
 })

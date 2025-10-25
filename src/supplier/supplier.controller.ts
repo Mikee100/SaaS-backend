@@ -52,7 +52,13 @@ export class SupplierController {
   @Permissions('edit_inventory')
   async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const tenantId = req.user.tenantId;
-    return this.supplierService.update(id, data, tenantId, req.user.userId, req.ip);
+    return this.supplierService.update(
+      id,
+      data,
+      tenantId,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Delete(':id')

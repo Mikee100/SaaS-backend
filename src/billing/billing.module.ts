@@ -20,7 +20,12 @@ import { ConfigModule } from '../config/config.module';
     PrismaModule,
     ConfigModule, // Add ConfigModule to provide CONFIG_OPTIONS
   ],
-  controllers: [BillingController, PaymentController, SubscriptionController, AccountController],
+  controllers: [
+    BillingController,
+    PaymentController,
+    SubscriptionController,
+    AccountController,
+  ],
   providers: [
     BillingService,
     PaymentService,

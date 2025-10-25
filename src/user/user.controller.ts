@@ -59,7 +59,7 @@ export class UserController {
       actorUser &&
       actorUser.userRoles &&
       actorUser.userRoles.some(
-        (ur) => ur.role.name === 'owner' && ur.tenantId === req.user.tenantId,
+        (ur: any) => ur.role?.name === 'owner' && ur.tenantId === req.user.tenantId,
       );
     if (!isOwner)
       throw new ForbiddenException('Only owners can update user permissions');
@@ -159,7 +159,11 @@ export class UserController {
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
     const { currentPassword, newPassword } = body;
-    return this.userService.changePassword(req.user.userId, currentPassword, newPassword);
+    return this.userService.changePassword(
+      req.user.userId,
+      currentPassword,
+      newPassword,
+    );
   }
 
   @Delete(':id')
@@ -172,9 +176,9 @@ export class UserController {
   @Get('me/plan-limits')
   async getPlanLimits(@Req() req) {
     const tenantId = req.user.tenantId;
-    console.log('UserController.getPlanLimits called for tenantId:', tenantId);
+
     const result = await this.userService.getPlanLimits(tenantId);
-    console.log('UserController.getPlanLimits result:', result);
+
     return result;
   }
 }

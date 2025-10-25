@@ -17,7 +17,9 @@ export class SubscriptionController {
 
   @Get('current')
   async getCurrentSubscription(@Req() req) {
-    return await this.subscriptionService.getCurrentSubscription(req.user.tenantId);
+    return await this.subscriptionService.getCurrentSubscription(
+      req.user.tenantId,
+    );
   }
 
   @Post('upgrade')

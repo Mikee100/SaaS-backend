@@ -16,7 +16,11 @@ import { AuditLogService } from '../audit-log.service';
 
 @Module({
   imports: [BillingModule, AdminTenantStatsModule],
-  controllers: [AdminController, ConfigurationController, SubscriptionAdminController],
+  controllers: [
+    AdminController,
+    ConfigurationController,
+    SubscriptionAdminController,
+  ],
   providers: [
     AdminService,
     SuperadminGuard,

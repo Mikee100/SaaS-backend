@@ -126,17 +126,30 @@ export class AnalyticsService {
     // Generate AI summary
     let aiSummary = 'AI summary generation failed.';
     try {
-      const summaryResponse = await axios.post('http://localhost:5001/generate_summary', {
-        metrics: {
-          totalSales,
-          totalRevenue: totalRevenue._sum.total || 0,
-          avgSaleValue: totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0,
-          topProducts: topProducts.map(p => ({ name: p.name })),
-          customerRetention: { retentionRate: parseFloat(retentionRate.toFixed(2)) },
-          forecastGrowth: forecastData.forecast_sales?.length > 1 ?
-            ((forecastData.forecast_sales[forecastData.forecast_sales.length - 1] - forecastData.forecast_sales[0]) / forecastData.forecast_sales[0]) * 100 : 0,
+      const summaryResponse = await axios.post(
+        'http://localhost:5001/generate_summary',
+        {
+          metrics: {
+            totalSales,
+            totalRevenue: totalRevenue._sum.total || 0,
+            avgSaleValue:
+              totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0,
+            topProducts: topProducts.map((p) => ({ name: p.name })),
+            customerRetention: {
+              retentionRate: parseFloat(retentionRate.toFixed(2)),
+            },
+            forecastGrowth:
+              forecastData.forecast_sales?.length > 1
+                ? ((forecastData.forecast_sales[
+                    forecastData.forecast_sales.length - 1
+                  ] -
+                    forecastData.forecast_sales[0]) /
+                    forecastData.forecast_sales[0]) *
+                  100
+                : 0,
+          },
         },
-      });
+      );
       aiSummary = summaryResponse.data.summary;
     } catch (error) {
       console.error('Failed to generate AI summary:', error);
@@ -163,13 +176,20 @@ export class AnalyticsService {
             : 'YYYY';
 
     const groupBy =
-      period === 'day' ? 'day' : period === 'week' ? 'week' : period === 'month' ? 'month' : 'year';
+      period === 'day'
+        ? 'day'
+        : period === 'week'
+          ? 'week'
+          : period === 'month'
+            ? 'month'
+            : 'year';
 
     const date = new Date();
     if (period === 'day') date.setDate(date.getDate() - 7);
     else if (period === 'week')
       date.setDate(date.getDate() - 28); // 4 weeks
-    else if (period === 'month') date.setMonth(date.getMonth() - 6); // 6 months
+    else if (period === 'month')
+      date.setMonth(date.getMonth() - 6); // 6 months
     else date.setFullYear(date.getFullYear() - 5); // 5 years
 
     const sales = await this.prisma.$queryRaw`
@@ -334,7 +354,7 @@ export class AnalyticsService {
           AND "customerPhone" IS NOT NULL
         GROUP BY "customerPhone"
         HAVING COUNT(*) > 1
-      `
+      `,
     );
 
     type RepeatCustomer = { customerPhone: string; purchase_count: bigint };
@@ -463,10 +483,14 @@ export class AnalyticsService {
           AND "createdAt" >= ${sixMonthsAgo}
         GROUP BY month
         ORDER BY month ASC
-      `
+      `,
     );
 
-    type HistoricalData = { month: string; sales_count: bigint; total_revenue: string };
+    type HistoricalData = {
+      month: string;
+      sales_count: bigint;
+      total_revenue: string;
+    };
 
     // If we have less than 3 months of data, generate mock forecast data
     if ((historicalSales as HistoricalData[]).length < 3) {
@@ -480,7 +504,7 @@ export class AnalyticsService {
 
         // Generate realistic mock sales data with some growth trend
         const baseSales = 150 + Math.random() * 100; // Base sales between 150-250
-        const growthFactor = 1 + (i * 0.05) + (Math.random() * 0.1 - 0.05); // 5% monthly growth with variance
+        const growthFactor = 1 + i * 0.05 + (Math.random() * 0.1 - 0.05); // 5% monthly growth with variance
         forecastSales.push(Math.round(baseSales * growthFactor));
       }
 
@@ -491,7 +515,7 @@ export class AnalyticsService {
     }
 
     // Calculate trend and seasonality from historical data
-    const salesData = (historicalSales as HistoricalData[]).map(item => ({
+    const salesData = (historicalSales as HistoricalData[]).map((item) => ({
       month: item.month,
       sales: Number(item.sales_count),
       revenue: parseFloat(item.total_revenue),
@@ -501,7 +525,10 @@ export class AnalyticsService {
     const n = salesData.length;
     const sumX = salesData.reduce((sum, _, index) => sum + index, 0);
     const sumY = salesData.reduce((sum, item) => sum + item.sales, 0);
-    const sumXY = salesData.reduce((sum, item, index) => sum + index * item.sales, 0);
+    const sumXY = salesData.reduce(
+      (sum, item, index) => sum + index * item.sales,
+      0,
+    );
     const sumXX = salesData.reduce((sum, _, index) => sum + index * index, 0);
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
@@ -522,7 +549,10 @@ export class AnalyticsService {
       // Add some realistic variance (±20%) and ensure positive values
       const variance = 0.2;
       const randomFactor = 1 + (Math.random() * variance * 2 - variance);
-      const finalPrediction = Math.max(1, Math.round(predictedSales * randomFactor));
+      const finalPrediction = Math.max(
+        1,
+        Math.round(predictedSales * randomFactor),
+      );
 
       forecastSales.push(finalPrediction);
     }
@@ -550,11 +580,15 @@ export class AnalyticsService {
             AND "createdAt" >= ${sixMonthsAgo}
           GROUP BY date
           ORDER BY date ASC
-        `
+        `,
       );
 
-      type SalesData = { date: string; sales_count: bigint; total_revenue: string };
-      const sales = (salesData as SalesData[]).map(item => ({
+      type SalesData = {
+        date: string;
+        sales_count: bigint;
+        total_revenue: string;
+      };
+      const sales = (salesData as SalesData[]).map((item) => ({
         date: item.date,
         value: parseFloat(item.total_revenue),
       }));
@@ -589,11 +623,16 @@ export class AnalyticsService {
             AND "customerPhone" IS NOT NULL
           GROUP BY "customerPhone", "customerName"
           HAVING COUNT(*) > 0
-        `
+        `,
       );
 
-      type CustomerData = { name: string; count: bigint; total: string; last_purchase: Date };
-      const customers = (customerData as CustomerData[]).map(item => ({
+      type CustomerData = {
+        name: string;
+        count: bigint;
+        total: string;
+        last_purchase: Date;
+      };
+      const customers = (customerData as CustomerData[]).map((item) => ({
         name: item.name,
         total: parseFloat(item.total),
         count: Number(item.count),
@@ -604,9 +643,12 @@ export class AnalyticsService {
         return []; // Not enough data for segmentation
       }
 
-      const response = await axios.post('http://localhost:5001/customer_segments', {
-        customers,
-      });
+      const response = await axios.post(
+        'http://localhost:5001/customer_segments',
+        {
+          customers,
+        },
+      );
 
       return response.data || [];
     } catch (error) {
@@ -630,11 +672,16 @@ export class AnalyticsService {
             AND "customerPhone" IS NOT NULL
           GROUP BY "customerPhone", "customerName"
           HAVING COUNT(*) > 0
-        `
+        `,
       );
 
-      type CustomerData = { name: string; count: bigint; total: string; last_purchase: Date };
-      const customers = (customerData as CustomerData[]).map(item => ({
+      type CustomerData = {
+        name: string;
+        count: bigint;
+        total: string;
+        last_purchase: Date;
+      };
+      const customers = (customerData as CustomerData[]).map((item) => ({
         name: item.name,
         total: parseFloat(item.total),
         count: Number(item.count),
@@ -645,9 +692,12 @@ export class AnalyticsService {
         return []; // Not enough data for churn prediction
       }
 
-      const response = await axios.post('http://localhost:5001/churn_prediction', {
-        customers,
-      });
+      const response = await axios.post(
+        'http://localhost:5001/churn_prediction',
+        {
+          customers,
+        },
+      );
 
       return response.data || [];
     } catch (error) {
@@ -656,11 +706,15 @@ export class AnalyticsService {
     }
   }
 
-  async getBranchSales(tenantId: string, timeRange: string = '30days', branchId?: string) {
+  async getBranchSales(
+    tenantId: string,
+    timeRange: string = '30days',
+    branchId?: string,
+  ) {
     try {
       // Calculate date range
       const endDate = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
 
       switch (timeRange) {
         case '7days':
@@ -753,20 +807,20 @@ export class AnalyticsService {
       `;
 
       // Format the response
-      const topProducts = (topProductsData as any[]).map(p => ({
+      const topProducts = (topProductsData as any[]).map((p) => ({
         productId: p.productId,
         productName: p.productName,
         quantitySold: Number(p.quantitySold) || 0,
         totalRevenue: Number(p.totalRevenue) || 0,
       }));
 
-      const paymentMethods = (paymentMethodsData as any[]).map(pm => ({
+      const paymentMethods = (paymentMethodsData as any[]).map((pm) => ({
         method: pm.method,
         count: Number(pm.count) || 0,
         amount: Number(pm.amount) || 0,
       }));
 
-      const salesTrend = (salesTrendData as any[]).map(st => ({
+      const salesTrend = (salesTrendData as any[]).map((st) => ({
         date: st.date.toISOString().split('T')[0],
         sales: Number(st.sales) || 0,
         orders: Number(st.orders) || 0,
@@ -786,11 +840,14 @@ export class AnalyticsService {
     }
   }
 
-  async getBranchComparisonTimeSeries(tenantId: string, timeRange: string = '30days') {
+  async getBranchComparisonTimeSeries(
+    tenantId: string,
+    timeRange: string = '30days',
+  ) {
     try {
       // Calculate date range
       const endDate = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
 
       switch (timeRange) {
         case '7days':
@@ -870,32 +927,43 @@ export class AnalyticsService {
       `;
 
       // Process time series data
-      const processedData = (timeSeriesData as any[]).reduce((acc, item) => {
-        const branchId = item.branchId;
-        if (!acc[branchId]) {
-          acc[branchId] = {
-            branchId,
-            branchName: item.branchName,
-            data: [],
-          };
-        }
-        acc[branchId].data.push({
-          period: item.period,
-          orders: Number(item.orders) || 0,
-          sales: Number(item.sales) || 0,
-        });
-        return acc;
-      }, {} as Record<string, any>);
+      const processedData = (timeSeriesData as any[]).reduce(
+        (acc, item) => {
+          const branchId = item.branchId;
+          if (!acc[branchId]) {
+            acc[branchId] = {
+              branchId,
+              branchName: item.branchName,
+              data: [],
+            };
+          }
+          acc[branchId].data.push({
+            period: item.period,
+            orders: Number(item.orders) || 0,
+            sales: Number(item.sales) || 0,
+          });
+          return acc;
+        },
+        {} as Record<string, any>,
+      );
 
       // Convert to array and sort by total sales
-      const branchComparison = Object.values(processedData).sort((a: any, b: any) => {
-        const aTotal = a.data.reduce((sum: number, item: any) => sum + item.sales, 0);
-        const bTotal = b.data.reduce((sum: number, item: any) => sum + item.sales, 0);
-        return bTotal - aTotal;
-      });
+      const branchComparison = Object.values(processedData).sort(
+        (a: any, b: any) => {
+          const aTotal = a.data.reduce(
+            (sum: number, item: any) => sum + item.sales,
+            0,
+          );
+          const bTotal = b.data.reduce(
+            (sum: number, item: any) => sum + item.sales,
+            0,
+          );
+          return bTotal - aTotal;
+        },
+      );
 
       // Process branch totals
-      const totals = (branchTotals as any[]).map(item => ({
+      const totals = (branchTotals as any[]).map((item) => ({
         branchId: item.branchId,
         branchName: item.branchName,
         totalOrders: Number(item.total_orders) || 0,
@@ -914,11 +982,14 @@ export class AnalyticsService {
     }
   }
 
-  async getBranchProductComparison(tenantId: string, timeRange: string = '30days') {
+  async getBranchProductComparison(
+    tenantId: string,
+    timeRange: string = '30days',
+  ) {
     try {
       // Calculate date range
       const endDate = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
 
       switch (timeRange) {
         case '7days':
@@ -997,10 +1068,10 @@ export class AnalyticsService {
       `;
 
       // Process product comparison data
-      const products = (overallProductTotals as any[]).map(product => {
+      const products = (overallProductTotals as any[]).map((product) => {
         const branchData = (productComparisonData as any[])
-          .filter(item => item.productId === product.productId)
-          .map(item => ({
+          .filter((item) => item.productId === product.productId)
+          .map((item) => ({
             branchId: item.branchId,
             branchName: item.branchName,
             quantitySold: Number(item.quantitySold) || 0,
@@ -1020,7 +1091,7 @@ export class AnalyticsService {
       });
 
       // Process branch totals
-      const branches = (branchTotals as any[]).map(branch => ({
+      const branches = (branchTotals as any[]).map((branch) => ({
         branchId: branch.branchId,
         branchName: branch.branchName,
         totalOrders: Number(branch.totalOrders) || 0,
@@ -1035,7 +1106,10 @@ export class AnalyticsService {
           totalProducts: products.length,
           totalBranches: branches.length,
           totalRevenue: products.reduce((sum, p) => sum + p.totalRevenue, 0),
-          totalQuantitySold: products.reduce((sum, p) => sum + p.totalQuantitySold, 0),
+          totalQuantitySold: products.reduce(
+            (sum, p) => sum + p.totalQuantitySold,
+            0,
+          ),
         },
       };
     } catch (error) {

@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Logger, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
@@ -61,7 +66,12 @@ export class AuthService {
       // 2.5. Check if user account is disabled
       if ((user as any).isDisabled) {
         if (this.auditLogService) {
-          await this.auditLogService.log(null, 'login_failed_disabled', { email }, ip);
+          await this.auditLogService.log(
+            null,
+            'login_failed_disabled',
+            { email },
+            ip,
+          );
         }
         throw new UnauthorizedException('Account disabled. Contact admin.');
       }
@@ -81,9 +91,12 @@ export class AuthService {
       }
       // 4. Check if trial has expired before allowing login (skip for superadmin)
       if (tenantId) {
-        const trialStatus = await this.subscriptionService.checkTrialStatus(tenantId);
+        const trialStatus =
+          await this.subscriptionService.checkTrialStatus(tenantId);
         if (trialStatus.isTrial && trialStatus.trialExpired) {
-          throw new ForbiddenException('Trial period has expired. Please upgrade your subscription.');
+          throw new ForbiddenException(
+            'Trial period has expired. Please upgrade your subscription.',
+          );
         }
       }
 
@@ -116,8 +129,6 @@ export class AuthService {
         permissions: userPermissions,
         isSuperadmin: (user as any).isSuperadmin || false,
       };
-
-      console.log('JWT Payload:', JSON.stringify(payload, null, 2));
 
       // 7. Generate JWT token with all required claims and options
       const accessToken = this.jwtService.sign(payload, {
@@ -188,11 +199,16 @@ export class AuthService {
       await this.emailService.sendResetPasswordEmail(email, resetToken);
       this.logger.log(`Password reset email sent successfully to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      this.logger.error(
+        `Failed to send password reset email to ${email}:`,
+        error,
+      );
       // In development, log the token for testing
       if (process.env.NODE_ENV !== 'production') {
         this.logger.log(`Password reset token for ${email}: ${resetToken}`);
-        this.logger.log(`Reset link: http://localhost:3000/reset-password?token=${resetToken}`);
+        this.logger.log(
+          `Reset link: http://localhost:3000/reset-password?token=${resetToken}`,
+        );
       }
       // Don't throw error to avoid revealing user existence
     }

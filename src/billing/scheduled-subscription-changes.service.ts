@@ -3,7 +3,9 @@ import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class ScheduledSubscriptionChangesService {
-  private readonly logger = new Logger(ScheduledSubscriptionChangesService.name);
+  private readonly logger = new Logger(
+    ScheduledSubscriptionChangesService.name,
+  );
 
   constructor(private readonly prisma: PrismaService) {}
 

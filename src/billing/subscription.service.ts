@@ -101,7 +101,11 @@ export class SubscriptionService {
         isTrial = true;
       }
 
-      console.log('Creating subscription with dates:', { now, endDate, status });
+      console.log('Creating subscription with dates:', {
+        now,
+        endDate,
+        status,
+      });
 
       // Create new subscription
       const subscriptionData: any = {
@@ -376,7 +380,11 @@ export class SubscriptionService {
     };
   }
 
-  async upgradeSubscription(tenantId: string, planId: string, effectiveDate?: Date) {
+  async upgradeSubscription(
+    tenantId: string,
+    planId: string,
+    effectiveDate?: Date,
+  ) {
     const currentSubscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
@@ -399,14 +407,21 @@ export class SubscriptionService {
       throw new NotFoundException('Plan not found');
     }
 
-    const isUpgrade = this.isPlanUpgrade(currentSubscription.Plan.name, newPlan.name);
+    const isUpgrade = this.isPlanUpgrade(
+      currentSubscription.Plan.name,
+      newPlan.name,
+    );
 
     if (isUpgrade) {
       // Immediate upgrade
       return await this.handleUpgrade(currentSubscription, newPlan);
     } else {
       // Schedule downgrade
-      return await this.handleDowngrade(currentSubscription, newPlan, effectiveDate);
+      return await this.handleDowngrade(
+        currentSubscription,
+        newPlan,
+        effectiveDate,
+      );
     }
   }
 
@@ -475,11 +490,11 @@ export class SubscriptionService {
     });
 
     // Transform to include features array
-    return plans.map(plan => ({
+    return plans.map((plan) => ({
       ...plan,
-      features: plan.PlanFeatureOnPlan
-        .filter(pf => pf.isEnabled)
-        .map(pf => pf.PlanFeature.featureName),
+      features: plan.PlanFeatureOnPlan.filter((pf) => pf.isEnabled).map(
+        (pf) => pf.PlanFeature.featureName,
+      ),
     }));
   }
 
@@ -497,7 +512,11 @@ export class SubscriptionService {
     });
   }
 
-  async createTrialSubscription(tenantId: string, durationHours: number, planId: string) {
+  async createTrialSubscription(
+    tenantId: string,
+    durationHours: number,
+    planId: string,
+  ) {
     const now = new Date();
     const trialEnd = new Date(now.getTime() + durationHours * 60 * 60 * 1000);
 
@@ -557,7 +576,9 @@ export class SubscriptionService {
     }
 
     const now = new Date();
-    const trialExpired = subscription.trialEnd ? now > subscription.trialEnd : false;
+    const trialExpired = subscription.trialEnd
+      ? now > subscription.trialEnd
+      : false;
 
     // Only update status if it's still 'trialing'
     if (trialExpired && subscription.status === 'trialing') {
@@ -571,7 +592,10 @@ export class SubscriptionService {
       isTrial: true,
       trialExpired,
       trialEnd: subscription.trialEnd,
-      remainingTime: trialExpired || !subscription.trialEnd ? 0 : Math.max(0, subscription.trialEnd.getTime() - now.getTime()),
+      remainingTime:
+        trialExpired || !subscription.trialEnd
+          ? 0
+          : Math.max(0, subscription.trialEnd.getTime() - now.getTime()),
     };
   }
 
@@ -595,13 +619,18 @@ export class SubscriptionService {
     const now = new Date();
 
     // Check if subscription is expired or canceled
-    if (subscription.status === 'expired' || subscription.status === 'canceled') {
+    if (
+      subscription.status === 'expired' ||
+      subscription.status === 'canceled'
+    ) {
       return { valid: false, reason: 'Subscription expired or canceled' };
     }
 
     // Check if trialing and trial has expired
     if (subscription.status === 'trialing') {
-      const trialExpired = subscription.trialEnd ? now > subscription.trialEnd : false;
+      const trialExpired = subscription.trialEnd
+        ? now > subscription.trialEnd
+        : false;
       if (trialExpired) {
         // Update subscription status to expired
         await this.prisma.subscription.update({
@@ -613,13 +642,17 @@ export class SubscriptionService {
       return {
         valid: true,
         status: 'trialing',
-        remainingTime: subscription.trialEnd ? subscription.trialEnd.getTime() - now.getTime() : 0,
+        remainingTime: subscription.trialEnd
+          ? subscription.trialEnd.getTime() - now.getTime()
+          : 0,
       };
     }
 
     // Check if active subscription has expired
     if (subscription.status === 'active') {
-      const subscriptionExpired = subscription.currentPeriodEnd ? now > subscription.currentPeriodEnd : false;
+      const subscriptionExpired = subscription.currentPeriodEnd
+        ? now > subscription.currentPeriodEnd
+        : false;
       if (subscriptionExpired) {
         // Update subscription status to expired
         await this.prisma.subscription.update({
@@ -631,12 +664,17 @@ export class SubscriptionService {
       return {
         valid: true,
         status: 'active',
-        remainingTime: subscription.currentPeriodEnd ? subscription.currentPeriodEnd.getTime() - now.getTime() : 0,
+        remainingTime: subscription.currentPeriodEnd
+          ? subscription.currentPeriodEnd.getTime() - now.getTime()
+          : 0,
       };
     }
 
     // For any other status, consider invalid
-    return { valid: false, reason: `Invalid subscription status: ${subscription.status}` };
+    return {
+      valid: false,
+      reason: `Invalid subscription status: ${subscription.status}`,
+    };
   }
 
   async canAddUser(tenantId: string): Promise<boolean> {
@@ -803,9 +841,14 @@ export class SubscriptionService {
     // Calculate usage percentages
     const usagePercentages = {
       users: limits.maxUsers > 0 ? (userCount / limits.maxUsers) * 100 : 0,
-      products: limits.maxProducts > 0 ? (productCount / limits.maxProducts) * 100 : 0,
-      branches: limits.maxBranches > 0 ? (branchCount / limits.maxBranches) * 100 : 0,
-      sales: limits.maxSalesPerMonth > 0 ? (salesCount / limits.maxSalesPerMonth) * 100 : 0,
+      products:
+        limits.maxProducts > 0 ? (productCount / limits.maxProducts) * 100 : 0,
+      branches:
+        limits.maxBranches > 0 ? (branchCount / limits.maxBranches) * 100 : 0,
+      sales:
+        limits.maxSalesPerMonth > 0
+          ? (salesCount / limits.maxSalesPerMonth) * 100
+          : 0,
     };
 
     // Check if approaching limits (80% or more)
@@ -820,7 +863,12 @@ export class SubscriptionService {
       isTrial: true,
       trialStart: subscription.trialStart,
       trialEnd: subscription.trialEnd,
-      daysRemaining: subscription.trialEnd ? Math.ceil((subscription.trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0,
+      daysRemaining: subscription.trialEnd
+        ? Math.ceil(
+            (subscription.trialEnd.getTime() - now.getTime()) /
+              (1000 * 60 * 60 * 24),
+          )
+        : 0,
       usage: {
         users: {
           current: userCount,
@@ -855,8 +903,12 @@ export class SubscriptionService {
     try {
       // Count current usage first
       const userCount = await this.prisma.user.count({ where: { tenantId } });
-      const productCount = await this.prisma.product.count({ where: { tenantId } });
-      const branchCount = await this.prisma.branch.count({ where: { tenantId } });
+      const productCount = await this.prisma.product.count({
+        where: { tenantId },
+      });
+      const branchCount = await this.prisma.branch.count({
+        where: { tenantId },
+      });
 
       // Sales this month
       const currentMonthStart = new Date();
@@ -875,7 +927,6 @@ export class SubscriptionService {
         include: { Plan: true },
         orderBy: { currentPeriodStart: 'desc' },
       });
-      console.log('All subscriptions for tenant', tenantId, ':', allSubscriptions.map(s => ({ id: s.id, status: s.status, planName: s.Plan?.name })));
 
       const subscription = await this.prisma.subscription.findFirst({
         where: {
@@ -906,8 +957,6 @@ export class SubscriptionService {
       if (subscription && subscription.Plan) {
         const plan = subscription.Plan;
         currentPlan = plan.name;
-        console.log('Found subscription for tenant, plan name:', plan.name);
-
         features = {
           analytics: plan.analyticsEnabled || false,
           advanced_reports: plan.advancedReports || false,
@@ -923,9 +972,18 @@ export class SubscriptionService {
 
       const usage = {
         users: { current: userCount, limit: subscription?.Plan?.maxUsers || 1 },
-        products: { current: productCount, limit: subscription?.Plan?.maxProducts || 10 },
-        branches: { current: branchCount, limit: subscription?.Plan?.maxBranches || 1 },
-        sales: { current: salesCount, limit: subscription?.Plan?.maxSalesPerMonth || 100 },
+        products: {
+          current: productCount,
+          limit: subscription?.Plan?.maxProducts || 10,
+        },
+        branches: {
+          current: branchCount,
+          limit: subscription?.Plan?.maxBranches || 1,
+        },
+        sales: {
+          current: salesCount,
+          limit: subscription?.Plan?.maxSalesPerMonth || 100,
+        },
       };
 
       // For Basic plan, ensure the first branch and user are accounted for
@@ -963,5 +1021,3 @@ export class SubscriptionService {
     }
   }
 }
-
-

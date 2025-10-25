@@ -51,7 +51,7 @@ export class AdminService {
 
     this.logger.log(`AdminService: Found ${tenants.length} tenants`);
 
-    const result = tenants.map(tenant => ({
+    const result = tenants.map((tenant) => ({
       id: tenant.id,
       name: tenant.name,
       businessType: tenant.businessType,
@@ -68,7 +68,9 @@ export class AdminService {
   }
 
   async getTenantById(tenantId: string) {
-    this.logger.log(`AdminService: getTenantById called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminService: getTenantById called with tenantId: ${tenantId}`,
+    );
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -82,14 +84,17 @@ export class AdminService {
     this.logger.log(`AdminService: Found tenant: ${tenant.name}`);
 
     // Get counts separately
-    const [userCount, productCount, salesCount, branchCount] = await Promise.all([
-      this.prisma.user.count({ where: { tenantId } }),
-      this.prisma.product.count({ where: { tenantId } }),
-      this.prisma.sale.count({ where: { tenantId } }),
-      this.prisma.branch.count({ where: { tenantId } }),
-    ]);
+    const [userCount, productCount, salesCount, branchCount] =
+      await Promise.all([
+        this.prisma.user.count({ where: { tenantId } }),
+        this.prisma.product.count({ where: { tenantId } }),
+        this.prisma.sale.count({ where: { tenantId } }),
+        this.prisma.branch.count({ where: { tenantId } }),
+      ]);
 
-    this.logger.log(`AdminService: Counts for tenant ${tenantId}: users=${userCount}, products=${productCount}, sales=${salesCount}, branches=${branchCount}`);
+    this.logger.log(
+      `AdminService: Counts for tenant ${tenantId}: users=${userCount}, products=${productCount}, sales=${salesCount}, branches=${branchCount}`,
+    );
 
     // Calculate space used for this tenant
     let totalBytes = 0;
@@ -97,26 +102,71 @@ export class AdminService {
 
     // Query each table individually, with error handling for missing tables
     const tables = [
-      { name: 'User', displayName: 'Users', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "User" t WHERE "tenantId" = $1` },
-      { name: 'Product', displayName: 'Products', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Product" t WHERE "tenantId" = $1` },
-      { name: 'Inventory', displayName: 'Inventory', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Inventory" t WHERE "tenantId" = $1` },
-      { name: 'Sale', displayName: 'Transactions', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Sale" t WHERE "tenantId" = $1` },
-      { name: 'MpesaTransaction', displayName: 'M-Pesa Transactions', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "MpesaTransaction" t WHERE "tenantId" = $1` },
-      { name: 'Invoice', displayName: 'Invoices', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Invoice" t WHERE "tenantId" = $1` },
-      { name: 'Payment', displayName: 'Payments', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Payment" t WHERE "tenantId" = $1` },
-      { name: 'PaymentMethod', displayName: 'Payment Methods', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "PaymentMethod" t WHERE "tenantId" = $1` },
-      { name: 'Branch', displayName: 'Branches', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Branch" t WHERE "tenantId" = $1` },
-      { name: 'Notification', displayName: 'Notifications', query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Notification" t WHERE "tenantId" = $1` },
+      {
+        name: 'User',
+        displayName: 'Users',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "User" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Product',
+        displayName: 'Products',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Product" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Inventory',
+        displayName: 'Inventory',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Inventory" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Sale',
+        displayName: 'Transactions',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Sale" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'MpesaTransaction',
+        displayName: 'M-Pesa Transactions',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "MpesaTransaction" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Invoice',
+        displayName: 'Invoices',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Invoice" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Payment',
+        displayName: 'Payments',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Payment" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'PaymentMethod',
+        displayName: 'Payment Methods',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "PaymentMethod" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Branch',
+        displayName: 'Branches',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Branch" t WHERE "tenantId" = $1`,
+      },
+      {
+        name: 'Notification',
+        displayName: 'Notifications',
+        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Notification" t WHERE "tenantId" = $1`,
+      },
     ];
 
     for (const table of tables) {
       try {
-        const rows: any = await this.prisma.$queryRawUnsafe(table.query, tenantId);
+        const rows: any = await this.prisma.$queryRawUnsafe(
+          table.query,
+          tenantId,
+        );
         const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
         totalBytes += bytes;
         resourceSpaceUsage[table.displayName] = bytes;
       } catch (error) {
-        this.logger.warn(`Failed to query table ${table.name} for tenant ${tenantId}: ${error.message}`);
+        this.logger.warn(
+          `Failed to query table ${table.name} for tenant ${tenantId}: ${error.message}`,
+        );
         resourceSpaceUsage[table.displayName] = 0;
         // Skip this table if it doesn't exist or query fails
       }
@@ -124,7 +174,9 @@ export class AdminService {
 
     const spaceUsedMB = (totalBytes / (1024 * 1024)).toFixed(2);
 
-    this.logger.log(`AdminService: Space used for tenant ${tenantId}: ${spaceUsedMB} MB`);
+    this.logger.log(
+      `AdminService: Space used for tenant ${tenantId}: ${spaceUsedMB} MB`,
+    );
 
     return {
       id: tenant.id,
@@ -143,7 +195,9 @@ export class AdminService {
   }
 
   async getTenantProducts(tenantId: string) {
-    this.logger.log(`AdminService: getTenantProducts called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminService: getTenantProducts called with tenantId: ${tenantId}`,
+    );
 
     const products = await this.prisma.product.findMany({
       where: { tenantId },
@@ -159,12 +213,16 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`AdminService: Found ${products.length} products for tenant ${tenantId}`);
+    this.logger.log(
+      `AdminService: Found ${products.length} products for tenant ${tenantId}`,
+    );
     return products;
   }
 
   async getTenantTransactions(tenantId: string) {
-    this.logger.log(`AdminService: getTenantTransactions called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminService: getTenantTransactions called with tenantId: ${tenantId}`,
+    );
 
     const transactions = await this.prisma.sale.findMany({
       where: { tenantId },
@@ -174,12 +232,16 @@ export class AdminService {
       take: 50, // Limit to recent 50 transactions
     });
 
-    this.logger.log(`AdminService: Found ${transactions.length} transactions for tenant ${tenantId}`);
+    this.logger.log(
+      `AdminService: Found ${transactions.length} transactions for tenant ${tenantId}`,
+    );
     return transactions;
   }
 
   async switchToTenant(tenantId: string) {
-    this.logger.log(`AdminService: switchToTenant called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminService: switchToTenant called with tenantId: ${tenantId}`,
+    );
 
     // Verify tenant exists
     const tenant = await this.prisma.tenant.findUnique({
@@ -187,7 +249,9 @@ export class AdminService {
     });
 
     if (!tenant) {
-      this.logger.error(`AdminService: Tenant not found for switch: ${tenantId}`);
+      this.logger.error(
+        `AdminService: Tenant not found for switch: ${tenantId}`,
+      );
       throw new Error('Tenant not found');
     }
 
@@ -230,7 +294,7 @@ export class AdminService {
 
     this.logger.log(`AdminService: Found ${plans.length} plans`);
 
-    return plans.map(plan => ({
+    return plans.map((plan) => ({
       id: plan.id,
       name: plan.name,
       description: plan.description,
@@ -242,15 +306,15 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: plan.PlanFeatureOnPlan
-        .filter(pf => pf.isEnabled)
-        .map(pf => ({
+      features: plan.PlanFeatureOnPlan.filter((pf) => pf.isEnabled).map(
+        (pf) => ({
           id: pf.PlanFeature.id,
           key: pf.PlanFeature.featureKey,
           name: pf.PlanFeature.featureName,
           description: pf.PlanFeature.featureDescription,
           isEnabled: pf.isEnabled,
-        })),
+        }),
+      ),
       subscriptionCount: plan._count.Subscription,
     }));
   }
@@ -293,7 +357,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: (plan as any).PlanFeatureOnPlan.map(pf => ({
+      features: (plan as any).PlanFeatureOnPlan.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -317,7 +381,9 @@ export class AdminService {
     stripePriceId?: string;
     featureIds: string[];
   }) {
-    this.logger.log(`AdminService: createPlan called with name: ${planData.name}`);
+    this.logger.log(
+      `AdminService: createPlan called with name: ${planData.name}`,
+    );
 
     const plan = await this.prisma.plan.create({
       data: {
@@ -332,12 +398,15 @@ export class AdminService {
         isActive: planData.isActive ?? true,
         stripePriceId: planData.stripePriceId,
         PlanFeatureOnPlan: {
-          create: planData.featureIds.map(featureId => ({
-            PlanFeature: {
-              connect: { id: featureId },
-            },
-            isEnabled: true,
-          } as any)),
+          create: planData.featureIds.map(
+            (featureId) =>
+              ({
+                PlanFeature: {
+                  connect: { id: featureId },
+                },
+                isEnabled: true,
+              }) as any,
+          ),
         },
       },
       include: {
@@ -349,7 +418,9 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`AdminService: Created plan: ${plan.name} with id: ${plan.id}`);
+    this.logger.log(
+      `AdminService: Created plan: ${plan.name} with id: ${plan.id}`,
+    );
 
     return {
       id: plan.id,
@@ -363,7 +434,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: plan.PlanFeatureOnPlan.map(pf => ({
+      features: plan.PlanFeatureOnPlan.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -373,19 +444,22 @@ export class AdminService {
     };
   }
 
-  async updatePlan(planId: string, planData: {
-    name?: string;
-    description?: string;
-    price?: number;
-    interval?: string;
-    maxUsers?: number;
-    maxProducts?: number;
-    maxSalesPerMonth?: number;
-    maxBranches?: number;
-    isActive?: boolean;
-    stripePriceId?: string;
-    featureIds?: string[];
-  }) {
+  async updatePlan(
+    planId: string,
+    planData: {
+      name?: string;
+      description?: string;
+      price?: number;
+      interval?: string;
+      maxUsers?: number;
+      maxProducts?: number;
+      maxSalesPerMonth?: number;
+      maxBranches?: number;
+      isActive?: boolean;
+      stripePriceId?: string;
+      featureIds?: string[];
+    },
+  ) {
     this.logger.log(`AdminService: updatePlan called with planId: ${planId}`);
 
     // First, get the current plan to check if it exists
@@ -404,15 +478,23 @@ export class AdminService {
     // Update the plan
     const updateData: any = {};
     if (planData.name !== undefined) updateData.name = planData.name;
-    if (planData.description !== undefined) updateData.description = planData.description;
+    if (planData.description !== undefined)
+      updateData.description = planData.description;
     if (planData.price !== undefined) updateData.price = planData.price;
-    if (planData.interval !== undefined) updateData.interval = planData.interval;
-    if (planData.maxUsers !== undefined) updateData.maxUsers = planData.maxUsers;
-    if (planData.maxProducts !== undefined) updateData.maxProducts = planData.maxProducts;
-    if (planData.maxSalesPerMonth !== undefined) updateData.maxSalesPerMonth = planData.maxSalesPerMonth;
-    if (planData.maxBranches !== undefined) updateData.maxBranches = planData.maxBranches;
-    if (planData.isActive !== undefined) updateData.isActive = planData.isActive;
-    if (planData.stripePriceId !== undefined) updateData.stripePriceId = planData.stripePriceId;
+    if (planData.interval !== undefined)
+      updateData.interval = planData.interval;
+    if (planData.maxUsers !== undefined)
+      updateData.maxUsers = planData.maxUsers;
+    if (planData.maxProducts !== undefined)
+      updateData.maxProducts = planData.maxProducts;
+    if (planData.maxSalesPerMonth !== undefined)
+      updateData.maxSalesPerMonth = planData.maxSalesPerMonth;
+    if (planData.maxBranches !== undefined)
+      updateData.maxBranches = planData.maxBranches;
+    if (planData.isActive !== undefined)
+      updateData.isActive = planData.isActive;
+    if (planData.stripePriceId !== undefined)
+      updateData.stripePriceId = planData.stripePriceId;
 
     // Handle feature updates if provided
     if (planData.featureIds !== undefined) {
@@ -423,7 +505,7 @@ export class AdminService {
 
       // Add new features
       updateData.PlanFeatureOnPlan = {
-        create: planData.featureIds.map(featureId => ({
+        create: planData.featureIds.map((featureId) => ({
           PlanFeature: {
             connect: { id: featureId },
           },
@@ -463,7 +545,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: (plan as any).PlanFeatureOnPlan.map(pf => ({
+      features: (plan as any).PlanFeatureOnPlan.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -483,7 +565,9 @@ export class AdminService {
     });
 
     if (subscriptionCount > 0) {
-      this.logger.error(`AdminService: Cannot delete plan ${planId} - has ${subscriptionCount} active subscriptions`);
+      this.logger.error(
+        `AdminService: Cannot delete plan ${planId} - has ${subscriptionCount} active subscriptions`,
+      );
       throw new Error('Cannot delete plan with active subscriptions');
     }
 
@@ -548,11 +632,14 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`AdminService: Created tenant ${result.tenant.name} with id ${result.tenant.id}`);
+    this.logger.log(
+      `AdminService: Created tenant ${result.tenant.name} with id ${result.tenant.id}`,
+    );
 
     // Send welcome email with login credentials
     try {
-      const emailService = new (require('../email/email.service').EmailService)();
+      const emailService =
+        new (require('../email/email.service').EmailService)();
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -569,15 +656,22 @@ export class AdminService {
       `;
 
       await emailService.transporter.sendMail({
-        from: process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
+        from:
+          process.env.FROM_EMAIL ||
+          '"SaaS Platform" <noreply@saasplatform.com>',
         to: result.user.email,
         subject: 'Welcome to SaaS Platform - Your Account is Ready',
         html,
       });
 
-      this.logger.log(`Welcome email with credentials sent to ${result.user.email}`);
+      this.logger.log(
+        `Welcome email with credentials sent to ${result.user.email}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to send welcome email to ${result.user.email}:`, error);
+      this.logger.error(
+        `Failed to send welcome email to ${result.user.email}:`,
+        error,
+      );
       // Don't fail the tenant creation if email fails
     }
 
@@ -615,7 +709,7 @@ export class AdminService {
 
     this.logger.log(`AdminService: Found ${users.length} users`);
 
-    return users.map(user => ({
+    return users.map((user) => ({
       id: user.id,
       name: user.name,
       email: user.email,
@@ -628,7 +722,9 @@ export class AdminService {
   }
 
   async updateUserStatus(userId: string, isDisabled: boolean) {
-    this.logger.log(`AdminService: updateUserStatus called for userId: ${userId}, isDisabled: ${isDisabled}`);
+    this.logger.log(
+      `AdminService: updateUserStatus called for userId: ${userId}, isDisabled: ${isDisabled}`,
+    );
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -645,7 +741,9 @@ export class AdminService {
     });
 
     // Log the action (assuming audit log is handled elsewhere or add if needed)
-    this.logger.log(`AdminService: Updated user status for ${user.email} to ${isDisabled ? 'disabled' : 'enabled'}`);
+    this.logger.log(
+      `AdminService: Updated user status for ${user.email} to ${isDisabled ? 'disabled' : 'enabled'}`,
+    );
 
     return {
       id: userId,
@@ -656,7 +754,9 @@ export class AdminService {
   }
 
   async deleteTenant(tenantId: string) {
-    this.logger.log(`AdminService: deleteTenant called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminService: deleteTenant called with tenantId: ${tenantId}`,
+    );
 
     // Verify tenant exists
     const tenant = await this.prisma.tenant.findUnique({
@@ -664,11 +764,15 @@ export class AdminService {
     });
 
     if (!tenant) {
-      this.logger.error(`AdminService: Tenant not found for deletion: ${tenantId}`);
+      this.logger.error(
+        `AdminService: Tenant not found for deletion: ${tenantId}`,
+      );
       throw new Error('Tenant not found');
     }
 
-    this.logger.log(`AdminService: Deleting tenant: ${tenant.name} (${tenantId})`);
+    this.logger.log(
+      `AdminService: Deleting tenant: ${tenant.name} (${tenantId})`,
+    );
 
     // Use transaction to delete all related data in proper order
     await this.prisma.$transaction(async (prisma) => {
@@ -811,7 +915,9 @@ export class AdminService {
       });
     });
 
-    this.logger.log(`AdminService: Successfully deleted tenant: ${tenant.name} (${tenantId})`);
+    this.logger.log(
+      `AdminService: Successfully deleted tenant: ${tenant.name} (${tenantId})`,
+    );
 
     return { success: true, message: 'Tenant deleted successfully' };
   }

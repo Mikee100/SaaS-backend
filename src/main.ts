@@ -12,7 +12,6 @@ import { seedPermissions } from '../scripts/seed-permissions';
 import { ApiLoggingMiddleware } from './middleware/api-logging.middleware';
 import { AuditLogService } from './audit-log.service';
 
-
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
@@ -59,10 +58,7 @@ async function bootstrap() {
 
         const allowedOriginsList = isProduction
           ? [...allowedOrigins, ...localhostOrigins]
-          : [
-              ...allowedOrigins,
-              ...localhostOrigins,
-            ];
+          : [...allowedOrigins, ...localhostOrigins];
 
         const isAllowed =
           !isProduction ||
@@ -78,7 +74,6 @@ async function bootstrap() {
           });
 
         if (isAllowed) {
-          logger.debug(`Allowing CORS request from origin: ${origin}`);
           callback(null, true);
         } else {
           logger.warn(
@@ -193,7 +188,6 @@ async function bootstrap() {
 
     // Start the application
     await app.listen(9000, '0.0.0.0');
-
 
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);

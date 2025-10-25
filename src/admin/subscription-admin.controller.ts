@@ -1,9 +1,19 @@
-import { Controller, Get, Param, Patch, Body, NotFoundException, Post } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Body,
+  NotFoundException,
+  Post,
+} from '@nestjs/common';
 import { SubscriptionAdminService } from './subscription-admin.service';
 
 @Controller('admin/subscriptions')
 export class SubscriptionAdminController {
-  constructor(private readonly subscriptionAdminService: SubscriptionAdminService) {}
+  constructor(
+    private readonly subscriptionAdminService: SubscriptionAdminService,
+  ) {}
 
   @Get()
   async getAllSubscriptions() {
@@ -33,7 +43,10 @@ export class SubscriptionAdminController {
     if (!planId) {
       throw new NotFoundException('Plan ID is required');
     }
-    return this.subscriptionAdminService.forceSubscriptionUpdate(tenantId, planId);
+    return this.subscriptionAdminService.forceSubscriptionUpdate(
+      tenantId,
+      planId,
+    );
   }
 
   @Post('assign-plan')

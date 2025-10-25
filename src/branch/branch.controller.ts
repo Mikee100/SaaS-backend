@@ -79,9 +79,7 @@ export class BranchController {
 
     // Only allow owners to switch branches
     if (!userRoles.includes('owner')) {
-      throw new ForbiddenException(
-        'Only owners can switch branches',
-      );
+      throw new ForbiddenException('Only owners can switch branches');
     }
 
     // Update user's current branch

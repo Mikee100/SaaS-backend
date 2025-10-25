@@ -14,8 +14,8 @@ export class SupplierService {
       where: { tenantId, isActive: true },
       include: {
         _count: {
-          select: { products: true }
-        }
+          select: { products: true },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -28,27 +28,32 @@ export class SupplierService {
         products: {
           include: {
             inventory: true,
-          }
+          },
         },
         _count: {
-          select: { products: true }
-        }
+          select: { products: true },
+        },
       },
     });
   }
 
-  async create(data: {
-    name: string;
-    contactName?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    city?: string;
-    country?: string;
-    postalCode?: string;
-    website?: string;
-    notes?: string;
-  }, tenantId: string, actorUserId?: string, ip?: string) {
+  async create(
+    data: {
+      name: string;
+      contactName?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      city?: string;
+      country?: string;
+      postalCode?: string;
+      website?: string;
+      notes?: string;
+    },
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const supplier = await this.prisma.supplier.create({
       data: {
         ...data,
@@ -68,19 +73,25 @@ export class SupplierService {
     return supplier;
   }
 
-  async update(id: string, data: Partial<{
-    name: string;
-    contactName: string;
-    email: string;
-    phone: string;
-    address: string;
-    city: string;
-    country: string;
-    postalCode: string;
-    website: string;
-    notes: string;
-    isActive: boolean;
-  }>, tenantId: string, actorUserId?: string, ip?: string) {
+  async update(
+    id: string,
+    data: Partial<{
+      name: string;
+      contactName: string;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      country: string;
+      postalCode: string;
+      website: string;
+      notes: string;
+      isActive: boolean;
+    }>,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const supplier = await this.prisma.supplier.updateMany({
       where: { id, tenantId },
       data,
@@ -98,7 +109,12 @@ export class SupplierService {
     return supplier;
   }
 
-  async remove(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+  async remove(
+    id: string,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     // Check if supplier has products
     const supplier = await this.prisma.supplier.findFirst({
       where: { id, tenantId },
@@ -106,7 +122,9 @@ export class SupplierService {
     });
 
     if (supplier && supplier._count.products > 0) {
-      throw new Error('Cannot delete supplier with associated products. Remove products first or deactivate instead.');
+      throw new Error(
+        'Cannot delete supplier with associated products. Remove products first or deactivate instead.',
+      );
     }
 
     const result = await this.prisma.supplier.deleteMany({
@@ -132,21 +150,21 @@ export class SupplierService {
         products: {
           include: {
             inventory: true,
-          }
+          },
         },
       },
     });
 
-    const stats = suppliers.map(supplier => {
+    const stats = suppliers.map((supplier) => {
       const totalProducts = supplier.products.length;
       const totalValue = supplier.products.reduce((sum, product) => {
         const inventory = product.inventory?.[0];
-        return sum + ((inventory?.quantity || 0) * product.price);
+        return sum + (inventory?.quantity || 0) * product.price;
       }, 0);
 
       const totalCost = supplier.products.reduce((sum, product) => {
         const inventory = product.inventory?.[0];
-        return sum + ((inventory?.quantity || 0) * (product.cost || 0));
+        return sum + (inventory?.quantity || 0) * (product.cost || 0);
       }, 0);
 
       return {

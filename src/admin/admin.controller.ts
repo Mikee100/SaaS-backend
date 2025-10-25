@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, Logger, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Logger,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminService } from './admin.service';
 import { SuperadminGuard } from './superadmin.guard';
@@ -33,31 +44,41 @@ export class AdminController {
   async getAllTenants() {
     this.logger.log('AdminController: getAllTenants called');
     const result = await this.adminService.getAllTenants();
-    this.logger.log(`AdminController: getAllTenants returning ${result.length} tenants`);
+    this.logger.log(
+      `AdminController: getAllTenants returning ${result.length} tenants`,
+    );
     return result;
   }
 
   @Get('tenants/:id')
   async getTenantById(@Param('id') tenantId: string) {
-    this.logger.log(`AdminController: getTenantById called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminController: getTenantById called with tenantId: ${tenantId}`,
+    );
     return this.adminService.getTenantById(tenantId);
   }
 
   @Get('tenants/:id/products')
   async getTenantProducts(@Param('id') tenantId: string) {
-    this.logger.log(`AdminController: getTenantProducts called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminController: getTenantProducts called with tenantId: ${tenantId}`,
+    );
     return this.adminService.getTenantProducts(tenantId);
   }
 
   @Get('tenants/:id/transactions')
   async getTenantTransactions(@Param('id') tenantId: string) {
-    this.logger.log(`AdminController: getTenantTransactions called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminController: getTenantTransactions called with tenantId: ${tenantId}`,
+    );
     return this.adminService.getTenantTransactions(tenantId);
   }
 
   @Post('tenants/:id/switch')
   async switchToTenant(@Param('id') tenantId: string) {
-    this.logger.log(`AdminController: switchToTenant called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminController: switchToTenant called with tenantId: ${tenantId}`,
+    );
     return this.adminService.switchToTenant(tenantId);
   }
 
@@ -75,14 +96,24 @@ export class AdminController {
   }
 
   @Post('trials')
-  async createTrial(@Body() body: { tenantId: string; durationHours: number; planId: string }) {
-    this.logger.log(`AdminController: createTrial called for tenant: ${body.tenantId}`);
-    return this.subscriptionService.createTrialSubscription(body.tenantId, body.durationHours, body.planId);
+  async createTrial(
+    @Body() body: { tenantId: string; durationHours: number; planId: string },
+  ) {
+    this.logger.log(
+      `AdminController: createTrial called for tenant: ${body.tenantId}`,
+    );
+    return this.subscriptionService.createTrialSubscription(
+      body.tenantId,
+      body.durationHours,
+      body.planId,
+    );
   }
 
   @Get('trials/:tenantId')
   async getTrialStatus(@Param('tenantId') tenantId: string) {
-    this.logger.log(`AdminController: getTrialStatus called for tenant: ${tenantId}`);
+    this.logger.log(
+      `AdminController: getTrialStatus called for tenant: ${tenantId}`,
+    );
     return this.subscriptionService.checkTrialStatus(tenantId);
   }
 
@@ -95,7 +126,9 @@ export class AdminController {
 
   @Get('plans/:id')
   async getPlanById(@Param('id') planId: string) {
-    this.logger.log(`AdminController: getPlanById called with planId: ${planId}`);
+    this.logger.log(
+      `AdminController: getPlanById called with planId: ${planId}`,
+    );
     return this.adminService.getPlanById(planId);
   }
 
@@ -107,13 +140,17 @@ export class AdminController {
 
   @Put('plans/:id')
   async updatePlan(@Param('id') planId: string, @Body() planData: any) {
-    this.logger.log(`AdminController: updatePlan called with planId: ${planId}`);
+    this.logger.log(
+      `AdminController: updatePlan called with planId: ${planId}`,
+    );
     return this.adminService.updatePlan(planId, planData);
   }
 
   @Delete('plans/:id')
   async deletePlan(@Param('id') planId: string) {
-    this.logger.log(`AdminController: deletePlan called with planId: ${planId}`);
+    this.logger.log(
+      `AdminController: deletePlan called with planId: ${planId}`,
+    );
     return this.adminService.deletePlan(planId);
   }
 
@@ -131,7 +168,9 @@ export class AdminController {
 
   @Delete('tenants/:id')
   async deleteTenant(@Param('id') tenantId: string) {
-    this.logger.log(`AdminController: deleteTenant called with tenantId: ${tenantId}`);
+    this.logger.log(
+      `AdminController: deleteTenant called with tenantId: ${tenantId}`,
+    );
     return this.adminService.deleteTenant(tenantId);
   }
 
@@ -142,13 +181,21 @@ export class AdminController {
   }
 
   @Put('users/:id/status')
-  async updateUserStatus(@Param('id') userId: string, @Body() body: { isDisabled: boolean }) {
-    this.logger.log(`AdminController: updateUserStatus called for userId: ${userId}, isDisabled: ${body.isDisabled}`);
+  async updateUserStatus(
+    @Param('id') userId: string,
+    @Body() body: { isDisabled: boolean },
+  ) {
+    this.logger.log(
+      `AdminController: updateUserStatus called for userId: ${userId}, isDisabled: ${body.isDisabled}`,
+    );
     return this.adminService.updateUserStatus(userId, body.isDisabled);
   }
 
   @Get('logs')
-  async getAuditLogs(@Query('limit') limit: string, @Query('tenantId') tenantId?: string) {
+  async getAuditLogs(
+    @Query('limit') limit: string,
+    @Query('tenantId') tenantId?: string,
+  ) {
     this.logger.log('AdminController: getAuditLogs called');
     const limitNum = limit ? Number(limit) : 100;
     return this.auditLogService.getLogs(limitNum, tenantId);

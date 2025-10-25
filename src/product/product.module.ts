@@ -12,7 +12,12 @@ import { TrialGuard } from '../auth/trial.guard';
 @Module({
   imports: [PrismaModule, BillingModule, UserModule],
   controllers: [ProductController, BulkUploadRecordController],
-  providers: [ProductService, BulkUploadRecordService, AuditLogService, TrialGuard],
+  providers: [
+    ProductService,
+    BulkUploadRecordService,
+    AuditLogService,
+    TrialGuard,
+  ],
   exports: [ProductService, BulkUploadRecordService],
 })
 export class ProductModule {}

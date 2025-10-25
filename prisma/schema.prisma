@@ -181,6 +181,7 @@ model Tenant {
   productAttributes   ProductAttribute[]    @relation("TenantProductAttributes") // New
   productVariations   ProductVariation[]    @relation("TenantProductVariations") // New
   expenses            Expense[]             // New
+  expenseCategories   ExpenseCategory[]     // New
 }
 
 model AuditLog {
@@ -225,6 +226,7 @@ model Branch {
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
+  productCategories   ProductCategory[]   @relation("BranchProductCategories") // New
   expenses            Expense[]           // New
 
   @@index([tenantId])
@@ -515,15 +517,18 @@ model ProductCategory {
   description String?
   customFields Json?
   tenantId    String
+  branchId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isActive    Boolean  @default(true)
   tenant      Tenant   @relation("TenantProductCategories", fields: [tenantId], references: [id])
+  branch      Branch?  @relation("BranchProductCategories", fields: [branchId], references: [id])
   products    Product[] @relation("CategoryProducts")
   attributes  ProductAttribute[] @relation("CategoryAttributes")
 
   @@unique([name, tenantId])
   @@index([tenantId])
+  @@index([branchId])
 }
 
 model ProductAttribute {
@@ -872,32 +877,51 @@ model CreditPayment {
   @@index([createdAt])
 }
 
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String?   // Hex color code for UI display
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  expenses    Expense[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
 model Expense {
-  id            String     @id @default(uuid())
+  id            String           @id @default(uuid())
   tenantId      String
   userId        String
   branchId      String?
   amount        Float
   description   String
-  category      String     // "office_supplies", "utilities", "rent", "marketing", "travel", "equipment", "other"
-  expenseType   String     // "one_time", "recurring"
-  frequency     String?    // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
-  nextDueDate   DateTime?  // For recurring expenses
-  isActive      Boolean    @default(true) // For recurring expenses
-  receiptUrl    String?    // URL to uploaded receipt
+  categoryId    String?          // Reference to ExpenseCategory
+  expenseType   String           // "one_time", "recurring"
+  frequency     String?          // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
+  nextDueDate   DateTime?        // For recurring expenses
+  isActive      Boolean          @default(true) // For recurring expenses
+  receiptUrl    String?          // URL to uploaded receipt
   notes         String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  tenant        Tenant     @relation(fields: [tenantId], references: [id])
-  user          User       @relation(fields: [userId], references: [id])
-  branch        Branch?    @relation(fields: [branchId], references: [id])
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  branch        Branch?          @relation(fields: [branchId], references: [id])
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([tenantId])
   @@index([userId])
   @@index([branchId])
   @@index([expenseType])
-  @@index([category])
+  @@index([categoryId])
   @@index([nextDueDate])
   @@index([isActive])
 }

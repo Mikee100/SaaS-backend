@@ -13,13 +13,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET || 'waweru',
     });
-    this.logger.log('JWT Strategy initialized');
   }
 
   async validate(payload: any) {
-    this.logger.log('JWT payload:', JSON.stringify(payload));
     const user = { userId: payload.sub, email: payload.email, ...payload };
-    this.logger.log('User object returned:', JSON.stringify(user));
+
     return user;
   }
 }

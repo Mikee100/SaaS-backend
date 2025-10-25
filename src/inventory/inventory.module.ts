@@ -11,7 +11,14 @@ import { BillingService } from '../billing/billing.service';
 
 @Module({
   controllers: [InventoryController],
-  providers: [InventoryService, PrismaService, AuditLogService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    InventoryService,
+    PrismaService,
+    AuditLogService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   imports: [RealtimeModule, UserModule],
 })
 export class InventoryModule {}

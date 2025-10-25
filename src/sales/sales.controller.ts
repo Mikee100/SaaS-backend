@@ -282,7 +282,11 @@ export class SalesController {
   @Permissions('view_sales')
   async getCreditScore(@Req() req) {
     const { customerName, customerPhone } = req.query;
-    console.log('getCreditScore called with:', { customerName, customerPhone, tenantId: req.user.tenantId });
+    console.log('getCreditScore called with:', {
+      customerName,
+      customerPhone,
+      tenantId: req.user.tenantId,
+    });
     try {
       const result = await this.salesService.calculateCustomerCreditScore(
         req.user.tenantId,
@@ -300,10 +304,18 @@ export class SalesController {
   @Post('credits/eligibility')
   @Permissions('view_sales')
   async checkCreditEligibility(
-    @Body() body: { customerName: string; customerPhone?: string; requestedAmount: number },
+    @Body()
+    body: {
+      customerName: string;
+      customerPhone?: string;
+      requestedAmount: number;
+    },
     @Req() req,
   ) {
-    console.log('checkCreditEligibility called with:', { body, tenantId: req.user.tenantId });
+    console.log('checkCreditEligibility called with:', {
+      body,
+      tenantId: req.user.tenantId,
+    });
     try {
       const result = await this.salesService.checkCreditEligibility(
         req.user.tenantId,
@@ -323,7 +335,11 @@ export class SalesController {
   @Permissions('view_sales')
   async getCreditAnalytics(@Req() req) {
     const { startDate, endDate } = req.query;
-    console.log('getCreditAnalytics called with:', { tenantId: req.user.tenantId, startDate, endDate });
+    console.log('getCreditAnalytics called with:', {
+      tenantId: req.user.tenantId,
+      startDate,
+      endDate,
+    });
     try {
       const result = await this.salesService.getCreditAnalytics(
         req.user.tenantId,
@@ -342,7 +358,11 @@ export class SalesController {
   @Permissions('view_sales')
   async getCustomerCreditHistory(@Req() req) {
     const { customerName, customerPhone } = req.query;
-    console.log('getCustomerCreditHistory called with:', { tenantId: req.user.tenantId, customerName, customerPhone });
+    console.log('getCustomerCreditHistory called with:', {
+      tenantId: req.user.tenantId,
+      customerName,
+      customerPhone,
+    });
     try {
       const result = await this.salesService.getCustomerCreditHistory(
         req.user.tenantId,
@@ -360,9 +380,13 @@ export class SalesController {
   @Get('credits/aging')
   @Permissions('view_sales')
   async getCreditAgingAnalysis(@Req() req) {
-    console.log('getCreditAgingAnalysis called with:', { tenantId: req.user.tenantId });
+    console.log('getCreditAgingAnalysis called with:', {
+      tenantId: req.user.tenantId,
+    });
     try {
-      const result = await this.salesService.getCreditAgingAnalysis(req.user.tenantId);
+      const result = await this.salesService.getCreditAgingAnalysis(
+        req.user.tenantId,
+      );
       console.log('getCreditAgingAnalysis result:', result);
       return result;
     } catch (error) {

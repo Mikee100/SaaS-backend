@@ -10,6 +10,12 @@ import { BillingService } from '../billing/billing.service';
 @Module({
   imports: [UserModule],
   controllers: [AiController],
-  providers: [AiService, PrismaService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    AiService,
+    PrismaService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
 })
 export class AiModule {}

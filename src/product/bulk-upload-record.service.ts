@@ -23,13 +23,16 @@ export class BulkUploadRecordService {
     });
   }
 
-  async updateBulkUploadRecord(id: string, data: {
-    totalProducts?: number;
-    totalValue?: number;
-    status?: string;
-    supplierId?: string;
-    notes?: string;
-  }) {
+  async updateBulkUploadRecord(
+    id: string,
+    data: {
+      totalProducts?: number;
+      totalValue?: number;
+      status?: string;
+      supplierId?: string;
+      notes?: string;
+    },
+  ) {
     return this.prisma.bulkUploadRecord.update({
       where: { id },
       data,

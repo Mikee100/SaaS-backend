@@ -37,12 +37,10 @@ class OwnerDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-    {
-      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-    }
-  )
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+  })
   password: string;
 }
 
@@ -68,18 +66,24 @@ export class RegistrationDto {
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   businessCategory?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   businessSubcategory?: string;
 
   @IsString()
   @IsOptional()
   @MaxLength(1000)
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   businessDescription?: string;
 
   @IsEmail()
@@ -88,27 +92,35 @@ export class RegistrationDto {
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   contactPhone?: string;
 
   @IsUrl()
   @IsOptional()
-  @Transform(({ value }) => value ? value.trim() : value)
+  @Transform(({ value }) => (value ? value.trim() : value))
   website?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   address?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   city?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? DOMPurifyServer.sanitize(value.trim()) : value)
+  @Transform(({ value }) =>
+    value ? DOMPurifyServer.sanitize(value.trim()) : value,
+  )
   state?: string;
 
   @IsString()
@@ -118,7 +130,7 @@ export class RegistrationDto {
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? value.trim() : value)
+  @Transform(({ value }) => (value ? value.trim() : value))
   postalCode?: string;
 
   @IsNumber()
@@ -133,34 +145,49 @@ export class RegistrationDto {
 
   @IsString()
   @IsOptional()
-  @IsIn(['< 1M KES', '1M-10M KES', '10M-50M KES', '50M-100M KES', '100M-500M KES', '500M+ KES'])
+  @IsIn([
+    '< 1M KES',
+    '1M-10M KES',
+    '10M-50M KES',
+    '50M-100M KES',
+    '100M-500M KES',
+    '500M+ KES',
+  ])
   annualRevenue?: string;
 
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  @Transform(({ value }) => value ? value.map((v: string) => DOMPurifyServer.sanitize(v.trim())) : value)
+  @Transform(({ value }) =>
+    value
+      ? value.map((v: string) => DOMPurifyServer.sanitize(v.trim()))
+      : value,
+  )
   primaryProducts?: string[];
 
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  @Transform(({ value }) => value ? value.map((v: string) => DOMPurifyServer.sanitize(v.trim())) : value)
+  @Transform(({ value }) =>
+    value
+      ? value.map((v: string) => DOMPurifyServer.sanitize(v.trim()))
+      : value,
+  )
   secondaryProducts?: string[];
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? value.trim() : value)
+  @Transform(({ value }) => (value ? value.trim() : value))
   kraPin?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? value.trim() : value)
+  @Transform(({ value }) => (value ? value.trim() : value))
   vatNumber?: string;
 
   @IsString()
   @IsOptional()
-  @Transform(({ value }) => value ? value.trim() : value)
+  @Transform(({ value }) => (value ? value.trim() : value))
   businessLicense?: string;
 
   @ValidateNested()
@@ -171,6 +198,4 @@ export class RegistrationDto {
   @IsString()
   @IsNotEmpty()
   recaptchaToken: string;
-
-
 }

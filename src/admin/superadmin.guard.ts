@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -20,7 +25,9 @@ export class SuperadminGuard implements CanActivate {
 
     // Check JWT payload first for isSuperadmin flag
     if (user.isSuperadmin === true) {
-      this.logger.log(`SuperadminGuard: User ${user.email} is superadmin from JWT`);
+      this.logger.log(
+        `SuperadminGuard: User ${user.email} is superadmin from JWT`,
+      );
       return true;
     }
 
@@ -37,10 +44,14 @@ export class SuperadminGuard implements CanActivate {
       select: { isSuperadmin: true, email: true },
     });
 
-    this.logger.log(`SuperadminGuard: DB user result: ${JSON.stringify(dbUser)}`);
+    this.logger.log(
+      `SuperadminGuard: DB user result: ${JSON.stringify(dbUser)}`,
+    );
 
     const isSuperadmin = dbUser?.isSuperadmin === true;
-    this.logger.log(`SuperadminGuard: User ${user.email} isSuperadmin: ${isSuperadmin}`);
+    this.logger.log(
+      `SuperadminGuard: User ${user.email} isSuperadmin: ${isSuperadmin}`,
+    );
 
     return isSuperadmin;
   }

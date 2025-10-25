@@ -566,9 +566,8 @@ export class BillingService {
 
     const mrr = activeSubsWithPlans.reduce((total, sub) => {
       if (sub.Plan) {
-        const monthlyPrice = sub.Plan.interval === 'yearly'
-          ? sub.Plan.price / 12
-          : sub.Plan.price;
+        const monthlyPrice =
+          sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
         return total + monthlyPrice;
       }
       return total;
@@ -593,7 +592,8 @@ export class BillingService {
       trialSubscriptions,
       delinquentSubscriptions,
       revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
-      totalSubscriptions: activeSubscriptions + trialSubscriptions + delinquentSubscriptions,
+      totalSubscriptions:
+        activeSubscriptions + trialSubscriptions + delinquentSubscriptions,
     };
   }
 
@@ -638,23 +638,27 @@ export class BillingService {
         tenantId: sub.tenantId,
         tenantName: sub.Tenant?.name,
         tenantEmail: sub.Tenant?.contactEmail,
-        plan: sub.Plan ? {
-          id: sub.Plan.id,
-          name: sub.Plan.name,
-          price: sub.Plan.price,
-          interval: sub.Plan.interval,
-        } : null,
+        plan: sub.Plan
+          ? {
+              id: sub.Plan.id,
+              name: sub.Plan.name,
+              price: sub.Plan.price,
+              interval: sub.Plan.interval,
+            }
+          : null,
         status: sub.status,
         currentPeriodStart: sub.currentPeriodStart,
         currentPeriodEnd: sub.currentPeriodEnd,
         cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
         canceledAt: sub.canceledAt,
-        scheduledPlan: sub.ScheduledPlan ? {
-          id: sub.ScheduledPlan.id,
-          name: sub.ScheduledPlan.name,
-          price: sub.ScheduledPlan.price,
-          effectiveDate: sub.scheduledEffectiveDate,
-        } : null,
+        scheduledPlan: sub.ScheduledPlan
+          ? {
+              id: sub.ScheduledPlan.id,
+              name: sub.ScheduledPlan.name,
+              price: sub.ScheduledPlan.price,
+              effectiveDate: sub.scheduledEffectiveDate,
+            }
+          : null,
       })),
       pagination: {
         page,
@@ -681,14 +685,12 @@ export class BillingService {
     const activeAtStart = await this.prisma.subscription.count({
       where: {
         currentPeriodStart: { lt: thirtyDaysAgo },
-        OR: [
-          { status: 'active' },
-          { canceledAt: { gte: thirtyDaysAgo } },
-        ],
+        OR: [{ status: 'active' }, { canceledAt: { gte: thirtyDaysAgo } }],
       },
     });
 
-    const churnRate = activeAtStart > 0 ? (churnedSubscriptions / activeAtStart) * 100 : 0;
+    const churnRate =
+      activeAtStart > 0 ? (churnedSubscriptions / activeAtStart) * 100 : 0;
 
     // ARR (Annual Recurring Revenue)
     const activeSubsWithPlans = await this.prisma.subscription.findMany({
@@ -702,9 +704,10 @@ export class BillingService {
 
     const arr = activeSubsWithPlans.reduce((total, sub) => {
       if (sub.Plan) {
-        const annualPrice = sub.Plan.interval === 'monthly'
-          ? sub.Plan.price * 12
-          : sub.Plan.price;
+        const annualPrice =
+          sub.Plan.interval === 'monthly'
+            ? sub.Plan.price * 12
+            : sub.Plan.price;
         return total + annualPrice;
       }
       return total;
@@ -730,7 +733,8 @@ export class BillingService {
       },
     });
 
-    const ltv = totalCustomers > 0 ? totalRevenue._sum.amount! / totalCustomers : 0;
+    const ltv =
+      totalCustomers > 0 ? totalRevenue._sum.amount! / totalCustomers : 0;
 
     // New subscriptions this month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

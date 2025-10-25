@@ -69,10 +69,7 @@ export class ProductService {
   async findAllByTenantAndBranch(tenantId: string, branchId?: string) {
     const where: any = { tenantId };
     if (branchId) {
-      where.OR = [
-        { branchId: branchId },
-        { branchId: null }
-      ];
+      where.OR = [{ branchId: branchId }, { branchId: null }];
     }
     return (this.prisma as any).product.findMany({
       where,
@@ -87,9 +84,12 @@ export class ProductService {
 
   async createProduct(data: any, actorUserId?: string, ip?: string) {
     // Check plan limits for products
-    const canAddProduct = await this.subscriptionService.canAddProduct(data.tenantId);
+    const canAddProduct = await this.subscriptionService.canAddProduct(
+      data.tenantId,
+    );
     if (!canAddProduct) {
-      const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+      const subscription =
+        await this.subscriptionService.getCurrentSubscription(data.tenantId);
       const maxProducts = subscription.plan?.maxProducts || 0;
       throw new BadRequestException(
         `Product limit exceeded. Your plan allows up to ${maxProducts} products. Please upgrade your plan to add more products.`,
@@ -126,7 +126,11 @@ export class ProductService {
     }
 
     // Ensure price is a float, default to 0 if not provided or invalid
-    if (productData.price !== undefined && productData.price !== null && productData.price !== '') {
+    if (
+      productData.price !== undefined &&
+      productData.price !== null &&
+      productData.price !== ''
+    ) {
       const parsedPrice = parseFloat(String(productData.price));
       productData.price = isNaN(parsedPrice) ? 0 : parsedPrice;
     } else {
@@ -173,13 +177,13 @@ export class ProductService {
       data: {
         ...productData,
         tenant: {
-          connect: { id: data.tenantId }
+          connect: { id: data.tenantId },
         },
         branch: {
-          connect: { id: data.branchId }
+          connect: { id: data.branchId },
         },
         category: {
-          connect: { id: categoryId }
+          connect: { id: categoryId },
         },
         variations: {
           create: variations,
@@ -197,7 +201,12 @@ export class ProductService {
       await this.auditLogService.log(
         actorUserId || null,
         'product_created',
-        { productId: product.id, name: product.name, sku: product.sku, hasVariations: product.hasVariations },
+        {
+          productId: product.id,
+          name: product.name,
+          sku: product.sku,
+          hasVariations: product.hasVariations,
+        },
         ip,
       );
     }
@@ -212,7 +221,18 @@ export class ProductService {
     ip?: string,
   ) {
     // Separate standard and custom fields
-    const { name, sku, price, description, stock, cost, supplier, categoryId, variations, ...customFields } = data;
+    const {
+      name,
+      sku,
+      price,
+      description,
+      stock,
+      cost,
+      supplier,
+      categoryId,
+      variations,
+      ...customFields
+    } = data;
     const updateData: any = {};
 
     // Handle supplier field - if supplier name is provided, find the supplier and set supplierId
@@ -415,11 +435,17 @@ export class ProductService {
     let failedCount = 0;
 
     try {
-      for (let batchStart = 0; batchStart < rows.length; batchStart += BATCH_SIZE) {
+      for (
+        let batchStart = 0;
+        batchStart < rows.length;
+        batchStart += BATCH_SIZE
+      ) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, rows.length);
         const batch = rows.slice(batchStart, batchEnd);
 
-        console.log(`Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: rows ${batchStart + 1}-${batchEnd}`);
+        console.log(
+          `Processing batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: rows ${batchStart + 1}-${batchEnd}`,
+        );
 
         // Process each batch in its own transaction with extended timeout
         await this.prisma.$transaction(async (prisma) => {
@@ -444,12 +470,13 @@ export class ProductService {
               // Find or create category
               let categoryId: string;
               const categoryName = String(mappedRow.category).trim();
-              const existingCategory = await this.prisma.productCategory.findFirst({
-                where: {
-                  name: categoryName,
-                  tenantId: user.tenantId,
-                },
-              });
+              const existingCategory =
+                await this.prisma.productCategory.findFirst({
+                  where: {
+                    name: categoryName,
+                    tenantId: user.tenantId,
+                  },
+                });
               if (existingCategory) {
                 categoryId = existingCategory.id;
               } else {
@@ -465,8 +492,17 @@ export class ProductService {
               }
 
               // Extract standard fields
-              const { name, sku, price, cost, description, stock, supplierId: extractedSupplierId, category, ...customFields } =
-                mappedRow;
+              const {
+                name,
+                sku,
+                price,
+                cost,
+                description,
+                stock,
+                supplierId: extractedSupplierId,
+                category,
+                ...customFields
+              } = mappedRow;
 
               const productData = {
                 id: uuidv4(),
@@ -529,9 +565,9 @@ export class ProductService {
       summary: {
         successful: successfulCount,
         failed: failedCount,
-        errors: results.filter(r => r.status === 'error').map(r => r.error)
+        errors: results.filter((r) => r.status === 'error').map((r) => r.error),
       },
-      uploadId
+      uploadId,
     };
   }
 
@@ -604,7 +640,12 @@ export class ProductService {
     }
 
     // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'uploads', 'products', tenantId);
+    const uploadsDir = path.join(
+      process.cwd(),
+      'uploads',
+      'products',
+      tenantId,
+    );
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
@@ -617,7 +658,8 @@ export class ProductService {
         throw new BadRequestException('Only image files are allowed');
       }
 
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
         throw new BadRequestException('Image size must be less than 5MB');
       }
 
@@ -687,12 +729,18 @@ export class ProductService {
     }
 
     // Remove image from product's images array
-    const updatedImages = product.images.filter(img => img !== imageUrl);
+    const updatedImages = product.images.filter((img) => img !== imageUrl);
 
     // Delete physical file
     try {
       const fileName = path.basename(imageUrl);
-      const filePath = path.join(process.cwd(), 'uploads', 'products', tenantId, fileName);
+      const filePath = path.join(
+        process.cwd(),
+        'uploads',
+        'products',
+        tenantId,
+        fileName,
+      );
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -750,20 +798,52 @@ export class ProductService {
   }
 
   // Category CRUD methods
-  async createCategory(data: { name: string; description?: string; customFields?: Record<string, string[]>; tenantId: string }) {
-    return this.prisma.productCategory.create({
+  async createCategory(
+    data: {
+      name: string;
+      description?: string;
+      customFields?: Record<string, string[]>;
+      tenantId: string;
+      branchId: string;
+    },
+    userId: string,
+    ip: string,
+  ) {
+    console.log('🚀 Backend: createCategory service called with:', data);
+
+    // Create the category
+    const category = await this.prisma.productCategory.create({
       data: {
         name: data.name,
-        description: data.description || '',
+        description: data.description,
         customFields: data.customFields || {},
         tenantId: data.tenantId,
+        branchId: data.branchId,
         id: uuidv4(),
         isActive: true,
       },
     });
+
+    console.log('🚀 Backend: Category created:', category);
+
+    // Log the category creation
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'category_created',
+        {
+          categoryId: category.id,
+          categoryName: category.name,
+          customFields: data.customFields,
+        },
+        ip,
+      );
+    }
+
+    return category;
   }
 
-  async getCategories(tenantId: string) {
+  async getCategories(tenantId: string, branchId?: string) {
     return this.prisma.productCategory.findMany({
       where: { tenantId, isActive: true },
       include: {
@@ -774,6 +854,7 @@ export class ProductService {
           select: { products: true },
         },
         products: {
+          where: branchId ? { branchId } : {},
           include: {
             variations: true,
             supplier: true,
@@ -799,7 +880,11 @@ export class ProductService {
     });
   }
 
-  async updateCategory(id: string, data: { name?: string; description?: string }, tenantId: string) {
+  async updateCategory(
+    id: string,
+    data: { name?: string; description?: string },
+    tenantId: string,
+  ) {
     return this.prisma.productCategory.updateMany({
       where: { id, tenantId },
       data,
@@ -813,7 +898,9 @@ export class ProductService {
     });
 
     if (productCount > 0) {
-      throw new BadRequestException('Cannot delete category with existing products');
+      throw new BadRequestException(
+        'Cannot delete category with existing products',
+      );
     }
 
     return this.prisma.productCategory.updateMany({
@@ -846,12 +933,16 @@ export class ProductService {
     });
   }
 
-  async updateAttribute(id: string, data: Partial<{
-    name: string;
-    type: string;
-    values: string[];
-    required: boolean;
-  }>, tenantId: string) {
+  async updateAttribute(
+    id: string,
+    data: Partial<{
+      name: string;
+      type: string;
+      values: string[];
+      required: boolean;
+    }>,
+    tenantId: string,
+  ) {
     return this.prisma.productAttribute.updateMany({
       where: { id, tenantId },
       data,
@@ -891,14 +982,18 @@ export class ProductService {
     });
   }
 
-  async updateVariation(id: string, data: Partial<{
-    sku: string;
-    price: number;
-    cost: number;
-    stock: number;
-    attributes: any;
-    isActive: boolean;
-  }>, tenantId: string) {
+  async updateVariation(
+    id: string,
+    data: Partial<{
+      sku: string;
+      price: number;
+      cost: number;
+      stock: number;
+      attributes: any;
+      isActive: boolean;
+    }>,
+    tenantId: string,
+  ) {
     return this.prisma.productVariation.updateMany({
       where: { id, tenantId },
       data,
@@ -917,7 +1012,9 @@ export class ProductService {
     if (!attributes || attributes.length === 0) return [];
 
     // Create all possible combinations of attribute values
-    const combinations = this.cartesianProduct(attributes.map(attr => attr.values));
+    const combinations = this.cartesianProduct(
+      attributes.map((attr) => attr.values),
+    );
 
     return combinations.map((combination, index) => {
       const attrsObj = {};
@@ -942,11 +1039,17 @@ export class ProductService {
     if (arrays.length === 0) return [[]];
     const [first, ...rest] = arrays;
     const restCombinations = this.cartesianProduct(rest);
-    return first.flatMap(value => restCombinations.map(combination => [value, ...combination]));
+    return first.flatMap((value) =>
+      restCombinations.map((combination) => [value, ...combination]),
+    );
   }
 
   // Generate variations from custom fields
-  async generateVariationsFromCustomFields(productId: string, tenantId: string, userId: string) {
+  async generateVariationsFromCustomFields(
+    productId: string,
+    tenantId: string,
+    userId: string,
+  ) {
     // Get the product with custom fields
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
@@ -957,7 +1060,9 @@ export class ProductService {
     }
 
     if (!product.customFields || typeof product.customFields !== 'object') {
-      throw new BadRequestException('Product has no custom fields to generate variations from');
+      throw new BadRequestException(
+        'Product has no custom fields to generate variations from',
+      );
     }
 
     // Extract attribute arrays from custom fields
@@ -974,11 +1079,16 @@ export class ProductService {
     }
 
     if (attributes.length === 0) {
-      throw new BadRequestException('No array-type custom fields found to generate variations');
+      throw new BadRequestException(
+        'No array-type custom fields found to generate variations',
+      );
     }
 
     // Generate variations using the existing method
-    const variations = this.generateVariationsFromAttributes(attributes, product);
+    const variations = this.generateVariationsFromAttributes(
+      attributes,
+      product,
+    );
 
     // Delete existing variations
     await this.prisma.productVariation.deleteMany({
@@ -987,7 +1097,7 @@ export class ProductService {
 
     // Create new variations
     const createdVariations = await this.prisma.productVariation.createMany({
-      data: variations.map(variation => ({
+      data: variations.map((variation) => ({
         ...variation,
         productId,
         tenantId,
@@ -1006,7 +1116,11 @@ export class ProductService {
       await this.auditLogService.log(
         userId,
         'product_variations_generated',
-        { productId, variationCount: variations.length, attributes: attributes.map(a => a.name) },
+        {
+          productId,
+          variationCount: variations.length,
+          attributes: attributes.map((a) => a.name),
+        },
         undefined,
       );
     }
@@ -1014,7 +1128,7 @@ export class ProductService {
     return {
       message: `Generated ${variations.length} variations from custom fields`,
       variations: variations.length,
-      attributes: attributes.map(a => ({ name: a.name, values: a.values })),
+      attributes: attributes.map((a) => ({ name: a.name, values: a.values })),
     };
   }
 }

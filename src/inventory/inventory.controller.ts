@@ -77,7 +77,12 @@ export class InventoryController {
   @Permissions('edit_inventory')
   async createMovement(@Req() req, @Body() dto: any) {
     const tenantId = req.user.tenantId;
-    return this.inventoryService.createMovement(dto, tenantId, req.user.userId, req.ip);
+    return this.inventoryService.createMovement(
+      dto,
+      tenantId,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Post()

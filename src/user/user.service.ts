@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
 import { SubscriptionService } from '../billing/subscription.service';
@@ -57,8 +58,8 @@ export class UserService {
     }
     return { success: true };
   }
-  async findById(id: string, options: { include?: any } = {}) {
-    const defaultInclude = {
+  async findById(id: string, options: { include?: Prisma.UserInclude } = {}) {
+    const defaultInclude: Prisma.UserInclude = {
       userRoles: {
         include: {
           role: true,
@@ -92,7 +93,7 @@ export class UserService {
     },
     actorUserId?: string,
     ip?: string,
-    prismaClient?: any,
+    prismaClient?: Prisma.TransactionClient,
   ) {
     const prisma = prismaClient || this.prisma;
 
@@ -109,9 +110,12 @@ export class UserService {
     // Skip plan limits check for new tenant registration (trial setup)
     // Check plan limits for users only if not during initial tenant creation
     try {
-      const canAddUser = await this.subscriptionService.canAddUser(data.tenantId);
+      const canAddUser = await this.subscriptionService.canAddUser(
+        data.tenantId,
+      );
       if (!canAddUser) {
-        const subscription = await this.subscriptionService.getCurrentSubscription(data.tenantId);
+        const subscription =
+          await this.subscriptionService.getCurrentSubscription(data.tenantId);
         const maxUsers = subscription.plan?.maxUsers || 0;
         throw new ForbiddenException(
           `User limit exceeded. Your plan allows up to ${maxUsers} users. Please upgrade your plan to add more users.`,
@@ -119,7 +123,10 @@ export class UserService {
       }
     } catch (error) {
       // If no subscription found (during tenant creation), allow user creation
-      if (error instanceof NotFoundException && error.message.includes('No active subscription found')) {
+      if (
+        error instanceof NotFoundException &&
+        error.message.includes('No active subscription found')
+      ) {
         // Allow user creation for new tenants
       } else {
         throw error;
@@ -214,9 +221,9 @@ export class UserService {
     return user;
   }
 
-  async findByEmail(email: string, include?: any) {
+  async findByEmail(email: string, include?: Prisma.UserInclude) {
     try {
-      const defaultInclude = {
+      const defaultInclude: Prisma.UserInclude = {
         userRoles: {
           include: {
             role: {
@@ -253,7 +260,16 @@ export class UserService {
         }
       } catch (error) {
         // If the error is about the isActive column not existing, try without it
-        if (error.code === 'P2022' && error.meta?.column === 'User.isActive') {
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          error.code === 'P2022' &&
+          'meta' in error &&
+          error.meta &&
+          typeof error.meta === 'object' &&
+          'column' in error.meta &&
+          error.meta.column === 'User.isActive'
+        ) {
           this.logger.warn(
             'isActive column not found, falling back to basic user query',
           );
@@ -316,7 +332,7 @@ export class UserService {
 
   async findByTenantAndBranch(tenantId: string, branchId: string | null) {
     // If branchId is "unassigned" or null, fetch users with branchId IS NULL
-    const where: any = { tenantId };
+    const where: Prisma.UserWhereInput = { tenantId };
     if (branchId === 'unassigned' || branchId === null) {
       where.branchId = null;
     } else {
@@ -341,7 +357,7 @@ export class UserService {
     tenantId: string,
     actorUserId?: string,
     ip?: string,
-  ) {
+  ): Promise<{ count: number }> {
     // If role is being updated, handle role assignment
     if (data.role) {
       const role = await this.prisma.role.findUnique({
@@ -375,7 +391,7 @@ export class UserService {
     }
 
     // Update user data if there's anything left to update
-    let result;
+    let result: { count: number };
     if (Object.keys(data).length > 0) {
       result = await this.prisma.user.updateMany({
         where: {
@@ -389,6 +405,8 @@ export class UserService {
           updatedAt: new Date(),
         },
       });
+    } else {
+      result = { count: 1 };
     }
 
     if (this.auditLogService) {
@@ -400,10 +418,13 @@ export class UserService {
       );
     }
 
-    return result || { count: 1 }; // Return a result object similar to updateMany
+    return result;
   }
 
-  async updateUserByEmail(email: string, data: any) {
+  async updateUserByEmail(
+    email: string,
+    data: Partial<Prisma.UserUpdateInput>,
+  ) {
     return this.prisma.user.update({
       where: { email },
       data: {
@@ -416,20 +437,21 @@ export class UserService {
   async updateUserPreferences(
     userId: string,
     data: {
-      notificationPreferences?: any;
+      notificationPreferences?: Prisma.InputJsonValue;
       language?: string;
       region?: string;
       branchId?: string;
     },
   ) {
     // Accept branchId in preferences update
+    const updateData: Prisma.UserUpdateInput = {
+      ...data,
+      ...(data.branchId !== undefined ? { branchId: data.branchId } : {}),
+      updatedAt: new Date(),
+    };
     return this.prisma.user.update({
       where: { id: userId },
-      data: {
-        ...data,
-        ...(data.branchId ? { branchId: data.branchId } : {}),
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
   }
 
@@ -475,7 +497,10 @@ export class UserService {
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new BadRequestException('Current password is incorrect');
     }
@@ -502,10 +527,6 @@ export class UserService {
     tenantId?: string,
   ): Promise<Array<{ name: string }>> {
     try {
-      this.logger.log(
-        `getEffectivePermissions called for userId=${userId}, tenantId=${tenantId}`,
-      );
-
       // Get user with roles
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -515,7 +536,7 @@ export class UserService {
           },
         },
       });
-      this.logger.log(`User loaded: ${user ? user.id : 'not found'}`);
+
       if (!user) return [];
 
       // Check if user has owner role
@@ -524,19 +545,15 @@ export class UserService {
           ur.role?.name?.toLowerCase() === 'owner' ||
           ur.role?.name?.toLowerCase() === 'admin',
       );
-      this.logger.log(`User isOwner/admin: ${isOwner}`);
 
       if (isOwner) {
         // Return all permissions in the system
         const allPerms = await this.prisma.permission.findMany();
-        this.logger.log(
-          `Returning all permissions for owner/admin: count=${allPerms.length}`,
-        );
         return allPerms.map((p) => ({ name: p.name }));
       }
 
       // Prepare where clause for permissions query
-      const permissionWhere: any = { userId };
+      const permissionWhere: Prisma.UserPermissionWhereInput = { userId };
       if (tenantId) {
         permissionWhere.tenantId = tenantId;
       }
@@ -556,10 +573,12 @@ export class UserService {
       // Get permissions from user's roles
       const roleIds = user.userRoles.map((ur) => ur.role?.id).filter(Boolean);
       this.logger.log(`User roleIds: ${JSON.stringify(roleIds)}`);
-      let rolePermissions: any[] = [];
+      let rolePermissions: Prisma.RolePermissionGetPayload<{
+        include: { permission: true };
+      }>[] = [];
 
       if (roleIds.length > 0) {
-        const roleWhere: any = {
+        const roleWhere: Prisma.RolePermissionWhereInput = {
           roleId: { in: roleIds },
         };
         if (tenantId) {
@@ -694,10 +713,9 @@ export class UserService {
     });
   }
 
-  async getPlanLimits(tenantId: string) {
-    console.log('UserService.getPlanLimits called for tenantId:', tenantId);
+  async getPlanLimits(tenantId: string): Promise<unknown> {
     const result = await this.subscriptionService.getPlanLimits(tenantId);
-    console.log('UserService.getPlanLimits result:', result);
+
     return result;
   }
 }

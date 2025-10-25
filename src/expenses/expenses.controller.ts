@@ -92,4 +92,10 @@ export class ExpensesController {
       endDate ? new Date(endDate) : undefined,
     );
   }
+
+  @Get('categories/list')
+  @Permissions('view_sales')
+  async getExpenseCategories(@Req() req) {
+    return this.expensesService.getExpenseCategories(req.user.tenantId);
+  }
 }

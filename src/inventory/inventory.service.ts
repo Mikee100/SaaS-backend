@@ -241,13 +241,17 @@ export class InventoryService {
 
     // Calculate forecast data
     const forecastData = inventory.map((item) => {
-      const productSales = sales.flatMap(sale =>
-        sale.SaleItem.filter(item => item.productId === item.productId)
+      const productSales = sales.flatMap((sale) =>
+        sale.SaleItem.filter((item) => item.productId === item.productId),
       );
 
-      const totalSold = productSales.reduce((sum, saleItem) => sum + saleItem.quantity, 0);
+      const totalSold = productSales.reduce(
+        (sum, saleItem) => sum + saleItem.quantity,
+        0,
+      );
       const averageDailySales = totalSold / 30;
-      const daysUntilStockout = item.quantity / Math.max(averageDailySales, 0.1);
+      const daysUntilStockout =
+        item.quantity / Math.max(averageDailySales, 0.1);
       const recommendedOrder = Math.max(item.reorderPoint - item.quantity, 0);
 
       // Simple confidence calculation based on sales consistency
@@ -341,7 +345,12 @@ export class InventoryService {
     });
 
     // Check for alerts
-    await this.checkAndCreateAlerts(currentInventory, newQuantity, tenantId, dto.branchId);
+    await this.checkAndCreateAlerts(
+      currentInventory,
+      newQuantity,
+      tenantId,
+      dto.branchId,
+    );
 
     if (this.auditLogService) {
       await this.auditLogService.log(

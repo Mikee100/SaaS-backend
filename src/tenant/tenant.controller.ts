@@ -53,12 +53,16 @@ export class TenantController {
     }
 
     try {
-      const response = await axios.post('https://www.google.com/recaptcha/api/siteverify', null, {
-        params: {
-          secret: this.recaptchaSecretKey,
-          response: token,
+      const response = await axios.post(
+        'https://www.google.com/recaptcha/api/siteverify',
+        null,
+        {
+          params: {
+            secret: this.recaptchaSecretKey,
+            response: token,
+          },
         },
-      });
+      );
 
       const data = response.data;
       return data.success && data.score >= 0.5;
@@ -67,8 +71,6 @@ export class TenantController {
       return false;
     }
   }
-
-
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('me')
@@ -257,26 +259,34 @@ export class TenantController {
     return { apiKey };
   }
 
-
-
   // Public endpoint for business registration
   @Post()
   @UseGuards(ThrottlerGuard)
   async createTenant(
     @Req() req,
-    @Body(new ValidationPipe({ transform: true })) createTenantDto: RegistrationDto,
+    @Body(new ValidationPipe({ transform: true }))
+    createTenantDto: RegistrationDto,
   ) {
     this.logger.debug('Raw request body:', JSON.stringify(createTenantDto));
 
     try {
-
       // reCAPTCHA validation
       if (!(await this.validateRecaptcha(createTenantDto.recaptchaToken))) {
-        throw new HttpException('Invalid reCAPTCHA. Please try again.', HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          'Invalid reCAPTCHA. Please try again.',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // Extract validated data
-      const { name, businessType, contactEmail, branchName, owner, ...otherData } = createTenantDto;
+      const {
+        name,
+        businessType,
+        contactEmail,
+        branchName,
+        owner,
+        ...otherData
+      } = createTenantDto;
 
       // Create the tenant with branch and owner
       const result = await this.tenantService.createTenantWithOwner({
@@ -290,7 +300,7 @@ export class TenantController {
           email: owner.email,
           password: owner.password,
         },
-        ...otherData // Pass other sanitized fields
+        ...otherData, // Pass other sanitized fields
       });
 
       return {

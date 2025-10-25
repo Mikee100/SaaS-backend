@@ -10,8 +10,13 @@ import { BillingService } from '../billing/billing.service';
 
 @Module({
   controllers: [PermissionController, RoleController],
-  providers: [PermissionService, PrismaService, TrialGuard, SubscriptionService, BillingService],
+  providers: [
+    PermissionService,
+    PrismaService,
+    TrialGuard,
+    SubscriptionService,
+    BillingService,
+  ],
   imports: [UserModule],
 })
 export class PermissionModule {}
-

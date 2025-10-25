@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,7 +31,9 @@ export class ExpensesService {
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
-        console.warn(`Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`);
+        console.warn(
+          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`,
+        );
         validBranchId = null;
       }
     }
@@ -43,10 +49,15 @@ export class ExpensesService {
         userId,
         amount: dto.amount,
         description: dto.description.trim(),
-        category: dto.category || 'other',
+        categoryId: dto.categoryId,
         expenseType: dto.expenseType || 'one_time',
         frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
-        nextDueDate: dto.expenseType === 'recurring' ? (dto.nextDueDate ? new Date(dto.nextDueDate) : null) : null,
+        nextDueDate:
+          dto.expenseType === 'recurring'
+            ? dto.nextDueDate
+              ? new Date(dto.nextDueDate)
+              : null
+            : null,
         branchId: validBranchId,
         receiptUrl: dto.receiptUrl,
         notes: dto.notes?.trim(),
@@ -65,6 +76,13 @@ export class ExpensesService {
           select: {
             id: true,
             name: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
           },
         },
       },
@@ -183,7 +201,9 @@ export class ExpensesService {
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
-        console.warn(`Invalid branchId ${dto.branchId} for tenant ${tenantId}, keeping existing`);
+        console.warn(
+          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, keeping existing`,
+        );
         validBranchId = existingExpense.branchId;
       }
     }
@@ -196,7 +216,12 @@ export class ExpensesService {
         category: dto.category,
         expenseType: dto.expenseType,
         frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
-        nextDueDate: dto.expenseType === 'recurring' ? (dto.nextDueDate ? new Date(dto.nextDueDate) : null) : null,
+        nextDueDate:
+          dto.expenseType === 'recurring'
+            ? dto.nextDueDate
+              ? new Date(dto.nextDueDate)
+              : null
+            : null,
         branchId: validBranchId,
         receiptUrl: dto.receiptUrl,
         notes: dto.notes?.trim(),
@@ -243,7 +268,11 @@ export class ExpensesService {
     return { success: true, message: 'Expense deleted successfully' };
   }
 
-  async getExpenseAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getExpenseAnalytics(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
     const start = startDate || new Date();
@@ -259,17 +288,32 @@ export class ExpensesService {
         },
         isActive: true,
       },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     // Calculate analytics
     const totalExpenses = expenses.length;
-    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-    const avgExpenseAmount = totalExpenses > 0 ? totalAmount / totalExpenses : 0;
+    const totalAmount = expenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0,
+    );
+    const avgExpenseAmount =
+      totalExpenses > 0 ? totalAmount / totalExpenses : 0;
 
     // Expenses by category
-    const expensesByCategory: Record<string, { count: number; amount: number }> = {};
-    expenses.forEach(expense => {
-      const category = expense.category;
+    const expensesByCategory: Record<
+      string,
+      { count: number; amount: number }
+    > = {};
+    expenses.forEach((expense) => {
+      const category = expense.category?.name || 'Uncategorized';
       if (!expensesByCategory[category]) {
         expensesByCategory[category] = { count: 0, amount: 0 };
       }
@@ -278,8 +322,9 @@ export class ExpensesService {
     });
 
     // Expenses by type
-    const expensesByType: Record<string, { count: number; amount: number }> = {};
-    expenses.forEach(expense => {
+    const expensesByType: Record<string, { count: number; amount: number }> =
+      {};
+    expenses.forEach((expense) => {
       const type = expense.expenseType;
       if (!expensesByType[type]) {
         expensesByType[type] = { count: 0, amount: 0 };
@@ -290,7 +335,7 @@ export class ExpensesService {
 
     // Expenses by month
     const expensesByMonth: Record<string, number> = {};
-    expenses.forEach(expense => {
+    expenses.forEach((expense) => {
       const month = expense.createdAt.toISOString().slice(0, 7); // YYYY-MM
       expensesByMonth[month] = (expensesByMonth[month] || 0) + expense.amount;
     });
@@ -303,5 +348,17 @@ export class ExpensesService {
       expensesByType,
       expensesByMonth,
     };
+  }
+
+  async getExpenseCategories(tenantId: string) {
+    const categories = await this.prisma.expenseCategory.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return categories;
   }
 }

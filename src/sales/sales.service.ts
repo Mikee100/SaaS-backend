@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Prisma, Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
+import { Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateSaleDto } from './create-sale.dto';
 import { SaleReceiptDto } from './sale-receipt.dto';
@@ -125,9 +125,11 @@ export class SalesService {
     }
 
     // Check plan limits for sales
-    const canCreateSale = await this.subscriptionService.canCreateSale(tenantId);
+    const canCreateSale =
+      await this.subscriptionService.canCreateSale(tenantId);
     if (!canCreateSale) {
-      const subscription = await this.subscriptionService.getCurrentSubscription(tenantId);
+      const subscription =
+        await this.subscriptionService.getCurrentSubscription(tenantId);
       const maxSalesPerMonth = subscription.plan?.maxSalesPerMonth || 0;
       throw new ForbiddenException(
         `Sales limit exceeded. Your plan allows up to ${maxSalesPerMonth} sales per month. Please upgrade your plan to create more sales.`,
@@ -175,7 +177,9 @@ export class SalesService {
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
-        console.warn(`Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`);
+        console.warn(
+          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`,
+        );
         validBranchId = null;
       }
     }
@@ -198,7 +202,7 @@ export class SalesService {
       }
 
       // Create the sale record with nested credit if applicable
-      const saleData: any = {
+      const saleData = {
         id: saleId,
         tenantId,
         userId,
@@ -211,25 +215,24 @@ export class SalesService {
         customerPhone: dto.customerPhone,
         idempotencyKey: dto.idempotencyKey,
         branchId: validBranchId,
+        ...(dto.paymentMethod === 'credit'
+          ? {
+              credit: {
+                create: {
+                  tenantId,
+                  customerName: dto.customerName || '',
+                  customerPhone: dto.customerPhone,
+                  totalAmount: dto.creditAmount || total,
+                  balance: dto.creditAmount || total,
+                  dueDate: dto.creditDueDate
+                    ? new Date(dto.creditDueDate)
+                    : null,
+                  notes: dto.creditNotes,
+                },
+              },
+            }
+          : {}),
       };
-
-      // If payment method is credit, create credit as nested create
-      if (dto.paymentMethod === 'credit') {
-        const creditAmount = dto.creditAmount || total;
-        const dueDate = dto.creditDueDate ? new Date(dto.creditDueDate) : null;
-
-        saleData.credit = {
-          create: {
-            tenantId,
-            customerName: dto.customerName || '',
-            customerPhone: dto.customerPhone,
-            totalAmount: creditAmount,
-            balance: creditAmount,
-            dueDate,
-            notes: dto.creditNotes,
-          },
-        };
-      }
 
       await prisma.sale.create({
         data: saleData,
@@ -691,7 +694,8 @@ export class SalesService {
         }
       }
     }
-    const avgProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    const avgProfitMargin =
+      totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
     // Sales by product
     const salesByProduct: Record<
@@ -717,7 +721,8 @@ export class SalesService {
           salesByProduct[productId].quantity += item.quantity;
           salesByProduct[productId].revenue += item.price * item.quantity;
           if (item.product.cost !== undefined) {
-            salesByProduct[productId].profit += (item.price - item.product.cost) * item.quantity;
+            salesByProduct[productId].profit +=
+              (item.price - item.product.cost) * item.quantity;
           }
         }
       }
@@ -801,7 +806,7 @@ export class SalesService {
       count: c.count,
       last_purchase: c.lastPurchase || new Date().toISOString(),
     }));
-    let customerSegments = [];
+    let customerSegments: unknown[] = [];
     try {
       if (customerInput.length > 0 && process.env.AI_SERVICE_URL) {
         const res = await axios.post(
@@ -812,13 +817,16 @@ export class SalesService {
         );
         customerSegments = res.data;
       }
-    } catch (e) {
+    } catch {
       // Segmentation service not available or error
     }
     // After calculating salesByMonth
     const months = Object.keys(salesByMonth);
     const salesValues = Object.values(salesByMonth);
-    let forecast = { forecast_months: [], forecast_sales: [] };
+    let forecast: { forecast_months: unknown[]; forecast_sales: unknown[] } = {
+      forecast_months: [],
+      forecast_sales: [],
+    };
     try {
       if (process.env.AI_SERVICE_URL) {
         const res = await axios.post(`${process.env.AI_SERVICE_URL}/forecast`, {
@@ -828,7 +836,7 @@ export class SalesService {
         });
         forecast = res.data;
       }
-    } catch (e) {
+    } catch {
       // Forecasting service not available or error
     }
     return {
@@ -906,12 +914,7 @@ export class SalesService {
           total: item.quantity * item.price,
         })),
       }));
-    } catch (error) {
-      console.error('Error fetching recent sales:', {
-        error: error.message,
-        stack: error.stack,
-        tenantId,
-      });
+    } catch {
       // Return empty array instead of throwing to prevent frontend errors
       return [];
     }
@@ -975,7 +978,13 @@ export class SalesService {
     });
   }
 
-  async makeCreditPayment(creditId: string, amount: number, paymentMethod: string, tenantId: string, notes?: string) {
+  async makeCreditPayment(
+    creditId: string,
+    amount: number,
+    paymentMethod: string,
+    tenantId: string,
+    notes?: string,
+  ) {
     return this.prisma.$transaction(async (prisma) => {
       // Get current credit
       const credit = await prisma.credit.findFirst({
@@ -991,7 +1000,9 @@ export class SalesService {
       }
 
       if (amount > credit.balance) {
-        throw new BadRequestException('Payment amount exceeds remaining balance');
+        throw new BadRequestException(
+          'Payment amount exceeds remaining balance',
+        );
       }
 
       // Create payment record
@@ -1019,7 +1030,11 @@ export class SalesService {
     });
   }
 
-  async getCustomerCreditBalance(tenantId: string, customerName: string, customerPhone?: string) {
+  async getCustomerCreditBalance(
+    tenantId: string,
+    customerName: string,
+    customerPhone?: string,
+  ) {
     const credits = await this.prisma.credit.findMany({
       where: {
         tenantId,
@@ -1036,17 +1051,26 @@ export class SalesService {
       },
     });
 
-    const totalOutstanding = credits.reduce((sum, credit) => sum + credit.balance, 0);
-    const totalCredit = credits.reduce((sum, credit) => sum + credit.totalAmount, 0);
-    const totalPaid = credits.reduce((sum, credit) => sum + credit.paidAmount, 0);
+    const totalOutstanding = credits.reduce(
+      (sum, credit) => sum + credit.balance,
+      0,
+    );
+    const totalCredit = credits.reduce(
+      (sum, credit) => sum + credit.totalAmount,
+      0,
+    );
+    const totalPaid = credits.reduce(
+      (sum, credit) => sum + credit.paidAmount,
+      0,
+    );
 
     return {
       totalOutstanding,
       totalCredit,
       totalPaid,
       activeCredits: credits.length,
-      hasOverdue: credits.some(credit => credit.status === 'overdue'),
-      credits: credits.map(credit => ({
+      hasOverdue: credits.some((credit) => credit.status === 'overdue'),
+      credits: credits.map((credit) => ({
         balance: credit.balance,
         totalAmount: credit.totalAmount,
         paidAmount: credit.paidAmount,
@@ -1057,8 +1081,16 @@ export class SalesService {
   }
 
   // Credit Scoring System
-  async calculateCustomerCreditScore(tenantId: string, customerName: string, customerPhone?: string) {
-    console.log('calculateCustomerCreditScore called with:', { tenantId, customerName, customerPhone });
+  async calculateCustomerCreditScore(
+    tenantId: string,
+    customerName: string,
+    customerPhone?: string,
+  ) {
+    console.log('calculateCustomerCreditScore called with:', {
+      tenantId,
+      customerName,
+      customerPhone,
+    });
 
     // Get all credits for the customer
     const credits = await this.prisma.credit.findMany({
@@ -1090,12 +1122,20 @@ export class SalesService {
       };
     }
 
-    let totalCredits = credits.length;
-    let paidCredits = credits.filter(c => c.status === 'paid').length;
-    let overdueCredits = credits.filter(c => c.status === 'overdue').length;
-    let totalCreditAmount = credits.reduce((sum, c) => sum + c.totalAmount, 0);
+    const totalCredits = credits.length;
+    const paidCredits = credits.filter((c) => c.status === 'paid').length;
+    const overdueCredits = credits.filter((c) => c.status === 'overdue').length;
+    const totalCreditAmount = credits.reduce(
+      (sum, c) => sum + c.totalAmount,
+      0,
+    );
 
-    console.log('Credit stats:', { totalCredits, paidCredits, overdueCredits, totalCreditAmount });
+    console.log('Credit stats:', {
+      totalCredits,
+      paidCredits,
+      overdueCredits,
+      totalCreditAmount,
+    });
 
     // Calculate average payment time
     let totalPaymentDays = 0;
@@ -1104,21 +1144,32 @@ export class SalesService {
     for (const credit of credits) {
       if (credit.payments.length > 0) {
         for (const payment of credit.payments) {
-          const daysToPay = Math.ceil((payment.createdAt.getTime() - credit.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+          const daysToPay = Math.ceil(
+            (payment.createdAt.getTime() - credit.createdAt.getTime()) /
+              (1000 * 60 * 60 * 24),
+          );
           totalPaymentDays += daysToPay;
           paymentCount++;
         }
       } else if (credit.status === 'paid' && credit.dueDate) {
         // If paid but no payments recorded, assume paid on due date
-        const daysToPay = Math.ceil((credit.dueDate.getTime() - credit.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        const daysToPay = Math.ceil(
+          (credit.dueDate.getTime() - credit.createdAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
         totalPaymentDays += Math.max(0, daysToPay);
         paymentCount++;
       }
     }
 
-    const averagePaymentDays = paymentCount > 0 ? totalPaymentDays / paymentCount : 30; // Default 30 days
+    const averagePaymentDays =
+      paymentCount > 0 ? totalPaymentDays / paymentCount : 30; // Default 30 days
 
-    console.log('Payment stats:', { totalPaymentDays, paymentCount, averagePaymentDays });
+    console.log('Payment stats:', {
+      totalPaymentDays,
+      paymentCount,
+      averagePaymentDays,
+    });
 
     // Calculate score (0-100, higher is better)
     let score = 100;
@@ -1132,8 +1183,10 @@ export class SalesService {
     if (avgCreditAmount > 10000) score -= 20;
 
     // Deduct for slow payments
-    if (averagePaymentDays > 30) score -= Math.min(20, (averagePaymentDays - 30) / 2);
-    if (averagePaymentDays > 60) score -= Math.min(30, (averagePaymentDays - 60) / 2);
+    if (averagePaymentDays > 30)
+      score -= Math.min(20, (averagePaymentDays - 30) / 2);
+    if (averagePaymentDays > 60)
+      score -= Math.min(30, (averagePaymentDays - 60) / 2);
 
     // Bonus for good payment history
     const paymentRatio = paidCredits / totalCredits;
@@ -1166,47 +1219,79 @@ export class SalesService {
   }
 
   // Multi-tenant Credit Policies
-  async setTenantCreditPolicy(tenantId: string, maxCreditPerCustomer: number, maxOverdueDays: number = 30) {
+  async setTenantCreditPolicy(
+    tenantId: string,
+    maxCreditPerCustomer: number,
+    maxOverdueDays: number = 30,
+  ) {
     // Store in configuration service
-    await this.configurationService.setConfiguration(`credit_policy_${tenantId}`, JSON.stringify({
-      maxCreditPerCustomer,
-      maxOverdueDays,
-    }), {
-      description: `Credit policy for tenant ${tenantId}`,
-      category: 'general',
-      isEncrypted: false,
-      isPublic: false,
-    });
+    await this.configurationService.setConfiguration(
+      `credit_policy_${tenantId}`,
+      JSON.stringify({
+        maxCreditPerCustomer,
+        maxOverdueDays,
+      }),
+      {
+        description: `Credit policy for tenant ${tenantId}`,
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
 
     return { maxCreditPerCustomer, maxOverdueDays };
   }
 
   async getTenantCreditPolicy(tenantId: string) {
-    const policyStr = await this.configurationService.getConfiguration(`credit_policy_${tenantId}`);
+    const policyStr = await this.configurationService.getConfiguration(
+      `credit_policy_${tenantId}`,
+    );
     if (policyStr) {
       try {
-        return JSON.parse(policyStr);
-      } catch (e) {
+        return JSON.parse(policyStr) as {
+          maxCreditPerCustomer: number;
+          maxOverdueDays: number;
+        };
+      } catch {
         // If parsing fails, return defaults
       }
     }
     return { maxCreditPerCustomer: 10000, maxOverdueDays: 30 }; // Default values
   }
 
-  async checkCreditEligibility(tenantId: string, customerName: string, requestedAmount: number, customerPhone?: string) {
-    console.log('checkCreditEligibility called with:', { tenantId, customerName, requestedAmount, customerPhone });
+  async checkCreditEligibility(
+    tenantId: string,
+    customerName: string,
+    requestedAmount: number,
+    customerPhone?: string,
+  ) {
+    console.log('checkCreditEligibility called with:', {
+      tenantId,
+      customerName,
+      requestedAmount,
+      customerPhone,
+    });
 
     const policy = await this.getTenantCreditPolicy(tenantId);
     console.log('Credit policy:', policy);
 
-    const balance = await this.getCustomerCreditBalance(tenantId, customerName, customerPhone);
+    const balance = await this.getCustomerCreditBalance(
+      tenantId,
+      customerName,
+      customerPhone,
+    );
     console.log('Customer balance:', balance);
 
-    const score = await this.calculateCustomerCreditScore(tenantId, customerName, customerPhone);
+    const score = await this.calculateCustomerCreditScore(
+      tenantId,
+      customerName,
+      customerPhone,
+    );
     console.log('Credit score:', score);
 
     const currentOutstanding = balance.totalOutstanding;
-    const maxAllowed = policy.maxCreditPerCustomer;
+    const maxAllowed = (policy as { maxCreditPerCustomer: number })
+      .maxCreditPerCustomer;
     const availableCredit = maxAllowed - currentOutstanding;
 
     const isEligible = requestedAmount <= availableCredit && score.score >= 30; // Minimum score requirement
@@ -1219,7 +1304,11 @@ export class SalesService {
       creditScore: score.score,
       riskLevel: score.riskLevel,
       reasons: [
-        ...(requestedAmount > availableCredit ? [`Requested amount exceeds available credit limit (${availableCredit})`] : []),
+        ...(requestedAmount > availableCredit
+          ? [
+              `Requested amount exceeds available credit limit (${availableCredit})`,
+            ]
+          : []),
         ...(score.score < 30 ? ['Credit score too low for approval'] : []),
         ...(balance.hasOverdue ? ['Customer has overdue credits'] : []),
       ],
@@ -1240,29 +1329,43 @@ export class SalesService {
       },
     });
 
-    const report = allCredits.reduce((acc, credit) => {
-      const tenantName = credit.tenant?.name || 'Unknown';
-      if (!acc[tenantName]) {
-        acc[tenantName] = {
-          totalCredits: 0,
-          totalOutstanding: 0,
-          totalPaid: 0,
-          overdueCount: 0,
-        };
-      }
-      acc[tenantName].totalCredits++;
-      acc[tenantName].totalOutstanding += credit.balance;
-      acc[tenantName].totalPaid += credit.paidAmount;
-      if (credit.status === 'overdue') acc[tenantName].overdueCount++;
-      return acc;
-    }, {} as Record<string, any>);
+    type TenantReport = {
+      totalCredits: number;
+      totalOutstanding: number;
+      totalPaid: number;
+      overdueCount: number;
+    };
+
+    const report = allCredits.reduce<Record<string, TenantReport>>(
+      (acc, credit) => {
+        const tenantName = credit.tenant?.name || 'Unknown';
+        if (!acc[tenantName]) {
+          acc[tenantName] = {
+            totalCredits: 0,
+            totalOutstanding: 0,
+            totalPaid: 0,
+            overdueCount: 0,
+          };
+        }
+        acc[tenantName].totalCredits++;
+        acc[tenantName].totalOutstanding += credit.balance;
+        acc[tenantName].totalPaid += credit.paidAmount;
+        if (credit.status === 'overdue') acc[tenantName].overdueCount++;
+        return acc;
+      },
+      {},
+    );
 
     return report;
   }
 
   // Credit Analytics Dashboard
   async getCreditAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
-    console.log('getCreditAnalytics called with:', { tenantId, startDate, endDate });
+    console.log('getCreditAnalytics called with:', {
+      tenantId,
+      startDate,
+      endDate,
+    });
 
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
@@ -1297,12 +1400,27 @@ export class SalesService {
 
     // Calculate key metrics
     const totalCredits = credits.length;
-    const totalOutstanding = credits.reduce((sum, credit) => sum + credit.balance, 0);
-    const totalPaid = credits.reduce((sum, credit) => sum + credit.paidAmount, 0);
-    const totalCreditAmount = credits.reduce((sum, credit) => sum + credit.totalAmount, 0);
-    const paidCredits = credits.filter(credit => credit.status === 'paid').length;
-    const overdueCredits = credits.filter(credit => credit.status === 'overdue').length;
-    const activeCredits = credits.filter(credit => credit.status === 'active').length;
+    const totalOutstanding = credits.reduce(
+      (sum, credit) => sum + credit.balance,
+      0,
+    );
+    const totalPaid = credits.reduce(
+      (sum, credit) => sum + credit.paidAmount,
+      0,
+    );
+    const totalCreditAmount = credits.reduce(
+      (sum, credit) => sum + credit.totalAmount,
+      0,
+    );
+    const paidCredits = credits.filter(
+      (credit) => credit.status === 'paid',
+    ).length;
+    const overdueCredits = credits.filter(
+      (credit) => credit.status === 'overdue',
+    ).length;
+    const activeCredits = credits.filter(
+      (credit) => credit.status === 'active',
+    ).length;
 
     console.log('Credit metrics:', {
       totalCredits,
@@ -1316,8 +1434,8 @@ export class SalesService {
 
     // Calculate payment trends (by month)
     const paymentTrends: Record<string, number> = {};
-    credits.forEach(credit => {
-      credit.payments.forEach(payment => {
+    credits.forEach((credit) => {
+      credit.payments.forEach((payment) => {
         const month = payment.createdAt.toISOString().slice(0, 7); // YYYY-MM
         paymentTrends[month] = (paymentTrends[month] || 0) + payment.amount;
       });
@@ -1327,33 +1445,40 @@ export class SalesService {
 
     // Calculate outstanding amounts by month
     const outstandingByMonth: Record<string, number> = {};
-    credits.forEach(credit => {
+    credits.forEach((credit) => {
       const month = credit.createdAt.toISOString().slice(0, 7); // YYYY-MM
-      outstandingByMonth[month] = (outstandingByMonth[month] || 0) + credit.balance;
+      outstandingByMonth[month] =
+        (outstandingByMonth[month] || 0) + credit.balance;
     });
 
     console.log('Outstanding by month:', outstandingByMonth);
 
     // Calculate overdue credits by month
     const overdueByMonth: Record<string, number> = {};
-    credits.filter(credit => credit.status === 'overdue').forEach(credit => {
-      const month = credit.createdAt.toISOString().slice(0, 7); // YYYY-MM
-      overdueByMonth[month] = (overdueByMonth[month] || 0) + 1;
-    });
+    credits
+      .filter((credit) => credit.status === 'overdue')
+      .forEach((credit) => {
+        const month = credit.createdAt.toISOString().slice(0, 7); // YYYY-MM
+        overdueByMonth[month] = (overdueByMonth[month] || 0) + 1;
+      });
 
     console.log('Overdue by month:', overdueByMonth);
 
     // Calculate average payment time
     let totalPaymentDays = 0;
     let paymentCount = 0;
-    credits.forEach(credit => {
-      credit.payments.forEach(payment => {
-        const daysToPay = Math.ceil((payment.createdAt.getTime() - credit.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    credits.forEach((credit) => {
+      credit.payments.forEach((payment) => {
+        const daysToPay = Math.ceil(
+          (payment.createdAt.getTime() - credit.createdAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
         totalPaymentDays += daysToPay;
         paymentCount++;
       });
     });
-    const avgPaymentTime = paymentCount > 0 ? totalPaymentDays / paymentCount : 0;
+    const avgPaymentTime =
+      paymentCount > 0 ? totalPaymentDays / paymentCount : 0;
 
     console.log('Average payment time:', avgPaymentTime);
 
@@ -1377,8 +1502,16 @@ export class SalesService {
   }
 
   // Customer Credit History
-  async getCustomerCreditHistory(tenantId: string, customerName: string, customerPhone?: string) {
-    console.log('getCustomerCreditHistory called with:', { tenantId, customerName, customerPhone });
+  async getCustomerCreditHistory(
+    tenantId: string,
+    customerName: string,
+    customerPhone?: string,
+  ) {
+    console.log('getCustomerCreditHistory called with:', {
+      tenantId,
+      customerName,
+      customerPhone,
+    });
 
     const credits = await this.prisma.credit.findMany({
       where: {
@@ -1417,11 +1550,24 @@ export class SalesService {
 
     // Calculate customer summary
     const totalCredits = credits.length;
-    const totalCreditAmount = credits.reduce((sum, credit) => sum + credit.totalAmount, 0);
-    const totalPaid = credits.reduce((sum, credit) => sum + credit.paidAmount, 0);
-    const totalOutstanding = credits.reduce((sum, credit) => sum + credit.balance, 0);
-    const paidCredits = credits.filter(credit => credit.status === 'paid').length;
-    const overdueCredits = credits.filter(credit => credit.status === 'overdue').length;
+    const totalCreditAmount = credits.reduce(
+      (sum, credit) => sum + credit.totalAmount,
+      0,
+    );
+    const totalPaid = credits.reduce(
+      (sum, credit) => sum + credit.paidAmount,
+      0,
+    );
+    const totalOutstanding = credits.reduce(
+      (sum, credit) => sum + credit.balance,
+      0,
+    );
+    const paidCredits = credits.filter(
+      (credit) => credit.status === 'paid',
+    ).length;
+    const overdueCredits = credits.filter(
+      (credit) => credit.status === 'overdue',
+    ).length;
 
     console.log('Customer summary:', {
       totalCredits,
@@ -1433,7 +1579,7 @@ export class SalesService {
     });
 
     // Transform credits with detailed history
-    const creditHistory = credits.map(credit => ({
+    const creditHistory = credits.map((credit) => ({
       id: credit.id,
       saleId: credit.saleId,
       totalAmount: credit.totalAmount,
@@ -1444,19 +1590,21 @@ export class SalesService {
       notes: credit.notes,
       createdAt: credit.createdAt,
       updatedAt: credit.updatedAt,
-      sale: credit.sale ? {
-        id: credit.sale.id,
-        total: credit.sale.total,
-        createdAt: credit.sale.createdAt,
-        items: credit.sale.SaleItem.map(item => ({
-          productId: item.product?.id || '',
-          productName: item.product?.name || 'Unknown Product',
-          quantity: item.quantity,
-          price: item.price,
-          total: item.quantity * item.price,
-        })),
-      } : null,
-      payments: credit.payments.map(payment => ({
+      sale: credit.sale
+        ? {
+            id: credit.sale.id,
+            total: credit.sale.total,
+            createdAt: credit.sale.createdAt,
+            items: credit.sale.SaleItem.map((item) => ({
+              productId: item.product?.id || '',
+              productName: item.product?.name || 'Unknown Product',
+              quantity: item.quantity,
+              price: item.price,
+              total: item.quantity * item.price,
+            })),
+          }
+        : null,
+      payments: credit.payments.map((payment) => ({
         id: payment.id,
         amount: payment.amount,
         paymentMethod: payment.paymentMethod,
@@ -1524,9 +1672,13 @@ export class SalesService {
       '91+': [] as any[],
     };
 
-    credits.forEach(credit => {
-      const dueDate = credit.dueDate ? new Date(credit.dueDate) : new Date(credit.createdAt);
-      const daysOverdue = Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+    credits.forEach((credit) => {
+      const dueDate = credit.dueDate
+        ? new Date(credit.dueDate)
+        : new Date(credit.createdAt);
+      const daysOverdue = Math.ceil(
+        (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
       let bucket: keyof typeof agingBuckets;
       if (daysOverdue <= 0) {
@@ -1551,12 +1703,18 @@ export class SalesService {
       });
     });
 
-    console.log('Aging analysis:', { agingBuckets, detailsCount: Object.values(agingDetails).flat().length });
+    console.log('Aging analysis:', {
+      agingBuckets,
+      detailsCount: Object.values(agingDetails).flat().length,
+    });
 
     return {
       summary: agingBuckets,
       details: agingDetails,
-      totalOutstanding: Object.values(agingBuckets).reduce((sum, amount) => sum + amount, 0),
+      totalOutstanding: Object.values(agingBuckets).reduce(
+        (sum, amount) => sum + amount,
+        0,
+      ),
     };
   }
 }
