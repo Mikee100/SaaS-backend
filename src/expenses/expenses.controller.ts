@@ -53,7 +53,17 @@ export class ExpensesController {
   @Permissions('view_sales')
   async getExpenses(@Req() req, @Query() query: any) {
     const branchId = req.headers['x-branch-id'] as string;
-    return this.expensesService.getExpenses(req.user.tenantId, branchId, query);
+    const result = await this.expensesService.getExpenses(req.user.tenantId, branchId, query);
+    return {
+      success: true,
+      data: result.expenses,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    };
   }
 
   @Get(':id')
@@ -97,5 +107,29 @@ export class ExpensesController {
   @Permissions('view_sales')
   async getExpenseCategories(@Req() req) {
     return this.expensesService.getExpenseCategories(req.user.tenantId);
+  }
+
+  @Get('comparison/branches')
+  @Permissions('view_sales')
+  async getBranchComparison(@Req() req, @Query() query: any) {
+    const { startDate, endDate } = query;
+    return this.expensesService.getBranchComparison(
+      req.user.tenantId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
+
+  @Post('reset-monthly')
+  @Permissions('create_sales')
+  async resetMonthlyExpenses(@Req() req) {
+    return this.expensesService.resetMonthlyExpenses(req.user.tenantId, req.user.userId);
+  }
+
+  @Get('past-months')
+  @Permissions('view_sales')
+  async getPastMonthsRecords(@Req() req, @Query() query: any) {
+    const { months = 12 } = query;
+    return this.expensesService.getPastMonthsRecords(req.user.tenantId, parseInt(months));
   }
 }

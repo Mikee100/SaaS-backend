@@ -518,17 +518,21 @@ model ProductCategory {
   customFields Json?
   tenantId    String
   branchId    String?
+  parentId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isActive    Boolean  @default(true)
   tenant      Tenant   @relation("TenantProductCategories", fields: [tenantId], references: [id])
   branch      Branch?  @relation("BranchProductCategories", fields: [branchId], references: [id])
+  parent      ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    ProductCategory[] @relation("CategoryHierarchy")
   products    Product[] @relation("CategoryProducts")
   attributes  ProductAttribute[] @relation("CategoryAttributes")
 
-  @@unique([name, tenantId])
+  @@unique([name, parentId, tenantId])
   @@index([tenantId])
   @@index([branchId])
+  @@index([parentId])
 }
 
 model ProductAttribute {

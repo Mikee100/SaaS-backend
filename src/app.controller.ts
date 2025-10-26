@@ -5,6 +5,9 @@ import { TrialGuard } from './auth/trial.guard';
 
 @Controller()
 export class AppController {
+  getHello(): any {
+    throw new Error('Method not implemented.');
+  }
   constructor(private prisma: PrismaService) {}
 
   @Get()
