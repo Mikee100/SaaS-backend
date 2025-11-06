@@ -330,6 +330,19 @@ export class UserService {
     });
   }
 
+  async findAll() {
+    return this.prisma.user.findMany({
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+            tenant: true,
+          },
+        },
+      },
+    });
+  }
+
   async findByTenantAndBranch(tenantId: string, branchId: string | null) {
     // If branchId is "unassigned" or null, fetch users with branchId IS NULL
     const where: Prisma.UserWhereInput = { tenantId };

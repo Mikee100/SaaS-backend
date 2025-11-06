@@ -7,7 +7,7 @@ async function createSuperadmin() {
   try {
     // Check if superadmin already exists
     const existingAdmin = await prisma.user.findUnique({
-      where: { email: 'admin@gmail.com' },
+      where: { email: 'superadmin@gmail.com' },
     });
 
     // Hash the password
@@ -16,7 +16,7 @@ async function createSuperadmin() {
     if (existingAdmin) {
       // Update password if user exists
       await prisma.user.update({
-        where: { email: 'admin@gmail.com' },
+        where: { email: 'superadmin@gmail.com' },
         data: { password: hashedPassword },
       });
       console.log('Superadmin password has been reset.');
@@ -26,7 +26,7 @@ async function createSuperadmin() {
     // Create the superadmin user
     const superadmin = await prisma.user.create({
       data: {
-        email: 'admin@gmail.com',
+        email: 'superadmin@gmail.com',
         password: hashedPassword,
         name: 'Super Admin',
         isSuperadmin: true,

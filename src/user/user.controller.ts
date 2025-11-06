@@ -89,37 +89,16 @@ export class UserController {
   }
 
   @Get()
-  @Permissions('view_users')
-  async getUsers(@Req() req, @Query('branchId') branchId?: string) {
-    // Defensive check for req.user and tenantId
-    if (!req.user || !req.user.tenantId) {
-      throw new ForbiddenException('Missing or invalid authentication');
+  @UseGuards(AuthGuard('jwt'))
+  async getUsers(@Req() req: any) {
+    const isSuperadmin = req.user.isSuperadmin;
+    let tenantId = req.user.tenantId;
+    if (isSuperadmin) {
+      // Return all users for superadmin
+      return await this.userService.findAll();
     }
-    const tenantId = req.user.tenantId;
-
-    try {
-      const users = branchId
-        ? await this.userService.findByTenantAndBranch(tenantId, branchId)
-        : await this.userService.findAllByTenant(tenantId);
-
-      const usersWithPermissions = await Promise.all(
-        users.map(async (user) => {
-          const permissions = await this.userService.getEffectivePermissions(
-            user.id,
-            tenantId,
-          );
-          return {
-            ...user,
-            permissions: permissions.map((p) => p.name),
-          };
-        }),
-      );
-
-      return usersWithPermissions;
-    } catch (err) {
-      console.error('Error in getUsers:', err);
-      throw new Error('Failed to fetch users: ' + err.message);
-    }
+    // Return users for tenant
+    return await this.userService.findAllByTenant(tenantId);
   }
 
   @Get('protected')

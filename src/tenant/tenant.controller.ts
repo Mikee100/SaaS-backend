@@ -320,4 +320,16 @@ export class TenantController {
       throw error;
     }
   }
+
+  @Get()
+  @UseGuards(AuthGuard('jwt'))
+  async getTenants(@Req() req: any) {
+    const isSuperadmin = req.user.isSuperadmin;
+    if (isSuperadmin) {
+      // Return all tenants for superadmin
+      return await this.tenantService.getAllTenants();
+    }
+    // Return tenant for user
+    return await this.tenantService.getTenantById(req.user.tenantId);
+  }
 }
