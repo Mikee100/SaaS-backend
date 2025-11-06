@@ -68,7 +68,7 @@ export class ProductService {
     if (branchId) {
       where.OR = [{ branchId: branchId }, { branchId: null }];
     }
-    return (this.prisma as any).product.findMany({
+    return this.prisma.product.findMany({
       where,
       include: {
         supplier: true,
@@ -153,9 +153,7 @@ export class ProductService {
         branch: {
           connect: { id: data.branchId },
         },
-        category: data.categoryId ? {
-          connect: { id: data.categoryId },
-        } : undefined,
+        // Remove category as it's no longer used
       },
     });
 
@@ -700,12 +698,6 @@ console.log('Bulk upload user:', user);
       },
     });
   }
-
-  // Category methods moved to CategoryService
-
-  // Category methods moved to CategoryService
-
-  // Attribute methods moved to CategoryService
 
   // Variation CRUD methods
   async createVariation(data: {
