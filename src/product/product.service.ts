@@ -314,15 +314,22 @@ export class ProductService {
     }
 
     console.log(`Using branch ID for bulk upload: ${branchId}`);
-
+console.log('Bulk upload user:', user);
     // Create a bulk upload record for this upload
+    if (!user.tenantId) {
+      throw new BadRequestException('User tenantId is missing');
+    }
+    if (!user.id) {
+      throw new BadRequestException('User id is missing');
+    }
+
     const bulkUploadRecord = await this.prisma.bulkUploadRecord.create({
       data: {
-        tenantId: user.tenantId,
-        branchId: branchId,
-        userId: user.userId,
+        tenant: { connect: { id: user.tenantId } },
+        branch: { connect: { id: branchId } },
+        user: { connect: { id: user.id } },
         totalProducts: rows.length,
-        totalValue: 0, // Will update later
+        totalValue: 0,
         status: 'processing',
       },
     });

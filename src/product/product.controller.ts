@@ -38,6 +38,7 @@ export class ProductController {
   @Get()
   // @Permissions('view_products')
   async findAll(@Req() req) {
+    console.log('[findAll] called', { user: req.user, headers: req.headers });
     // Get selected branchId from user context or request header
     const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
     // Use tenant ID from JWT token
@@ -53,6 +54,7 @@ export class ProductController {
   @Get('category/:categoryId')
   // @Permissions('view_products')
   async findAllByCategory(@Param('categoryId') categoryId: string, @Req() req) {
+    console.log('[findAllByCategory] called', { categoryId, user: req.user, headers: req.headers });
     // Get selected branchId from user context or request header
     const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
     // Use tenant ID from JWT token
@@ -70,6 +72,7 @@ export class ProductController {
   // @Permissions('create_products') // Temporarily disabled for testing
   // @UseGuards(AuthGuard('jwt'), TrialGuard) // Temporarily disabled for testing
   async create(@Body() body, @Req() req) {
+    console.log('[create] called', { body, user: req.user, headers: req.headers });
     // Priority for branchId: 1. From request body 2. From header 3. From user context
     const branchId =
       body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
@@ -103,6 +106,7 @@ export class ProductController {
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req,
   ) {
+    console.log('[uploadImages] called', { id, files, user: req.user });
     return this.productService.uploadProductImages(
       id,
       files,
@@ -118,6 +122,7 @@ export class ProductController {
     @Body() body: { imageUrl: string },
     @Req() req,
   ) {
+    console.log('[deleteImage] called', { id, imageUrl: body.imageUrl, user: req.user });
     return this.productService.deleteProductImage(
       id,
       body.imageUrl,
@@ -126,36 +131,39 @@ export class ProductController {
     );
   }
 
-  @Post('bulk-upload')
-  @Permissions('create_products')
-  @UseInterceptors(FileInterceptor('file'))
-  async bulkUpload(
-    @UploadedFile() file: Express.Multer.File, // Update type annotation
-    @Req() req: Request,
-  ) {
-    // Extract branchId from header or user context
-    const branchId = req.headers['x-branch-id'] || (req.user as any)?.branchId;
-    // Pass branchId explicitly to service
-    return this.productService.bulkUpload(file, {
-      ...(req.user as any),
-      branchId,
-    });
+@Post('bulk-upload')
+@Permissions('create_products')
+@UseGuards(AuthGuard('jwt'))
+@UseInterceptors(FileInterceptor('file'))
+async bulkUpload(
+  @UploadedFile() file: Express.Multer.File,
+  @Req() req: Request,
+) {
+  if (!req.user) {
+    throw new BadRequestException('User context is missing. Authentication required.');
   }
+  // Use optional chaining and fallback values
+  const user = {
+    id: (req.user as any)?.userId || (req.user as any)?.id || '', // fallback to id or empty string
+    tenantId: (req.user as any)?.tenantId || '',
+    branchId: (req.user as any)?.branchId || '',
+    ip: req.ip,
+  };
+  return this.productService.bulkUpload(file, user);
+}
 
-  @Get('bulk-upload-progress/:uploadId')
-  async getBulkUploadProgress(@Param('uploadId') uploadId: string) {
-    return ProductService.getBulkUploadProgress(uploadId);
-  }
 
   @Post('randomize-stocks')
   @Permissions('edit_products')
   async randomizeStocks(@Req() req) {
+    console.log('[randomizeStocks] called', { user: req.user });
     return this.productService.randomizeAllStocks(req.user.tenantId);
   }
 
   @Delete('clear-all')
   @Permissions('delete_products')
   async clearAll(@Req() req: Request) {
+    console.log('[clearAll] called', { user: req.user });
     // Only allow for current tenant
     return this.productService.clearAll(
       (req.user! as { tenantId: string }).tenantId,
@@ -164,12 +172,14 @@ export class ProductController {
 
   @Get(':id/qr')
   async getQrCode(@Param('id') id: string, @Req() req, @Res() res: Response) {
+    console.log('[getQrCode] called', { id, user: req.user });
     return this.productService.generateQrCode(id, req.user.tenantId, res);
   }
 
   @Put(':id')
   // @Permissions('edit_products')
   async update(@Param('id') id: string, @Body() body, @Req() req) {
+    console.log('[update] called', { id, body, user: req.user });
     const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
     return this.productService.updateProduct(
       id,
@@ -183,6 +193,7 @@ export class ProductController {
   @Delete(':id')
   // @Permissions('delete_products')
   async remove(@Param('id') id: string, @Req() req) {
+    console.log('[remove] called', { id, user: req.user });
     const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
     return this.productService.deleteProduct(
       id,
@@ -195,6 +206,7 @@ export class ProductController {
   @Get('count')
   // @Permissions('view_products')
   async getProductCount(@Req() req) {
+    console.log('[getProductCount] called', { user: req.user, headers: req.headers });
     const branchId = req.headers['x-branch-id'] || req.user?.branchId;
     const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
     const count = await this.productService.getProductCount(
@@ -207,6 +219,7 @@ export class ProductController {
   @Get(':id')
   // @Permissions('view_products')
   async findOne(@Param('id') id: string, @Req() req) {
+    console.log('[findOne] called', { id, user: req.user });
     const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
     return this.productService.findOne(id, tenantId);
   }
@@ -214,9 +227,7 @@ export class ProductController {
   @Get('welcome')
   @Permissions('view_products')
   async welcome(@Req() req) {
-    console.log('------------------------------');
-    console.log(`Request received: ${req.method} ${req.path}`);
-    console.log('------------------------------');
+    console.log('[welcome] called', { user: req.user });
     return { message: 'Welcome to the Product API Service!' };
   }
 
@@ -240,6 +251,7 @@ export class ProductController {
     },
     @Req() req,
   ) {
+    console.log('[createVariation] called', { productId, body, user: req.user });
     const branchId =
       body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
     return this.productService.createVariation({
@@ -256,6 +268,7 @@ export class ProductController {
     @Param('productId') productId: string,
     @Req() req,
   ) {
+    console.log('[getVariationsByProduct] called', { productId, user: req.user });
     return this.productService.getVariationsByProduct(
       productId,
       req.user.tenantId,
@@ -277,12 +290,14 @@ export class ProductController {
     }>,
     @Req() req,
   ) {
+    console.log('[updateVariation] called', { id, body, user: req.user });
     return this.productService.updateVariation(id, body, req.user.tenantId);
   }
 
   @Delete('variations/:id')
   @Permissions('delete_products')
   async deleteVariation(@Param('id') id: string, @Req() req) {
+    console.log('[deleteVariation] called', { id, user: req.user });
     return this.productService.deleteVariation(id, req.user.tenantId);
   }
 
@@ -290,6 +305,7 @@ export class ProductController {
   @Post(':id/generate-variations')
   @Permissions('edit_products')
   async generateVariations(@Param('id') id: string, @Req() req) {
+    console.log('[generateVariations] called', { id, user: req.user });
     return this.productService.generateVariationsFromCustomFields(
       id,
       req.user.tenantId,
