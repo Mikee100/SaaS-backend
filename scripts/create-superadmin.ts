@@ -10,13 +10,18 @@ async function createSuperadmin() {
       where: { email: 'admin@gmail.com' },
     });
 
-    if (existingAdmin) {
-      console.log('Superadmin user already exists.');
-      return;
-    }
-
     // Hash the password
     const hashedPassword = await bcrypt.hash('admin', 10);
+
+    if (existingAdmin) {
+      // Update password if user exists
+      await prisma.user.update({
+        where: { email: 'admin@gmail.com' },
+        data: { password: hashedPassword },
+      });
+      console.log('Superadmin password has been reset.');
+      return;
+    }
 
     // Create the superadmin user
     const superadmin = await prisma.user.create({
