@@ -51,23 +51,6 @@ export class ProductController {
     return result;
   }
 
-  @Get('category/:categoryId')
-  // @Permissions('view_products')
-  async findAllByCategory(@Param('categoryId') categoryId: string, @Req() req) {
-    console.log('[findAllByCategory] called', { categoryId, user: req.user, headers: req.headers });
-    // Get selected branchId from user context or request header
-    const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
-    // Use tenant ID from JWT token
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
-    const result = await this.productService.findAllByCategory(
-      categoryId,
-      tenantId,
-      branchId,
-    );
-
-    return result;
-  }
-
   @Post()
   // @Permissions('create_products') // Temporarily disabled for testing
   // @UseGuards(AuthGuard('jwt'), TrialGuard) // Temporarily disabled for testing
@@ -95,8 +78,6 @@ export class ProductController {
       req.ip,
     );
   }
-
-  // Category endpoints moved to CategoryController
 
   @Post('upload-images/:id')
   @Permissions('edit_products')
@@ -230,10 +211,6 @@ async bulkUpload(
     console.log('[welcome] called', { user: req.user });
     return { message: 'Welcome to the Product API Service!' };
   }
-
-  // Category endpoints moved to CategoryController
-
-  // Attribute endpoints moved to CategoryController
 
   // Variation endpoints
   @Post(':productId/variations')

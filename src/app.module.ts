@@ -26,7 +26,7 @@ import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { SalaryModule } from './salary/salary.module';
-import { CategoryModule } from './category/category.module';
+
 
 @Module({
   imports: [
@@ -41,7 +41,6 @@ import { CategoryModule } from './category/category.module';
     PrismaModule,
     UserModule,
     ProductModule,
-    CategoryModule,
     SalesModule,
     TenantModule,
     TenantConfigurationModule,

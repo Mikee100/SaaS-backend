@@ -178,8 +178,6 @@ model Tenant {
   userRoles           UserRole[]            @relation("TenantUserRoles")
   bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
-  categories          Category[]            @relation("TenantCategories")
-  categoryFields      CategoryField[]       @relation("TenantCategoryFields")
   productVariations   ProductVariation[]    @relation("TenantProductVariations")
   expenses            Expense[]             // New
   expenseCategories   ExpenseCategory[]     // New
@@ -231,7 +229,6 @@ model Branch {
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
-  categories          Category[]          @relation("BranchCategories") // New
   expenses            Expense[]           // New
   salarySchemes       SalaryScheme[]      // New
 
@@ -517,50 +514,7 @@ model Supplier {
   @@index([email])
 }
 
-// Simplified Category model for clean slate
-model Category {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  tenantId    String
-  branchId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isActive    Boolean  @default(true)
 
-  // Relations
-  tenant      Tenant   @relation("TenantCategories", fields: [tenantId], references: [id])
-  branch      Branch?  @relation("BranchCategories", fields: [branchId], references: [id])
-  fields      CategoryField[] @relation("CategoryFields")
-  products    Product[] @relation("ProductCategories")
-
-  @@unique([name, tenantId])
-  @@index([tenantId])
-  @@index([branchId])
-}
-
-// Category fields (custom fields for each category)
-model CategoryField {
-  id          String   @id @default(uuid())
-  name        String   // e.g., "Size", "Color", "Brand"
-  type        String   // "text", "number", "select", "boolean"
-  required    Boolean  @default(false)
-  options     String[] // For select type: ["Small", "Medium", "Large"]
-  placeholder String?
-  categoryId  String
-  tenantId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isActive    Boolean  @default(true)
-
-  // Relations
-  category    Category @relation("CategoryFields", fields: [categoryId], references: [id])
-  tenant      Tenant   @relation("TenantCategoryFields", fields: [tenantId], references: [id])
-
-  @@unique([name, categoryId])
-  @@index([categoryId])
-  @@index([tenantId])
-}
 
 model ProductVariation {
   id           String   @id @default(uuid())
@@ -602,7 +556,6 @@ model Product {
   images       String[]    // Array of image URLs
   supplierId   String?
   bulkUploadRecordId String?
-  categoryId   String?     // New: Product category
   hasVariations Boolean    @default(false) // New: Whether this product has variations
   supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
@@ -613,13 +566,11 @@ model Product {
   saleItems           SaleItem[]           @relation("ProductSaleItems")
   bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
   productAdditions    ProductAdditionRecord[]
-  category            Category?            @relation("ProductCategories", fields: [categoryId], references: [id])
   variations          ProductVariation[]   @relation("ProductVariations") // New
 
   @@index([branchId])
   @@index([tenantId])
   @@index([supplierId])
-  @@index([categoryId]) // New
 }
 
 model Sale {

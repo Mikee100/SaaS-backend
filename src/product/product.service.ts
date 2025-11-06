@@ -77,23 +77,7 @@ export class ProductService {
     });
   }
 
-  async findAllByCategory(categoryId: string, tenantId: string, branchId?: string) {
-    const where: any = {
-      tenantId,
-      categoryId,
-    };
-    if (branchId) {
-      where.OR = [{ branchId: branchId }, { branchId: null }];
-    }
-    return (this.prisma as any).product.findMany({
-      where,
-      include: {
-        supplier: true,
-        category: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+
 
   async createProduct(data: any, actorUserId?: string, ip?: string) {
     const productData = {

@@ -20,13 +20,14 @@ model User {
   notificationPreferences Json?
   region                  String?
   isSuperadmin            Boolean            @default(false)
+  isDisabled              Boolean            @default(false)
   tenantId                String?
   branchId                String?
   AuditLog                AuditLog[]
   MpesaTransaction        MpesaTransaction[]
   Notification            Notification[]
-  Sale                    Sale[]
-  Subscription            Subscription[]
+  Sale                Sale[]
+  Subscription        Subscription[]
   Branch                  Branch?            @relation("UserBranch", fields: [branchId], references: [id])
   tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
   UserBranchRole          UserBranchRole[]   @relation("UserUserBranchRoles")
@@ -35,6 +36,8 @@ model User {
   userRoles               UserRole[]         @relation("UserUserRoles")
   bulkUploadRecords       BulkUploadRecord[] @relation("UserBulkUploadRecords")
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
+  expenses                Expense[]
+  salarySchemes           SalaryScheme[]
 
   @@index([email])
   @@index([branchId])
@@ -140,9 +143,17 @@ model Tenant {
   emailLogoUrl        String?
   loginLogoUrl        String?
   logoSettings        Json?
+  pdfTemplate         Json?
   mobileLogoUrl       String?
   auditLogsEnabled    Boolean               @default(false)
   credits             Float?                @default(0)
+  mpesaConsumerKey    String?
+  mpesaConsumerSecret String?
+  mpesaShortCode      String?
+  mpesaPasskey        String?
+  mpesaCallbackUrl    String?
+  mpesaIsActive       Boolean               @default(false)
+  mpesaEnvironment    String?               @default("sandbox")
   Branch              Branch[]
   Inventory           Inventory[]
   InventoryMovement   InventoryMovement[]
@@ -156,6 +167,7 @@ model Tenant {
   products            Product[]             @relation("TenantProducts")
   roles               Role[]
   Sale                Sale[]
+  Credit              Credit[]
   Subscription        Subscription[]
   suppliers           Supplier[]
   TenantConfiguration TenantConfiguration[]
@@ -166,6 +178,13 @@ model Tenant {
   userRoles           UserRole[]            @relation("TenantUserRoles")
   bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
+  productVariations   ProductVariation[]    @relation("TenantProductVariations")
+  expenses            Expense[]             // New
+  expenseCategories   ExpenseCategory[]     // New
+  salesTargets         SalesTarget[]         // New
+  salarySchemes        SalaryScheme[]        // New
+
+  @@index([name])
 }
 
 model AuditLog {
@@ -209,6 +228,10 @@ model Branch {
   UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
+  productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
+  categories          Category[]          @relation("BranchCategories") // New
+  expenses            Expense[]           // New
+  salarySchemes       SalaryScheme[]      // New
 
   @@index([tenantId])
 }
@@ -380,7 +403,7 @@ model Payment {
   description           String?
   metadata              Json?
   completedAt           DateTime?
-  refundedAt            DateTime?
+  refundedAt           DateTime?
   refundAmount          Float?
   refundReason          String?
   createdAt             DateTime  @default(now())
@@ -418,6 +441,7 @@ model Plan {
   maxUsers           Int?
   maxProducts        Int?
   maxSalesPerMonth   Int?
+  maxBranches        Int?
   analyticsEnabled   Boolean             @default(false)
   advancedReports    Boolean             @default(false)
   prioritySupport    Boolean             @default(false)
@@ -491,22 +515,49 @@ model Supplier {
   @@index([email])
 }
 
+
+
+model ProductVariation {
+  id           String   @id @default(uuid())
+  productId    String
+  sku          String   // Unique SKU for this variation
+  price        Float?   // Override price, null means use base price
+  cost         Float?   // Override cost, null means use base cost
+  stock        Int      @default(0)
+  attributes   Json     // {"Size": "8", "Color": "Black"}
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenantId     String
+  branchId     String?
+  product      Product  @relation("ProductVariations", fields: [productId], references: [id])
+  tenant       Tenant   @relation("TenantProductVariations", fields: [tenantId], references: [id])
+  branch       Branch?  @relation("BranchProductVariations", fields: [branchId], references: [id])
+  saleItems    SaleItem[] @relation("VariationSaleItems")
+
+  @@unique([productId, sku])
+  @@index([productId])
+  @@index([tenantId])
+  @@index([branchId])
+}
+
 model Product {
   id           String      @id
   name         String
-  sku          String
-  price        Float
+  sku          String      // Base SKU, variations will have their own
+  price        Float       // Base price
   description  String?
   tenantId     String
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  stock        Int         @default(0)
+  stock        Int         @default(0) // Total stock across all variations
   customFields Json?
   branchId     String?
-  cost         Float       @default(0)
+  cost         Float       @default(0) // Base cost
   images       String[]    // Array of image URLs
   supplierId   String?
   bulkUploadRecordId String?
+  hasVariations Boolean    @default(false) // New: Whether this product has variations
   supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
   inventoryMovements  InventoryMovement[]
@@ -516,6 +567,7 @@ model Product {
   saleItems           SaleItem[]           @relation("ProductSaleItems")
   bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
   productAdditions    ProductAdditionRecord[]
+  variations          ProductVariation[]   @relation("ProductVariations") // New
 
   @@index([branchId])
   @@index([tenantId])
@@ -541,6 +593,7 @@ model Sale {
   Tenant                                         Tenant             @relation(fields: [tenantId], references: [id])
   User                                           User               @relation(fields: [userId], references: [id])
   SaleItem                                       SaleItem[]
+  credit                                         Credit?            @relation("SaleCredit")
 
   @@unique([idempotencyKey, userId])
   @@index([branchId])
@@ -549,15 +602,18 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id
-  saleId    String
-  productId String
-  quantity  Int
-  price     Float
-  product   Product @relation("ProductSaleItems", fields: [productId], references: [id])
-  sale      Sale    @relation(fields: [saleId], references: [id])
+  id          String  @id
+  saleId      String
+  productId   String
+  variationId String? // New: Optional variation ID for product variations
+  quantity    Int
+  price       Float
+  product     Product @relation("ProductSaleItems", fields: [productId], references: [id])
+  sale        Sale    @relation(fields: [saleId], references: [id])
+  variation   ProductVariation? @relation("VariationSaleItems", fields: [variationId], references: [id]) // New
 
   @@index([productId])
+  @@index([variationId]) // New
 }
 
 model Subscription {
@@ -577,7 +633,10 @@ model Subscription {
   stripeCustomerId       String
   trialEnd               DateTime?
   trialStart             DateTime?
+  isTrial                Boolean   @default(false)
   userId                 String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
   Invoice                Invoice[]
   Plan                   Plan      @relation(fields: [planId], references: [id])
   ScheduledPlan          Plan?     @relation("ScheduledPlan", fields: [scheduledPlanId], references: [id])
@@ -608,19 +667,21 @@ model SystemConfiguration {
 }
 
 model AIChatInteraction {
-  id           String   @id @default(uuid())
-  userId       String
-  tenantId     String
-  branchId     String?
-  userMessage  String
-  aiResponse   String
-  metadata     Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userId        String
+  tenantId      String
+  branchId      String?
+  conversationId String?
+  userMessage   String
+  aiResponse    String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
   @@index([tenantId])
   @@index([branchId])
+  @@index([conversationId])
 }
 
 model TenantConfiguration {
@@ -736,4 +797,135 @@ model ProductAdditionRecord {
   @@index([supplierId])
   @@index([bulkUploadRecordId])
   @@index([addedAt])
+}
+
+model Credit {
+  id            String   @id @default(uuid())
+  tenantId      String
+  customerName  String
+  customerPhone String?
+  customerEmail String?
+  totalAmount   Float    // Total credit amount
+  paidAmount    Float    @default(0) // Amount paid so far
+  balance       Float    // Remaining balance (totalAmount - paidAmount)
+  status        String   @default("active") // "active", "paid", "overdue"
+  dueDate       DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  sale          Sale     @relation("SaleCredit", fields: [saleId], references: [id])
+  payments      CreditPayment[]
+
+  saleId        String   @unique
+
+  @@index([tenantId])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model CreditPayment {
+  id            String   @id @default(uuid())
+  creditId      String
+  amount        Float
+  paymentMethod String   // "cash", "mpesa", "bank_transfer", etc.
+  transactionId String?  // For M-Pesa or other payment references
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  credit        Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId])
+  @@index([createdAt])
+}
+
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String?   // Hex color code for UI display
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  expenses    Expense[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model Expense {
+  id            String           @id @default(uuid())
+  tenantId      String
+  userId        String
+  branchId      String?
+  amount        Float
+  description   String
+  categoryId    String?          // Reference to ExpenseCategory
+  expenseType   String           // "one_time", "recurring"
+  frequency     String?          // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
+  nextDueDate   DateTime?        // For recurring expenses
+  isActive      Boolean          @default(true) // For recurring expenses
+  receiptUrl    String?          // URL to uploaded receipt
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  branch        Branch?          @relation(fields: [branchId], references: [id])
+  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([branchId])
+  @@index([expenseType])
+  @@index([categoryId])
+  @@index([nextDueDate])
+  @@index([isActive])
+}
+
+model SalesTarget {
+  id        Int      @id @default(autoincrement())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  target    Float
+  daily     Float
+  weekly    Float
+  monthly   Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Add other fields as needed
+
+  @@index([tenantId])
+}
+
+model SalaryScheme {
+  id            String   @id @default(uuid())
+  tenantId      String
+  userId        String
+  employeeName  String
+  salaryAmount  Float
+  frequency     String   // 'monthly' or 'yearly'
+  startDate     DateTime
+  branchId      String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([branchId])
+  @@index([isActive])
 }
