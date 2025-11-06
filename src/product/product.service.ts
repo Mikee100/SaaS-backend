@@ -77,6 +77,24 @@ export class ProductService {
     });
   }
 
+  async findAllByCategory(categoryId: string, tenantId: string, branchId?: string) {
+    const where: any = {
+      tenantId,
+      categoryId,
+    };
+    if (branchId) {
+      where.OR = [{ branchId: branchId }, { branchId: null }];
+    }
+    return (this.prisma as any).product.findMany({
+      where,
+      include: {
+        supplier: true,
+        category: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async createProduct(data: any, actorUserId?: string, ip?: string) {
     const productData = {
       ...data,
@@ -108,6 +126,11 @@ export class ProductService {
       productData.cost = parseFloat(String(productData.cost));
     }
 
+    // Handle customFieldValues - map to customFields
+    if (data.customFieldValues) {
+      productData.customFields = data.customFieldValues;
+    }
+
     // Remove fields that don't exist in Prisma schema
     delete productData.manage_stock;
     delete productData.type;
@@ -116,6 +139,26 @@ export class ProductService {
     delete productData.attributes;
     delete productData.variations;
     delete productData.hasVariations;
+    delete productData.categoryId; // Remove categoryId as we handle it through the relation
+    delete productData.customFieldValues; // Remove customFieldValues as we handle it through customFields
+
+    // Remove branchId and tenantId from productData, as they should be set via relation connect
+    delete productData.branchId;
+    delete productData.tenantId;
+
+    // Validate branch and tenant existence before create
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: data.branchId },
+    });
+    if (!branch) {
+      throw new BadRequestException(`Branch with id ${data.branchId} does not exist`);
+    }
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: data.tenantId },
+    });
+    if (!tenant) {
+      throw new BadRequestException(`Tenant with id ${data.tenantId} does not exist`);
+    }
 
     const product = await this.prisma.product.create({
       data: {
@@ -126,12 +169,16 @@ export class ProductService {
         branch: {
           connect: { id: data.branchId },
         },
+        category: data.categoryId ? {
+          connect: { id: data.categoryId },
+        } : undefined,
       },
     });
 
-    if (this.auditLogService) {
+    // Only log if actorUserId is a valid user (not null/undefined/empty string)
+    if (this.auditLogService && actorUserId) {
       await this.auditLogService.log(
-        actorUserId || null,
+        actorUserId,
         'product_created',
         {
           productId: product.id,
@@ -663,253 +710,11 @@ export class ProductService {
     });
   }
 
-  // Category CRUD methods
-  async createCategory(
-    data: {
-      name: string;
-      description?: string;
-      customFields?: Record<string, string[]>;
-      tenantId: string;
-      branchId: string;
-      parentId?: string;
-    },
-    userId: string,
-    ip: string,
-  ) {
-    console.log('🚀 Backend: createCategory service called with:', data);
+  // Category methods moved to CategoryService
 
-    // Check if category already exists for this tenant (considering parentId for uniqueness)
-    const existingCategory = await this.prisma.productCategory.findFirst({
-      where: {
-        name: data.name,
-        tenantId: data.tenantId,
-        isActive: true,
-      },
-    });
+  // Category methods moved to CategoryService
 
-    if (existingCategory) {
-      throw new BadRequestException(
-        `Category with name '${data.name}' already exists for this tenant under the same parent.`,
-      );
-    }
-
-    // Validate parentId if provided (prevent circular references)
-    if (data.parentId) {
-      const parentCategory = await this.prisma.productCategory.findFirst({
-        where: {
-          id: data.parentId,
-          tenantId: data.tenantId,
-          isActive: true,
-        },
-      });
-
-      if (!parentCategory) {
-        throw new BadRequestException('Parent category not found or inactive.');
-      }
-
-      // Prevent circular reference: check if the parent is a descendant of this category
-      if (await this.isCircularReference(data.parentId, data.tenantId)) {
-        throw new BadRequestException('Circular reference detected in category hierarchy.');
-      }
-    }
-
-    // Create the category
-    const category = await this.prisma.productCategory.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        customFields: data.customFields || {},
-        tenantId: data.tenantId,
-        branchId: data.branchId,
-        id: uuidv4(),
-        isActive: true,
-      },
-    });
-
-    console.log('🚀 Backend: Category created:', category);
-
-    // Log the category creation
-    if (this.auditLogService) {
-      await this.auditLogService.log(
-        userId,
-        'category_created',
-        {
-          categoryId: category.id,
-          categoryName: category.name,
-          parentId: data.parentId,
-          customFields: data.customFields,
-        },
-        ip,
-      );
-    }
-
-    // Return category (no base product created)
-    return category;
-  }
-
-  async getCategories(tenantId?: string | null, branchId?: string | null) {
-    console.log('🚀 Backend: getCategories called with tenantId:', tenantId, 'branchId:', branchId);
-
-    const where: any = { isActive: true };
-    if (tenantId) {
-      where.tenantId = tenantId;
-    }
-
-    const categories = await this.prisma.productCategory.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        customFields: true,
-        tenantId: true,
-        branchId: true,
-        createdAt: true,
-        updatedAt: true,
-        isActive: true,
-        attributes: {
-          where: { isActive: true },
-        },
-        _count: {
-          select: { products: true },
-        },
-        products: {
-          where: branchId ? { branchId } : {},
-          include: {
-            supplier: true,
-          },
-        },
-      },
-      orderBy: { name: 'asc' },
-    });
-
-    console.log('🚀 Backend: getCategories returning', categories.length, 'categories');
-    console.log('🚀 Backend: Sample category:', categories[0] || 'No categories');
-
-    return categories;
-  }
-
-  async getCategoriesWithCount(tenantId: string) {
-    return this.prisma.productCategory.findMany({
-      where: { tenantId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        _count: {
-          select: { products: true },
-        },
-      },
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  async updateCategory(
-    id: string,
-    data: { name?: string; description?: string; parentId?: string },
-    tenantId: string,
-  ) {
-    // Validate parentId if provided (prevent circular references)
-    if (data.parentId) {
-      const parentCategory = await this.prisma.productCategory.findFirst({
-        where: {
-          id: data.parentId,
-          tenantId: tenantId,
-          isActive: true,
-        },
-      });
-
-      if (!parentCategory) {
-        throw new BadRequestException('Parent category not found or inactive.');
-      }
-
-      // Prevent circular reference: check if the parent is a descendant of this category
-      if (await this.isCircularReference(data.parentId, tenantId)) {
-        throw new BadRequestException('Circular reference detected in category hierarchy.');
-      }
-    }
-
-    return this.prisma.productCategory.updateMany({
-      where: { id, tenantId },
-      data,
-    });
-  }
-
-  async deleteCategory(id: string, tenantId: string) {
-    // Check if category has products
-    const productCount = await this.prisma.product.count({
-      where: { categoryId: id, tenantId },
-    });
-
-    if (productCount > 0) {
-      throw new BadRequestException(
-        'Cannot delete category with existing products',
-      );
-    }
-
-    // Check if category has children
-    const childrenCount = await this.prisma.productCategory.count({
-      where: {  tenantId, isActive: true },
-    });
-
-    if (childrenCount > 0) {
-      throw new BadRequestException(
-        'Cannot delete category with existing subcategories',
-      );
-    }
-
-    return this.prisma.productCategory.updateMany({
-      where: { id, tenantId },
-      data: { isActive: false },
-    });
-  }
-
-  // Attribute CRUD methods
-  async createAttribute(data: {
-    name: string;
-    type: string;
-    values?: string[];
-    required?: boolean;
-    categoryId: string;
-    tenantId: string;
-  }) {
-    return this.prisma.productAttribute.create({
-      data: {
-        ...data,
-        id: uuidv4(),
-      },
-    });
-  }
-
-  async getAttributesByCategory(categoryId: string, tenantId: string) {
-    return this.prisma.productAttribute.findMany({
-      where: { categoryId, tenantId, isActive: true },
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  async updateAttribute(
-    id: string,
-    data: Partial<{
-      name: string;
-      type: string;
-      values: string[];
-      required: boolean;
-    }>,
-    tenantId: string,
-  ) {
-    return this.prisma.productAttribute.updateMany({
-      where: { id, tenantId },
-      data,
-    });
-  }
-
-  async deleteAttribute(id: string, tenantId: string) {
-    return this.prisma.productAttribute.updateMany({
-      where: { id, tenantId },
-      data: { isActive: false },
-    });
-  }
+  // Attribute methods moved to CategoryService
 
   // Variation CRUD methods
   async createVariation(data: {

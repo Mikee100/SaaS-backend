@@ -50,6 +50,22 @@ export class ProductController {
     return result;
   }
 
+  @Get('category/:categoryId')
+  // @Permissions('view_products')
+  async findAllByCategory(@Param('categoryId') categoryId: string, @Req() req) {
+    // Get selected branchId from user context or request header
+    const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
+    // Use tenant ID from JWT token
+    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    const result = await this.productService.findAllByCategory(
+      categoryId,
+      tenantId,
+      branchId,
+    );
+
+    return result;
+  }
+
   @Post()
   // @Permissions('create_products') // Temporarily disabled for testing
   // @UseGuards(AuthGuard('jwt'), TrialGuard) // Temporarily disabled for testing
@@ -77,35 +93,7 @@ export class ProductController {
     );
   }
 
-  @Post('categories')
-  // @Permissions('create_products') // Temporarily disabled for testing
-  async createCategory(@Body() body, @Req() req) {
-    const branchId =
-      body.branchId || req.headers['x-branch-id'] || req.user.branchId;
-
-    if (!branchId) {
-      throw new Error('Branch ID is required to create a category');
-    }
-
-    console.log('🚀 Backend: createCategory called with:', {
-      name: body.name,
-      tenantId: req.user.tenantId,
-      branchId,
-      customFields: body.customFields,
-    });
-
-    return this.productService.createCategory(
-      {
-        name: body.name,
-        description: body.description,
-        customFields: body.customFields,
-        tenantId: req.user.tenantId,
-        branchId,
-      },
-      req.user.userId,
-      req.ip,
-    );
-  }
+  // Category endpoints moved to CategoryController
 
   @Post('upload-images/:id')
   @Permissions('edit_products')
@@ -232,100 +220,9 @@ export class ProductController {
     return { message: 'Welcome to the Product API Service!' };
   }
 
-  @Get('categories')
-  async getCategories(@Req() req) {
-    console.log('🚀 Backend: getCategories called - no auth required');
-    console.log('🚀 Backend: Request headers:', req.headers);
-    console.log('🚀 Backend: Request method:', req.method, 'path:', req.path);
+  // Category endpoints moved to CategoryController
 
-    const result = await this.productService.getCategories(null, null);
-    console.log(
-      '🚀 Backend: getCategories returning:',
-      result.length,
-      'categories',
-    );
-    console.log(
-      '🚀 Backend: Categories data:',
-      JSON.stringify(result, null, 2),
-    );
-    return result;
-  }
-
-  @Get('categories/count')
-  @Permissions('view_products')
-  async getCategoriesWithCount(@Req() req) {
-    return this.productService.getCategoriesWithCount(req.user.tenantId);
-  }
-
-  @Put('categories/:id')
-  @Permissions('edit_products')
-  async updateCategory(
-    @Param('id') id: string,
-    @Body() body: { name?: string; description?: string },
-    @Req() req,
-  ) {
-    return this.productService.updateCategory(id, body, req.user.tenantId);
-  }
-
-  @Delete('categories/:id')
-  @Permissions('delete_products')
-  async deleteCategory(@Param('id') id: string, @Req() req) {
-    return this.productService.deleteCategory(id, req.user.tenantId);
-  }
-
-  // Attribute endpoints
-  @Post('attributes')
-  @Permissions('create_products')
-  async createAttribute(
-    @Body()
-    body: {
-      name: string;
-      type: string;
-      values?: string[];
-      required?: boolean;
-      categoryId: string;
-    },
-    @Req() req,
-  ) {
-    return this.productService.createAttribute({
-      ...body,
-      tenantId: req.user.tenantId,
-    });
-  }
-
-  @Get('attributes/:categoryId')
-  @Permissions('view_products')
-  async getAttributesByCategory(
-    @Param('categoryId') categoryId: string,
-    @Req() req,
-  ) {
-    return this.productService.getAttributesByCategory(
-      categoryId,
-      req.user.tenantId,
-    );
-  }
-
-  @Put('attributes/:id')
-  @Permissions('edit_products')
-  async updateAttribute(
-    @Param('id') id: string,
-    @Body()
-    body: Partial<{
-      name: string;
-      type: string;
-      values: string[];
-      required: boolean;
-    }>,
-    @Req() req,
-  ) {
-    return this.productService.updateAttribute(id, body, req.user.tenantId);
-  }
-
-  @Delete('attributes/:id')
-  @Permissions('delete_products')
-  async deleteAttribute(@Param('id') id: string, @Req() req) {
-    return this.productService.deleteAttribute(id, req.user.tenantId);
-  }
+  // Attribute endpoints moved to CategoryController
 
   // Variation endpoints
   @Post(':productId/variations')
@@ -344,11 +241,11 @@ export class ProductController {
     @Req() req,
   ) {
     const branchId =
-      body.branchId || req.headers['x-branch-id'] || req.user.branchId;
+      body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
     return this.productService.createVariation({
       ...body,
       productId,
-      tenantId: req.user.tenantId,
+      tenantId: req.user?.tenantId,
       branchId,
     });
   }

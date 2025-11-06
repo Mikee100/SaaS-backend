@@ -60,17 +60,16 @@ async function seedCategories() {
     const branchId = '737a1bdd-f72b-4166-a494-9389a9d8c764';
 
     for (const categoryData of categories) {
-      const existingCategory = await prisma.productCategory.findUnique({
+      const existingCategory = await prisma.category.findUnique({
         where: { id: categoryData.id }
       });
 
       if (!existingCategory) {
-        await prisma.productCategory.create({
+        await prisma.category.create({
           data: {
             id: categoryData.id,
             name: categoryData.name,
             description: categoryData.description,
-            customFields: categoryData.customFields,
             tenantId: tenantId,
             branchId: branchId,
             isActive: true

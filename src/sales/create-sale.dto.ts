@@ -63,6 +63,10 @@ export class CreateSaleDto {
   @IsOptional()
   mpesaTransactionId?: string;
 
+  @IsString()
+  @IsOptional()
+  mpesaReceipt?: string; // M-Pesa receipt number
+
   // Credit-specific fields
   @IsNumber()
   @IsOptional()

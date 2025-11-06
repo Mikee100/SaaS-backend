@@ -22,7 +22,12 @@ export class AnalyticsService {
       salesByDay,
       salesByWeek,
       salesByMonth,
+      branches,
+      branchSalesByDay,
+      branchSalesByWeek,
+      branchSalesByMonth,
       topProducts,
+      branchTopProducts,
       inventoryAnalytics,
       forecastData,
       anomaliesData,
@@ -70,8 +75,26 @@ export class AnalyticsService {
       // Sales by month (last 6 months)
       this.getSalesByTimePeriod(tenantId, 'month'),
 
+      // Get all branches for this tenant
+      this.prisma.branch.findMany({
+        where: { tenantId },
+        select: { id: true, name: true },
+      }),
+
+      // Branch-specific sales by day (last 7 days)
+      this.getBranchSalesByTimePeriod(tenantId, 'day'),
+
+      // Branch-specific sales by week (last 4 weeks)
+      this.getBranchSalesByTimePeriod(tenantId, 'week'),
+
+      // Branch-specific sales by month (last 6 months)
+      this.getBranchSalesByTimePeriod(tenantId, 'month'),
+
       // Top selling products
       this.getTopProducts(tenantId, 5),
+
+      // Branch top products
+      this.getBranchTopProducts(tenantId),
 
       // Inventory analytics
       this.getInventoryAnalytics(tenantId),
@@ -108,7 +131,12 @@ export class AnalyticsService {
       salesByDay,
       salesByWeek,
       salesByMonth,
+      branches,
+      branchSalesByDay,
+      branchSalesByWeek,
+      branchSalesByMonth,
       topProducts,
+      branchTopProducts: branchTopProducts,
       customerRetention: {
         totalCustomers: totalUniqueCustomers,
         repeatCustomers,
@@ -155,8 +183,33 @@ export class AnalyticsService {
       console.error('Failed to generate AI summary:', error);
     }
 
+    // Add recent activity data
+    const recentSales = await this.prisma.sale.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        User: {
+          select: { name: true },
+        },
+      },
+    });
+
+    const recentActivity = {
+      sales: recentSales.map((sale) => ({
+        id: sale.id,
+        amount: sale.total,
+        customer: sale.customerName || 'Anonymous',
+        date: sale.createdAt,
+        user: sale.User?.name || 'Unknown',
+        total: sale.total,
+      })),
+      products: [], // Could add recent products if needed
+    };
+
     return {
       ...analyticsData,
+      recentActivity,
       aiSummary,
     };
   }
@@ -226,6 +279,66 @@ export class AnalyticsService {
     return this.getSalesByTimePeriod(tenantId, 'year');
   }
 
+  private async getBranchSalesByTimePeriod(
+    tenantId: string,
+    period: 'day' | 'week' | 'month' | 'year',
+  ) {
+    const now = new Date();
+    const format =
+      period === 'day'
+        ? 'YYYY-MM-DD'
+        : period === 'week'
+          ? "'Week' WW"
+          : period === 'month'
+            ? 'YYYY-MM'
+            : 'YYYY';
+
+    const groupBy =
+      period === 'day'
+        ? 'day'
+        : period === 'week'
+          ? 'week'
+          : period === 'month'
+            ? 'month'
+            : 'year';
+
+    const date = new Date();
+    if (period === 'day') date.setDate(date.getDate() - 7);
+    else if (period === 'week')
+      date.setDate(date.getDate() - 28); // 4 weeks
+    else if (period === 'month')
+      date.setMonth(date.getMonth() - 6); // 6 months
+    else date.setFullYear(date.getFullYear() - 5); // 5 years
+
+    const sales = await this.prisma.$queryRaw`
+      SELECT
+        "branchId",
+        TO_CHAR("createdAt" AT TIME ZONE 'UTC', ${format}) as period,
+        COUNT(*) as count,
+        COALESCE(SUM(total), 0) as total
+      FROM "Sale"
+      WHERE "tenantId" = ${tenantId}
+        AND "createdAt" >= ${date}
+        AND "branchId" IS NOT NULL
+      GROUP BY "branchId", period
+      ORDER BY "branchId", period ASC
+    `;
+
+    type SalesData = { branchId: string; period: string; total: string };
+    const salesArray = sales as SalesData[];
+
+    // Group by branchId
+    const branchSales: Record<string, Record<string, number>> = {};
+    salesArray.forEach((item) => {
+      if (!branchSales[item.branchId]) {
+        branchSales[item.branchId] = {};
+      }
+      branchSales[item.branchId][item.period] = parseFloat(item.total);
+    });
+
+    return branchSales;
+  }
+
   private async getTopProducts(tenantId: string, limit: number) {
     const topProducts = await this.prisma.saleItem.groupBy({
       by: ['productId'],
@@ -270,6 +383,68 @@ export class AnalyticsService {
     );
 
     return productDetails;
+  }
+
+  private async getBranchTopProducts(tenantId: string) {
+    // Get all branches for this tenant
+    const branches = await this.prisma.branch.findMany({
+      where: { tenantId },
+      select: { id: true, name: true },
+    });
+
+    const branchTopProducts: Record<string, Array<{ name: string; sales: number; revenue: number; margin?: number; cost?: number }>> = {};
+
+    // For each branch, get top 3 products
+    for (const branch of branches) {
+      const topProducts = await this.prisma.saleItem.groupBy({
+        by: ['productId'],
+        where: {
+          sale: {
+            tenantId,
+            branchId: branch.id,
+          },
+        },
+        _sum: {
+          quantity: true,
+          price: true,
+        },
+        _count: true,
+        orderBy: {
+          _sum: {
+            price: 'desc',
+          },
+        },
+        take: 3,
+      });
+
+      // Get product details
+      const productDetails = await Promise.all(
+        topProducts.map(async (item) => {
+          const product = await this.prisma.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          const revenue = item._sum.price
+            ? parseFloat(item._sum.price.toString())
+            : 0;
+          const quantity = item._sum.quantity || 0;
+          const cost = product ? product.cost * quantity : 0;
+          const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
+
+          return {
+            name: product?.name || 'Unknown Product',
+            sales: item._sum.quantity || 0,
+            revenue: revenue,
+            margin: parseFloat(margin.toFixed(2)),
+            cost: parseFloat(cost.toFixed(2)),
+          };
+        }),
+      );
+
+      branchTopProducts[branch.id] = productDetails;
+    }
+
+    return branchTopProducts;
   }
 
   private async getInventoryAnalytics(tenantId: string) {
@@ -1116,5 +1291,94 @@ export class AnalyticsService {
       console.error('Error in getBranchProductComparison:', error);
       throw new Error('Failed to fetch branch product comparison data');
     }
+  }
+
+  /**
+   * Returns a time series of total sales per branch per month,
+   * suitable for a combined bar/line chart (bar: branch sales, line: total sales).
+   */
+  async getBranchMonthlySalesComparison(tenantId: string, months: number = 6) {
+    // Calculate date range
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+
+    // Get all branches for this tenant
+    const branches = await this.prisma.branch.findMany({
+      where: { tenantId },
+      select: { id: true, name: true },
+    });
+
+    // Get sales per branch per month
+    const salesData = await this.prisma.$queryRaw`
+      SELECT
+        b.id as "branchId",
+        b.name as "branchName",
+        TO_CHAR(s."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM') as month,
+        COALESCE(SUM(s.total), 0) as sales
+      FROM "Branch" b
+      LEFT JOIN "Sale" s ON b.id = s."branchId"
+        AND s."tenantId" = ${tenantId}
+        AND s."createdAt" >= ${startDate}
+      WHERE b."tenantId" = ${tenantId}
+      GROUP BY b.id, b.name, month
+      ORDER BY month ASC, b.name ASC
+    `;
+
+    // Get total sales per month (all branches combined)
+    const totalSalesData = await this.prisma.$queryRaw`
+      SELECT
+        TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM') as month,
+        COALESCE(SUM(total), 0) as sales
+      FROM "Sale"
+      WHERE "tenantId" = ${tenantId}
+        AND "createdAt" >= ${startDate}
+      GROUP BY month
+      ORDER BY month ASC
+    `;
+
+    // Prepare months array (ensure all months are present)
+    const monthsArr: string[] = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthsArr.push(d.toISOString().slice(0, 7));
+    }
+
+    // Prepare branch sales per month
+    const branchMap: Record<string, { branchId: string; branchName: string; sales: Record<string, number> }> = {};
+    for (const branch of branches) {
+      branchMap[branch.id] = {
+        branchId: branch.id,
+        branchName: branch.name,
+        sales: {},
+      };
+      for (const m of monthsArr) {
+        branchMap[branch.id].sales[m] = 0;
+      }
+    }
+    for (const row of salesData as any[]) {
+      if (row.branchId && row.month) {
+        branchMap[row.branchId].sales[row.month] = parseFloat(row.sales) || 0;
+      }
+    }
+
+    // Prepare total sales per month
+    const totalSalesMap: Record<string, number> = {};
+    for (const m of monthsArr) totalSalesMap[m] = 0;
+    for (const row of totalSalesData as any[]) {
+      if (row.month) totalSalesMap[row.month] = parseFloat(row.sales) || 0;
+    }
+
+    // Format for chart: { months: [...], branches: [{branchName, data: [...]}, ...], total: [...] }
+    const chartData = {
+      months: monthsArr,
+      branches: Object.values(branchMap).map((b) => ({
+        branchId: b.branchId,
+        branchName: b.branchName,
+        data: monthsArr.map((m) => b.sales[m] || 0),
+      })),
+      total: monthsArr.map((m) => totalSalesMap[m] || 0),
+    };
+
+    return chartData;
   }
 }

@@ -14,6 +14,18 @@ export class AuditLogService {
     prismaClient?: any,
   ) {
     const prisma = prismaClient || this.prisma;
+
+    // Validate userId exists if provided
+    if (userId) {
+      const userExists = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      if (!userExists) {
+        userId = null; // Set to null if user doesn't exist
+      }
+    }
+
     return prisma.auditLog.create({
       data: {
         id: uuidv4(),

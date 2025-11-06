@@ -25,6 +25,8 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { SalaryModule } from './salary/salary.module';
+import { CategoryModule } from './category/category.module';
 
 @Module({
   imports: [
@@ -39,6 +41,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     PrismaModule,
     UserModule,
     ProductModule,
+    CategoryModule,
     SalesModule,
     TenantModule,
     TenantConfigurationModule,
@@ -56,6 +59,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     SupplierModule,
     AiModule,
     ExpensesModule,
+    SalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

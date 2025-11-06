@@ -37,6 +37,7 @@ model User {
   bulkUploadRecords       BulkUploadRecord[] @relation("UserBulkUploadRecords")
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
   expenses                Expense[]
+  salarySchemes           SalaryScheme[]
 
   @@index([email])
   @@index([branchId])
@@ -177,11 +178,15 @@ model Tenant {
   userRoles           UserRole[]            @relation("TenantUserRoles")
   bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
-  productCategories   ProductCategory[]     @relation("TenantProductCategories") // New
-  productAttributes   ProductAttribute[]    @relation("TenantProductAttributes") // New
-  productVariations   ProductVariation[]    @relation("TenantProductVariations") // New
+  categories          Category[]            @relation("TenantCategories")
+  categoryFields      CategoryField[]       @relation("TenantCategoryFields")
+  productVariations   ProductVariation[]    @relation("TenantProductVariations")
   expenses            Expense[]             // New
   expenseCategories   ExpenseCategory[]     // New
+  salesTargets         SalesTarget[]         // New
+  salarySchemes        SalaryScheme[]        // New
+
+  @@index([name])
 }
 
 model AuditLog {
@@ -226,8 +231,9 @@ model Branch {
   bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
-  productCategories   ProductCategory[]   @relation("BranchProductCategories") // New
+  categories          Category[]          @relation("BranchCategories") // New
   expenses            Expense[]           // New
+  salarySchemes       SalaryScheme[]      // New
 
   @@index([tenantId])
 }
@@ -399,7 +405,7 @@ model Payment {
   description           String?
   metadata              Json?
   completedAt           DateTime?
-  refundedAt            DateTime?
+  refundedAt           DateTime?
   refundAmount          Float?
   refundReason          String?
   createdAt             DateTime  @default(now())
@@ -511,45 +517,47 @@ model Supplier {
   @@index([email])
 }
 
-model ProductCategory {
+// Simplified Category model for clean slate
+model Category {
   id          String   @id @default(uuid())
   name        String
   description String?
-  customFields Json?
   tenantId    String
   branchId    String?
-  parentId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isActive    Boolean  @default(true)
-  tenant      Tenant   @relation("TenantProductCategories", fields: [tenantId], references: [id])
-  branch      Branch?  @relation("BranchProductCategories", fields: [branchId], references: [id])
-  parent      ProductCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    ProductCategory[] @relation("CategoryHierarchy")
-  products    Product[] @relation("CategoryProducts")
-  attributes  ProductAttribute[] @relation("CategoryAttributes")
 
-  @@unique([name, parentId, tenantId])
+  // Relations
+  tenant      Tenant   @relation("TenantCategories", fields: [tenantId], references: [id])
+  branch      Branch?  @relation("BranchCategories", fields: [branchId], references: [id])
+  fields      CategoryField[] @relation("CategoryFields")
+  products    Product[] @relation("ProductCategories")
+
+  @@unique([name, tenantId])
   @@index([tenantId])
   @@index([branchId])
-  @@index([parentId])
 }
 
-model ProductAttribute {
+// Category fields (custom fields for each category)
+model CategoryField {
   id          String   @id @default(uuid())
-  name        String   // e.g., "Size", "Color", "Material"
-  type        String   // "select", "text", "number"
-  values      String[] // For select type: ["Small", "Medium", "Large"] or ["Red", "Blue"]
+  name        String   // e.g., "Size", "Color", "Brand"
+  type        String   // "text", "number", "select", "boolean"
   required    Boolean  @default(false)
+  options     String[] // For select type: ["Small", "Medium", "Large"]
+  placeholder String?
   categoryId  String
   tenantId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   isActive    Boolean  @default(true)
-  category    ProductCategory @relation("CategoryAttributes", fields: [categoryId], references: [id])
-  tenant      Tenant   @relation("TenantProductAttributes", fields: [tenantId], references: [id])
 
-  @@unique([name, categoryId, tenantId])
+  // Relations
+  category    Category @relation("CategoryFields", fields: [categoryId], references: [id])
+  tenant      Tenant   @relation("TenantCategoryFields", fields: [tenantId], references: [id])
+
+  @@unique([name, categoryId])
   @@index([categoryId])
   @@index([tenantId])
 }
@@ -605,7 +613,7 @@ model Product {
   saleItems           SaleItem[]           @relation("ProductSaleItems")
   bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
   productAdditions    ProductAdditionRecord[]
-  category            ProductCategory?     @relation("CategoryProducts", fields: [categoryId], references: [id]) // New
+  category            Category?            @relation("ProductCategories", fields: [categoryId], references: [id])
   variations          ProductVariation[]   @relation("ProductVariations") // New
 
   @@index([branchId])
@@ -927,5 +935,45 @@ model Expense {
   @@index([expenseType])
   @@index([categoryId])
   @@index([nextDueDate])
+  @@index([isActive])
+}
+
+model SalesTarget {
+  id        Int      @id @default(autoincrement())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  target    Float
+  daily     Float
+  weekly    Float
+  monthly   Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Add other fields as needed
+
+  @@index([tenantId])
+}
+
+model SalaryScheme {
+  id            String   @id @default(uuid())
+  tenantId      String
+  userId        String
+  employeeName  String
+  salaryAmount  Float
+  frequency     String   // 'monthly' or 'yearly'
+  startDate     DateTime
+  branchId      String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([branchId])
   @@index([isActive])
 }

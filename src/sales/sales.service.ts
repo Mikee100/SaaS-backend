@@ -318,6 +318,7 @@ export class SalesService {
               amount: true,
               status: true,
               transactionId: true,
+              mpesaReceipt: true,
               responseDesc: true,
               createdAt: true,
             },
@@ -348,7 +349,7 @@ export class SalesService {
               phoneNumber: sale.mpesaTransaction.phoneNumber,
               amount: sale.mpesaTransaction.amount,
               status: sale.mpesaTransaction.status,
-              mpesaReceipt: sale.mpesaTransaction.transactionId || '',
+              mpesaReceipt: sale.mpesaTransaction.mpesaReceipt || sale.mpesaTransaction.transactionId || '',
               message: sale.mpesaTransaction.responseDesc || '',
               transactionDate: sale.mpesaTransaction.createdAt,
             }

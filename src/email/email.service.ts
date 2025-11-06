@@ -113,4 +113,23 @@ export class EmailService {
       throw error;
     }
   }
+
+  async sendPaymentConfirmationEmail(to: string, subject: string, html: string) {
+    const mailOptions = {
+      from:
+        process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
+      to,
+      subject,
+      html,
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Payment confirmation email sent to ${to}: ${info.messageId}`);
+      return info;
+    } catch (error) {
+      this.logger.error(`Failed to send payment confirmation email to ${to}:`, error);
+      throw error;
+    }
+  }
 }
