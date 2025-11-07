@@ -36,13 +36,17 @@ export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
-  // @Permissions('view_products')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
   async findAll(@Req() req) {
     console.log('[findAll] called', { user: req.user, headers: req.headers });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     // Get selected branchId from user context or request header
     const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
     // Use tenant ID from JWT token
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    const tenantId = req.user.tenantId;
     const result = await this.productService.findAllByTenantAndBranch(
       tenantId,
       branchId,
@@ -52,21 +56,24 @@ export class ProductController {
   }
 
   @Post()
-  // @Permissions('create_products') // Temporarily disabled for testing
-  // @UseGuards(AuthGuard('jwt'), TrialGuard) // Temporarily disabled for testing
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Permissions('create_products')
   async create(@Body() body, @Req() req) {
     console.log('[create] called', { body, user: req.user, headers: req.headers });
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     // Priority for branchId: 1. From request body 2. From header 3. From user context
     const branchId =
       body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
 
     if (!branchId) {
-      throw new Error('Branch ID is required to create a product');
+      throw new BadRequestException('Branch ID is required to create a product');
     }
 
-    // Use hardcoded tenant and branch IDs for now
-    const tenantId = '40b41d29-e483-4bb5-bc68-853eec8118bc';
-    const userId = 'temp-user-id';
+    // Use tenant ID from JWT token
+    const tenantId = req.user.tenantId;
+    const userId = req.user.userId;
 
     return this.productService.createProduct(
       {
@@ -152,44 +159,61 @@ async bulkUpload(
   }
 
   @Get(':id/qr')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
   async getQrCode(@Param('id') id: string, @Req() req, @Res() res: Response) {
     console.log('[getQrCode] called', { id, user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return this.productService.generateQrCode(id, req.user.tenantId, res);
   }
 
   @Put(':id')
-  // @Permissions('edit_products')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
   async update(@Param('id') id: string, @Body() body, @Req() req) {
     console.log('[update] called', { id, body, user: req.user });
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    const tenantId = req.user.tenantId;
     return this.productService.updateProduct(
       id,
       body,
       tenantId,
-      req.user?.userId,
+      req.user.userId,
       req.ip,
     );
   }
 
   @Delete(':id')
-  // @Permissions('delete_products')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('delete_products')
   async remove(@Param('id') id: string, @Req() req) {
     console.log('[remove] called', { id, user: req.user });
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    const tenantId = req.user.tenantId;
     return this.productService.deleteProduct(
       id,
       tenantId,
-      req.user?.userId,
+      req.user.userId,
       req.ip,
     );
   }
 
   @Get('count')
-  // @Permissions('view_products')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
   async getProductCount(@Req() req) {
     console.log('[getProductCount] called', { user: req.user, headers: req.headers });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     const branchId = req.headers['x-branch-id'] || req.user?.branchId;
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    const tenantId = req.user.tenantId;
     const count = await this.productService.getProductCount(
       tenantId,
       branchId,
@@ -198,22 +222,31 @@ async bulkUpload(
   }
 
   @Get(':id')
-  // @Permissions('view_products')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
   async findOne(@Param('id') id: string, @Req() req) {
     console.log('[findOne] called', { id, user: req.user });
-    const tenantId = req.user?.tenantId || '038fe688-49b2-434f-86dd-ca14378868df';
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    const tenantId = req.user.tenantId;
     return this.productService.findOne(id, tenantId);
   }
 
   @Get('welcome')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async welcome(@Req() req) {
     console.log('[welcome] called', { user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return { message: 'Welcome to the Product API Service!' };
   }
 
   // Variation endpoints
   @Post(':productId/variations')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('create_products')
   async createVariation(
     @Param('productId') productId: string,
@@ -229,23 +262,30 @@ async bulkUpload(
     @Req() req,
   ) {
     console.log('[createVariation] called', { productId, body, user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     const branchId =
       body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
     return this.productService.createVariation({
       ...body,
       productId,
-      tenantId: req.user?.tenantId,
+      tenantId: req.user.tenantId,
       branchId,
     });
   }
 
   @Get(':productId/variations')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async getVariationsByProduct(
     @Param('productId') productId: string,
     @Req() req,
   ) {
     console.log('[getVariationsByProduct] called', { productId, user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return this.productService.getVariationsByProduct(
       productId,
       req.user.tenantId,
@@ -253,6 +293,7 @@ async bulkUpload(
   }
 
   @Put('variations/:id')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('edit_products')
   async updateVariation(
     @Param('id') id: string,
@@ -268,21 +309,32 @@ async bulkUpload(
     @Req() req,
   ) {
     console.log('[updateVariation] called', { id, body, user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return this.productService.updateVariation(id, body, req.user.tenantId);
   }
 
   @Delete('variations/:id')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('delete_products')
   async deleteVariation(@Param('id') id: string, @Req() req) {
     console.log('[deleteVariation] called', { id, user: req.user });
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return this.productService.deleteVariation(id, req.user.tenantId);
   }
 
   // Generate variations from custom fields
   @Post(':id/generate-variations')
+  @UseGuards(AuthGuard('jwt'))
   @Permissions('edit_products')
   async generateVariations(@Param('id') id: string, @Req() req) {
     console.log('[generateVariations] called', { id, user: req.user });
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
     return this.productService.generateVariationsFromCustomFields(
       id,
       req.user.tenantId,
