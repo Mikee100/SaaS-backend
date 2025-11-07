@@ -36,6 +36,7 @@ export class AuthController {
         emailLower,
         body.password,
         req.ip,
+        req.headers['user-agent'] || '',
       );
 
       if (!result || !result.access_token) {

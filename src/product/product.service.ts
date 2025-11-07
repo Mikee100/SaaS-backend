@@ -805,82 +805,32 @@ console.log('Bulk upload user:', user);
     // Get the product with custom fields
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        tenantId: true,
+        price: true,
+        branchId: true,
+        sku: true,
+        stock: true,
+        cost: true,
+        images: true,
+        supplierId: true,
+        bulkUploadRecordId: true,
+        hasVariations: true,
+
+      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    if (!product.customFields || typeof product.customFields !== 'object') {
-      throw new BadRequestException(
-        'Product has no custom fields to generate variations from',
-      );
+
     }
 
-    // Extract attribute arrays from custom fields
-    const attributes: any[] = [];
-    const customFields = product.customFields as Record<string, any>;
-
-    for (const [key, value] of Object.entries(customFields)) {
-      if (Array.isArray(value) && value.length > 0) {
-        attributes.push({
-          name: key,
-          values: value,
-        });
-      }
-    }
-
-    if (attributes.length === 0) {
-      throw new BadRequestException(
-        'No array-type custom fields found to generate variations',
-      );
-    }
-
-    // Generate variations using the existing method
-    const variations = this.generateVariationsFromAttributes(
-      attributes,
-      product,
-    );
-
-    // Delete existing variations
-    await this.prisma.productVariation.deleteMany({
-      where: { productId, tenantId },
-    });
-
-    // Create new variations
-    const createdVariations = await this.prisma.productVariation.createMany({
-      data: variations.map((variation) => ({
-        ...variation,
-        productId,
-        tenantId,
-        branchId: product.branchId,
-      })),
-    });
-
-    // Update product to mark it has variations
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: { hasVariations: true },
-    });
-
-    // Log the action
-    if (this.auditLogService) {
-      await this.auditLogService.log(
-        userId,
-        'product_variations_generated',
-        {
-          productId,
-          variationCount: variations.length,
-          attributes: attributes.map((a) => a.name),
-        },
-        undefined,
-      );
-    }
-
-    return {
-      message: `Generated ${variations.length} variations from custom fields`,
-      variations: variations.length,
-      attributes: attributes.map((a) => ({ name: a.name, values: a.values })),
-    };
-  }
+  
 }

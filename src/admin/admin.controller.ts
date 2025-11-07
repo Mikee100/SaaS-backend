@@ -191,6 +191,27 @@ export class AdminController {
     return this.adminService.updateUserStatus(userId, body.isDisabled);
   }
 
+  @Put('users/:id/role')
+  async updateUserRole(
+    @Param('id') userId: string,
+    @Body() body: { roleId: string; tenantId?: string },
+  ) {
+    this.logger.log(
+      `AdminController: updateUserRole called for userId: ${userId}, roleId: ${body.roleId}`,
+    );
+    return this.adminService.updateUserRole(userId, body.roleId, body.tenantId);
+  }
+
+  @Get('users/:id/activity')
+  async getUserActivity(
+    @Param('id') userId: string,
+    @Query('limit') limit: string,
+  ) {
+    this.logger.log(`AdminController: getUserActivity called for userId: ${userId}`);
+    const limitNum = limit ? Number(limit) : 50;
+    return this.adminService.getUserActivity(userId, limitNum);
+  }
+
   @Get('logs')
   async getAuditLogs(
     @Query('limit') limit: string,

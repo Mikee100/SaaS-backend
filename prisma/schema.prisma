@@ -38,6 +38,7 @@ model User {
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
   expenses                Expense[]
   salarySchemes           SalaryScheme[]
+  loginHistory            LoginHistory[]
 
   @@index([email])
   @@index([branchId])
@@ -183,6 +184,7 @@ model Tenant {
   expenseCategories   ExpenseCategory[]     // New
   salesTargets         SalesTarget[]         // New
   salarySchemes        SalaryScheme[]        // New
+  loginHistory         LoginHistory[]
 
   @@index([name])
 }
@@ -927,4 +929,21 @@ model SalaryScheme {
   @@index([userId])
   @@index([branchId])
   @@index([isActive])
+}
+
+model LoginHistory {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  loginTime   DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean  @default(true)
+  failureReason String?
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([loginTime])
 }

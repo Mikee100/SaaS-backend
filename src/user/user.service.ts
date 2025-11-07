@@ -731,4 +731,55 @@ export class UserService {
 
     return result;
   }
+
+  async adminResetPassword(
+    userId: string,
+    actorUserId?: string,
+    ip?: string,
+  ): Promise<{ newPassword: string; user: any }> {
+    // Find the user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Generate a new random password
+    const newPassword = this.generateRandomPassword();
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the user's password
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Log the action
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        actorUserId || null,
+        'admin_password_reset',
+        { targetUserId: userId, targetUserEmail: user.email },
+        ip,
+      );
+    }
+
+    return { newPassword, user: updatedUser };
+  }
+
+  private generateRandomPassword(length: number = 12): string {
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  }
 }

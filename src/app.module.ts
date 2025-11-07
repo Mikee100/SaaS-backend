@@ -26,6 +26,8 @@ import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { SalaryModule } from './salary/salary.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { BackupModule } from './backup/backup.module';
 
 
 @Module({
@@ -59,6 +61,8 @@ import { SalaryModule } from './salary/salary.module';
     AiModule,
     ExpensesModule,
     SalaryModule,
+    MonitoringModule,
+    BackupModule
   ],
   controllers: [AppController],
   providers: [AppService],

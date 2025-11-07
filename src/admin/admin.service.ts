@@ -721,6 +721,87 @@ export class AdminService {
     }));
   }
 
+  async updateUserRole(userId: string, roleId: string, tenantId?: string) {
+    this.logger.log(`AdminService: updateUserRole called for userId: ${userId}, roleId: ${roleId}`);
+
+    // Find the user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { userRoles: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Find the role
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+    });
+
+    if (!role) {
+      throw new Error('Role not found');
+    }
+
+    // Determine tenantId - use provided one or user's tenant
+    const targetTenantId = tenantId || user.tenantId;
+
+    if (!targetTenantId) {
+      throw new Error('Tenant ID is required for role assignment');
+    }
+
+    // Remove existing user roles for this tenant
+    await this.prisma.userRole.deleteMany({
+      where: {
+        userId: userId,
+        tenantId: targetTenantId,
+      },
+    });
+
+    // Create new user role
+    const userRole = await this.prisma.userRole.create({
+      data: {
+        userId: userId,
+        roleId: roleId,
+        tenantId: targetTenantId,
+      },
+      include: {
+        role: true,
+        user: true,
+      },
+    });
+
+    // Log the role change
+    if (this.adminTenantStatsService) {
+      // Assuming audit log service is available
+      // await this.auditLogService.log(userId, 'role_changed', { oldRole: oldRole?.name, newRole: role.name }, null);
+    }
+
+    this.logger.log(`AdminService: Successfully updated role for user ${userId} to ${role.name}`);
+    return userRole;
+  }
+
+  async getUserActivity(userId: string, limit: number = 50) {
+    this.logger.log(`AdminService: getUserActivity called for userId: ${userId}`);
+
+    const activities = await this.prisma.loginHistory.findMany({
+      where: { userId: userId },
+      orderBy: { loginTime: 'desc' },
+      take: limit,
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(`AdminService: Found ${activities.length} login records for user ${userId}`);
+    return activities;
+  }
+
   async updateUserStatus(userId: string, isDisabled: boolean) {
     this.logger.log(
       `AdminService: updateUserStatus called for userId: ${userId}, isDisabled: ${isDisabled}`,

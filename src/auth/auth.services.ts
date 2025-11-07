@@ -11,6 +11,7 @@ import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private auditLogService: AuditLogService,
     private emailService: EmailService,
     private subscriptionService: SubscriptionService,
+    private prisma: PrismaService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -33,7 +35,7 @@ export class AuthService {
     return null;
   }
 
-  async login(email: string, password: string, ip?: string) {
+  async login(email: string, password: string, ip?: string, userAgent?: string) {
     try {
       // 1. Find user by email with roles included
       const user = await this.userService.findByEmail(email, {
@@ -60,6 +62,23 @@ export class AuthService {
         if (this.auditLogService) {
           await this.auditLogService.log(null, 'login_failed', { email }, ip);
         }
+        // Record failed login attempt
+        try {
+          if (user?.id) {
+            await this.prisma.loginHistory.create({
+              data: {
+                userId: user.id,
+                tenantId: null,
+                ipAddress: ip,
+                userAgent: userAgent || '',
+                success: false,
+                failureReason: 'Invalid credentials',
+              },
+            });
+          }
+        } catch (error) {
+          this.logger.error('Failed to record failed login history:', error);
+        }
         throw new UnauthorizedException('Invalid credentials');
       }
 
@@ -72,6 +91,21 @@ export class AuthService {
             { email },
             ip,
           );
+        }
+        // Record disabled account login attempt
+        try {
+          await this.prisma.loginHistory.create({
+            data: {
+              userId: user.id,
+              tenantId: user.tenantId || null,
+              ipAddress: ip,
+              userAgent: userAgent || '',
+              success: false,
+              failureReason: 'Account disabled',
+            },
+          });
+        } catch (error) {
+          this.logger.error('Failed to record disabled account login history:', error);
         }
         throw new UnauthorizedException('Account disabled. Contact admin.');
       }
@@ -154,7 +188,22 @@ export class AuthService {
         );
       }
 
-      // 9. Return token and user info
+      // 9. Record login history
+      try {
+        await this.prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            tenantId: tenantId,
+            ipAddress: ip,
+            userAgent: userAgent || '',
+            success: true,
+          },
+        });
+      } catch (error) {
+        this.logger.error('Failed to record login history:', error);
+      }
+
+      // 10. Return token and user info
       return {
         access_token: accessToken,
         user: {

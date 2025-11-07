@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { BackupService } from '../backup/backup.service';
 import axios from 'axios';
 import OpenAI from 'openai';
 
@@ -42,7 +43,10 @@ interface DetectedCommand {
 export class AiService {
   private openai: OpenAI | null = null;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private backupService: BackupService,
+  ) {
     // Only initialize OpenAI if API key is available
     if (
       process.env.OPENAI_API_KEY &&
@@ -2371,14 +2375,28 @@ export class AiService {
   }
 
   private async executeBackupCommand(tenantId: string): Promise<CommandResult> {
-    // This would typically trigger a backup process
-    // For now, return a placeholder
-    return {
-      success: true,
-      message:
-        'Backup initiated successfully. This is a simulated backup command.',
-      action_taken: 'backup_initiated',
-    };
+    try {
+      // Trigger actual backup using BackupService
+      const backupResult = await this.backupService.createBackup(`ai-triggered-${tenantId}-${Date.now()}`);
+
+      return {
+        success: true,
+        message: `Backup initiated successfully. Backup file: ${backupResult.filename} (${(backupResult.size / 1024 / 1024).toFixed(2)} MB)`,
+        action_taken: 'backup_initiated',
+        data: {
+          backupId: backupResult.filename,
+          size: backupResult.size,
+          createdAt: backupResult.createdAt,
+        },
+      };
+    } catch (error) {
+      console.error('Error executing backup command:', error);
+      return {
+        success: false,
+        message: `Failed to initiate backup: ${error.message}`,
+        action_taken: 'backup_failed',
+      };
+    }
   }
 
   private async checkDatabaseStatus(): Promise<boolean> {
