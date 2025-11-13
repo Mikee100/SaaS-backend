@@ -4,6 +4,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
+import { CacheService } from '../cache/cache.service';
 import * as XLSX from 'xlsx';
 import { Express, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
@@ -41,40 +43,128 @@ function findColumnMatch(
 
 @Injectable()
 export class ProductService {
-  // Use console.log for maximum visibility
-  async findAllByBranch(branchId: string, tenantId: string) {
-    console.log('------------------------------');
-    console.log(
-      '[ProductService] Filtering products by branchId:',
-      branchId,
-      'tenantId:',
-      tenantId,
-    );
-    console.log('------------------------------');
-    return (this.prisma as any).product.findMany({
-      where: { branchId, tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+
   constructor(
     private prisma: PrismaService,
+    private cacheService: CacheService,
     private auditLogService: AuditLogService,
     private billingService: BillingService,
     private subscriptionService: SubscriptionService,
   ) {}
 
-  async findAllByTenantAndBranch(tenantId: string, branchId?: string) {
-    const where: any = { tenantId };
-    if (branchId) {
-      where.OR = [{ branchId: branchId }, { branchId: null }];
+  async findAllByTenantAndBranch(
+    tenantId: string,
+    branchId?: string,
+    page: number = 1,
+    limit: number = 10,
+    includeSupplier: boolean = false,
+    search: string = ''
+  ) {
+    console.log('Backend: findAllByTenantAndBranch called with:', { tenantId, branchId, page, limit, search });
+
+    // Check cache first
+    const branchSuffix = branchId ? `_${branchId}` : '_all';
+    const includeSuffix = includeSupplier ? '_with_supplier' : '';
+    const searchSuffix = search ? `_${search.replace(/\s+/g, '_').toLowerCase()}` : '';
+    const cacheKey = `products_list_${tenantId}_${branchSuffix}_${page}_${limit}${includeSuffix}${searchSuffix}`;
+    let cachedResult = this.cacheService.get(cacheKey);
+
+    if (cachedResult) {
+     
+      return cachedResult;
     }
-    return this.prisma.product.findMany({
+
+    const where: any = { tenantId };
+
+    const conditions: any[] = [];
+
+    if (search) {
+      conditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } }
+        ]
+      });
+    }
+
+    if (branchId) {
+      conditions.push({
+        OR: [
+          { branchId: branchId },
+          { branchId: null }
+        ]
+      });
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
+    }
+
+    // Ensure valid pagination parameters
+    if (page < 1) page = 1;
+    if (limit < 1 || limit > 1000) limit = 100; // Increased max limit to 1000 and default to 100
+
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination metadata (with search filter)
+    const total = await this.prisma.product.count({ where });
+   
+    // Select only necessary fields for list views (lazy loading)
+    const select: any = {
+      id: true,
+      name: true,
+      sku: true,
+      price: true,
+      stock: true,
+      createdAt: true,
+      updatedAt: true,
+      images: true,
+      customFields: true,
+    };
+
+    // Conditionally include supplier data only when needed
+    if (includeSupplier) {
+      select.supplier = {
+        select: {
+          id: true,
+          name: true,
+          contactName: true,
+          email: true,
+        },
+      };
+    }
+
+    const products = await this.prisma.product.findMany({
       where,
-      include: {
-        supplier: true,
-      },
-      orderBy: { createdAt: 'desc' },
+      select,
+      orderBy: [
+        { stock: 'desc' },
+        { createdAt: 'desc' }
+      ],
+      skip,
+      take: limit,
     });
+
+    console.log('Backend: Returning', products.length, 'products for search:', search);
+
+    const result = {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
+
+    // Cache the result for 5 minutes (shorter for search results to keep them fresh)
+    const cacheTime = search ? 60 : 300; // 1 minute for search results, 5 minutes for regular lists
+    this.cacheService.set(cacheKey, result, cacheTime);
+
+    return result;
   }
 
 
@@ -157,6 +247,9 @@ export class ProductService {
       },
     });
 
+    // Invalidate cache for this tenant
+    this.cacheService.invalidateProductCache(data.tenantId);
+
     // Only log if actorUserId is a valid user (not null/undefined/empty string)
     if (this.auditLogService && actorUserId) {
       await this.auditLogService.log(
@@ -227,6 +320,9 @@ export class ProductService {
       data: updateData,
     });
 
+    // Invalidate cache for this tenant and product
+    this.cacheService.invalidateProductCache(tenantId, id);
+
     if (this.auditLogService) {
       await this.auditLogService.log(
         actorUserId || null,
@@ -247,6 +343,10 @@ export class ProductService {
     const result = await this.prisma.product.deleteMany({
       where: { id, tenantId },
     });
+
+    // Invalidate cache for this tenant and product
+    this.cacheService.invalidateProductCache(tenantId, id);
+
     if (this.auditLogService) {
       await this.auditLogService.log(
         actorUserId || null,
@@ -272,6 +372,31 @@ export class ProductService {
         summary: [{ status: 'error', error: 'No data found in file.' }],
       };
     }
+
+    // Check product limits before processing
+    const limitCheck = await this.billingService.checkLimit(user.tenantId, 'products');
+    const currentCount = limitCheck.current;
+    const maxProducts = limitCheck.limit;
+    const newTotal = currentCount + rows.length;
+
+    // Check if upload would exceed limits
+    if (newTotal > maxProducts) {
+      return {
+        summary: {
+          successful: 0,
+          failed: rows.length,
+          errors: [`Upload would exceed product limit. Current: ${currentCount}/${maxProducts}, Attempting to add: ${rows.length}`],
+        },
+        limitExceeded: true,
+        currentUsage: currentCount,
+        limit: maxProducts,
+        attemptingToAdd: rows.length,
+      };
+    }
+
+    // Check if approaching limit (80% or more)
+    const usagePercentage = (newTotal / maxProducts) * 100;
+    const approachingLimit = usagePercentage >= 80;
 
     // Progress tracking
     if (!uploadId) uploadId = uuidv4();
@@ -476,10 +601,22 @@ console.log('Bulk upload user:', user);
         errors: results.filter((r) => r.status === 'error').map((r) => r.error),
       },
       uploadId,
+      limitInfo: {
+        currentUsage: currentCount + successfulCount,
+        limit: maxProducts,
+        approachingLimit,
+        usagePercentage: Math.round(((currentCount + successfulCount) / maxProducts) * 100),
+      },
     };
   }
 
   async getProductCount(tenantId: string, branchId?: string): Promise<number> {
+    // Use cached count when no branch filter is applied
+    if (!branchId) {
+      return this.cacheService.getProductCount(tenantId);
+    }
+
+    // For branch-specific counts, query directly (less common)
     return this.prisma.product.count({
       where: {
         tenantId,
@@ -689,14 +826,26 @@ console.log('Bulk upload user:', user);
   }
 
   async findOne(id: string, tenantId: string) {
-    return (this.prisma as any).product.findFirst({
-      where: { id, tenantId },
-      include: {
-        supplier: true,
-        branch: true,
-        tenant: true,
-      },
-    });
+    // Try cache first
+    let product = await this.cacheService.getProductById(id, tenantId);
+
+    if (!product) {
+      product = await (this.prisma as any).product.findFirst({
+        where: { id, tenantId },
+        include: {
+          supplier: true,
+          branch: true,
+          tenant: true,
+        },
+      });
+
+      // Cache the result if found
+      if (product) {
+        await this.cacheService.getProductById(id, tenantId); // This will cache it
+      }
+    }
+
+    return product;
   }
 
   // Variation CRUD methods

@@ -27,16 +27,11 @@ export class SalesTargetService {
   }
 
   async createTargets(tenantId: string, targets: { daily: number; weekly: number; monthly: number }) {
-    return this.prisma.salesTarget.create({
-      data: {
-        tenantId,
-        daily: targets.daily,
-        weekly: targets.weekly,
-        monthly: targets.monthly,
-        name: 'Default', // Provide a value for required 'name'
-        target: 0,       // Provide a value for required 'target'
-      },
-    });
+    return {
+      daily: targets.daily,
+      weekly: targets.weekly,
+      monthly: targets.monthly,
+    };
   }
 
   async updateTargets(tenantId: string, targets: { daily: number; weekly: number; monthly: number }) {
@@ -45,10 +40,19 @@ export class SalesTargetService {
     });
 
     if (!existing) {
-      return this.createTargets(tenantId, targets);
+      return this.prisma.salesTarget.create({
+        data: {
+          tenantId,
+          daily: targets.daily,
+          weekly: targets.weekly,
+          monthly: targets.monthly,
+          name: 'Default',
+          target: 0,
+        },
+      });
     }
 
-    return this.prisma.salesTarget.update({
+    const updated = await this.prisma.salesTarget.update({
       where: { id: existing.id },
       data: {
         daily: targets.daily,
@@ -56,5 +60,11 @@ export class SalesTargetService {
         monthly: targets.monthly,
       },
     });
+
+    return {
+      daily: updated.daily,
+      weekly: updated.weekly,
+      monthly: updated.monthly,
+    };
   }
 }

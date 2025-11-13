@@ -72,8 +72,38 @@ export class AiService {
     const lowerMessage = message.toLowerCase();
 
     try {
+      // Handle conversation management - create new conversation if none provided
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const newConversation = await this.createConversation(
+          userId,
+          tenantId,
+          branchId,
+          this.generateConversationTitleFromMessage(message),
+        );
+        activeConversationId = newConversation.id;
+      }
+
+      // Ensure activeConversationId is defined
+      if (!activeConversationId) {
+        throw new Error('Failed to create or find conversation');
+      }
+
+      // Get conversation context and history
+      const conversationContext = await this.summarizeConversationContext(
+        activeConversationId,
+        userId,
+        tenantId,
+        5, // Last 5 interactions for context
+      );
+
       // Get user history for personalization
-      const userHistory = await this.getConversationHistory(userId, tenantId);
+      const userHistory = await this.getConversationHistory(
+        userId,
+        tenantId,
+        activeConversationId,
+        20, // Recent history for personalization
+      );
       const tenantData = await this.getTenantBusinessData(tenantId, branchId);
 
       // Analyze patterns and personalize
@@ -540,6 +570,8 @@ export class AiService {
     userId: string,
     tenantId: string,
     conversationId?: string,
+    limit: number = 50,
+    offset: number = 0,
   ): Promise<any[]> {
     try {
       const whereClause: any = { userId, tenantId };
@@ -549,13 +581,237 @@ export class AiService {
       const history = await this.prisma.aIChatInteraction.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
-        take: 50,
+        take: limit,
+        skip: offset,
       });
       return history;
     } catch (error) {
       console.error('Error fetching conversation history:', error);
       return [];
     }
+  }
+
+  // Conversation Management Methods
+  async createConversation(
+    userId: string,
+    tenantId: string,
+    branchId: string,
+    title?: string,
+  ): Promise<any> {
+    try {
+      const conversation = await this.prisma.conversation.create({
+        data: {
+          userId,
+          tenantId,
+          branchId,
+          title: title || 'New Conversation',
+          isActive: true,
+        },
+      });
+      return conversation;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      throw error;
+    }
+  }
+
+  async getConversations(
+    userId: string,
+    tenantId: string,
+    branchId?: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<any[]> {
+    try {
+      const whereClause: any = {
+        userId,
+        tenantId,
+        isActive: true,
+      };
+      if (branchId) {
+        whereClause.branchId = branchId;
+      }
+
+      const conversations = await this.prisma.conversation.findMany({
+        where: whereClause,
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          _count: {
+            select: {
+              interactions: true,
+            },
+          },
+        },
+      });
+      return conversations;
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      return [];
+    }
+  }
+
+  async getConversationById(
+    conversationId: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<any | null> {
+    try {
+      const conversation = await this.prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          userId,
+          tenantId,
+          isActive: true,
+        },
+        include: {
+          interactions: {
+            orderBy: { createdAt: 'asc' },
+            take: 50, // Last 50 interactions for context
+          },
+          _count: {
+            select: {
+              interactions: true,
+            },
+          },
+        },
+      });
+      return conversation;
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+      return null;
+    }
+  }
+
+  async updateConversation(
+    conversationId: string,
+    userId: string,
+    tenantId: string,
+    updates: { title?: string; isActive?: boolean },
+  ): Promise<any> {
+    try {
+      const conversation = await this.prisma.conversation.updateMany({
+        where: {
+          id: conversationId,
+          userId,
+          tenantId,
+        },
+        data: {
+          ...updates,
+          updatedAt: new Date(),
+        },
+      });
+      return conversation;
+    } catch (error) {
+      console.error('Error updating conversation:', error);
+      throw error;
+    }
+  }
+
+  async deleteConversation(
+    conversationId: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    try {
+      // Soft delete by marking as inactive
+      await this.prisma.conversation.updateMany({
+        where: {
+          id: conversationId,
+          userId,
+          tenantId,
+        },
+        data: {
+          isActive: false,
+          updatedAt: new Date(),
+        },
+      });
+      return true;
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      return false;
+    }
+  }
+
+  async generateConversationTitle(
+    conversationId: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<string> {
+    try {
+      // Get first few interactions to generate a title
+      const interactions = await this.prisma.aIChatInteraction.findMany({
+        where: {
+          conversationId,
+          userId,
+          tenantId,
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 3,
+      });
+
+      if (interactions.length === 0) {
+        return 'New Conversation';
+      }
+
+      // Simple title generation based on first user message
+      const firstMessage = interactions[0].userMessage;
+      if (firstMessage.length > 50) {
+        return firstMessage.substring(0, 47) + '...';
+      }
+      return firstMessage;
+    } catch (error) {
+      console.error('Error generating conversation title:', error);
+      return 'Conversation';
+    }
+  }
+
+  async summarizeConversationContext(
+    conversationId: string,
+    userId: string,
+    tenantId: string,
+    maxInteractions: number = 10,
+  ): Promise<string> {
+    try {
+      const interactions = await this.prisma.aIChatInteraction.findMany({
+        where: {
+          conversationId,
+          userId,
+          tenantId,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: maxInteractions,
+      });
+
+      if (interactions.length === 0) {
+        return '';
+      }
+
+      // Create a summary of recent interactions
+      const summary = interactions
+        .reverse() // Put back in chronological order
+        .map((interaction, index) => {
+          const userMsg = interaction.userMessage.substring(0, 100);
+          const aiResponse = interaction.aiResponse.substring(0, 150);
+          return `Turn ${index + 1}: User asked about "${userMsg}"... AI responded: "${aiResponse}"...`;
+        })
+        .join(' ');
+
+      return `Previous conversation context: ${summary}`;
+    } catch (error) {
+      console.error('Error summarizing conversation context:', error);
+      return '';
+    }
+  }
+
+  private generateConversationTitleFromMessage(message: string): string {
+    // Simple title generation based on first user message
+    const trimmedMessage = message.trim();
+    if (trimmedMessage.length > 50) {
+      return trimmedMessage.substring(0, 47) + '...';
+    }
+    return trimmedMessage || 'New Conversation';
   }
 
   async analyzePatterns(conversations: any[]): Promise<PatternAnalysis> {

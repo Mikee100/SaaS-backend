@@ -205,4 +205,25 @@ export class AnalyticsController {
       throw new Error('Failed to fetch branch product comparison data');
     }
   }
+
+  @Get('/analytics/branch-monthly-sales-comparison')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getBranchMonthlySalesComparison(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    const { months = 6 } = req.query;
+
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+
+    try {
+      return await this.analyticsService.getBranchMonthlySalesComparison(
+        tenantId,
+        parseInt(months as string) || 6,
+      );
+    } catch (error) {
+      console.error('Error fetching branch monthly sales comparison:', error);
+      throw new Error('Failed to fetch branch monthly sales comparison data');
+    }
+  }
 }

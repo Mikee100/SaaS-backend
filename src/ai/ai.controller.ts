@@ -8,6 +8,7 @@ import {
   Param,
   Put,
   Query,
+  Delete,
 } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -148,5 +149,136 @@ export class AiController {
       title,
     );
     return { description };
+  }
+
+  // Conversation Management Endpoints
+  @Post('conversations')
+  @Permissions('use_ai_assistant')
+  async createConversation(
+    @Body() body: { title?: string },
+    @Request() req,
+  ) {
+    const { title } = body;
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+    const branchId = req.user.branchId;
+
+    const conversation = await this.aiService.createConversation(
+      userId,
+      tenantId,
+      branchId,
+      title,
+    );
+    return { conversation };
+  }
+
+  @Get('conversations')
+  @Permissions('use_ai_assistant')
+  async getConversations(
+    @Request() req,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+    const branchId = req.user.branchId;
+
+    const conversations = await this.aiService.getConversations(
+      userId,
+      tenantId,
+      branchId,
+      limit ? parseInt(limit) : undefined,
+      offset ? parseInt(offset) : undefined,
+    );
+    return { conversations };
+  }
+
+  @Get('conversations/:conversationId')
+  @Permissions('use_ai_assistant')
+  async getConversationById(
+    @Param('conversationId') conversationId: string,
+    @Request() req,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+
+    const conversation = await this.aiService.getConversationById(
+      conversationId,
+      userId,
+      tenantId,
+    );
+    return { conversation };
+  }
+
+  @Put('conversations/:conversationId')
+  @Permissions('use_ai_assistant')
+  async updateConversation(
+    @Param('conversationId') conversationId: string,
+    @Body() body: { title?: string; isActive?: boolean },
+    @Request() req,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+
+    const result = await this.aiService.updateConversation(
+      conversationId,
+      userId,
+      tenantId,
+      body,
+    );
+    return { success: true, result };
+  }
+
+  @Put('conversations/:conversationId/title')
+  @Permissions('use_ai_assistant')
+  async generateConversationTitle(
+    @Param('conversationId') conversationId: string,
+    @Request() req,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+
+    const title = await this.aiService.generateConversationTitle(
+      conversationId,
+      userId,
+      tenantId,
+    );
+    return { title };
+  }
+
+  @Delete('conversations/:conversationId')
+  @Permissions('use_ai_assistant')
+  async deleteConversation(
+    @Param('conversationId') conversationId: string,
+    @Request() req,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+
+    const success = await this.aiService.deleteConversation(
+      conversationId,
+      userId,
+      tenantId,
+    );
+    return { success };
+  }
+
+  @Get('conversations/:conversationId/context')
+  @Permissions('use_ai_assistant')
+  async getConversationContext(
+    @Param('conversationId') conversationId: string,
+    @Request() req,
+    @Query('maxInteractions') maxInteractions?: string,
+  ) {
+    const userId = req.user.userId || req.user.sub;
+    const tenantId = req.user.tenantId;
+
+    const context = await this.aiService.summarizeConversationContext(
+      conversationId,
+      userId,
+      tenantId,
+      maxInteractions ? parseInt(maxInteractions) : undefined,
+    );
+    return { context };
   }
 }

@@ -39,6 +39,8 @@ model User {
   expenses                Expense[]
   salarySchemes           SalaryScheme[]
   loginHistory            LoginHistory[]
+  conversations           Conversation[]
+  userPreferences         UserPreference[]
 
   @@index([email])
   @@index([branchId])
@@ -573,6 +575,11 @@ model Product {
   @@index([branchId])
   @@index([tenantId])
   @@index([supplierId])
+  @@index([createdAt])
+  @@index([tenantId, branchId])
+  @@index([tenantId, createdAt])
+  @@index([branchId, createdAt])
+  @@index([tenantId, branchId, createdAt])
 }
 
 model Sale {
@@ -666,6 +673,24 @@ model SystemConfiguration {
   @@index([category])
   @@index([key])
 }
+model Conversation {
+  id         String   @id @default(uuid())
+  userId     String
+  tenantId   String
+  branchId   String?
+  title      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  interactions  AIChatInteraction[]
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([isActive])
+}
 
 model AIChatInteraction {
   id            String   @id @default(uuid())
@@ -676,13 +701,35 @@ model AIChatInteraction {
   userMessage   String
   aiResponse    String
   metadata      Json?
+  category      String?
+  feedback      Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  conversation  Conversation? @relation(fields: [conversationId], references: [id])
 
   @@index([userId])
   @@index([tenantId])
   @@index([branchId])
   @@index([conversationId])
+  @@index([category])
+}
+
+model UserPreference {
+  id            String   @id @default(uuid())
+  userId        String
+  tenantId      String
+  preferenceKey String
+  preferenceValue Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, tenantId, preferenceKey])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([preferenceKey])
 }
 
 model TenantConfiguration {
@@ -947,3 +994,4 @@ model LoginHistory {
   @@index([tenantId])
   @@index([loginTime])
 }
+

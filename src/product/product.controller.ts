@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Req,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -21,6 +22,7 @@ import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+
 
 declare global {
   namespace Express {
@@ -38,18 +40,28 @@ export class ProductController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
-  async findAll(@Req() req) {
-    console.log('[findAll] called', { user: req.user, headers: req.headers });
+  async findAll(@Req() req, @Query() query: { page?: string; limit?: string; includeSupplier?: string; search?: string; branchId?: string }) {
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
-    // Get selected branchId from user context or request header
-    const branchId = req.headers['x-branch-id'] || (req.user?.branchId);
+    // Get selected branchId from query param, header, or user context (in that order)
+    const branchId = query.branchId || req.headers['x-branch-id'] || (req.user?.branchId);
     // Use tenant ID from JWT token
     const tenantId = req.user.tenantId;
+
+    // Parse pagination parameters
+    const page = query.page ? parseInt(query.page, 10) : 1;
+    const limit = query.limit ? parseInt(query.limit, 10) : 100; // Increased default from 10 to 100 products per page
+    const includeSupplier = query.includeSupplier === 'true';
+    const search = query.search || '';
+
     const result = await this.productService.findAllByTenantAndBranch(
       tenantId,
       branchId,
+      page,
+      limit,
+      includeSupplier,
+      search,
     );
 
     return result;
@@ -59,7 +71,7 @@ export class ProductController {
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Permissions('create_products')
   async create(@Body() body, @Req() req) {
-    console.log('[create] called', { body, user: req.user, headers: req.headers });
+    
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -94,7 +106,7 @@ export class ProductController {
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req,
   ) {
-    console.log('[uploadImages] called', { id, files, user: req.user });
+    
     return this.productService.uploadProductImages(
       id,
       files,
@@ -110,7 +122,7 @@ export class ProductController {
     @Body() body: { imageUrl: string },
     @Req() req,
   ) {
-    console.log('[deleteImage] called', { id, imageUrl: body.imageUrl, user: req.user });
+
     return this.productService.deleteProductImage(
       id,
       body.imageUrl,
@@ -137,6 +149,7 @@ async bulkUpload(
     branchId: (req.user as any)?.branchId || '',
     ip: req.ip,
   };
+
   return this.productService.bulkUpload(file, user);
 }
 
@@ -144,7 +157,7 @@ async bulkUpload(
   @Post('randomize-stocks')
   @Permissions('edit_products')
   async randomizeStocks(@Req() req) {
-    console.log('[randomizeStocks] called', { user: req.user });
+    
     return this.productService.randomizeAllStocks(req.user.tenantId);
   }
 
@@ -162,7 +175,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async getQrCode(@Param('id') id: string, @Req() req, @Res() res: Response) {
-    console.log('[getQrCode] called', { id, user: req.user });
+   
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -173,7 +186,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('edit_products')
   async update(@Param('id') id: string, @Body() body, @Req() req) {
-    console.log('[update] called', { id, body, user: req.user });
+    
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -191,7 +204,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('delete_products')
   async remove(@Param('id') id: string, @Req() req) {
-    console.log('[remove] called', { id, user: req.user });
+    
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -208,7 +221,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async getProductCount(@Req() req) {
-    console.log('[getProductCount] called', { user: req.user, headers: req.headers });
+  
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -225,7 +238,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async findOne(@Param('id') id: string, @Req() req) {
-    console.log('[findOne] called', { id, user: req.user });
+    
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -237,7 +250,7 @@ async bulkUpload(
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async welcome(@Req() req) {
-    console.log('[welcome] called', { user: req.user });
+   
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -261,7 +274,7 @@ async bulkUpload(
     },
     @Req() req,
   ) {
-    console.log('[createVariation] called', { productId, body, user: req.user });
+    
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -282,7 +295,7 @@ async bulkUpload(
     @Param('productId') productId: string,
     @Req() req,
   ) {
-    console.log('[getVariationsByProduct] called', { productId, user: req.user });
+    
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }

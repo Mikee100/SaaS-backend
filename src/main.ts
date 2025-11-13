@@ -4,6 +4,7 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as compression from 'compression';
 // Swagger documentation will be added when @nestjs/swagger is installed
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
@@ -141,6 +142,20 @@ async function bootstrap() {
     const port = configService.get<number>('PORT', 9000);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
+
+    // Enable gzip compression for all responses
+    app.use(compression({
+      level: 6, // Good balance between compression and speed
+      threshold: 1024, // Only compress responses larger than 1KB
+      filter: (req, res) => {
+        // Don't compress responses with this request header
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        // Use compression filter function
+        return compression.filter(req, res);
+      },
+    }));
 
     // Request size limits
     app.use(json({ limit: '10mb' }));

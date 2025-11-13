@@ -20,7 +20,8 @@ import { BranchModule } from './branch/branch.module';
 import { UsageModule } from './usage.module';
 import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.module';
 import { AdminModule } from './admin/admin.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
@@ -28,16 +29,29 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { SalaryModule } from './salary/salary.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { BackupModule } from './backup/backup.module';
+import { SalesTargetModule } from './sales-target/sales-target.module';
 
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([
       {
-        ttl: 60,
-        limit: 5,
+        name: 'short',
+        ttl: 1000, // 1 second
+        limit: 50, // Increased to 50 requests per second for UI responsiveness
+      },
+      {
+        name: 'medium',
+        ttl: 60000, // 1 minute
+        limit: 500, // Increased to 500 requests per minute for UI
+      },
+      {
+        name: 'long',
+        ttl: 3600000, // 1 hour
+        limit: 5000, // Increased to 5000 requests per hour
       },
     ]),
+
     AuthModule,
     ConfigModule.forRoot(),
     PrismaModule,
@@ -62,9 +76,16 @@ import { BackupModule } from './backup/backup.module';
     ExpensesModule,
     SalaryModule,
     MonitoringModule,
-    BackupModule
+    BackupModule,
+    SalesTargetModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
