@@ -132,7 +132,7 @@ export class ExpensesService {
       };
     }
 
-    // Filter by date range if specified
+    // Filter by date range if specified, otherwise default to current month
     if (query?.startDate || query?.endDate) {
       whereClause.createdAt = {};
       if (query.startDate) {
@@ -141,6 +141,15 @@ export class ExpensesService {
       if (query.endDate) {
         whereClause.createdAt.lte = new Date(query.endDate);
       }
+    } else {
+      // Default to current month if no date filters provided
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      whereClause.createdAt = {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      };
     }
 
     // Sorting
@@ -622,6 +631,165 @@ export class ExpensesService {
     return {
       records: records.reverse(), // Most recent first
       totalMonths: months,
+    };
+  }
+
+  async getExpenseTotalForMonth(tenantId: string, month: number, year: number) {
+    console.log(`getExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Get all active expenses for the month
+    const expenses = await this.prisma.expense.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        isActive: true,
+      },
+    });
+    console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
+
+    // Calculate total expense amount
+    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    const monthName = startOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+    console.log(`Final total for ${monthName}: ${totalAmount}`);
+
+    return {
+      monthName,
+      totalAmount,
+      expenseCount: expenses.length,
+    };
+  }
+
+  async fetchExpenseTotalForMonth(tenantId: string, month: number, year: number) {
+    console.log(`fetchExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    // Get all active expenses for the month
+    const expenses = await this.prisma.expense.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        isActive: true,
+      },
+    });
+    console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
+
+    // Calculate total expense amount
+    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+    const monthName = startOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+    console.log(`Final total for ${monthName}: ${totalAmount}`);
+
+    return {
+      monthName,
+      totalAmount,
+      expenseCount: expenses.length,
+    };
+  }
+
+  async getCurrentMonthExpenseTotal(tenantId: string) {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    return this.getExpenseTotalForMonth(tenantId, month, year);
+  }
+
+  async getExpensesByMonth(tenantId: string, month: number, year: number, branchId?: string, query?: any) {
+    const startOfMonth = new Date(year, month - 1, 1);
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const whereClause: any = {
+      tenantId,
+      createdAt: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+      isActive: true,
+    };
+
+    // Filter by branch if specified
+    if (branchId && branchId !== 'all') {
+      whereClause.branchId = branchId;
+    }
+
+    // Filter by category if specified
+    if (query?.category) {
+      whereClause.categoryId = query.category;
+    }
+
+    // Filter by expense type if specified
+    if (query?.expenseType) {
+      whereClause.expenseType = query.expenseType;
+    }
+
+    // Search by description
+    if (query?.search) {
+      whereClause.description = {
+        contains: query.search,
+        mode: 'insensitive',
+      };
+    }
+
+    // Sorting
+    let orderBy: any = { createdAt: 'desc' };
+    if (query?.sortBy) {
+      const sortField = query.sortBy;
+      const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = { [sortField]: sortOrder };
+    }
+
+    // Pagination
+    const page = parseInt(query?.page) || 1;
+    const limit = parseInt(query?.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const [expenses, total] = await Promise.all([
+      this.prisma.expense.findMany({
+        where: whereClause,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+            },
+          },
+        },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.expense.count({ where: whereClause }),
+    ]);
+
+    return {
+      expenses,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 }

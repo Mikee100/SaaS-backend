@@ -132,4 +132,50 @@ export class ExpensesController {
     const { months = 12 } = query;
     return this.expensesService.getPastMonthsRecords(req.user.tenantId, parseInt(months));
   }
+
+  @Get('current-month-total')
+  @Permissions('view_sales')
+  async getCurrentMonthExpenseTotal(@Req() req) {
+    const result = await this.expensesService.getCurrentMonthExpenseTotal(req.user.tenantId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('total-expense')
+  @Permissions('view_sales')
+  async getExpenseTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
+    console.log(`Controller: getExpenseTotalForMonth called with month: ${month}, year: ${year}, tenantId: ${req.user.tenantId}`);
+    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+    }
+    const result = await this.expensesService.getExpenseTotalForMonth(req.user.tenantId, month, year);
+    console.log(`Controller: returning result:`, result);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('by-month')
+  @Permissions('view_sales')
+  async getExpensesByMonth(@Req() req, @Query() query: any) {
+    const { month, year } = query;
+    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+    }
+    const branchId = req.headers['x-branch-id'] as string;
+    const result = await this.expensesService.getExpensesByMonth(req.user.tenantId, parseInt(month), parseInt(year), branchId, query);
+    return {
+      success: true,
+      data: result.expenses,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    };
+  }
 }

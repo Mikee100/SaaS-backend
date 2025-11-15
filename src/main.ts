@@ -139,7 +139,7 @@ async function bootstrap() {
       logger.warn('Failed to seed permissions on startup', error);
     }
 
-    const port = configService.get<number>('PORT', 9000);
+    const port = configService.get<number>('PORT', 4000);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
 
@@ -202,7 +202,7 @@ async function bootstrap() {
     console.log('Signing JWT with secret:', process.env.JWT_SECRET);
 
     // Start the application
-    await app.listen(9000, '0.0.0.0');
+    await app.listen(port, '0.0.0.0');
 
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);

@@ -66,6 +66,63 @@ export class SalaryController {
     };
   }
 
+  @Get('analytics/summary')
+  @Permissions('view_sales')
+  async getSalaryAnalytics(@Req() req, @Query() query: any) {
+    const { startDate, endDate } = query;
+    return this.salaryService.getSalaryAnalytics(
+      req.user.tenantId,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+    );
+  }
+
+  @Get('current-month-total')
+  @Permissions('view_sales')
+  async getCurrentMonthSalaryTotal(@Req() req) {
+    const result = await this.salaryService.getCurrentMonthSalaryTotal(req.user.tenantId);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('total-expense')
+  @Permissions('view_sales')
+  async getSalaryTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
+    console.log(`Controller: getSalaryTotalForMonth called with month: ${month}, year: ${year}, tenantId: ${req.user.tenantId}`);
+    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+    }
+    const result = await this.salaryService.getSalaryTotalForMonth(req.user.tenantId, month, year);
+    console.log(`Controller: returning result:`, result);
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('by-month')
+  @Permissions('view_sales')
+  async getSalarySchemesByMonth(@Req() req, @Query() query: any) {
+    const { month, year } = query;
+    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+    }
+    const branchId = req.headers['x-branch-id'] as string;
+    const result = await this.salaryService.getSalarySchemesByMonth(req.user.tenantId, parseInt(month), parseInt(year), branchId, query);
+    return {
+      success: true,
+      data: result.salarySchemes,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    };
+  }
+
   @Get(':id')
   @Permissions('view_sales')
   async getSalarySchemeById(@Param('id') id: string, @Req() req) {
@@ -90,16 +147,5 @@ export class SalaryController {
   @Permissions('create_sales')
   async deleteSalaryScheme(@Param('id') id: string, @Req() req) {
     return this.salaryService.deleteSalaryScheme(id, req.user.tenantId);
-  }
-
-  @Get('analytics/summary')
-  @Permissions('view_sales')
-  async getSalaryAnalytics(@Req() req, @Query() query: any) {
-    const { startDate, endDate } = query;
-    return this.salaryService.getSalaryAnalytics(
-      req.user.tenantId,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
-    );
   }
 }

@@ -944,6 +944,13 @@ export class SalesService {
                 },
               },
             },
+            Branch: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
           },
         },
       },
@@ -1391,6 +1398,13 @@ export class SalesService {
             id: true,
             total: true,
             createdAt: true,
+            Branch: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
           },
         },
       },
@@ -1465,6 +1479,20 @@ export class SalesService {
 
     console.log('Overdue by month:', overdueByMonth);
 
+    // Calculate credits by branch
+    const creditsByBranch: Record<string, { name: string; total: number; count: number }> = {};
+    credits.forEach((credit) => {
+      const branchName = credit.sale?.Branch?.name || 'No Branch';
+      const branchId = credit.sale?.Branch?.id || 'no-branch';
+      if (!creditsByBranch[branchId]) {
+        creditsByBranch[branchId] = { name: branchName, total: 0, count: 0 };
+      }
+      creditsByBranch[branchId].total += credit.totalAmount;
+      creditsByBranch[branchId].count += 1;
+    });
+
+    console.log('Credits by branch:', creditsByBranch);
+
     // Calculate average payment time
     let totalPaymentDays = 0;
     let paymentCount = 0;
@@ -1498,6 +1526,7 @@ export class SalesService {
         paymentTrends,
         outstandingByMonth,
         overdueByMonth,
+        creditsByBranch: Object.values(creditsByBranch),
       },
     };
   }
@@ -1539,6 +1568,13 @@ export class SalesService {
                     name: true,
                   },
                 },
+              },
+            },
+            Branch: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
               },
             },
           },
@@ -1603,6 +1639,13 @@ export class SalesService {
               price: item.price,
               total: item.quantity * item.price,
             })),
+            branch: credit.sale.Branch
+              ? {
+                  id: credit.sale.Branch.id,
+                  name: credit.sale.Branch.name,
+                  address: credit.sale.Branch.address,
+                }
+              : null,
           }
         : null,
       payments: credit.payments.map((payment) => ({
