@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
@@ -85,6 +86,7 @@ import axios from 'axios';
 
 @Injectable()
 export class SalesService {
+  private readonly logger = new Logger(SalesService.name);
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
@@ -177,7 +179,7 @@ export class SalesService {
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
-        console.warn(
+        this.logger.warn(
           `Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`,
         );
         validBranchId = null;
@@ -287,7 +289,7 @@ export class SalesService {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
 
     try {
-      console.log(`Fetching sale with ID: ${id} for tenant: ${tenantId}`);
+      this.logger.debug(`Fetching sale with ID: ${id} for tenant: ${tenantId}`);
 
       const sale = await this.prisma.sale.findUnique({
         where: { id, tenantId },
@@ -329,7 +331,7 @@ export class SalesService {
       });
 
       if (!sale) {
-        console.log(`Sale not found with ID: ${id} for tenant: ${tenantId}`);
+        this.logger.warn(`Sale not found with ID: ${id} for tenant: ${tenantId}`);
         throw new NotFoundException('Sale not found');
       }
 
@@ -800,46 +802,13 @@ export class SalesService {
       },
       orderBy: { stock: 'asc' },
     });
-    // Prepare customer data for segmentation
-    const customerInput = Object.values(customerMap).map((c) => ({
-      name: c.name,
-      total: c.total,
-      count: c.count,
-      last_purchase: c.lastPurchase || new Date().toISOString(),
-    }));
-    let customerSegments: unknown[] = [];
-    try {
-      if (customerInput.length > 0 && process.env.AI_SERVICE_URL) {
-        const res = await axios.post(
-          `${process.env.AI_SERVICE_URL}/customer_segments`,
-          {
-            customers: customerInput,
-          },
-        );
-        customerSegments = res.data;
-      }
-    } catch {
-      // Segmentation service not available or error
-    }
-    // After calculating salesByMonth
-    const months = Object.keys(salesByMonth);
-    const salesValues = Object.values(salesByMonth);
-    let forecast: { forecast_months: unknown[]; forecast_sales: unknown[] } = {
+    // AI service removed - customer segmentation disabled
+    const customerSegments: unknown[] = [];
+    // AI service removed - forecast disabled
+    const forecast: { forecast_months: unknown[]; forecast_sales: unknown[] } = {
       forecast_months: [],
       forecast_sales: [],
     };
-    try {
-      if (process.env.AI_SERVICE_URL) {
-        const res = await axios.post(`${process.env.AI_SERVICE_URL}/forecast`, {
-          months,
-          sales: salesValues,
-          periods: 4, // predict next 4 months
-        });
-        forecast = res.data;
-      }
-    } catch {
-      // Forecasting service not available or error
-    }
     return {
       totalSales,
       totalRevenue,
@@ -871,7 +840,7 @@ export class SalesService {
 
   async getRecentSales(tenantId: string, limit: number = 10) {
     try {
-      console.log(`Fetching recent sales for tenant: ${tenantId}`);
+      this.logger.debug(`Fetching recent sales for tenant: ${tenantId}`);
 
       const recentSales = await this.prisma.sale.findMany({
         where: { tenantId },
@@ -1094,7 +1063,7 @@ export class SalesService {
     customerName: string,
     customerPhone?: string,
   ) {
-    console.log('calculateCustomerCreditScore called with:', {
+    this.logger.debug('calculateCustomerCreditScore called', {
       tenantId,
       customerName,
       customerPhone,
@@ -1116,7 +1085,7 @@ export class SalesService {
     console.log('Found credits:', credits.length);
 
     if (credits.length === 0) {
-      console.log('No credits found, returning default score');
+      this.logger.debug('No credits found, returning default score');
       return {
         score: 100, // New customers start with perfect score
         riskLevel: 'low',
@@ -1138,7 +1107,7 @@ export class SalesService {
       0,
     );
 
-    console.log('Credit stats:', {
+    this.logger.debug('Credit stats', {
       totalCredits,
       paidCredits,
       overdueCredits,
@@ -1173,7 +1142,7 @@ export class SalesService {
     const averagePaymentDays =
       paymentCount > 0 ? totalPaymentDays / paymentCount : 30; // Default 30 days
 
-    console.log('Payment stats:', {
+    this.logger.debug('Payment stats', {
       totalPaymentDays,
       paymentCount,
       averagePaymentDays,
@@ -1202,7 +1171,7 @@ export class SalesService {
 
     score = Math.max(0, Math.min(100, score));
 
-    console.log('Calculated score:', score);
+    this.logger.debug(`Calculated credit score: ${score}`);
 
     // Determine risk level
     let riskLevel: 'low' | 'medium' | 'high';
@@ -1222,7 +1191,7 @@ export class SalesService {
       },
     };
 
-    console.log('Returning credit score result:', result);
+    this.logger.debug('Credit score calculation complete', { score: result.score });
     return result;
   }
 
@@ -1273,7 +1242,7 @@ export class SalesService {
     requestedAmount: number,
     customerPhone?: string,
   ) {
-    console.log('checkCreditEligibility called with:', {
+    this.logger.debug('checkCreditEligibility called', {
       tenantId,
       customerName,
       requestedAmount,
@@ -1281,21 +1250,21 @@ export class SalesService {
     });
 
     const policy = await this.getTenantCreditPolicy(tenantId);
-    console.log('Credit policy:', policy);
+    this.logger.debug('Credit policy', { policy });
 
     const balance = await this.getCustomerCreditBalance(
       tenantId,
       customerName,
       customerPhone,
     );
-    console.log('Customer balance:', balance);
+    this.logger.debug(`Customer balance: ${balance}`);
 
     const score = await this.calculateCustomerCreditScore(
       tenantId,
       customerName,
       customerPhone,
     );
-    console.log('Credit score:', score);
+    this.logger.debug(`Credit score: ${score}`);
 
     const currentOutstanding = balance.totalOutstanding;
     const maxAllowed = (policy as { maxCreditPerCustomer: number })
@@ -1322,7 +1291,7 @@ export class SalesService {
       ],
     };
 
-    console.log('Eligibility result:', result);
+    this.logger.debug('Credit eligibility check complete', { eligible: result.isEligible });
     return result;
   }
 
@@ -1369,7 +1338,7 @@ export class SalesService {
 
   // Credit Analytics Dashboard
   async getCreditAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
-    console.log('getCreditAnalytics called with:', {
+    this.logger.debug('getCreditAnalytics called', {
       tenantId,
       startDate,
       endDate,
@@ -1380,7 +1349,7 @@ export class SalesService {
     const start = startDate || new Date();
     start.setDate(start.getDate() - 30);
 
-    console.log('Date range:', { start, end });
+    this.logger.debug('Date range for credit analytics', { start, end });
 
     // Get all credits for the tenant
     const credits = await this.prisma.credit.findMany({
@@ -1437,7 +1406,7 @@ export class SalesService {
       (credit) => credit.status === 'active',
     ).length;
 
-    console.log('Credit metrics:', {
+    this.logger.debug('Credit metrics calculated', {
       totalCredits,
       totalOutstanding,
       totalPaid,
@@ -1456,7 +1425,7 @@ export class SalesService {
       });
     });
 
-    console.log('Payment trends:', paymentTrends);
+    this.logger.debug('Payment trends calculated', { trendCount: paymentTrends.length });
 
     // Calculate outstanding amounts by month
     const outstandingByMonth: Record<string, number> = {};
@@ -1477,7 +1446,7 @@ export class SalesService {
         overdueByMonth[month] = (overdueByMonth[month] || 0) + 1;
       });
 
-    console.log('Overdue by month:', overdueByMonth);
+    this.logger.debug('Overdue by month calculated', { monthCount: overdueByMonth.length });
 
     // Calculate credits by branch
     const creditsByBranch: Record<string, { name: string; total: number; count: number }> = {};
@@ -1491,7 +1460,7 @@ export class SalesService {
       creditsByBranch[branchId].count += 1;
     });
 
-    console.log('Credits by branch:', creditsByBranch);
+    this.logger.debug('Credits by branch calculated', { branchCount: creditsByBranch.length });
 
     // Calculate average payment time
     let totalPaymentDays = 0;
@@ -1509,7 +1478,7 @@ export class SalesService {
     const avgPaymentTime =
       paymentCount > 0 ? totalPaymentDays / paymentCount : 0;
 
-    console.log('Average payment time:', avgPaymentTime);
+    this.logger.debug(`Average payment time: ${avgPaymentTime} days`);
 
     return {
       summary: {
@@ -1537,7 +1506,7 @@ export class SalesService {
     customerName: string,
     customerPhone?: string,
   ) {
-    console.log('getCustomerCreditHistory called with:', {
+    this.logger.debug('getCustomerCreditHistory called', {
       tenantId,
       customerName,
       customerPhone,
@@ -1583,7 +1552,7 @@ export class SalesService {
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log('Found customer credits:', credits.length);
+    this.logger.debug(`Found ${credits.length} customer credits`);
 
     // Calculate customer summary
     const totalCredits = credits.length;
@@ -1606,7 +1575,7 @@ export class SalesService {
       (credit) => credit.status === 'overdue',
     ).length;
 
-    console.log('Customer summary:', {
+    this.logger.debug('Customer summary calculated', {
       totalCredits,
       totalCreditAmount,
       totalPaid,
@@ -1657,7 +1626,7 @@ export class SalesService {
       })),
     }));
 
-    console.log('Credit history transformed');
+    this.logger.debug('Credit history transformation complete');
 
     return {
       customer: {
@@ -1679,7 +1648,7 @@ export class SalesService {
 
   // Credit Aging Analysis
   async getCreditAgingAnalysis(tenantId: string) {
-    console.log('getCreditAgingAnalysis called with:', { tenantId });
+    this.logger.debug('getCreditAgingAnalysis called', { tenantId });
 
     const credits = await this.prisma.credit.findMany({
       where: {
@@ -1699,7 +1668,7 @@ export class SalesService {
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log('Found aging credits:', credits.length);
+    this.logger.debug(`Found ${credits.length} aging credits`);
 
     const now = new Date();
     const agingBuckets = {
@@ -1747,7 +1716,7 @@ export class SalesService {
       });
     });
 
-    console.log('Aging analysis:', {
+    this.logger.debug('Aging analysis complete', {
       agingBuckets,
       detailsCount: Object.values(agingDetails).flat().length,
     });

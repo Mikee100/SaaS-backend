@@ -198,8 +198,12 @@ async function bootstrap() {
       );
     }
 
-    // Log JWT secret at startup
-    console.log('Signing JWT with secret:', process.env.JWT_SECRET);
+    // Log JWT secret status (but not the actual secret for security)
+    if (process.env.JWT_SECRET) {
+      logger.log('JWT secret is configured');
+    } else {
+      logger.error('JWT_SECRET is not set - authentication will fail');
+    }
 
     // Start the application
     await app.listen(port, '0.0.0.0');
@@ -227,6 +231,7 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error('Failed to start application:', err);
+  const logger = new Logger('Bootstrap');
+  logger.error('Failed to start application', err);
   process.exit(1);
 });

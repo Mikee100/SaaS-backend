@@ -219,6 +219,11 @@ export class ProductService {
     // Remove branchId and tenantId from productData, as they should be set via relation connect
     delete productData.branchId;
     delete productData.tenantId;
+    
+    // Handle supplierId and supplier - remove them from productData, we'll handle supplier separately
+    const supplierId = productData.supplierId;
+    delete productData.supplierId;
+    delete productData.supplier; // Remove supplier relation if it exists
 
     // Validate branch and tenant existence before create
     const branch = await this.prisma.branch.findUnique({
@@ -234,17 +239,28 @@ export class ProductService {
       throw new BadRequestException(`Tenant with id ${data.tenantId} does not exist`);
     }
 
-    const product = await this.prisma.product.create({
-      data: {
-        ...productData,
-        tenant: {
-          connect: { id: data.tenantId },
-        },
-        branch: {
-          connect: { id: data.branchId },
-        },
-        // Remove category as it's no longer used
+    // Build create data - use spread but ensure supplier is not included
+    const { supplier, ...cleanProductData } = productData;
+    
+    const createData: any = {
+      ...cleanProductData,
+      tenant: {
+        connect: { id: data.tenantId },
       },
+      branch: {
+        connect: { id: data.branchId },
+      },
+    };
+
+    // Only set supplierId directly (not as relation) if provided
+    // This avoids Prisma trying to set the supplier relation when it's null
+    if (supplierId && supplierId.trim() !== '') {
+      createData.supplierId = supplierId;
+    }
+    // If supplierId is not provided, don't include it (Prisma will use null by default)
+
+    const product = await this.prisma.product.create({
+      data: createData,
     });
 
     // Invalidate cache for this tenant
@@ -899,8 +915,8 @@ console.log('Bulk upload user:', user);
     });
   }
 
-  // Helper method to generate variations from attributes
-  generateVariationsFromAttributes(attributes: any[], baseProduct: any) {
+  // Helper method to generate variations from attributes (legacy - for backward compatibility)
+  private generateVariationsFromAttributesLegacy(attributes: any[], baseProduct: any) {
     if (!attributes || attributes.length === 0) return [];
 
     // Create all possible combinations of attribute values
@@ -909,7 +925,7 @@ console.log('Bulk upload user:', user);
     );
 
     return combinations.map((combination, index) => {
-      const attrsObj = {};
+      const attrsObj: Record<string, string> = {};
       attributes.forEach((attr, attrIndex) => {
         attrsObj[attr.name] = combination[attrIndex];
       });
@@ -945,41 +961,200 @@ console.log('Bulk upload user:', user);
     return false; // Placeholder - implement proper cycle detection if needed
   }
 
-  // Generate variations from custom fields
-  async generateVariationsFromCustomFields(
+  // Generate variations from attributes
+  async generateVariationsFromAttributes(
     productId: string,
     tenantId: string,
-    userId: string,
+    attributes: Array<{ attributeName: string; values: string[] }>,
+    skuPrefix?: string,
+    branchId?: string,
   ) {
-    // Get the product with custom fields
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-        tenantId: true,
-        price: true,
-        branchId: true,
-        sku: true,
-        stock: true,
-        cost: true,
-        images: true,
-        supplierId: true,
-        bulkUploadRecordId: true,
-        hasVariations: true,
-
-      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    // Generate all combinations using cartesian product
+    const valueArrays = attributes.map((attr) => attr.values);
+    const combinations = this.cartesianProduct(valueArrays);
 
+    const variations: Array<{
+      productId: string;
+      sku: string;
+      price: number;
+      cost: number;
+      stock: number;
+      attributes: Record<string, string>;
+      tenantId: string;
+      branchId: string | null;
+      isActive: boolean;
+    }> = [];
+    const baseSku = skuPrefix || product.sku;
+
+    for (let i = 0; i < combinations.length; i++) {
+      const combination = combinations[i];
+      const attrsObj: Record<string, string> = {};
+
+      // Build attributes object
+      attributes.forEach((attr, idx) => {
+        attrsObj[attr.attributeName] = combination[idx];
+      });
+
+      // Generate SKU: baseSKU-Color-Size or baseSKU-1, baseSKU-2, etc.
+      const skuSuffix = combination.join('-').replace(/\s+/g, '');
+      const sku = `${baseSku}-${skuSuffix}`;
+
+      // Check if variation already exists
+      const existing = await this.prisma.productVariation.findFirst({
+        where: {
+          productId,
+          sku,
+          tenantId,
+        },
+      });
+
+      if (!existing) {
+        variations.push({
+          productId,
+          sku,
+          price: product.price,
+          cost: product.cost,
+          stock: 0,
+          attributes: attrsObj,
+          tenantId,
+          branchId: branchId || product.branchId,
+          isActive: true,
+        });
+      }
     }
+
+    // Bulk create variations
+    if (variations.length > 0) {
+      await this.prisma.productVariation.createMany({
+        data: variations.map((v) => ({
+          id: uuidv4(),
+          productId: v.productId,
+          sku: v.sku,
+          price: v.price,
+          cost: v.cost,
+          stock: v.stock,
+          attributes: v.attributes,
+          tenantId: v.tenantId,
+          branchId: v.branchId,
+          isActive: v.isActive,
+        })),
+      });
+
+      // Update product to mark it as having variations
+      await this.prisma.product.update({
+        where: { id: productId },
+        data: { hasVariations: true },
+      });
+    }
+
+    return {
+      productId,
+      generated: variations.length,
+      variations: await this.getVariationsByProduct(productId, tenantId),
+    };
+  }
+
+  // Generate variations from custom fields (legacy method)
+  async generateVariationsFromCustomFields(
+    productId: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // This method can be used if customFields contains variation data
+    // For now, return empty or use the new method
+    return {
+      productId,
+      generated: 0,
+      message: 'Use generateVariationsFromAttributes for better control',
+    };
+  }
+
+  // Bulk update variation stock
+  async bulkUpdateVariationStock(
+    productId: string,
+    tenantId: string,
+    updates: Array<{ variationId: string; stock: number }>,
+  ) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const results: any[] = [];
+
+    for (const update of updates) {
+      const variation = await this.prisma.productVariation.updateMany({
+        where: {
+          id: update.variationId,
+          productId,
+          tenantId,
+        },
+        data: { stock: update.stock },
+      });
+      results.push(variation);
+    }
+
+    // Update total product stock
+    const totalStock = await this.prisma.productVariation.aggregate({
+      where: { productId, tenantId, isActive: true },
+      _sum: { stock: true },
+    });
+
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { stock: totalStock._sum.stock || 0 },
+    });
+
+    return results;
+  }
+
+  // Get variation by attributes
+  async getVariationByAttributes(
+    productId: string,
+    tenantId: string,
+    attributes: Record<string, string>,
+  ) {
+    const variations = await this.prisma.productVariation.findMany({
+      where: {
+        productId,
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    // Find variation matching all attributes
+    for (const variation of variations) {
+      const variationAttrs = variation.attributes as Record<string, string>;
+      const matches = Object.keys(attributes).every(
+        (key) => variationAttrs[key] === attributes[key],
+      );
+
+      if (matches) {
+        return variation;
+      }
+    }
+
+    return null;
+  }
 
   
 }

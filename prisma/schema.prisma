@@ -182,6 +182,7 @@ model Tenant {
   bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
   productVariations   ProductVariation[]    @relation("TenantProductVariations")
+  productAttributes   ProductAttribute[]    @relation("TenantProductAttributes")
   expenses            Expense[]             // New
   expenseCategories   ExpenseCategory[]     // New
   salesTargets         SalesTarget[]         // New
@@ -520,6 +521,43 @@ model Supplier {
 
 
 
+// Product Attribute Definitions (e.g., "Color", "Size", "Storage")
+model ProductAttribute {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Color", "Size", "Storage"
+  displayName String?  // e.g., "Color", "Size", "Storage Capacity"
+  type        String   @default("text") // "text", "number", "color", "image"
+  tenantId    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  values      ProductAttributeValue[]
+  tenant      Tenant   @relation("TenantProductAttributes", fields: [tenantId], references: [id])
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+// Product Attribute Values (e.g., "Black", "Grey", "38", "256GB")
+model ProductAttributeValue {
+  id          String   @id @default(uuid())
+  attributeId String
+  value       String   // e.g., "Black", "38", "256GB"
+  displayName String?  // Optional display name
+  color       String?  // Hex color for color attributes
+  image       String?  // Image URL for image-based attributes
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  attribute   ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@unique([attributeId, value])
+  @@index([attributeId])
+  @@index([isActive])
+}
+
 model ProductVariation {
   id           String   @id @default(uuid())
   productId    String
@@ -527,12 +565,14 @@ model ProductVariation {
   price        Float?   // Override price, null means use base price
   cost         Float?   // Override cost, null means use base cost
   stock        Int      @default(0)
-  attributes   Json     // {"Size": "8", "Color": "Black"}
+  attributes   Json     // {"Color": "Black", "Size": "38"} - using attribute names and values
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   tenantId     String
   branchId     String?
+  barcode      String?  // Optional barcode for this variation
+  weight       Float?   // Optional weight override
   product      Product  @relation("ProductVariations", fields: [productId], references: [id])
   tenant       Tenant   @relation("TenantProductVariations", fields: [tenantId], references: [id])
   branch       Branch?  @relation("BranchProductVariations", fields: [branchId], references: [id])
@@ -542,6 +582,7 @@ model ProductVariation {
   @@index([productId])
   @@index([tenantId])
   @@index([branchId])
+  @@index([sku])
 }
 
 model Product {

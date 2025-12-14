@@ -14,11 +14,34 @@ export interface ConfigurationItem {
 @Injectable()
 export class ConfigurationService {
   private readonly logger = new Logger(ConfigurationService.name);
-  private readonly encryptionKey =
-    process.env.CONFIG_ENCRYPTION_KEY ||
-    'default-encryption-key-change-in-production';
+  private readonly encryptionKey: string;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    // Require encryption key - fail if not set
+    if (!process.env.CONFIG_ENCRYPTION_KEY) {
+      this.logger.error(
+        'CONFIG_ENCRYPTION_KEY environment variable is required but not set. ' +
+        'Please set it in your environment variables before starting the application.'
+      );
+      throw new Error(
+        'CONFIG_ENCRYPTION_KEY environment variable is required. ' +
+        'Application cannot start without a valid encryption key.'
+      );
+    }
+
+    // Validate encryption key length (minimum 32 characters for AES-256)
+    if (process.env.CONFIG_ENCRYPTION_KEY.length < 32) {
+      this.logger.error(
+        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long for AES-256 encryption.'
+      );
+      throw new Error(
+        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long.'
+      );
+    }
+
+    this.encryptionKey = process.env.CONFIG_ENCRYPTION_KEY;
+    this.logger.log('Configuration service initialized with encryption key');
+  }
 
   private encryptValue(value: string): string {
     const iv = crypto.randomBytes(16);

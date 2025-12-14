@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { Prisma } from '@prisma/client';
-import axios from 'axios';
 
 @Injectable()
 export class AnalyticsService {
+  private readonly logger = new Logger(AnalyticsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getDashboardAnalytics(tenantId: string) {
@@ -30,9 +31,6 @@ export class AnalyticsService {
       branchTopProducts,
       inventoryAnalytics,
       forecastData,
-      anomaliesData,
-      customerSegmentsData,
-      churnPredictionData,
     ] = await Promise.all([
       // Total Sales (count of sales in the last 30 days)
       this.prisma.sale.count({
@@ -101,15 +99,6 @@ export class AnalyticsService {
 
       // Sales forecasting
       this.generateSalesForecast(tenantId),
-
-      // AI-powered anomaly detection
-      this.getAnomaliesData(tenantId),
-
-      // AI-powered customer segmentation
-      this.getCustomerSegmentsData(tenantId),
-
-      // AI-powered churn prediction
-      this.getChurnPredictionData(tenantId),
     ]);
 
     // Calculate customer retention (simplified)
@@ -146,42 +135,10 @@ export class AnalyticsService {
       performanceMetrics,
       realTimeData: await this.getRealTimeData(tenantId),
       forecast: forecastData,
-      anomalies: anomaliesData,
-      customerSegmentsAI: customerSegmentsData,
-      churnPrediction: churnPredictionData,
+      anomalies: [],
+      customerSegmentsAI: [],
+      churnPrediction: [],
     };
-
-    // Generate AI summary
-    let aiSummary = 'AI summary generation failed.';
-    try {
-      const summaryResponse = await axios.post(
-        'http://localhost:5001/generate_summary',
-        {
-          metrics: {
-            totalSales,
-            totalRevenue: totalRevenue._sum.total || 0,
-            avgSaleValue:
-              totalSales > 0 ? (totalRevenue._sum.total || 0) / totalSales : 0,
-            topProducts: topProducts.map((p) => ({ name: p.name })),
-            customerRetention: {
-              retentionRate: parseFloat(retentionRate.toFixed(2)),
-            },
-            forecastGrowth:
-              forecastData.forecast_sales?.length > 1
-                ? ((forecastData.forecast_sales[
-                    forecastData.forecast_sales.length - 1
-                  ] -
-                    forecastData.forecast_sales[0]) /
-                    forecastData.forecast_sales[0]) *
-                  100
-                : 0,
-          },
-        },
-      );
-      aiSummary = summaryResponse.data.summary;
-    } catch (error) {
-      console.error('Failed to generate AI summary:', error);
-    }
 
     // Add recent activity data
     const recentSales = await this.prisma.sale.findMany({
@@ -210,7 +167,6 @@ export class AnalyticsService {
     return {
       ...analyticsData,
       recentActivity,
-      aiSummary,
     };
   }
 
@@ -739,146 +695,18 @@ export class AnalyticsService {
   }
 
   private async getAnomaliesData(tenantId: string) {
-    try {
-      // Get sales data for anomaly detection (last 6 months)
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-      const salesData = await this.prisma.$queryRaw(
-        Prisma.sql`
-          SELECT
-            TO_CHAR("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') as date,
-            COUNT(*) as sales_count,
-            COALESCE(SUM(total), 0) as total_revenue
-          FROM "Sale"
-          WHERE "tenantId" = ${tenantId}
-            AND "createdAt" >= ${sixMonthsAgo}
-          GROUP BY date
-          ORDER BY date ASC
-        `,
-      );
-
-      type SalesData = {
-        date: string;
-        sales_count: bigint;
-        total_revenue: string;
-      };
-      const sales = (salesData as SalesData[]).map((item) => ({
-        date: item.date,
-        value: parseFloat(item.total_revenue),
-      }));
-
-      if (sales.length < 5) {
-        return []; // Not enough data for anomaly detection
-      }
-
-      const response = await axios.post('http://localhost:5001/anomalies', {
-        sales,
-      });
-
-      return response.data || [];
-    } catch (error) {
-      console.error('Failed to get anomalies data:', error);
-      return [];
-    }
+    // AI service removed - returning empty array
+    return [];
   }
 
   private async getCustomerSegmentsData(tenantId: string) {
-    try {
-      // Get customer data for segmentation
-      const customerData = await this.prisma.$queryRaw(
-        Prisma.sql`
-          SELECT
-            COALESCE("customerName", 'Unknown') as name,
-            COUNT(*) as count,
-            COALESCE(SUM(total), 0) as total,
-            MAX("createdAt") as last_purchase
-          FROM "Sale"
-          WHERE "tenantId" = ${tenantId}
-            AND "customerPhone" IS NOT NULL
-          GROUP BY "customerPhone", "customerName"
-          HAVING COUNT(*) > 0
-        `,
-      );
-
-      type CustomerData = {
-        name: string;
-        count: bigint;
-        total: string;
-        last_purchase: Date;
-      };
-      const customers = (customerData as CustomerData[]).map((item) => ({
-        name: item.name,
-        total: parseFloat(item.total),
-        count: Number(item.count),
-        last_purchase: item.last_purchase.toISOString().split('T')[0],
-      }));
-
-      if (customers.length < 2) {
-        return []; // Not enough data for segmentation
-      }
-
-      const response = await axios.post(
-        'http://localhost:5001/customer_segments',
-        {
-          customers,
-        },
-      );
-
-      return response.data || [];
-    } catch (error) {
-      console.error('Failed to get customer segments data:', error);
-      return [];
-    }
+    // AI service removed - returning empty array
+    return [];
   }
 
   private async getChurnPredictionData(tenantId: string) {
-    try {
-      // Get customer data for churn prediction
-      const customerData = await this.prisma.$queryRaw(
-        Prisma.sql`
-          SELECT
-            COALESCE("customerName", 'Unknown') as name,
-            COUNT(*) as count,
-            COALESCE(SUM(total), 0) as total,
-            MAX("createdAt") as last_purchase
-          FROM "Sale"
-          WHERE "tenantId" = ${tenantId}
-            AND "customerPhone" IS NOT NULL
-          GROUP BY "customerPhone", "customerName"
-          HAVING COUNT(*) > 0
-        `,
-      );
-
-      type CustomerData = {
-        name: string;
-        count: bigint;
-        total: string;
-        last_purchase: Date;
-      };
-      const customers = (customerData as CustomerData[]).map((item) => ({
-        name: item.name,
-        total: parseFloat(item.total),
-        count: Number(item.count),
-        last_purchase: item.last_purchase.toISOString().split('T')[0],
-      }));
-
-      if (customers.length < 2) {
-        return []; // Not enough data for churn prediction
-      }
-
-      const response = await axios.post(
-        'http://localhost:5001/churn_prediction',
-        {
-          customers,
-        },
-      );
-
-      return response.data || [];
-    } catch (error) {
-      console.error('Failed to get churn prediction data:', error);
-      return [];
-    }
+    // AI service removed - returning empty array
+    return [];
   }
 
   async getBranchSales(
@@ -1010,7 +838,10 @@ export class AnalyticsService {
         salesTrend,
       };
     } catch (error) {
-      console.error('Error in getBranchSales:', error);
+      this.logger.error('Error in getBranchSales', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error('Failed to fetch branch sales data');
     }
   }
@@ -1152,7 +983,10 @@ export class AnalyticsService {
         periodType: dateTrunc,
       };
     } catch (error) {
-      console.error('Error in getBranchComparisonTimeSeries:', error);
+      this.logger.error('Error in getBranchComparisonTimeSeries', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error('Failed to fetch branch comparison time series data');
     }
   }
@@ -1288,7 +1122,10 @@ export class AnalyticsService {
         },
       };
     } catch (error) {
-      console.error('Error in getBranchProductComparison:', error);
+      this.logger.error('Error in getBranchProductComparison', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error('Failed to fetch branch product comparison data');
     }
   }

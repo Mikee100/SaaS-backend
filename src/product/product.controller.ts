@@ -269,7 +269,9 @@ async bulkUpload(
       price?: number;
       cost?: number;
       stock: number;
-      attributes: any;
+      attributes: Record<string, string>;
+      barcode?: string;
+      weight?: number;
       branchId?: string;
     },
     @Req() req,
@@ -286,6 +288,33 @@ async bulkUpload(
       tenantId: req.user.tenantId,
       branchId,
     });
+  }
+
+  @Post(':productId/generate-variations')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('create_products')
+  async generateVariations(
+    @Param('productId') productId: string,
+    @Body()
+    body: {
+      attributes: Array<{ attributeName: string; values: string[] }>;
+      skuPrefix?: string;
+      branchId?: string;
+    },
+    @Req() req,
+  ) {
+    if (!req.user || !req.user.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    const branchId =
+      body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
+    return this.productService.generateVariationsFromAttributes(
+      productId,
+      req.user.tenantId,
+      body.attributes,
+      body.skuPrefix,
+      branchId,
+    );
   }
 
   @Get(':productId/variations')
@@ -339,12 +368,12 @@ async bulkUpload(
     return this.productService.deleteVariation(id, req.user.tenantId);
   }
 
-  // Generate variations from custom fields
-  @Post(':id/generate-variations')
+  // Generate variations from custom fields (legacy method)
+  @Post(':id/generate-variations-legacy')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('edit_products')
-  async generateVariations(@Param('id') id: string, @Req() req) {
-    console.log('[generateVariations] called', { id, user: req.user });
+  async generateVariationsLegacy(@Param('id') id: string, @Req() req) {
+    console.log('[generateVariationsLegacy] called', { id, user: req.user });
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }

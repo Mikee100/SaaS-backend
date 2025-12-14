@@ -133,15 +133,18 @@ export class UserService {
       }
     }
 
+    // Normalize email (lowercase and trim) to ensure consistency
+    const normalizedEmail = data.email.toLowerCase().trim();
+
     // Check if user with this email already exists in any tenant
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: normalizedEmail },
       select: { id: true, tenantId: true },
     });
 
     if (existingUser) {
       throw new BadRequestException(
-        `A user with email '${data.email}' already exists. ` +
+        `A user with email '${normalizedEmail}' already exists. ` +
           `Please use a different email address or contact support if you need assistance.`,
       );
     }
@@ -149,11 +152,11 @@ export class UserService {
     // Hash the password
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // Create the user
+    // Create the user with normalized email
     const user = await prisma.user.create({
       data: {
         name: data.name,
-        email: data.email,
+        email: normalizedEmail,
         password: hashedPassword,
         tenantId: data.tenantId,
         branchId: data.branchId,
@@ -223,6 +226,9 @@ export class UserService {
 
   async findByEmail(email: string, include?: Prisma.UserInclude) {
     try {
+      // Normalize email (lowercase and trim) to ensure consistency
+      const normalizedEmail = email.toLowerCase().trim();
+
       const defaultInclude: Prisma.UserInclude = {
         userRoles: {
           include: {
@@ -243,19 +249,19 @@ export class UserService {
       // If no custom include is provided, use the default one
       const queryInclude = include || defaultInclude;
 
-      this.logger.log(`Querying database for user with email: ${email}`);
+      this.logger.log(`Querying database for user with email: ${normalizedEmail}`);
 
       try {
         const user = await this.prisma.user.findUnique({
-          where: { email },
+          where: { email: normalizedEmail },
           include: queryInclude,
         });
 
         if (user) {
-          this.logger.log(`Found user: ${user.id} with email: ${email}`);
+          this.logger.log(`Found user: ${user.id} with email: ${normalizedEmail}`);
           return user;
         } else {
-          this.logger.warn(`No user found with email: ${email}`);
+          this.logger.warn(`No user found with email: ${normalizedEmail}`);
           return null;
         }
       } catch (error) {
@@ -276,7 +282,7 @@ export class UserService {
 
           // Try with a more basic query that doesn't rely on isActive
           const basicUser = await this.prisma.user.findUnique({
-            where: { email },
+            where: { email: normalizedEmail },
             select: {
               id: true,
               email: true,

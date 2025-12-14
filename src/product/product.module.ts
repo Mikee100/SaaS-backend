@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ProductController } from './product.controller';
+import { ProductAttributeController } from './product-attribute.controller';
 import { BulkUploadRecordController } from './bulk-upload-record.controller';
 import { ProductService } from './product.service';
+import { ProductAttributeService } from './product-attribute.service';
 import { BulkUploadRecordService } from './bulk-upload-record.service';
 import { PrismaModule } from '../prisma.module';
 import { CacheModule } from '../cache/cache.module';
@@ -13,13 +15,22 @@ import { TrialGuard } from '../auth/trial.guard';
 
 @Module({
   imports: [PrismaModule, CacheModule, BillingModule, UserModule],
-  controllers: [ProductController, BulkUploadRecordController],
+  controllers: [
+    ProductController,
+    ProductAttributeController,
+    BulkUploadRecordController,
+  ],
   providers: [
     ProductService,
+    ProductAttributeService,
     BulkUploadRecordService,
     AuditLogService,
     TrialGuard,
   ],
-  exports: [ProductService, BulkUploadRecordService],
+  exports: [
+    ProductService,
+    ProductAttributeService,
+    BulkUploadRecordService,
+  ],
 })
 export class ProductModule {}

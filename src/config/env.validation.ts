@@ -11,6 +11,10 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGINS: Joi.string().default(
     'http://localhost:3000,http://localhost:5000',
   ),
+  CONFIG_ENCRYPTION_KEY: Joi.string()
+    .min(32)
+    .required()
+    .description('Encryption key for configuration values (minimum 32 characters)'),
 });
 
 export const validate = (config: Record<string, any>) => {

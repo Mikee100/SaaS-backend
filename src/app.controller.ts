@@ -15,6 +15,31 @@ export class AppController {
     return { message: 'SaaS API is running 🚀' };
   }
 
+  @Get('health')
+  async getHealth() {
+    try {
+      // Check database connectivity
+      await this.prisma.$queryRaw`SELECT 1`;
+      
+      return {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        database: 'connected',
+        service: 'backend',
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        service: 'backend',
+        error: process.env.NODE_ENV === 'development' 
+          ? (error instanceof Error ? error.message : String(error)) 
+          : undefined,
+      };
+    }
+  }
+
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('dashboard/stats')
   async getDashboardStats(@Req() req: any) {

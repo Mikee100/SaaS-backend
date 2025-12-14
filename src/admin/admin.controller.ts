@@ -50,6 +50,20 @@ export class AdminController {
     return result;
   }
 
+  // Specific routes must be defined BEFORE parameterized routes
+  @Get('tenants/space-usage')
+  async getTenantsSpaceUsage() {
+    this.logger.log('AdminController: getTenantsSpaceUsage called');
+    return this.adminService.getTenantsSpaceUsage();
+  }
+
+  @Get('tenants/analytics')
+  async getTenantsAnalytics() {
+    this.logger.log('AdminController: getTenantsAnalytics called');
+    const stats = await this.adminService.getTenantsSpaceUsage();
+    return stats;
+  }
+
   @Get('tenants/:id')
   async getTenantById(@Param('id') tenantId: string) {
     this.logger.log(
@@ -80,19 +94,6 @@ export class AdminController {
       `AdminController: switchToTenant called with tenantId: ${tenantId}`,
     );
     return this.adminService.switchToTenant(tenantId);
-  }
-
-  @Get('tenants/space-usage')
-  async getTenantsSpaceUsage() {
-    this.logger.log('AdminController: getTenantsSpaceUsage called');
-    return this.adminService.getTenantsSpaceUsage();
-  }
-
-  @Get('tenants/analytics')
-  async getTenantsAnalytics() {
-    this.logger.log('AdminController: getTenantsAnalytics called');
-    const stats = await this.adminService.getTenantsSpaceUsage();
-    return stats;
   }
 
   @Post('trials')

@@ -605,15 +605,54 @@ export class AdminService {
     businessType: string;
     contactEmail: string;
     contactPhone?: string;
-    country: string;
-    owner: {
+    country?: string;
+    owner?: {
       name: string;
       email: string;
-      password: string;
+      password?: string;
     };
+    // Support flat owner format from frontend
+    ownerName?: string;
+    ownerEmail?: string;
+    ownerPassword?: string;
     [key: string]: any;
   }) {
-    this.logger.log(`AdminService: createTenant called for ${tenantData.name}`);
+    this.logger.log(`AdminService: createTenant called for ${tenantData.name || 'unknown'}`);
+    this.logger.debug(`AdminService: Received tenant data: ${JSON.stringify(tenantData)}`);
+
+    // Normalize owner data - handle both nested and flat formats
+    let ownerName: string | undefined;
+    let ownerEmail: string | undefined;
+
+    if (tenantData.owner) {
+      // Nested format: { owner: { name, email } }
+      ownerName = tenantData.owner.name;
+      ownerEmail = tenantData.owner.email;
+    } else if (tenantData.ownerName && tenantData.ownerEmail) {
+      // Flat format: { ownerName, ownerEmail }
+      ownerName = tenantData.ownerName;
+      ownerEmail = tenantData.ownerEmail;
+    }
+
+    // Validate required fields with specific error messages
+    const missingFields: string[] = [];
+    if (!tenantData.name) missingFields.push('name');
+    if (!tenantData.businessType) missingFields.push('businessType');
+    if (!tenantData.contactEmail) missingFields.push('contactEmail');
+    if (!ownerName) missingFields.push('owner.name or ownerName');
+    if (!ownerEmail) missingFields.push('owner.email or ownerEmail');
+
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    // At this point, ownerName and ownerEmail are guaranteed to be strings
+    // TypeScript doesn't know this, so we use non-null assertions
+    const validatedOwnerName: string = ownerName!;
+    const validatedOwnerEmail: string = ownerEmail!;
+
+    // Use default country if not provided
+    const country = tenantData.country || 'Unknown';
 
     // Generate a default password for the owner
     const defaultPassword = 'owner1234@';
@@ -623,11 +662,11 @@ export class AdminService {
       businessType: tenantData.businessType,
       contactEmail: tenantData.contactEmail,
       contactPhone: tenantData.contactPhone,
-      country: tenantData.country,
+      country: country,
       branchName: 'Main Branch',
       owner: {
-        name: tenantData.owner.name,
-        email: tenantData.owner.email,
+        name: validatedOwnerName,
+        email: validatedOwnerEmail,
         password: defaultPassword, // Use default password instead of provided one
       },
     });
