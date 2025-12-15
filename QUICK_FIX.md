@@ -35,3 +35,7 @@ Your backend should now compile without errors and the `/product-attributes` end
 2. Try accessing: `http://localhost:9000/product-attributes/common` (with auth token)
 3. Frontend should now be able to load attributes
 
+
+
+
+
