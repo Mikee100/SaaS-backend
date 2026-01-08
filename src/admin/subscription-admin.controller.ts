@@ -6,18 +6,34 @@ import {
   Body,
   NotFoundException,
   Post,
+  UseGuards,
+  Logger,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { SubscriptionAdminService } from './subscription-admin.service';
+import { SuperadminGuard } from './superadmin.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
 @Controller('admin/subscriptions')
+@UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
 export class SubscriptionAdminController {
+  private readonly logger = new Logger(SubscriptionAdminController.name);
+
   constructor(
     private readonly subscriptionAdminService: SubscriptionAdminService,
   ) {}
 
   @Get()
   async getAllSubscriptions() {
-    return this.subscriptionAdminService.getAllSubscriptions();
+    try {
+      this.logger.log('Getting all subscriptions');
+      const subscriptions = await this.subscriptionAdminService.getAllSubscriptions();
+      this.logger.log(`Returning ${subscriptions.length} subscriptions`);
+      return subscriptions;
+    } catch (error) {
+      this.logger.error('Error in getAllSubscriptions:', error);
+      throw error;
+    }
   }
 
   @Get(':id')

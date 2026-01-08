@@ -1,25 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class SubscriptionAdminService {
+  private readonly logger = new Logger(SubscriptionAdminService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getAllSubscriptions() {
-    return await this.prisma.subscription.findMany({
-      include: {
-        Plan: true,
-        Tenant: {
-          select: {
-            id: true,
-            name: true,
-            contactEmail: true,
+    try {
+      const subscriptions = await this.prisma.subscription.findMany({
+        include: {
+          Plan: true,
+          Tenant: {
+            select: {
+              id: true,
+              name: true,
+              contactEmail: true,
+            },
           },
+          ScheduledPlan: true,
         },
-        ScheduledPlan: true,
-      },
-      orderBy: { currentPeriodStart: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
+      
+      this.logger.log(`Retrieved ${subscriptions.length} subscriptions`);
+      return subscriptions;
+    } catch (error) {
+      this.logger.error('Error fetching all subscriptions:', error);
+      this.logger.error('Error details:', JSON.stringify(error, null, 2));
+      throw error;
+    }
   }
 
   async getSubscriptionById(subscriptionId: string) {
