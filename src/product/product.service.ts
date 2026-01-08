@@ -356,8 +356,17 @@ export class ProductService {
     actorUserId?: string,
     ip?: string,
   ) {
-    const result = await this.prisma.product.deleteMany({
-      where: { id, tenantId },
+    // Delete variations first to avoid foreign key constraint errors
+    const result = await this.prisma.$transaction(async (prisma) => {
+      await prisma.productVariation.deleteMany({
+        where: { productId: id, tenantId },
+      });
+
+      const deleted = await prisma.product.deleteMany({
+        where: { id, tenantId },
+      });
+
+      return deleted;
     });
 
     // Invalidate cache for this tenant and product

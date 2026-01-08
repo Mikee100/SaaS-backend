@@ -28,6 +28,30 @@ export class AdminController {
     private readonly auditLogService: AuditLogService,
   ) {}
 
+  @Get('stats')
+  async getPlatformStats() {
+    this.logger.log('AdminController: getPlatformStats called');
+    return this.adminService.getPlatformStats();
+  }
+
+  @Get('stats/revenue-history')
+  async getRevenueHistory(
+    @Query('months') months?: string,
+  ) {
+    this.logger.log('AdminController: getRevenueHistory called');
+    const monthsNum = months ? Number(months) : 12;
+    return this.adminService.getRevenueHistory(monthsNum);
+  }
+
+  @Get('stats/tenant-growth')
+  async getTenantGrowth(
+    @Query('months') months?: string,
+  ) {
+    this.logger.log('AdminController: getTenantGrowth called');
+    const monthsNum = months ? Number(months) : 12;
+    return this.adminService.getTenantGrowth(monthsNum);
+  }
+
   @Get('billing/metrics')
   async getBillingMetrics() {
     this.logger.log('AdminController: getBillingMetrics called');

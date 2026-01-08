@@ -9,8 +9,11 @@ import {
   Put,
   Query,
   Delete,
+  Res,
 } from '@nestjs/common';
 import { AiService } from './ai.service';
+import { ChartService } from './services/chart.service';
+import { ReportService } from './services/report.service';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
@@ -19,7 +22,11 @@ import { TrialGuard } from '../auth/trial.guard';
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly chartService: ChartService,
+    private readonly reportService: ReportService,
+  ) {}
 
   @Post('chat')
   @Permissions('use_ai_assistant')
@@ -56,6 +63,8 @@ export class AiController {
       suggestions: result.suggestions,
       category: result.category,
       conversationId: result.conversationId || conversationId,
+      chartData: result.chartData,
+      reportData: result.reportData,
     };
   }
 
@@ -280,5 +289,121 @@ export class AiController {
       maxInteractions ? parseInt(maxInteractions) : undefined,
     );
     return { context };
+  }
+
+  @Post('generate-chart')
+  @Permissions('use_ai_assistant')
+  async generateChart(
+    @Body()
+    body: {
+      chartType: string;
+      dataType: string;
+      period?: string;
+      limit?: number;
+    },
+    @Request() req,
+  ) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.user.branchId;
+    const { chartType, dataType, period, limit } = body;
+
+    let chartConfig;
+
+    if (dataType === 'product') {
+      chartConfig = await this.chartService.generateProductPerformanceChart(
+        tenantId,
+        branchId,
+        chartType as 'bar' | 'pie' | 'doughnut',
+        limit || 10,
+      );
+    } else if (dataType === 'inventory') {
+      chartConfig = await this.chartService.generateInventoryChart(
+        tenantId,
+        branchId,
+        chartType as 'bar' | 'pie',
+      );
+    } else if (dataType === 'customer') {
+      chartConfig = await this.chartService.generateCustomerChart(
+        tenantId,
+        branchId,
+        chartType as 'bar' | 'pie' | 'doughnut',
+        limit || 10,
+      );
+    } else {
+      chartConfig = await this.chartService.generateSalesChart(
+        tenantId,
+        branchId,
+        chartType as 'line' | 'bar' | 'area',
+        (period || '30days') as '7days' | '30days' | '90days' | '1year',
+      );
+    }
+
+    return { chartConfig };
+  }
+
+  @Post('generate-report')
+  @Permissions('use_ai_assistant')
+  async generateReport(
+    @Body()
+    body: {
+      reportType: string;
+      format?: string;
+      period?: string;
+    },
+    @Request() req,
+  ) {
+    const tenantId = req.user.tenantId;
+    const branchId = req.user.branchId;
+    const { reportType, format, period } = body;
+
+    let reportResult;
+
+    if (reportType === 'inventory') {
+      reportResult = await this.reportService.generateInventoryReport(
+        tenantId,
+        branchId,
+        (format || 'xlsx') as 'xlsx' | 'csv',
+      );
+    } else if (reportType === 'product') {
+      reportResult = await this.reportService.generateProductReport(
+        tenantId,
+        branchId,
+        (format || 'xlsx') as 'xlsx' | 'csv',
+      );
+    } else {
+      reportResult = await this.reportService.generateSalesReport(
+        tenantId,
+        branchId,
+        (format || 'xlsx') as 'xlsx' | 'csv',
+        (period || '30days') as '7days' | '30days' | '90days' | '1year' | 'all',
+      );
+    }
+
+    return {
+      filename: reportResult.filename,
+      downloadUrl: `/api/ai/reports/download/${reportResult.filename}`,
+      reportType,
+      format: format || 'xlsx',
+    };
+  }
+
+  @Get('reports/download/:filename')
+  @Permissions('use_ai_assistant')
+  async downloadReport(
+    @Param('filename') filename: string,
+    @Request() req,
+    @Res() res: any,
+  ) {
+    const { join } = require('path');
+    const { existsSync, createReadStream } = require('fs');
+    const filePath = join(process.cwd(), 'reports', filename);
+
+    if (!existsSync(filePath)) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    createReadStream(filePath).pipe(res);
   }
 }

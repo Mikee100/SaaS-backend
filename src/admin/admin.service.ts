@@ -15,15 +15,175 @@ export class AdminService {
     private readonly tenantService: TenantService,
   ) {}
 
-  async getBillingMetrics() {
-    // Implement logic to aggregate billing metrics from BillingService
-    // For now, return dummy data or call billingService methods
+  async getPlatformStats() {
+    this.logger.log('AdminService: getPlatformStats called');
+
+    // Get all counts in parallel
+    const [
+      totalTenants,
+      totalUsers,
+      totalProducts,
+      totalSales,
+      activeSubscriptions,
+      tenantSpaceUsage,
+    ] = await Promise.all([
+      this.prisma.tenant.count(),
+      this.prisma.user.count(),
+      this.prisma.product.count(),
+      this.prisma.sale.count(),
+      this.prisma.subscription.count({
+        where: { status: 'active' },
+      }),
+      this.adminTenantStatsService.getAllTenantStats(),
+    ]);
+
+    // Calculate total revenue from all sales
+    const salesData = await this.prisma.sale.findMany({
+      select: { total: true },
+    });
+    const totalRevenue = salesData.reduce((sum, sale) => sum + sale.total, 0);
+
+    // Calculate total MRR from active subscriptions
+    const activeSubsWithPlans = await this.prisma.subscription.findMany({
+      where: { status: 'active' },
+      include: { Plan: true },
+    });
+
+    const totalMRR = activeSubsWithPlans.reduce((total, sub) => {
+      if (sub.Plan) {
+        const monthlyPrice =
+          sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
+        return total + monthlyPrice;
+      }
+      return total;
+    }, 0);
+
+    // Calculate total storage
+    const totalStorage = tenantSpaceUsage.reduce(
+      (sum, tenant) => sum + parseFloat(tenant.spaceUsedMB || '0'),
+      0,
+    );
+
+    // Count tenants near capacity (over 80% usage)
+    const nearCapacityTenants = tenantSpaceUsage.filter((tenant) => {
+      // This is a simplified check - you might want to check actual plan limits
+      return parseFloat(tenant.spaceUsedMB || '0') > 80;
+    }).length;
+
     return {
-      mrr: 10000,
-      activeSubscriptions: 50,
-      trialSubscriptions: 5,
-      delinquentRate: 2,
+      totalTenants,
+      totalUsers,
+      totalProducts,
+      totalSales,
+      totalRevenue,
+      activeSubscriptions,
+      totalStorage: totalStorage * 1024 * 1024, // Convert MB to bytes
+      nearCapacityTenants,
+      totalMRR: Math.round(totalMRR * 100) / 100,
     };
+  }
+
+  async getRevenueHistory(months: number = 12) {
+    this.logger.log(`AdminService: getRevenueHistory called with months: ${months}`);
+
+    const now = new Date();
+    const data: Array<{ month: string; revenue: number; mrr: number }> = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+      // Get revenue for this month (from payments)
+      const payments = await this.prisma.payment.findMany({
+        where: {
+          createdAt: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+          status: 'completed',
+        },
+      });
+
+      const revenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
+      // Get MRR at the end of this month (from active subscriptions)
+      const subscriptions = await this.prisma.subscription.findMany({
+        where: {
+          status: 'active',
+          createdAt: { lte: monthEnd },
+        },
+        include: { Plan: true },
+      });
+
+      const mrr = subscriptions.reduce((total, sub) => {
+        if (sub.Plan) {
+          const monthlyPrice =
+            sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
+          return total + monthlyPrice;
+        }
+        return total;
+      }, 0);
+
+      const monthLabel = monthStart.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+
+      data.push({
+        month: monthLabel,
+        revenue: Math.round(revenue * 100) / 100,
+        mrr: Math.round(mrr * 100) / 100,
+      });
+    }
+
+    return data;
+  }
+
+  async getTenantGrowth(months: number = 12) {
+    this.logger.log(`AdminService: getTenantGrowth called with months: ${months}`);
+
+    const now = new Date();
+    const data: Array<{ month: string; newTenants: number; totalTenants: number }> = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+      // Count tenants created in this month
+      const newTenants = await this.prisma.tenant.count({
+        where: {
+          createdAt: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
+      });
+
+      // Count total tenants up to this month
+      const totalTenants = await this.prisma.tenant.count({
+        where: {
+          createdAt: { lte: monthEnd },
+        },
+      });
+
+      const monthLabel = monthStart.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+
+      data.push({
+        month: monthLabel,
+        newTenants,
+        totalTenants,
+      });
+    }
+
+    return data;
+  }
+
+  async getBillingMetrics() {
+    this.logger.log('AdminService: getBillingMetrics called');
+    return this.billingService.getBillingMetrics();
   }
 
   async getAllSubscriptions() {
