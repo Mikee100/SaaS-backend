@@ -18,13 +18,18 @@ export class TrialGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user || !user.tenantId) {
-      throw new ForbiddenException('User or tenant not found');
+    if (!user) {
+      throw new ForbiddenException('User not found');
     }
 
-    // Check if user is superadmin - they can always access
+    // Check if user is superadmin - they can always access (even without tenantId)
     if (user.isSuperadmin) {
       return true;
+    }
+
+    // For non-superadmin users, tenantId is required
+    if (!user.tenantId) {
+      throw new ForbiddenException('Tenant not found');
     }
 
     // Check trial status

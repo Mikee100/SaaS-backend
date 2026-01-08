@@ -11,7 +11,7 @@ async function createSuperadmin() {
     });
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = await bcrypt.hash('admin', 10);
 
     if (existingAdmin) {
       // Update password if user exists
