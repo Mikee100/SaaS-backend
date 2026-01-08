@@ -20,6 +20,11 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
+    // Superadmin bypass - they have all permissions
+    if (user.isSuperadmin === true) {
+      return true;
+    }
+
     // Owner/admin bypass
     const roles = Array.isArray(user.roles)
       ? user.roles.map((r) => (typeof r === 'string' ? r : r.name))
