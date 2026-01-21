@@ -1218,4 +1218,30 @@ export class AnalyticsService {
 
     return chartData;
   }
+
+  async getRevenueForPeriod(tenantId: string, startDate: Date, endDate: Date): Promise<number> {
+    const result = await this.prisma.sale.aggregate({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      _sum: { total: true },
+    });
+    return result._sum.total || 0;
+  }
+
+  async getSalesCountForPeriod(tenantId: string, startDate: Date, endDate: Date): Promise<number> {
+    return this.prisma.sale.count({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+    });
+  }
 }

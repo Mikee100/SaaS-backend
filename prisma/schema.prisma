@@ -402,7 +402,7 @@ model Payment {
   tenantId              String
   stripePaymentIntentId String?   @unique
   amount                Float
-  currency              String    @default("USD")
+  currency              String    @default("KES")
   status                String
   description           String?
   metadata              Json?
