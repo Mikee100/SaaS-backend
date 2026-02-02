@@ -8,6 +8,8 @@ import {
   UseGuards,
   Post,
   Req,
+  Delete,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PermissionService } from './permission.service';
 import { Permissions } from '../auth/permissions.decorator';
@@ -44,12 +46,24 @@ export class RoleController {
     return this.permissionService.getAllRoles(currentUserRole, tenantId);
   }
 
-  // Renamed from createRole to updateRole
-  @Put()
+  @Put(':id')
   @Permissions('edit_roles')
-  async updateRole(@Body() body) {
-    if (!body.name) throw new BadRequestException('Role name is required');
-    return this.permissionService.updateRole(body.name, body.description);
+  async updateRole(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: { name?: string; description?: string },
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new ForbiddenException('Tenant context required');
+    return this.permissionService.updateRole(id, tenantId, body.name, body.description);
+  }
+
+  @Delete(':id')
+  @Permissions('edit_roles')
+  async deleteRole(@Req() req, @Param('id') id: string) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new ForbiddenException('Tenant context required');
+    return this.permissionService.deleteRole(id, tenantId);
   }
 
   @Get(':id/permissions')
@@ -60,7 +74,10 @@ export class RoleController {
 
   @Put(':id/permissions')
   @Permissions('edit_roles')
-  async updateRolePermissions(@Param('id') id: string, @Body() body) {
+  async updateRolePermissions(
+    @Param('id') id: string,
+    @Body() body: { permissions: string[] },
+  ) {
     if (!Array.isArray(body.permissions))
       throw new BadRequestException('Permissions array required');
     return this.permissionService.updateRolePermissions(id, body.permissions);

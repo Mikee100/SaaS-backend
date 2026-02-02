@@ -16,6 +16,7 @@ import { SuperadminGuard } from './superadmin.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { TrialGuard } from '../auth/trial.guard';
 import { AuditLogService } from '../audit-log.service';
+import { AuthService } from '../auth/auth.services';
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
@@ -26,6 +27,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly subscriptionService: SubscriptionService,
     private readonly auditLogService: AuditLogService,
+    private readonly authService: AuthService,
   ) {}
 
   @Get('stats')
@@ -225,6 +227,15 @@ export class AdminController {
       `AdminController: updateUserRole called for userId: ${userId}, roleId: ${body.roleId}`,
     );
     return this.adminService.updateUserRole(userId, body.roleId, body.tenantId);
+  }
+
+  @Post('users/:id/logout-all')
+  async logoutAllSessions(@Param('id') userId: string) {
+    this.logger.log(
+      `AdminController: logout-all called for userId: ${userId}`,
+    );
+    const count = await this.authService.revokeAllSessionsForUser(userId);
+    return { revoked: count };
   }
 
   @Get('users/:id/activity')

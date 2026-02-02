@@ -131,29 +131,6 @@ export class ProductController {
     );
   }
 
-@Post('bulk-upload')
-@Permissions('create_products')
-@UseGuards(AuthGuard('jwt'))
-@UseInterceptors(FileInterceptor('file'))
-async bulkUpload(
-  @UploadedFile() file: Express.Multer.File,
-  @Req() req: Request,
-) {
-  if (!req.user) {
-    throw new BadRequestException('User context is missing. Authentication required.');
-  }
-  // Use optional chaining and fallback values
-  const user = {
-    id: (req.user as any)?.userId || (req.user as any)?.id || '', // fallback to id or empty string
-    tenantId: (req.user as any)?.tenantId || '',
-    branchId: (req.user as any)?.branchId || '',
-    ip: req.ip,
-  };
-
-  return this.productService.bulkUpload(file, user);
-}
-
-
   @Post('randomize-stocks')
   @Permissions('edit_products')
   async randomizeStocks(@Req() req) {

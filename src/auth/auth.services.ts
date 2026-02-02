@@ -12,6 +12,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
 import { SubscriptionService } from '../billing/subscription.service';
 import { PrismaService } from '../prisma.service';
+import { SessionService } from './session.service';
+import { DeviceService } from './device.service';
+import { REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from './constants';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +27,8 @@ export class AuthService {
     private emailService: EmailService,
     private subscriptionService: SubscriptionService,
     private prisma: PrismaService,
+    private sessionService: SessionService,
+    private deviceService: DeviceService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -35,7 +40,14 @@ export class AuthService {
     return null;
   }
 
-  async login(email: string, password: string, ip?: string, userAgent?: string) {
+  async login(
+    email: string,
+    password: string,
+    ip?: string,
+    userAgent?: string,
+    deviceFingerprint?: string,
+    deviceName?: string,
+  ) {
     try {
       // 1. Find user by email with roles included
       const user = await this.userService.findByEmail(email, {
@@ -150,7 +162,36 @@ export class AuthService {
         console.error('Error fetching user permissions:', error);
       }
 
-      // 6. Prepare JWT payload with all necessary user data
+      // 6. Device (enterprise auth): find or create by fingerprint
+      let deviceId: string | null = null;
+      if (deviceFingerprint) {
+        try {
+          const device = await this.deviceService.findOrCreate(
+            user.id,
+            deviceFingerprint,
+            deviceName,
+          );
+          deviceId = device.id;
+        } catch (err) {
+          this.logger.warn('Device create failed, continuing without device', err);
+        }
+      }
+
+      // 7. Session + refresh token (enterprise auth)
+      const refreshTokenRaw = this.sessionService.generateRefreshToken();
+      const refreshTokenHash = this.sessionService.hashRefreshToken(refreshTokenRaw);
+      const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SEC * 1000);
+      const session = await this.sessionService.createSession({
+        userId: user.id,
+        tenantId,
+        deviceId,
+        refreshTokenHash,
+        ip: ip ?? null,
+        userAgent: userAgent ?? null,
+        expiresAt: sessionExpiresAt,
+      });
+
+      // 8. Prepare JWT payload (include sessionId for revocation)
       const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
       const payload = {
         sub: user.id,
@@ -162,19 +203,18 @@ export class AuthService {
         roles: roles,
         permissions: userPermissions,
         isSuperadmin: (user as any).isSuperadmin || false,
+        sessionId: session.id,
       };
 
-      // 7. Generate JWT token with all required claims and options
+      // 9. Generate JWT (short-lived access token)
       const accessToken = this.jwtService.sign(payload, {
         secret: process.env.JWT_SECRET || 'waweru',
         issuer: 'saas-platform',
         audience: 'saas-platform-client',
+        expiresIn: ACCESS_TOKEN_TTL_SEC,
       });
 
-      console.log('[JWT_SECRET]', process.env.JWT_SECRET);
-      console.log('Generated JWT Token:', accessToken);
-
-      // 8. Log successful login
+      // 10. Log successful login
       if (this.auditLogService) {
         await this.auditLogService.log(
           user.id,
@@ -188,7 +228,7 @@ export class AuthService {
         );
       }
 
-      // 9. Record login history
+      // 11. Record login history
       try {
         await this.prisma.loginHistory.create({
           data: {
@@ -203,19 +243,22 @@ export class AuthService {
         this.logger.error('Failed to record login history:', error);
       }
 
-      // 10. Return token and user info
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: payload.tenantId,
+        branchId: payload.branchId,
+        roles: payload.roles,
+        permissions: payload.permissions,
+        isSuperadmin: payload.isSuperadmin,
+      };
+
+      // 12. Return tokens (for cookies) and user; access_token in body for legacy clients
       return {
         access_token: accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          tenantId: payload.tenantId,
-          branchId: payload.branchId,
-          roles: payload.roles,
-          permissions: payload.permissions,
-          isSuperadmin: payload.isSuperadmin,
-        },
+        refresh_token: refreshTokenRaw,
+        user: userResponse,
       };
     } catch (error) {
       console.error('Login error:', error);
@@ -275,5 +318,130 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
+  }
+
+  /** Enterprise auth: refresh access token using refresh_token cookie; rotate refresh token. */
+  async refresh(refreshToken: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: Record<string, unknown>;
+  }> {
+    if (!refreshToken?.trim()) {
+      throw new UnauthorizedException('Refresh token required');
+    }
+    const hash = this.sessionService.hashRefreshToken(refreshToken);
+    const session = await this.sessionService.findValidSessionByRefreshHash(hash);
+    if (!session) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+    const userId = session.userId;
+    const tenantId = session.tenantId ?? null;
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Session user not found');
+    }
+    const userWithRoles = user as any;
+    const userRolesList = userWithRoles.userRoles || [];
+    const roles = userRolesList.map((ur: any) => ur.role?.name).filter(Boolean) || [];
+    const perms = await this.userService.getEffectivePermissions(userId, tenantId ?? undefined);
+    const permissions = perms.map((p) => p.name).filter(Boolean);
+    const payload = {
+      sub: user.id,
+      userId: user.id,
+      email: user.email,
+      name: user.name || '',
+      tenantId,
+      branchId: user.branchId ?? null,
+      roles,
+      permissions,
+      isSuperadmin: (user as any).isSuperadmin ?? false,
+      sessionId: session.id,
+    };
+    const newRefreshRaw = this.sessionService.generateRefreshToken();
+    const newRefreshHash = this.sessionService.hashRefreshToken(newRefreshRaw);
+    await this.sessionService.rotateRefreshToken(session.id, newRefreshHash);
+    const access_token = this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET || 'waweru',
+      issuer: 'saas-platform',
+      audience: 'saas-platform-client',
+      expiresIn: ACCESS_TOKEN_TTL_SEC,
+    });
+    const userResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      tenantId: payload.tenantId,
+      branchId: payload.branchId,
+      roles: payload.roles,
+      permissions: payload.permissions,
+      isSuperadmin: payload.isSuperadmin,
+    };
+    return {
+      access_token,
+      refresh_token: newRefreshRaw,
+      user: userResponse,
+    };
+  }
+
+  /** Enterprise auth: revoke session by refresh token (from cookie). */
+  async revokeByRefreshToken(refreshToken: string): Promise<boolean> {
+    if (!refreshToken?.trim()) return false;
+    const hash = this.sessionService.hashRefreshToken(refreshToken);
+    return this.sessionService.revokeSessionByRefreshHash(hash);
+  }
+
+  /** Enterprise auth: revoke session by session id (from JWT). */
+  async revokeSession(sessionId: string): Promise<void> {
+    await this.sessionService.revokeSession(sessionId);
+  }
+
+  /** Enterprise auth: revoke all sessions for a user (force logout). */
+  async revokeAllSessionsForUser(userId: string): Promise<number> {
+    return this.sessionService.revokeAllSessionsForUser(userId);
+  }
+
+  /** List active sessions for a user (for security / session management UI). */
+  async getActiveSessionsForUser(userId: string): Promise<
+    { id: string; ip: string | null; userAgent: string | null; lastActive: string; deviceName?: string }[]
+  > {
+    const sessions = await this.sessionService.getActiveSessionsForUser(userId);
+    return sessions.map((s) => {
+      const session = s as typeof s & { device?: { name: string | null } | null };
+      return {
+        id: session.id,
+        ip: session.ip ?? null,
+        userAgent: session.userAgent ?? null,
+        lastActive: session.lastActiveAt.toISOString(),
+        deviceName: session.device?.name ?? undefined,
+      };
+    });
+  }
+
+  /** Revoke all other sessions for the user (keep current session). */
+  async revokeAllOtherSessions(
+    userId: string,
+    currentSessionId: string | undefined,
+  ): Promise<number> {
+    if (!currentSessionId) {
+      return this.sessionService.revokeAllSessionsForUser(userId);
+    }
+    return this.sessionService.revokeAllOtherSessionsForUser(
+      userId,
+      currentSessionId,
+    );
+  }
+
+  /** Revoke a specific session; only if it belongs to the given user. */
+  async revokeSessionForUser(
+    sessionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const session = await this.sessionService.findSessionByIdForUser(
+      sessionId,
+      userId,
+    );
+    if (!session) return false;
+    await this.sessionService.revokeSession(session.id);
+    return true;
   }
 }

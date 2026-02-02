@@ -9,13 +9,14 @@ import { ConfigurationService } from '../config/configuration.service';
 import { BillingModule } from '../billing/billing.module';
 import { AdminTenantStatsModule } from '../adminTenantStats/admin-tenant-stats.module';
 import { TrialGuard } from '../auth/trial.guard';
+import { AuthModule } from '../auth/auth.module';
+import { UserModule } from '../user/user.module';
 import { TenantService } from '../tenant/tenant.service';
-import { UserService } from '../user/user.service';
 import { BranchService } from '../branch/branch.service';
 import { AuditLogService } from '../audit-log.service';
 
 @Module({
-  imports: [BillingModule, AdminTenantStatsModule],
+  imports: [BillingModule, AdminTenantStatsModule, AuthModule, UserModule],
   controllers: [
     AdminController,
     ConfigurationController,
@@ -28,7 +29,6 @@ import { AuditLogService } from '../audit-log.service';
     ConfigurationService,
     TrialGuard,
     TenantService,
-    UserService,
     BranchService,
     AuditLogService,
   ],

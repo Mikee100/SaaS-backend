@@ -1099,12 +1099,7 @@ export class AdminService {
         where: { tenantId },
       });
 
-      // 9. Delete BulkUploadRecord (depends on Branch, Supplier, User)
-      await prisma.bulkUploadRecord.deleteMany({
-        where: { tenantId },
-      });
-
-      // 10. Delete Supplier (depends on Tenant)
+      // 9. Delete Supplier (depends on Tenant)
       await prisma.supplier.deleteMany({
         where: { tenantId },
       });

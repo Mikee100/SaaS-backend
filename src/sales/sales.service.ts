@@ -325,6 +325,17 @@ export class SalesService {
               createdAt: true,
             },
           },
+          credit: {
+            select: {
+              id: true,
+              totalAmount: true,
+              balance: true,
+              paidAmount: true,
+              dueDate: true,
+              notes: true,
+              status: true,
+            },
+          },
           Tenant: true,
           Branch: true,
         },
@@ -367,6 +378,16 @@ export class SalesService {
               id: sale.Branch.id,
               name: sale.Branch.name,
               address: sale.Branch.address,
+            }
+          : null,
+        credit: sale.credit
+          ? {
+              totalAmount: sale.credit.totalAmount,
+              balance: sale.credit.balance,
+              paidAmount: sale.credit.paidAmount,
+              dueDate: sale.credit.dueDate,
+              notes: sale.credit.notes,
+              status: sale.credit.status,
             }
           : null,
       };
@@ -833,6 +854,8 @@ export class SalesService {
         address: true,
         contactEmail: true,
         contactPhone: true,
+        receiptLogo: true,
+        logoUrl: true,
       },
     });
     return tenant;

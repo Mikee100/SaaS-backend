@@ -5,9 +5,10 @@ import { AuditLogService } from '../audit-log.service';
 import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [],
+  imports: [EmailModule],
   providers: [
     UserService,
     AuditLogService,

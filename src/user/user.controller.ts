@@ -11,6 +11,7 @@ import {
   Param,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -26,22 +27,31 @@ export class UserController {
   @Get('me')
   async getMe(@Req() req) {
     const user = req.user;
-    // Get effective permissions for the user
-    const permissions = await this.userService.getEffectivePermissions(
-      user.userId || user.sub,
-      user.tenantId,
-    );
+    // Get effective permissions and full user record for preferences
+    const [permissions, dbUser] = await Promise.all([
+      this.userService.getEffectivePermissions(
+        user.userId || user.sub,
+        user.tenantId,
+      ),
+      this.userService.findById(user.userId || user.sub, { include: undefined }),
+    ]);
 
-    // Return only the fields your frontend expects
+    const prefs = (dbUser?.preferences as Record<string, unknown>) || {};
     return {
       id: user.userId || user.sub,
       email: user.email,
       name: user.name,
       roles: user.roles || [],
-      permissions: permissions.map((p) => p.name), // Convert to array of permission names
+      permissions: permissions.map((p) => p.name),
       tenantId: user.tenantId,
       branchId: user.branchId,
       isSuperadmin: user.isSuperadmin || false,
+      language: dbUser?.language ?? undefined,
+      region: dbUser?.region ?? undefined,
+      notificationPreferences: dbUser?.notificationPreferences ?? undefined,
+      preferences: dbUser?.preferences ?? undefined,
+      themePreferences: prefs.themePreferences ?? undefined,
+      dashboardPreferences: prefs.dashboardPreferences ?? undefined,
     };
   }
 
@@ -127,9 +137,19 @@ export class UserController {
   async updatePreferences(
     @Req() req,
     @Body()
-    body: { notificationPreferences?: any; language?: string; region?: string },
+    body: {
+      notificationPreferences?: any;
+      language?: string;
+      region?: string;
+      branchId?: string;
+      preferences?: Record<string, unknown>;
+      themePreferences?: Record<string, unknown>;
+      dashboardPreferences?: Record<string, unknown>;
+    },
   ) {
-    return this.userService.updateUserPreferences(req.user.userId, body);
+    const userId = req.user?.userId ?? req.user?.sub;
+    if (!userId) throw new NotFoundException('User not found');
+    return this.userService.updateUserPreferences(userId, body);
   }
 
   @Put('me/password')
@@ -137,11 +157,34 @@ export class UserController {
     @Req() req,
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
+    const userId = req.user?.userId ?? req.user?.sub;
+    if (!userId) throw new NotFoundException('User not found');
     const { currentPassword, newPassword } = body;
     return this.userService.changePassword(
-      req.user.userId,
+      userId,
       currentPassword,
       newPassword,
+    );
+  }
+
+  @Post('me/contact-admin')
+  async contactAdmin(
+    @Req() req,
+    @Body()
+    body: { subject: string; message: string; isUrgent?: boolean },
+  ) {
+    const userId = req.user?.userId ?? req.user?.sub;
+    if (!userId) throw new NotFoundException('User not found');
+    const { subject, message, isUrgent = false } = body;
+    if (!subject?.trim() || !message?.trim()) {
+      throw new BadRequestException('Subject and message are required.');
+    }
+    return this.userService.contactAdmin(
+      userId,
+      req.user?.tenantId ?? null,
+      subject.trim(),
+      message.trim(),
+      Boolean(isUrgent),
     );
   }
 

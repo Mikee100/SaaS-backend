@@ -3,17 +3,22 @@
 
 -- ============================================
 -- 0. Fix migration history: Update old migration name if it exists
+-- (Only run if _prisma_migrations exists, so shadow DB does not fail)
 -- ============================================
 DO $$ 
 BEGIN
-    -- Update migration history if old migration name exists
     IF EXISTS (
-        SELECT 1 FROM "_prisma_migrations" 
-        WHERE migration_name = '20250108120000_resolve_drift'
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = '_prisma_migrations'
     ) THEN
-        UPDATE "_prisma_migrations" 
-        SET migration_name = '20251030000000_resolve_drift'
-        WHERE migration_name = '20250108120000_resolve_drift';
+        IF EXISTS (
+            SELECT 1 FROM "_prisma_migrations" 
+            WHERE migration_name = '20250108120000_resolve_drift'
+        ) THEN
+            UPDATE "_prisma_migrations" 
+            SET migration_name = '20251030000000_resolve_drift'
+            WHERE migration_name = '20250108120000_resolve_drift';
+        END IF;
     END IF;
 END $$;
 

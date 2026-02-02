@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { EmailService } from '../email/email.service';
 import { Logger } from '@nestjs/common';
 
 @Injectable()
@@ -78,6 +79,7 @@ export class UserService {
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
     private subscriptionService: SubscriptionService,
+    private emailService: EmailService,
   ) {}
 
   // ...existing code...
@@ -460,14 +462,50 @@ export class UserService {
       language?: string;
       region?: string;
       branchId?: string;
+      preferences?: Record<string, unknown>;
+      themePreferences?: Record<string, unknown>;
+      dashboardPreferences?: Record<string, unknown>;
     },
   ) {
-    // Accept branchId in preferences update
     const updateData: Prisma.UserUpdateInput = {
-      ...data,
-      ...(data.branchId !== undefined ? { branchId: data.branchId } : {}),
       updatedAt: new Date(),
     };
+    if (data.notificationPreferences !== undefined)
+      updateData.notificationPreferences = data.notificationPreferences;
+    if (data.language !== undefined) updateData.language = data.language;
+    if (data.region !== undefined) updateData.region = data.region;
+    if (data.branchId !== undefined) {
+      updateData.Branch =
+        data.branchId === null || data.branchId === ''
+          ? { disconnect: true }
+          : { connect: { id: data.branchId } };
+    }
+
+    // Merge preferences blob (theme, dashboard, and settings page all write into it)
+    const needPreferences =
+      data.preferences !== undefined ||
+      data.themePreferences !== undefined ||
+      data.dashboardPreferences !== undefined;
+    if (needPreferences) {
+      const current = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferences: true },
+      });
+      const raw = current?.preferences;
+      const currentPrefs: Record<string, unknown> =
+        raw != null && typeof raw === 'object' && !Array.isArray(raw)
+          ? (raw as Record<string, unknown>)
+          : {};
+      let merged: Record<string, unknown> = { ...currentPrefs };
+      if (data.themePreferences !== undefined)
+        merged.themePreferences = data.themePreferences;
+      if (data.dashboardPreferences !== undefined)
+        merged.dashboardPreferences = data.dashboardPreferences;
+      if (data.preferences !== undefined)
+        merged = { ...merged, ...data.preferences };
+      updateData.preferences = merged as Prisma.InputJsonValue;
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
       data: updateData,
@@ -537,6 +575,68 @@ export class UserService {
     });
 
     return { success: true, message: 'Password updated successfully' };
+  }
+
+  async contactAdmin(
+    userId: string,
+    tenantId: string | null,
+    subject: string,
+    message: string,
+    isUrgent: boolean,
+  ): Promise<{ success: true; message: string }> {
+    const adminEmail =
+      process.env.ADMIN_EMAIL ||
+      process.env.SUPPORT_EMAIL ||
+      'admin@saasplatform.com';
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    let tenantName = 'Unknown tenant';
+    if (tenantId) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      });
+      if (tenant?.name) tenantName = tenant.name;
+    }
+    const subjectLabel =
+      { general: 'General Support', technical: 'Technical Issue', feature: 'Feature Request', billing: 'Billing Question', other: 'Other' }[
+        subject as keyof typeof subject
+      ] || subject;
+    const prefix = isUrgent ? '[URGENT] ' : '';
+    const emailSubject = `${prefix}[Contact Admin] ${subjectLabel} - ${tenantName}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px;">
+        <h2>Contact form submission</h2>
+        <p><strong>From:</strong> ${user.name || 'N/A'} &lt;${user.email}&gt;</p>
+        <p><strong>Tenant:</strong> ${tenantName}</p>
+        <p><strong>Subject:</strong> ${subjectLabel}</p>
+        <p><strong>Urgent:</strong> ${isUrgent ? 'Yes' : 'No'}</p>
+        <hr />
+        <p><strong>Message:</strong></p>
+        <p style="white-space: pre-wrap;">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        <hr />
+        <p style="font-size: 12px; color: #666;">SaaS Platform – Contact Admin</p>
+      </div>
+    `;
+    try {
+      await this.emailService.sendPaymentConfirmationEmail(
+        adminEmail,
+        emailSubject,
+        html,
+      );
+      this.logger.log(
+        `Contact admin email sent to ${adminEmail} from user ${user.email}`,
+      );
+      return { success: true, message: 'Your message has been sent. We will respond as soon as possible.' };
+    } catch (err) {
+      this.logger.error('Failed to send contact admin email', err);
+      throw new BadRequestException(
+        'Failed to send message. Please try again or email us directly.',
+      );
+    }
   }
 
   // ...existing code...

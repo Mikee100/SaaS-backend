@@ -13,6 +13,9 @@ import { BillingModule } from '../billing/billing.module';
 import { SubscriptionService } from '../billing/subscription.service';
 import { PrismaService } from '../prisma.service';
 import { TrialGuard } from './trial.guard';
+import { CookieService } from './cookie.service';
+import { SessionService } from './session.service';
+import { DeviceService } from './device.service';
 
 @Module({
   imports: [
@@ -25,7 +28,7 @@ import { TrialGuard } from './trial.guard';
       secret:
         process.env.JWT_SECRET || 'fallback_jwt_secret_please_use_env_var',
       signOptions: {
-        expiresIn: '1d',
+        expiresIn: '15m',
         algorithm: 'HS256',
         issuer: 'saas-platform',
         audience: 'saas-platform-client',
@@ -45,7 +48,11 @@ import { TrialGuard } from './trial.guard';
     ConfigurationService,
     TrialGuard,
     SubscriptionService,
+    CookieService,
+    SessionService,
+    DeviceService,
   ],
   controllers: [AuthController],
+  exports: [AuthService, SessionService, CookieService],
 })
 export class AuthModule {}

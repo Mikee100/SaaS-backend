@@ -109,7 +109,7 @@ export class SalesController {
       }
 
       // Include branch information in the response
-      const response = {
+      const response: any = {
         id: sale.id,
         saleId: sale.id,
         date: sale.createdAt,
@@ -130,6 +130,7 @@ export class SalesController {
           address: tenant.address,
           phone: tenant.contactPhone,
           email: tenant.contactEmail,
+          receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
         },
         branch: sale.Branch
           ? {
@@ -139,6 +140,14 @@ export class SalesController {
             }
           : null,
       };
+
+      // Include credit information if payment method is credit
+      if (sale.paymentType === 'credit' && sale.credit) {
+        response.creditDueDate = sale.credit.dueDate;
+        response.creditNotes = sale.credit.notes;
+        response.creditBalance = sale.credit.balance;
+        response.creditStatus = sale.credit.status;
+      }
 
       console.log('Sending receipt response', {
         ...logContext,

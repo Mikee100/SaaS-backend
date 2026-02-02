@@ -18,6 +18,7 @@ model User {
   resetPasswordToken      String?
   language                String?
   notificationPreferences Json?
+  preferences             Json?
   region                  String?
   isSuperadmin            Boolean            @default(false)
   isDisabled              Boolean            @default(false)
@@ -34,13 +35,14 @@ model User {
   grantedPermissions      UserPermission[]   @relation("UserPermissions")
   userPermissions         UserPermission[]   @relation("UserUserPermissions")
   userRoles               UserRole[]         @relation("UserUserRoles")
-  bulkUploadRecords       BulkUploadRecord[] @relation("UserBulkUploadRecords")
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
   expenses                Expense[]
   salarySchemes           SalaryScheme[]
   loginHistory            LoginHistory[]
   conversations           Conversation[]
   userPreferences         UserPreference[]
+  authSessions            AuthSession[]
+  authDevices             AuthDevice[]
 
   @@index([email])
   @@index([branchId])
@@ -179,7 +181,6 @@ model Tenant {
   UserBranchRole      UserBranchRole[]      @relation("TenantUserBranchRoles")
   userPermissions     UserPermission[]      @relation("TenantUserPermissions")
   userRoles           UserRole[]            @relation("TenantUserRoles")
-  bulkUploadRecords   BulkUploadRecord[]    @relation("TenantBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
   productVariations   ProductVariation[]    @relation("TenantProductVariations")
   productAttributes   ProductAttribute[]    @relation("TenantProductAttributes")
@@ -231,7 +232,6 @@ model Branch {
   sales               Sale[]
   users               User[]              @relation("UserBranch")
   UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
-  bulkUploadRecords   BulkUploadRecord[]  @relation("BranchBulkUploadRecords")
   productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
   expenses            Expense[]           // New
@@ -512,7 +512,6 @@ model Supplier {
   isActive    Boolean   @default(true)
   products    Product[] @relation("SupplierProducts")
   tenant      Tenant    @relation(fields: [tenantId], references: [id])
-  bulkUploadRecords BulkUploadRecord[] @relation("SupplierBulkUploadRecords")
   productAdditions ProductAdditionRecord[] @relation("SupplierProductAdditions")
 
   @@index([tenantId])
@@ -600,7 +599,6 @@ model Product {
   cost         Float       @default(0) // Base cost
   images       String[]    // Array of image URLs
   supplierId   String?
-  bulkUploadRecordId String?
   hasVariations Boolean    @default(false) // New: Whether this product has variations
   supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
@@ -609,7 +607,6 @@ model Product {
   branch              Branch?              @relation("BranchProducts", fields: [branchId], references: [id])
   tenant              Tenant               @relation("TenantProducts", fields: [tenantId], references: [id])
   saleItems           SaleItem[]           @relation("ProductSaleItems")
-  bulkUploadRecord    BulkUploadRecord?    @relation("BulkUploadProducts", fields: [bulkUploadRecordId], references: [id])
   productAdditions    ProductAdditionRecord[]
   variations          ProductVariation[]   @relation("ProductVariations") // New
 
@@ -830,34 +827,6 @@ model UserPermission {
   @@unique([userId, permission, tenantId])
 }
 
-model BulkUploadRecord {
-  id            String   @id @default(uuid())
-  tenantId      String
-  branchId      String?
-  userId        String
-  supplierId    String?
-  uploadDate    DateTime @default(now())
-  totalProducts Int
-  totalValue    Float
-  status        String   @default("completed")
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  branch        Branch?     @relation("BranchBulkUploadRecords", fields: [branchId], references: [id])
-  supplier      Supplier?   @relation("SupplierBulkUploadRecords", fields: [supplierId], references: [id])
-  tenant        Tenant      @relation("TenantBulkUploadRecords", fields: [tenantId], references: [id])
-  user          User        @relation("UserBulkUploadRecords", fields: [userId], references: [id])
-  products      Product[]   @relation("BulkUploadProducts")
-  productAdditions ProductAdditionRecord[] @relation("BulkUploadProductAdditions")
-
-  @@index([branchId])
-  @@index([supplierId])
-  @@index([tenantId])
-  @@index([userId])
-  @@index([uploadDate])
-}
 model ProductAdditionRecord {
   id            String   @id @default(uuid())
   productId     String
@@ -870,8 +839,6 @@ model ProductAdditionRecord {
   user          User     @relation("UserProductAdditions", fields: [userId], references: [id])
   supplierId    String?
   supplier      Supplier? @relation("SupplierProductAdditions", fields: [supplierId], references: [id])
-  bulkUploadRecordId String?
-  bulkUploadRecord   BulkUploadRecord? @relation("BulkUploadProductAdditions", fields: [bulkUploadRecordId], references: [id])
   quantity      Int      @default(1)
   cost          Float?
   price         Float?
@@ -884,7 +851,6 @@ model ProductAdditionRecord {
   @@index([branchId])
   @@index([userId])
   @@index([supplierId])
-  @@index([bulkUploadRecordId])
   @@index([addedAt])
 }
 
@@ -1037,5 +1003,44 @@ model LoginHistory {
   @@index([userId])
   @@index([tenantId])
   @@index([loginTime])
+}
+
+// Enterprise auth: server-side sessions + refresh tokens
+model AuthSession {
+  id               String    @id @default(uuid())
+  userId           String
+  tenantId         String?
+  deviceId         String?
+  refreshTokenHash String
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+  lastActiveAt     DateTime  @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  isValid          Boolean   @default(true)
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device AuthDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, isValid])
+  @@index([refreshTokenHash])
+  @@index([expiresAt])
+}
+
+model AuthDevice {
+  id          String   @id @default(uuid())
+  userId      String
+  fingerprint String
+  name        String?
+  trusted     Boolean  @default(false)
+  lastSeen    DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions AuthSession[]
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
 }
 
