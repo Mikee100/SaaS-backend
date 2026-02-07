@@ -645,6 +645,9 @@ model Sale {
   @@index([branchId])
   @@index([tenantId])
   @@index([userId])
+  // Composite indexes for analytics queries (tenant + time, and tenant + branch + time)
+  @@index([tenantId, createdAt])
+  @@index([tenantId, branchId, createdAt])
 }
 
 model SaleItem {

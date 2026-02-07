@@ -1,14 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { Prisma } from '@prisma/client';
+import { CacheService } from '../cache/cache.service';
 
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: CacheService,
+  ) {}
 
   async getDashboardAnalytics(tenantId: string) {
+    const cacheKey = `analytics:dashboard:${tenantId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Get current date and calculate date ranges
     const now = new Date();
     const thirtyDaysAgo = new Date();
@@ -164,35 +174,21 @@ export class AnalyticsService {
       products: [], // Could add recent products if needed
     };
 
-    return {
+    const result = {
       ...analyticsData,
       recentActivity,
     };
+
+    // Cache full dashboard payload for a short time window.
+    // This endpoint is read-heavy and can tolerate slight staleness.
+    this.cache.set(cacheKey, result, 60);
+    return result;
   }
 
   private async getSalesByTimePeriod(
     tenantId: string,
     period: 'day' | 'week' | 'month' | 'year',
   ) {
-    const now = new Date();
-    const format =
-      period === 'day'
-        ? 'YYYY-MM-DD'
-        : period === 'week'
-          ? "'Week' WW"
-          : period === 'month'
-            ? 'YYYY-MM'
-            : 'YYYY';
-
-    const groupBy =
-      period === 'day'
-        ? 'day'
-        : period === 'week'
-          ? 'week'
-          : period === 'month'
-            ? 'month'
-            : 'year';
-
     const date = new Date();
     if (period === 'day') date.setDate(date.getDate() - 7);
     else if (period === 'week')
@@ -200,6 +196,40 @@ export class AnalyticsService {
     else if (period === 'month')
       date.setMonth(date.getMonth() - 6); // 6 months
     else date.setFullYear(date.getFullYear() - 5); // 5 years
+
+    if (period === 'week') {
+      const sales = await this.prisma.$queryRaw<
+        { period: string; total: string }[]
+      >(Prisma.sql`
+        SELECT
+          TO_CHAR(week_start, 'DD Mon') || ' - ' || TO_CHAR(week_start + interval '6 days', 'DD Mon YYYY') as period,
+          COALESCE(SUM(total), 0)::text as total
+        FROM (
+          SELECT
+            date_trunc('week', "createdAt" AT TIME ZONE 'UTC')::date as week_start,
+            total
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "createdAt" >= ${date}
+        ) sub
+        GROUP BY week_start
+        ORDER BY week_start ASC
+      `);
+      return sales.reduce<Record<string, number>>(
+        (acc, curr) => ({
+          ...acc,
+          [curr.period]: parseFloat(curr.total),
+        }),
+        {},
+      );
+    }
+
+    const format =
+      period === 'day'
+        ? 'YYYY-MM-DD'
+        : period === 'month'
+          ? 'YYYY-MM'
+          : 'YYYY';
 
     const sales = await this.prisma.$queryRaw`
       SELECT
@@ -239,25 +269,6 @@ export class AnalyticsService {
     tenantId: string,
     period: 'day' | 'week' | 'month' | 'year',
   ) {
-    const now = new Date();
-    const format =
-      period === 'day'
-        ? 'YYYY-MM-DD'
-        : period === 'week'
-          ? "'Week' WW"
-          : period === 'month'
-            ? 'YYYY-MM'
-            : 'YYYY';
-
-    const groupBy =
-      period === 'day'
-        ? 'day'
-        : period === 'week'
-          ? 'week'
-          : period === 'month'
-            ? 'month'
-            : 'year';
-
     const date = new Date();
     if (period === 'day') date.setDate(date.getDate() - 7);
     else if (period === 'week')
@@ -265,6 +276,42 @@ export class AnalyticsService {
     else if (period === 'month')
       date.setMonth(date.getMonth() - 6); // 6 months
     else date.setFullYear(date.getFullYear() - 5); // 5 years
+
+    if (period === 'week') {
+      const sales = await this.prisma.$queryRaw<
+        { branchId: string; period: string; total: string }[]
+      >(Prisma.sql`
+        SELECT
+          "branchId",
+          TO_CHAR(week_start, 'DD Mon') || ' - ' || TO_CHAR(week_start + interval '6 days', 'DD Mon YYYY') as period,
+          COALESCE(SUM(total), 0)::text as total
+        FROM (
+          SELECT
+            "branchId",
+            date_trunc('week', "createdAt" AT TIME ZONE 'UTC')::date as week_start,
+            total
+          FROM "Sale"
+          WHERE "tenantId" = ${tenantId}
+            AND "createdAt" >= ${date}
+            AND "branchId" IS NOT NULL
+        ) sub
+        GROUP BY "branchId", week_start
+        ORDER BY "branchId", week_start ASC
+      `);
+      const branchSales: Record<string, Record<string, number>> = {};
+      sales.forEach((item) => {
+        if (!branchSales[item.branchId]) branchSales[item.branchId] = {};
+        branchSales[item.branchId][item.period] = parseFloat(item.total);
+      });
+      return branchSales;
+    }
+
+    const format =
+      period === 'day'
+        ? 'YYYY-MM-DD'
+        : period === 'month'
+          ? 'YYYY-MM'
+          : 'YYYY';
 
     const sales = await this.prisma.$queryRaw`
       SELECT
@@ -882,7 +929,7 @@ export class AnalyticsService {
         format = 'YYYY-MM-DD';
       } else if (timeRange === '90days') {
         dateTrunc = 'week';
-        format = "'Week' WW YYYY";
+        format = '"Week" WW YYYY';
       } else if (timeRange === '1year') {
         dateTrunc = 'month';
         format = 'YYYY-MM';

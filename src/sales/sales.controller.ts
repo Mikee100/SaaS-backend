@@ -6,6 +6,7 @@ import {
   UseGuards,
   Get,
   Param,
+  Query,
 } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './create-sale.dto';
@@ -67,7 +68,11 @@ export class SalesController {
   @Get(':id/receipt')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
-  async getReceipt(@Param('id') id: string, @Req() req) {
+  async getReceipt(
+    @Param('id') id: string,
+    @Query('type') type: string,
+    @Req() req,
+  ) {
     const requestId = Math.random().toString(36).substring(2, 9);
     const logContext = {
       requestId,
@@ -76,89 +81,29 @@ export class SalesController {
       tenantId: req.user?.tenantId,
     };
 
-    console.log('Receipt request received:', { ...logContext });
-
     try {
       if (!id) {
-        console.error('Missing sale ID in request', logContext);
         throw new BadRequestException('Sale ID is required');
       }
-
       if (!req.user?.tenantId) {
-        console.error('Missing tenant ID in user context', logContext);
         throw new UnauthorizedException('Invalid user context');
       }
 
-      console.log('Fetching sale details...', logContext);
-      const sale = await this.salesService.getSaleById(id, req.user.tenantId);
-
-      if (!sale) {
-        console.error('Sale not found', logContext);
-        throw new NotFoundException('Sale not found');
-      }
-
-      console.log('Fetching tenant info...', {
-        ...logContext,
-        saleId: sale.id,
-      });
-      const tenant = await this.salesService.getTenantInfo(req.user.tenantId);
-
-      if (!tenant) {
-        console.error('Tenant not found', logContext);
-        throw new NotFoundException('Business information not found');
-      }
-
-      // Include branch information in the response
-      const response: any = {
-        id: sale.id,
-        saleId: sale.id,
-        date: sale.createdAt,
-        customerName: sale.customerName || 'Walk-in Customer',
-        customerPhone: sale.customerPhone || 'N/A',
-        items: sale.items.map((item) => ({
-          productId: item.productId,
-          name: item.product?.name || 'Unknown Product',
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        total: sale.total,
-        paymentMethod: sale.paymentType,
-        amountReceived: sale.paymentType === 'cash' ? sale.total : sale.total, // amountReceived is now the same as total for cash payments
-        change: 0, // Change is now always 0 since we don't track amount received separately
-        businessInfo: {
-          name: tenant.name,
-          address: tenant.address,
-          phone: tenant.contactPhone,
-          email: tenant.contactEmail,
-          receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
-        },
-        branch: sale.Branch
-          ? {
-              id: sale.Branch.id,
-              name: sale.Branch.name,
-              address: sale.Branch.address || '',
-            }
-          : null,
-      };
-
-      // Include credit information if payment method is credit
-      if (sale.paymentType === 'credit' && sale.credit) {
-        response.creditDueDate = sale.credit.dueDate;
-        response.creditNotes = sale.credit.notes;
-        response.creditBalance = sale.credit.balance;
-        response.creditStatus = sale.credit.status;
-      }
-
-      console.log('Sending receipt response', {
-        ...logContext,
-        saleId: response.id,
-      });
-      return response;
+      const receiptType = type === 'merchant' ? 'merchant' : 'customer';
+      return await this.salesService.getReceipt(
+        id,
+        req.user.tenantId,
+        receiptType,
+      );
     } catch (error) {
-      console.error('Error generating receipt:', {
-        ...logContext,
-        error: error.message,
-      });
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      console.error('Error generating receipt', { ...logContext, error: error.message });
       throw new InternalServerErrorException('Failed to generate receipt');
     }
   }

@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
-import { PrismaModule } from '../prisma.module'; // <-- Add this import
+import { PrismaModule } from '../prisma.module';
 import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [PrismaModule], // <-- Add PrismaModule here
+  imports: [PrismaModule, CacheModule],
   controllers: [AnalyticsController],
   providers: [
     AnalyticsService,

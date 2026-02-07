@@ -6,9 +6,10 @@ import { UserModule } from '../user/user.module';
 import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, CacheModule],
   providers: [
     TenantConfigurationService,
     PrismaService,

@@ -42,9 +42,10 @@ export class CookieService {
       secure: COOKIE_SECURE,
       path: '/',
       maxAge: 0,
+      sameSite: COOKIE_SAME_SITE_ACCESS,
       ...(COOKIE_DOMAIN && { domain: COOKIE_DOMAIN }),
     };
     res.cookie(AUTH_COOKIE_NAMES.ACCESS_TOKEN, '', opts);
-    res.cookie(AUTH_COOKIE_NAMES.REFRESH_TOKEN, '', opts);
+    res.cookie(AUTH_COOKIE_NAMES.REFRESH_TOKEN, '', { ...opts, sameSite: COOKIE_SAME_SITE_REFRESH });
   }
 }

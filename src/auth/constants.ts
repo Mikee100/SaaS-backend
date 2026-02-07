@@ -23,8 +23,22 @@ export const COOKIE_SECURE =
 /** Cookie domain. Empty = current host only. */
 export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 
-/** SameSite for access token (Lax allows top-level navigations to send cookie). */
-export const COOKIE_SAME_SITE_ACCESS: 'lax' | 'strict' | 'none' = 'lax';
+/**
+ * SameSite for access token.
+ * Use 'none' when frontend is on a different domain (e.g. Vercel) so cookies are sent cross-site.
+ * In production we default to 'none' so hosted frontend (e.g. adeera-pos.vercel.app) can send
+ * cookies to API (e.g. saas-business.duckdns.org). Requires Secure=true (HTTPS).
+ * Override via env COOKIE_SAME_SITE_ACCESS (lax | strict | none).
+ */
+export const COOKIE_SAME_SITE_ACCESS: 'lax' | 'strict' | 'none' =
+  (process.env.COOKIE_SAME_SITE_ACCESS as 'lax' | 'strict' | 'none') ||
+  (process.env.NODE_ENV === 'production' ? 'none' : 'lax');
 
-/** SameSite for refresh token (Strict = only same-site requests). */
-export const COOKIE_SAME_SITE_REFRESH: 'lax' | 'strict' | 'none' = 'strict';
+/**
+ * SameSite for refresh token.
+ * In production default to 'none' so cross-origin refresh works (e.g. Vercel frontend + duckdns API).
+ * Override via env COOKIE_SAME_SITE_REFRESH (lax | strict | none).
+ */
+export const COOKIE_SAME_SITE_REFRESH: 'lax' | 'strict' | 'none' =
+  (process.env.COOKIE_SAME_SITE_REFRESH as 'lax' | 'strict' | 'none') ||
+  (process.env.NODE_ENV === 'production' ? 'none' : 'strict');

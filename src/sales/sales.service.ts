@@ -186,10 +186,16 @@ export class SalesService {
       }
     }
 
-    // Calculate VAT (16%)
+    // Apply discount (optional): cap at subtotal, then VAT on discounted subtotal
+    const discountAmount = Math.max(
+      0,
+      Math.min(dto.discountAmount ?? 0, subtotal),
+    );
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    // Calculate VAT (16%) on discounted subtotal
     const vatRate = 0.16; // 16% VAT rate
-    const vatAmount = Math.round(subtotal * vatRate * 100) / 100;
-    const total = subtotal + vatAmount;
+    const vatAmount = Math.round(subtotalAfterDiscount * vatRate * 100) / 100;
+    const total = Math.round((subtotalAfterDiscount + vatAmount) * 100) / 100;
     // Transaction: update stock, create sale and sale items, handle credit if applicable
     await this.prisma.$transaction(async (prisma) => {
       for (const item of dto.items) {
@@ -397,6 +403,105 @@ export class SalesService {
       console.error('Error in getSaleById:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get receipt data for a sale. When type=merchant, includes cost and profit for internal copy.
+   */
+  async getReceipt(
+    saleId: string,
+    tenantId: string,
+    type: 'customer' | 'merchant' = 'customer',
+  ) {
+    if (!saleId) throw new BadRequestException('Sale ID is required');
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+
+    const sale = await this.prisma.sale.findUnique({
+      where: { id: saleId, tenantId },
+      include: {
+        SaleItem: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                sku: true,
+                cost: true,
+              },
+            },
+          },
+        },
+        credit: { select: { dueDate: true, notes: true, balance: true, status: true } },
+        Branch: true,
+      },
+    });
+
+    if (!sale) throw new NotFoundException('Sale not found');
+
+    const tenant = await this.getTenantInfo(tenantId);
+    if (!tenant) throw new NotFoundException('Business information not found');
+
+    const items = sale.SaleItem.map((item) => {
+      const base: { productId: string; name: string; price: number; quantity: number } = {
+        productId: item.productId,
+        name: item.product?.name || 'Unknown Product',
+        price: item.price,
+        quantity: item.quantity,
+      };
+      if (type === 'merchant' && item.product && 'cost' in item.product) {
+        (base as any).cost = item.product.cost ?? 0;
+      }
+      return base;
+    });
+
+    let totalCost = 0;
+    let totalProfit = 0;
+    if (type === 'merchant') {
+      for (const item of sale.SaleItem) {
+        const cost = (item.product as any)?.cost ?? 0;
+        totalCost += cost * item.quantity;
+        totalProfit += (item.price - cost) * item.quantity;
+      }
+    }
+
+    const response: any = {
+      id: sale.id,
+      saleId: sale.id,
+      date: sale.createdAt,
+      receiptType: type,
+      customerName: sale.customerName || 'Walk-in Customer',
+      customerPhone: sale.customerPhone || 'N/A',
+      items,
+      total: sale.total,
+      paymentMethod: sale.paymentType,
+      amountReceived: sale.paymentType === 'cash' ? sale.total : sale.total,
+      change: 0,
+      businessInfo: {
+        name: tenant.name,
+        address: tenant.address,
+        phone: tenant.contactPhone,
+        email: tenant.contactEmail,
+        receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
+      },
+      branch: sale.Branch
+        ? { id: sale.Branch.id, name: sale.Branch.name, address: sale.Branch.address || '' }
+        : null,
+    };
+
+    if (type === 'merchant') {
+      response.totalCost = totalCost;
+      response.totalProfit = totalProfit;
+    }
+
+    if (sale.paymentType === 'credit' && sale.credit) {
+      response.creditDueDate = sale.credit.dueDate;
+      response.creditNotes = sale.credit.notes;
+      response.creditBalance = sale.credit.balance;
+      response.creditStatus = sale.credit.status;
+    }
+
+    return response;
   }
 
   async getSales(

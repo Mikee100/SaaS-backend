@@ -13,12 +13,14 @@ import { AuditLogService } from '../audit-log.service';
 import { UserModule } from '../user/user.module';
 import { PrismaModule } from '../prisma.module';
 import { ConfigModule } from '../config/config.module';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
   imports: [
     forwardRef(() => UserModule),
     PrismaModule,
     ConfigModule, // Add ConfigModule to provide CONFIG_OPTIONS
+    CacheModule,
   ],
   controllers: [
     BillingController,

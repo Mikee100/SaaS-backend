@@ -56,6 +56,9 @@ async function bootstrap() {
           'http://127.0.0.1:5000',
           'https://saas-business.duckdns.org',
           'https://saas-business.duckdns.org/',
+          // Hosted frontend (cookie-based auth requires this origin to be allowed)
+          'https://adeera-pos.vercel.app',
+          'https://adeera-pos.vercel.app/',
         ];
 
         const allowedOriginsList = isProduction

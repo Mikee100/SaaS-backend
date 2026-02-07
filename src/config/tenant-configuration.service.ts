@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as crypto from 'crypto';
+import { CacheService } from '../cache/cache.service';
 
 export interface TenantConfigurationItem {
   key: string;
@@ -18,7 +19,10 @@ export class TenantConfigurationService {
     process.env.CONFIG_ENCRYPTION_KEY ||
     'default-encryption-key-change-in-production';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService,
+  ) {}
 
   private encryptValue(value: string): string {
     const iv = crypto.randomBytes(16);
@@ -50,6 +54,12 @@ export class TenantConfigurationService {
     key: string,
   ): Promise<string | null> {
     try {
+      const cacheKey = `tenant_config:${tenantId}:${key}`;
+      const cached = this.cache.get(cacheKey) as string | null;
+      if (cached !== null && cached !== undefined) {
+        return cached;
+      }
+
       const config = await this.prisma.tenantConfiguration.findUnique({
         where: {
           tenantId_key: {
@@ -63,9 +73,13 @@ export class TenantConfigurationService {
         return null;
       }
 
-      return config.isEncrypted
+      const value = config.isEncrypted
         ? this.decryptValue(config.value)
         : config.value;
+
+      // Cache decrypted/plain value; config changes will invalidate by prefix.
+      this.cache.set(cacheKey, value, 300);
+      return value;
     } catch (error) {
       this.logger.error(
         `Failed to get tenant configuration for key: ${key}, tenant: ${tenantId}`,
@@ -122,6 +136,10 @@ export class TenantConfigurationService {
       this.logger.log(
         `Tenant configuration updated: ${key} for tenant: ${tenantId}`,
       );
+
+      // Invalidate all cached configuration entries for this tenant.
+      this.cache.invalidateByPrefix(`tenant_config:${tenantId}:`);
+      this.cache.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
     } catch (error) {
       this.logger.error(
         `Failed to set tenant configuration for key: ${key}, tenant: ${tenantId}`,
@@ -136,6 +154,14 @@ export class TenantConfigurationService {
     category?: string,
   ): Promise<TenantConfigurationItem[]> {
     try {
+      const listCacheKey = `tenant_config_all:${tenantId}:${category || 'all'}`;
+      const cached = this.cache.get(listCacheKey) as
+        | TenantConfigurationItem[]
+        | null;
+      if (cached) {
+        return cached;
+      }
+
       const where = {
         tenantId,
         ...(category && { category }),
@@ -143,7 +169,7 @@ export class TenantConfigurationService {
 
       const configs = await this.prisma.tenantConfiguration.findMany({ where });
 
-      return configs.map((config) => ({
+      const result = configs.map((config) => ({
         key: config.key,
         value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
         description: config.description || undefined,
@@ -151,6 +177,9 @@ export class TenantConfigurationService {
         isEncrypted: config.isEncrypted,
         isPublic: config.isPublic,
       }));
+
+      this.cache.set(listCacheKey, result, 300);
+      return result;
     } catch (error) {
       this.logger.error(
         `Failed to get all tenant configurations for tenant: ${tenantId}`,
@@ -177,6 +206,10 @@ export class TenantConfigurationService {
       this.logger.log(
         `Tenant configuration deleted: ${key} for tenant: ${tenantId}`,
       );
+
+      // Invalidate cached configuration entries for this tenant.
+      this.cache.invalidateByPrefix(`tenant_config:${tenantId}:`);
+      this.cache.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
     } catch (error) {
       this.logger.error(
         `Failed to delete tenant configuration for key: ${key}, tenant: ${tenantId}`,
