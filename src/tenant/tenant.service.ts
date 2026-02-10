@@ -249,6 +249,37 @@ export class TenantService {
     };
     [key: string]: any; // Allow additional fields
   }) {
+    // Normalize and validate owner email before creating any records
+    const rawOwnerEmail = tenantData.owner?.email;
+    const ownerEmail =
+      typeof rawOwnerEmail === 'string'
+        ? rawOwnerEmail.toLowerCase().trim()
+        : null;
+
+    if (!ownerEmail) {
+      throw new BadRequestException(
+        'Owner email is required to create a tenant.',
+      );
+    }
+
+    // Ensure the normalized email is used consistently downstream
+    tenantData.owner.email = ownerEmail;
+
+    // Prevent partial tenant creation when the owner email is already in use.
+    // We check user existence up-front so that if user creation would fail
+    // (due to the global unique constraint on User.email), we fail fast
+    // without leaving behind duplicate/orphaned tenants.
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: ownerEmail },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException(
+        `A user with email '${ownerEmail}' already exists. Please use a different email address or log in to your existing account.`,
+      );
+    }
+
     return this.prisma.$transaction(async (prisma) => {
       // 1. Create the tenant
       const tenant = await this.createTenant(tenantData);
