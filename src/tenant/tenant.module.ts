@@ -21,5 +21,6 @@ import { TenantConfigurationModule } from './tenant-configuration.module';
     BillingService,
   ],
   controllers: [TenantController],
+  exports: [TenantService],
 })
 export class TenantModule {}

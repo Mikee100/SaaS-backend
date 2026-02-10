@@ -11,7 +11,7 @@ import { AdminTenantStatsModule } from '../adminTenantStats/admin-tenant-stats.m
 import { TrialGuard } from '../auth/trial.guard';
 import { AuthModule } from '../auth/auth.module';
 import { UserModule } from '../user/user.module';
-import { TenantService } from '../tenant/tenant.service';
+import { TenantModule } from '../tenant/tenant.module';
 import { BranchService } from '../branch/branch.service';
 import { AuditLogService } from '../audit-log.service';
 import { TenantConfigurationModule } from '../tenant/tenant-configuration.module';
@@ -22,6 +22,7 @@ import { TenantConfigurationModule } from '../tenant/tenant-configuration.module
     AdminTenantStatsModule,
     AuthModule,
     UserModule,
+    TenantModule,
     TenantConfigurationModule,
   ],
   controllers: [
@@ -35,7 +36,6 @@ import { TenantConfigurationModule } from '../tenant/tenant-configuration.module
     SubscriptionAdminService,
     ConfigurationService,
     TrialGuard,
-    TenantService,
     BranchService,
     AuditLogService,
   ],
