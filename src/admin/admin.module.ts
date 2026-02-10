@@ -14,9 +14,16 @@ import { UserModule } from '../user/user.module';
 import { TenantService } from '../tenant/tenant.service';
 import { BranchService } from '../branch/branch.service';
 import { AuditLogService } from '../audit-log.service';
+import { TenantConfigurationModule } from '../tenant/tenant-configuration.module';
 
 @Module({
-  imports: [BillingModule, AdminTenantStatsModule, AuthModule, UserModule],
+  imports: [
+    BillingModule,
+    AdminTenantStatsModule,
+    AuthModule,
+    UserModule,
+    TenantConfigurationModule,
+  ],
   controllers: [
     AdminController,
     ConfigurationController,
