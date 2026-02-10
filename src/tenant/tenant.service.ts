@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
-import * as bcrypt from 'bcrypt';
 import { BranchService } from '../branch/branch.service';
+import { TenantConfigurationService } from '../config/tenant-configuration.service';
 
 @Injectable()
 export class TenantService {
@@ -17,6 +17,7 @@ export class TenantService {
     private prisma: PrismaService,
     private userService: UserService,
     private branchService: BranchService,
+    private tenantConfigurationService: TenantConfigurationService,
   ) {}
 
   async createTenant(data: any): Promise<any> {
@@ -83,11 +84,7 @@ export class TenantService {
     const tenant = await this.prisma.tenant.create({ data: filtered });
 
     // Automatically create default stockThreshold configuration for new tenant
-    const tenantConfigurationService =
-      new (require('../config/tenant-configuration.service').TenantConfigurationService)(
-        this.prisma,
-      );
-    await tenantConfigurationService.setTenantConfiguration(
+    await this.tenantConfigurationService.setTenantConfiguration(
       tenant.id,
       'stockThreshold',
       '10',

@@ -8,9 +8,10 @@ import { BranchModule } from '../branch/branch.module';
 import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
+import { TenantConfigurationModule } from './tenant-configuration.module';
 
 @Module({
-  imports: [UserModule, BranchModule],
+  imports: [UserModule, BranchModule, TenantConfigurationModule],
   providers: [
     TenantService,
     PrismaService,

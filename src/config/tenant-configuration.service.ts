@@ -138,8 +138,8 @@ export class TenantConfigurationService {
       );
 
       // Invalidate all cached configuration entries for this tenant.
-      this.cache.invalidateByPrefix(`tenant_config:${tenantId}:`);
-      this.cache.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
+      this.cache?.invalidateByPrefix(`tenant_config:${tenantId}:`);
+      this.cache?.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
     } catch (error) {
       this.logger.error(
         `Failed to set tenant configuration for key: ${key}, tenant: ${tenantId}`,
@@ -208,8 +208,8 @@ export class TenantConfigurationService {
       );
 
       // Invalidate cached configuration entries for this tenant.
-      this.cache.invalidateByPrefix(`tenant_config:${tenantId}:`);
-      this.cache.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
+      this.cache?.invalidateByPrefix(`tenant_config:${tenantId}:`);
+      this.cache?.invalidateByPrefix(`tenant_config_all:${tenantId}:`);
     } catch (error) {
       this.logger.error(
         `Failed to delete tenant configuration for key: ${key}, tenant: ${tenantId}`,
