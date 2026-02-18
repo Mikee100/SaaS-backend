@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { restoreBranch as doRestoreBranch } from '../prisma/soft-delete-restore';
 
 @Injectable()
 export class BranchService {
@@ -120,7 +121,18 @@ export class BranchService {
       }
     }
 
-    return this.prisma.branch.delete({ where: { id } });
+    return this.prisma.branch.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async restoreBranch(id: string) {
+    const count = await doRestoreBranch(this.prisma, id);
+    if (count === 0) {
+      throw new NotFoundException('Branch not found or not deleted');
+    }
+    return { success: true, message: 'Branch restored successfully' };
   }
 
   async updateUserBranch(userId: string, branchId: string) {

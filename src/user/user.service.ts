@@ -658,6 +658,12 @@ export class UserService {
 
       if (!user) return [];
 
+      // Superadmins have full access (including when impersonating)
+      if (user.isSuperadmin === true) {
+        const allPerms = await this.prisma.permission.findMany();
+        return allPerms.map((p) => ({ name: p.name }));
+      }
+
       // Check if user has owner role
       const isOwner = user.userRoles.some(
         (ur) =>
@@ -804,11 +810,12 @@ export class UserService {
       where: { userId: id },
     });
 
-    // If no remaining roles, delete the user
+    // If no remaining roles, soft-delete the user
     let result;
     if (remainingRoles === 0) {
-      result = await this.prisma.user.delete({
-        where: { id },
+      result = await this.prisma.user.update({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
       });
     } else {
       result = { id };

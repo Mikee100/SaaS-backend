@@ -14,6 +14,7 @@ model User {
   name                    String
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+  deletedAt               DateTime?
   resetPasswordExpires    DateTime?
   resetPasswordToken      String?
   language                String?
@@ -43,10 +44,13 @@ model User {
   userPreferences         UserPreference[]
   authSessions            AuthSession[]
   authDevices             AuthDevice[]
+  supportTickets          SupportTicket[]
+  supportTicketResponses  SupportTicketResponse[]
 
   @@index([email])
   @@index([branchId])
   @@index([resetPasswordToken])
+  @@index([deletedAt])
 }
 
 model Role {
@@ -56,12 +60,14 @@ model Role {
   createdAt      DateTime         @default(now())
   tenantId       String?
   updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
   tenant         Tenant?          @relation(fields: [tenantId], references: [id])
   permissions    RolePermission[]
   UserBranchRole UserBranchRole[] @relation("RoleUserBranchRoles")
   userRoles      UserRole[]       @relation("RoleUserRoles")
 
   @@unique([name, tenantId])
+  @@index([deletedAt])
 }
 
 model Permission {
@@ -103,6 +109,7 @@ model Tenant {
   contactPhone        String?
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
+  deletedAt           DateTime?
   address             String?
   currency            String?               @default("KES")
   logoUrl             String?
@@ -159,6 +166,7 @@ model Tenant {
   mpesaCallbackUrl    String?
   mpesaIsActive       Boolean               @default(false)
   mpesaEnvironment    String?               @default("sandbox")
+  isSuspended         Boolean               @default(false)
   Branch              Branch[]
   Inventory           Inventory[]
   InventoryMovement   InventoryMovement[]
@@ -184,6 +192,7 @@ model Tenant {
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
   productVariations   ProductVariation[]    @relation("TenantProductVariations")
   productAttributes   ProductAttribute[]    @relation("TenantProductAttributes")
+  supportTickets      SupportTicket[]
   expenses            Expense[]             // New
   expenseCategories   ExpenseCategory[]     // New
   salesTargets         SalesTarget[]         // New
@@ -191,6 +200,7 @@ model Tenant {
   loginHistory         LoginHistory[]
 
   @@index([name])
+  @@index([deletedAt])
 }
 
 model AuditLog {
@@ -210,6 +220,7 @@ model Branch {
   tenantId       String
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
   city           String?
   country        String?
   customField    String?
@@ -238,6 +249,7 @@ model Branch {
   salarySchemes       SalaryScheme[]      // New
 
   @@index([tenantId])
+  @@index([deletedAt])
 }
 
 model Inventory {
@@ -509,6 +521,7 @@ model Supplier {
   tenantId    String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
   isActive    Boolean   @default(true)
   products    Product[] @relation("SupplierProducts")
   tenant      Tenant    @relation(fields: [tenantId], references: [id])
@@ -516,6 +529,7 @@ model Supplier {
 
   @@index([tenantId])
   @@index([email])
+  @@index([deletedAt])
 }
 
 
@@ -530,6 +544,7 @@ model ProductAttribute {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
   values      ProductAttributeValue[]
   tenant      Tenant   @relation("TenantProductAttributes", fields: [tenantId], references: [id])
 
@@ -550,11 +565,13 @@ model ProductAttributeValue {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
   attribute   ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
   @@unique([attributeId, value])
   @@index([attributeId])
   @@index([isActive])
+  @@index([deletedAt])
 }
 
 model ProductVariation {
@@ -568,6 +585,7 @@ model ProductVariation {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
   tenantId     String
   branchId     String?
   barcode      String?  // Optional barcode for this variation
@@ -582,6 +600,7 @@ model ProductVariation {
   @@index([tenantId])
   @@index([branchId])
   @@index([sku])
+  @@index([deletedAt])
 }
 
 model Product {
@@ -593,6 +612,7 @@ model Product {
   tenantId     String
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
   stock        Int         @default(0) // Total stock across all variations
   customFields Json?
   branchId     String?
@@ -618,6 +638,7 @@ model Product {
   @@index([tenantId, createdAt])
   @@index([branchId, createdAt])
   @@index([tenantId, branchId, createdAt])
+  @@index([deletedAt])
 }
 
 model Sale {
@@ -871,6 +892,7 @@ model Credit {
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   sale          Sale     @relation("SaleCredit", fields: [saleId], references: [id])
@@ -882,6 +904,7 @@ model Credit {
   @@index([customerPhone])
   @@index([status])
   @@index([dueDate])
+  @@index([deletedAt])
 }
 
 model CreditPayment {
@@ -908,6 +931,7 @@ model ExpenseCategory {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   tenant      Tenant    @relation(fields: [tenantId], references: [id])
   expenses    Expense[]
@@ -915,6 +939,7 @@ model ExpenseCategory {
   @@unique([name, tenantId])
   @@index([tenantId])
   @@index([isActive])
+  @@index([deletedAt])
 }
 
 model Expense {
@@ -933,6 +958,7 @@ model Expense {
   notes         String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
 
   tenant        Tenant           @relation(fields: [tenantId], references: [id])
   user          User             @relation(fields: [userId], references: [id])
@@ -946,6 +972,7 @@ model Expense {
   @@index([categoryId])
   @@index([nextDueDate])
   @@index([isActive])
+  @@index([deletedAt])
 }
 
 model SalesTarget {
@@ -959,9 +986,10 @@ model SalesTarget {
   monthly   Float
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  // Add other fields as needed
+  deletedAt DateTime?
 
   @@index([tenantId])
+  @@index([deletedAt])
 }
 
 model SalaryScheme {
@@ -979,6 +1007,7 @@ model SalaryScheme {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
 
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   user          User     @relation(fields: [userId], references: [id])
@@ -989,6 +1018,7 @@ model SalaryScheme {
   @@index([branchId])
   @@index([isActive])
   @@index([nextDueDate])
+  @@index([deletedAt])
 }
 
 model LoginHistory {
@@ -1044,6 +1074,49 @@ model AuthDevice {
   sessions AuthSession[]
 
   @@unique([userId, fingerprint])
+  @@index([userId])
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  tenantId    String
+  userId      String
+  subject     String
+  description String
+  priority    String   @default("medium") // low, medium, high, critical
+  status      String   @default("open")   // open, in_progress, resolved, closed
+  category    String   @default("general") // technical, billing, feature_request, bug_report, general
+  assignedTo  String?
+  resolution  String?
+  attachments Json?    // array of URLs
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses SupportTicketResponse[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model SupportTicketResponse {
+  id         String   @id @default(uuid())
+  ticketId   String
+  userId     String
+  message    String
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
   @@index([userId])
 }
 

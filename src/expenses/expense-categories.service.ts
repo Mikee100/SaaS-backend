@@ -178,13 +178,10 @@ export class ExpenseCategoriesService {
       );
     }
 
-    // Soft delete
+    const now = new Date();
     await this.prisma.expenseCategory.update({
-      where: { id },
-      data: {
-        isActive: false,
-        updatedAt: new Date(),
-      },
+      where: { id, tenantId, deletedAt: null },
+      data: { deletedAt: now, isActive: false },
     });
 
     // Audit log

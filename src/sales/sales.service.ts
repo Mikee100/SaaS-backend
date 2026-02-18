@@ -143,11 +143,12 @@ export class SalesService {
     let subtotal = 0;
     const receiptItems: {
       productId: string;
+      variationId?: string;
       name: string;
       price: number;
       quantity: number;
     }[] = [];
-    // Validate and update stock
+    // Validate items and build receipt items
     for (const item of dto.items) {
       const product = await this.prisma.product.findUnique({
         where: { id: item.productId },
@@ -160,14 +161,39 @@ export class SalesService {
       });
       if (!product || product.tenantId !== tenantId)
         throw new BadRequestException('Invalid product');
-      // Skip quantity check since it's not part of the selected fields
-      // This assumes the product has enough quantity
-      // In a real app, you would need to fetch the full product to check quantity
-      subtotal += product.price * item.quantity;
+
+      let itemPrice = product.price;
+      let itemName = product.name;
+
+      if (item.variationId) {
+        const variation = await this.prisma.productVariation.findFirst({
+          where: {
+            id: item.variationId,
+            productId: item.productId,
+            tenantId,
+            isActive: true,
+          },
+          select: { id: true, sku: true, price: true, stock: true, attributes: true },
+        });
+        if (!variation) throw new BadRequestException('Invalid variation');
+        if (variation.stock < item.quantity)
+          throw new BadRequestException(
+            `Insufficient stock for variation ${variation.sku}`,
+          );
+        itemPrice = item.price ?? variation.price ?? product.price;
+        const attrStr =
+          variation.attributes && typeof variation.attributes === 'object'
+            ? Object.values(variation.attributes).join(', ')
+            : variation.sku;
+        itemName = `${product.name} - ${attrStr}`;
+      }
+
+      subtotal += itemPrice * item.quantity;
       receiptItems.push({
         productId: product.id,
-        name: product.name,
-        price: product.price,
+        ...(item.variationId && { variationId: item.variationId }),
+        name: itemName,
+        price: itemPrice,
         quantity: item.quantity,
       });
     }
@@ -199,14 +225,17 @@ export class SalesService {
     // Transaction: update stock, create sale and sale items, handle credit if applicable
     await this.prisma.$transaction(async (prisma) => {
       for (const item of dto.items) {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
-        });
+        if (item.variationId) {
+          await prisma.productVariation.update({
+            where: { id: item.variationId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        } else {
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
       }
 
       // Create the sale record with nested credit if applicable
@@ -248,15 +277,19 @@ export class SalesService {
 
       // Create sale items separately
       for (const item of dto.items) {
+        const receiptItem = receiptItems.find(
+          (r) =>
+            r.productId === item.productId &&
+            (r.variationId || null) === (item.variationId || null),
+        );
         await prisma.saleItem.create({
           data: {
             id: uuidv4(),
             saleId,
             productId: item.productId,
+            variationId: item.variationId ?? null,
             quantity: item.quantity,
-            price:
-              receiptItems.find((i) => i.productId === item.productId)?.price ||
-              0,
+            price: receiptItem?.price ?? 0,
           },
         });
       }
@@ -483,6 +516,8 @@ export class SalesService {
         phone: tenant.contactPhone,
         email: tenant.contactEmail,
         receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
+        logoUrl: tenant.logoUrl || null,
+        watermark: tenant.watermark ?? null,
       },
       branch: sale.Branch
         ? { id: sale.Branch.id, name: sale.Branch.name, address: sale.Branch.address || '' }
@@ -961,6 +996,7 @@ export class SalesService {
         contactPhone: true,
         receiptLogo: true,
         logoUrl: true,
+        watermark: true,
       },
     });
     return tenant;

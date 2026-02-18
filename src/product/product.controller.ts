@@ -40,7 +40,7 @@ export class ProductController {
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
-  async findAll(@Req() req, @Query() query: { page?: string; limit?: string; includeSupplier?: string; search?: string; branchId?: string }) {
+  async findAll(@Req() req, @Query() query: { page?: string; limit?: string; includeSupplier?: string; includeVariations?: string; search?: string; branchId?: string }) {
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -53,6 +53,7 @@ export class ProductController {
     const page = query.page ? parseInt(query.page, 10) : 1;
     const limit = query.limit ? parseInt(query.limit, 10) : 100; // Increased default from 10 to 100 products per page
     const includeSupplier = query.includeSupplier === 'true';
+    const includeVariations = query.includeVariations === 'true';
     const search = query.search || '';
 
     const result = await this.productService.findAllByTenantAndBranch(
@@ -62,9 +63,19 @@ export class ProductController {
       limit,
       includeSupplier,
       search,
+      includeVariations,
     );
 
     return result;
+  }
+
+  @Get('deleted')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
+  async findDeleted(@Req() req, @Query() query: { branchId?: string }) {
+    if (!req.user?.tenantId) throw new BadRequestException('User context missing');
+    const branchId = query.branchId || req.headers['x-branch-id'] || req.user?.branchId;
+    return this.productService.getDeletedProducts(req.user.tenantId, branchId);
   }
 
   @Post()
@@ -172,6 +183,19 @@ export class ProductController {
       id,
       body,
       tenantId,
+      req.user.userId,
+      req.ip,
+    );
+  }
+
+  @Post(':id/restore')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  async restore(@Param('id') id: string, @Req() req) {
+    if (!req.user?.tenantId) throw new BadRequestException('User context is missing');
+    return this.productService.restoreProduct(
+      id,
+      req.user.tenantId,
       req.user.userId,
       req.ip,
     );

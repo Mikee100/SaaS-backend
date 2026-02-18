@@ -13,6 +13,7 @@ import * as cookieParser from 'cookie-parser';
 import { seedPermissions } from '../scripts/seed-permissions';
 import { ApiLoggingMiddleware } from './middleware/api-logging.middleware';
 import { AuditLogService } from './audit-log.service';
+import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -183,6 +184,9 @@ async function bootstrap() {
         disableErrorMessages: isProduction,
       }),
     );
+
+    // Global exception filter to log validation errors (even when disabled for clients)
+    app.useGlobalFilters(new ValidationExceptionFilter());
 
     // CORS is already configured above
 

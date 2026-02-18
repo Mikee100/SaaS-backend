@@ -146,6 +146,8 @@ export class AuthController {
       roles: user.roles || [],
       permissions: user.permissions || [],
       isSuperadmin: user.isSuperadmin ?? false,
+      impersonating: user.impersonating ?? false,
+      impersonatingAsTenantName: user.impersonatingTenantName ?? null,
     };
   }
 

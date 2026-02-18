@@ -55,6 +55,11 @@ export class BranchController {
     return this.branchService.updateBranch(id, data);
   }
 
+  @Post(':id/restore')
+  async restoreBranch(@Param('id') id: string) {
+    return this.branchService.restoreBranch(id);
+  }
+
   @Delete(':id')
   async deleteBranch(@Param('id') id: string) {
     return this.branchService.deleteBranch(id);

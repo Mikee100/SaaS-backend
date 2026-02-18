@@ -19,7 +19,7 @@ export class ProductAttributeService {
       include: {
         values: includeValues
           ? {
-              where: { isActive: true },
+              where: { isActive: true, deletedAt: null },
               orderBy: { sortOrder: 'asc' },
             }
           : false,
@@ -34,7 +34,7 @@ export class ProductAttributeService {
       where: { id, tenantId },
       include: {
         values: {
-          where: { isActive: true },
+          where: { isActive: true, deletedAt: null },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -104,7 +104,7 @@ export class ProductAttributeService {
       },
       include: {
         values: {
-          where: { isActive: true },
+          where: { isActive: true, deletedAt: null },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -116,8 +116,8 @@ export class ProductAttributeService {
     const attribute = await this.findOne(id, tenantId);
 
     return this.prisma.productAttribute.update({
-      where: { id: attribute.id },
-      data: { isActive: false },
+      where: { id: attribute.id, deletedAt: null },
+      data: { deletedAt: new Date(), isActive: false },
     });
   }
 

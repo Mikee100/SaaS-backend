@@ -297,13 +297,10 @@ export class ExpensesService {
       throw new NotFoundException('Expense not found');
     }
 
-    // Soft delete by setting isActive to false
+    const now = new Date();
     await this.prisma.expense.update({
-      where: { id },
-      data: {
-        isActive: false,
-        updatedAt: new Date(),
-      },
+      where: { id, tenantId, deletedAt: null },
+      data: { deletedAt: now, isActive: false },
     });
 
     return { success: true, message: 'Expense deleted successfully' };

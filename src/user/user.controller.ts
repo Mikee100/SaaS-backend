@@ -46,6 +46,8 @@ export class UserController {
       tenantId: user.tenantId,
       branchId: user.branchId,
       isSuperadmin: user.isSuperadmin || false,
+      impersonating: user.impersonating ?? false,
+      impersonatingAsTenantName: user.impersonatingTenantName ?? null,
       language: dbUser?.language ?? undefined,
       region: dbUser?.region ?? undefined,
       notificationPreferences: dbUser?.notificationPreferences ?? undefined,

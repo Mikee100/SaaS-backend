@@ -106,7 +106,10 @@ export class PermissionService {
         'Cannot delete role while it is assigned to users. Unassign the role from all users first.',
       );
     await this.prisma.rolePermission.deleteMany({ where: { roleId } });
-    return this.prisma.role.delete({ where: { id: roleId } });
+    return this.prisma.role.update({
+      where: { id: roleId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
   }
 
   async createRole(name: string, description?: string, tenantId?: string) {

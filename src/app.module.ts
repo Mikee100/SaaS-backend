@@ -30,7 +30,8 @@ import { SalaryModule } from './salary/salary.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { BackupModule } from './backup/backup.module';
 import { SalesTargetModule } from './sales-target/sales-target.module';
-
+import { ImpersonationInterceptor } from './admin/impersonation.interceptor';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -85,6 +86,10 @@ import { SalesTargetModule } from './sales-target/sales-target.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ImpersonationInterceptor,
     },
   ],
 })

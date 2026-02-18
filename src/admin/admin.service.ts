@@ -227,6 +227,24 @@ export class AdminService {
     return result;
   }
 
+  async getDeletedTenants() {
+    const tenants = await this.prisma.$queryRaw`
+      SELECT t.id, t.name, t."businessType", t."contactEmail", t."contactPhone", t."createdAt", t."deletedAt"
+      FROM "Tenant" t
+      WHERE t."deletedAt" IS NOT NULL
+      ORDER BY t."deletedAt" DESC
+    ` as Array<{ id: string; name: string; businessType: string; contactEmail: string; contactPhone: string | null; createdAt: Date; deletedAt: Date }>;
+    return tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      businessType: t.businessType,
+      contactEmail: t.contactEmail,
+      contactPhone: t.contactPhone,
+      createdAt: t.createdAt,
+      deletedAt: t.deletedAt,
+    }));
+  }
+
   async getTenantById(tenantId: string) {
     this.logger.log(
       `AdminService: getTenantById called with tenantId: ${tenantId}`,
@@ -1054,139 +1072,64 @@ export class AdminService {
       `AdminService: Deleting tenant: ${tenant.name} (${tenantId})`,
     );
 
-    // Use transaction to delete all related data in proper order
+    const now = new Date();
+
+    // Soft-delete tenant and tenant-scoped entities (transactional data kept for audit)
     await this.prisma.$transaction(async (prisma) => {
-      // Delete in order to respect foreign key constraints
-      // Start with leaf entities and work up to the tenant
-
-      // 1. Delete SaleItem (depends on Sale)
-      await prisma.saleItem.deleteMany({
-        where: { sale: { tenantId } },
+      // Soft-delete child entities first
+      await prisma.productVariation.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.product.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.supplier.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.expense.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.expenseCategory.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.supportTicket.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.credit.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.salesTarget.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.salaryScheme.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.role.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.branch.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      await prisma.user.updateMany({
+        where: { tenantId, deletedAt: null },
+        data: { deletedAt: now },
       });
 
-      // 2. Delete Sale (depends on User, Branch, Tenant)
-      await prisma.sale.deleteMany({
-        where: { tenantId },
-      });
-
-      // 3. Delete InventoryMovement (depends on Product, Branch)
-      await prisma.inventoryMovement.deleteMany({
-        where: { tenantId },
-      });
-
-      // 4. Delete InventoryAlert (depends on Product, Branch)
-      await prisma.inventoryAlert.deleteMany({
-        where: { tenantId },
-      });
-
-      // 5. Delete Inventory (depends on Product, Branch)
-      await prisma.inventory.deleteMany({
-        where: { tenantId },
-      });
-
-      // 6. Delete InventoryLocation (depends on Branch)
-      await prisma.inventoryLocation.deleteMany({
-        where: { tenantId },
-      });
-
-      // 7. Delete ProductAdditionRecord (depends on Product, Branch, User)
-      await prisma.productAdditionRecord.deleteMany({
-        where: { tenantId },
-      });
-
-      // 8. Delete Product (depends on Branch, Supplier, Tenant)
-      await prisma.product.deleteMany({
-        where: { tenantId },
-      });
-
-      // 9. Delete Supplier (depends on Tenant)
-      await prisma.supplier.deleteMany({
-        where: { tenantId },
-      });
-
-      // 11. Delete MpesaTransaction (depends on User, Sale, Tenant)
-      await prisma.mpesaTransaction.deleteMany({
-        where: { tenantId },
-      });
-
-      // 12. Delete Notification (depends on User, Tenant)
-      await prisma.notification.deleteMany({
-        where: { tenantId },
-      });
-
-      // 13. Delete PaymentMethod (depends on Tenant)
-      await prisma.paymentMethod.deleteMany({
-        where: { tenantId },
-      });
-
-      // 14. Delete Payment (depends on Tenant)
-      await prisma.payment.deleteMany({
-        where: { tenantId },
-      });
-
-      // 15. Delete Invoice (depends on Subscription, Tenant)
-      await prisma.invoice.deleteMany({
-        where: { tenantId },
-      });
-
-      // 16. Delete Subscription (depends on Plan, User, Tenant)
-      await prisma.subscription.deleteMany({
-        where: { tenantId },
-      });
-
-      // 17. Delete AIChatInteraction (depends on User, Branch, Tenant)
-      await prisma.aIChatInteraction.deleteMany({
-        where: { tenantId },
-      });
-
-      // 18. Delete AuditLog (depends on User)
-      await prisma.auditLog.deleteMany({
-        where: { User: { tenantId } },
-      });
-
-      // 19. Delete UserPermission (depends on User, Tenant)
-      await prisma.userPermission.deleteMany({
-        where: { tenantId },
-      });
-
-      // 20. Delete UserRole (depends on User, Role, Tenant)
-      await prisma.userRole.deleteMany({
-        where: { tenantId },
-      });
-
-      // 21. Delete UserBranchRole (depends on User, Branch, Role, Tenant)
-      await prisma.userBranchRole.deleteMany({
-        where: { tenantId },
-      });
-
-      // 21.5. Delete RolePermission (depends on Role)
-      await prisma.rolePermission.deleteMany({
-        where: { role: { tenantId } },
-      });
-
-      // 22. Delete Role (depends on Tenant)
-      await prisma.role.deleteMany({
-        where: { tenantId },
-      });
-
-      // 23. Delete Branch (depends on Tenant)
-      await prisma.branch.deleteMany({
-        where: { tenantId },
-      });
-
-      // 24. Delete User (depends on Branch, Tenant)
-      await prisma.user.deleteMany({
-        where: { tenantId },
-      });
-
-      // 25. Delete TenantModule (depends on Tenant, Module)
-      await prisma.tenantModule.deleteMany({
-        where: { tenantId },
-      });
-
-      // 26. Finally, delete the Tenant itself
-      await prisma.tenant.delete({
-        where: { id: tenantId },
+      // Soft-delete the tenant
+      await prisma.tenant.update({
+        where: { id: tenantId, deletedAt: null },
+        data: { deletedAt: now },
       });
     });
 
@@ -1195,5 +1138,38 @@ export class AdminService {
     );
 
     return { success: true, message: 'Tenant deleted successfully' };
+  }
+
+  async restoreTenant(tenantId: string) {
+    const tenant = await this.prisma.$queryRaw`
+      SELECT id, name FROM "Tenant" WHERE id = ${tenantId} AND "deletedAt" IS NOT NULL
+    ` as Array<{ id: string; name: string }>;
+    if (!tenant || tenant.length === 0) {
+      throw new Error('Tenant not found or not deleted');
+    }
+    const tables: Array<{ name: string; extraSet?: string }> = [
+      { name: 'ProductVariation' },
+      { name: 'Product' },
+      { name: 'Supplier' },
+      { name: 'Expense', extraSet: ', "isActive" = true' },
+      { name: 'ExpenseCategory', extraSet: ', "isActive" = true' },
+      { name: 'SupportTicket' },
+      { name: 'Credit' },
+      { name: 'SalesTarget' },
+      { name: 'SalaryScheme' },
+      { name: 'Role' },
+      { name: 'Branch' },
+      { name: 'User' },
+      { name: 'Tenant' },
+    ];
+    for (const { name, extraSet = '' } of tables) {
+      const col = name === 'Tenant' ? 'id' : 'tenantId';
+      await (this.prisma as any).$executeRawUnsafe(
+        `UPDATE "${name}" SET "deletedAt" = NULL${extraSet} WHERE "${col}" = $1 AND "deletedAt" IS NOT NULL`,
+        tenantId,
+      );
+    }
+    this.logger.log(`AdminService: Restored tenant ${tenant[0].name} (${tenantId})`);
+    return { success: true, message: 'Tenant restored successfully' };
   }
 }

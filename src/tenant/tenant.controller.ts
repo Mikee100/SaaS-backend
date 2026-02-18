@@ -5,6 +5,7 @@ import {
   Put,
   Body,
   Req,
+  Param,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -319,6 +320,59 @@ export class TenantController {
       );
       throw error;
     }
+  }
+
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Get('notifications')
+  async getNotifications(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    const prefs = await this.tenantService.getNotificationPreferences(tenantId);
+    return prefs ?? {};
+  }
+
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Put('notifications')
+  async updateNotifications(@Req() req: any, @Body() body: Record<string, unknown>) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.updateNotificationPreferences(tenantId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Get('integrations')
+  async getIntegrations(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    return this.tenantService.getIntegrationsList(tenantId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Post('integrations/:id/connect')
+  async connectIntegration(@Req() req: any, @Param('id') id: string) {
+    if (id === 'stripe') {
+      return { url: '/settings/billing/stripe-config' };
+    }
+    return { url: null };
+  }
+
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  @Post('integrations/:id/test')
+  async testIntegration(@Req() req: any, @Param('id') id: string) {
+    const tenantId = req.user.tenantId;
+    if (id === 'mpesa') {
+      const tenant = await this.tenantService.getTenantById(tenantId);
+      if (!tenant?.mpesaIsActive) {
+        throw new BadRequestException('M-Pesa is not configured or active');
+      }
+      return { success: true };
+    }
+    if (id === 'stripe') {
+      const list = await this.tenantService.getIntegrationsList(tenantId);
+      const stripe = list.find((i) => i.id === 'stripe');
+      if (stripe?.status !== 'connected') {
+        throw new BadRequestException('Stripe is not connected');
+      }
+      return { success: true };
+    }
+    throw new BadRequestException('Test not supported for this integration');
   }
 
   @Get()

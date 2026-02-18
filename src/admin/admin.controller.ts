@@ -76,6 +76,11 @@ export class AdminController {
     return result;
   }
 
+  @Get('tenants/deleted')
+  async getDeletedTenants() {
+    return this.adminService.getDeletedTenants();
+  }
+
   // Specific routes must be defined BEFORE parameterized routes
   @Get('tenants/space-usage')
   async getTenantsSpaceUsage() {
@@ -191,6 +196,14 @@ export class AdminController {
   async createTenant(@Body() tenantData: any) {
     this.logger.log('AdminController: createTenant called');
     return this.adminService.createTenant(tenantData);
+  }
+
+  @Post('tenants/:id/restore')
+  async restoreTenant(@Param('id') tenantId: string) {
+    this.logger.log(
+      `AdminController: restoreTenant called with tenantId: ${tenantId}`,
+    );
+    return this.adminService.restoreTenant(tenantId);
   }
 
   @Delete('tenants/:id')

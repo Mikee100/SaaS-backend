@@ -16,10 +16,13 @@ class SaleItemDto {
   @Min(1)
   quantity: number;
 
-  // Add price property
   @IsNumber()
   @IsOptional()
   price?: number;
+
+  @IsString()
+  @IsOptional()
+  variationId?: string;
 }
 
 export class CreateSaleDto {

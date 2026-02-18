@@ -36,14 +36,14 @@ export class SubscriptionAdminController {
     }
   }
 
-  @Get(':id')
-  async getSubscriptionById(@Param('id') id: string) {
-    return this.subscriptionAdminService.getSubscriptionById(id);
-  }
-
   @Get('tenant/:tenantId/usage')
   async getTenantUsage(@Param('tenantId') tenantId: string) {
     return this.subscriptionAdminService.getTenantUsage(tenantId);
+  }
+
+  @Get(':id')
+  async getSubscriptionById(@Param('id') id: string) {
+    return this.subscriptionAdminService.getSubscriptionById(id);
   }
 
   @Patch(':id/cancel-scheduled')

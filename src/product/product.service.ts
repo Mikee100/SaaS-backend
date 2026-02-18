@@ -12,6 +12,7 @@ import { AuditLogService } from '../audit-log.service';
 import * as qrcode from 'qrcode';
 import { BillingService } from '../billing/billing.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { restoreProduct } from '../prisma/soft-delete-restore';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
@@ -33,15 +34,17 @@ export class ProductService {
     page: number = 1,
     limit: number = 10,
     includeSupplier: boolean = false,
-    search: string = ''
+    search: string = '',
+    includeVariations: boolean = false,
   ) {
-    console.log('Backend: findAllByTenantAndBranch called with:', { tenantId, branchId, page, limit, search });
+    console.log('Backend: findAllByTenantAndBranch called with:', { tenantId, branchId, page, limit, includeVariations });
 
     // Check cache first
     const branchSuffix = branchId ? `_${branchId}` : '_all';
     const includeSuffix = includeSupplier ? '_with_supplier' : '';
+    const variationsSuffix = includeVariations ? '_with_variations' : '';
     const searchSuffix = search ? `_${search.replace(/\s+/g, '_').toLowerCase()}` : '';
-    const cacheKey = `products_list_${tenantId}_${branchSuffix}_${page}_${limit}${includeSuffix}${searchSuffix}`;
+    const cacheKey = `products_list_${tenantId}_${branchSuffix}_${page}_${limit}${includeSuffix}${variationsSuffix}${searchSuffix}`;
     let cachedResult = this.cacheService.get(cacheKey);
 
     if (cachedResult) {
@@ -96,6 +99,7 @@ export class ProductService {
       updatedAt: true,
       images: true,
       customFields: true,
+      hasVariations: true,
     };
 
     // Conditionally include supplier data only when needed
@@ -106,6 +110,20 @@ export class ProductService {
           name: true,
           contactName: true,
           email: true,
+        },
+      };
+    }
+
+    // Conditionally include variations when needed (e.g. for POS)
+    if (includeVariations) {
+      select.variations = {
+        where: { isActive: true },
+        select: {
+          id: true,
+          sku: true,
+          price: true,
+          stock: true,
+          attributes: true,
         },
       };
     }
@@ -331,14 +349,16 @@ export class ProductService {
     actorUserId?: string,
     ip?: string,
   ) {
-    // Delete variations first to avoid foreign key constraint errors
+    const now = new Date();
     const result = await this.prisma.$transaction(async (prisma) => {
-      await prisma.productVariation.deleteMany({
-        where: { productId: id, tenantId },
+      await prisma.productVariation.updateMany({
+        where: { productId: id, tenantId, deletedAt: null },
+        data: { deletedAt: now },
       });
 
-      const deleted = await prisma.product.deleteMany({
-        where: { id, tenantId },
+      const deleted = await prisma.product.updateMany({
+        where: { id, tenantId, deletedAt: null },
+        data: { deletedAt: now },
       });
 
       return deleted;
@@ -358,6 +378,35 @@ export class ProductService {
     return result;
   }
 
+  async getDeletedProducts(tenantId: string, branchId?: string) {
+    if (branchId) {
+      return this.prisma.$queryRaw`
+        SELECT p.id, p.name, p.sku, p.price, p."deletedAt" FROM "Product" p
+        WHERE p."tenantId" = ${tenantId} AND p."branchId" = ${branchId} AND p."deletedAt" IS NOT NULL
+        ORDER BY p."deletedAt" DESC
+        LIMIT 100
+      ` as Promise<Array<{ id: string; name: string; sku: string; price: number; deletedAt: Date }>>;
+    }
+    return this.prisma.$queryRaw`
+      SELECT p.id, p.name, p.sku, p.price, p."deletedAt" FROM "Product" p
+      WHERE p."tenantId" = ${tenantId} AND p."deletedAt" IS NOT NULL
+      ORDER BY p."deletedAt" DESC
+      LIMIT 100
+    ` as Promise<Array<{ id: string; name: string; sku: string; price: number; deletedAt: Date }>>;
+  }
+
+  async restoreProduct(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+    const result = await restoreProduct(this.prisma, id, tenantId);
+    if (result.count === 0) {
+      throw new NotFoundException('Product not found or not deleted');
+    }
+    this.cacheService.invalidateProductCache(tenantId, id);
+    if (this.auditLogService) {
+      await this.auditLogService.log(actorUserId || null, 'product_restored', { productId: id }, ip);
+    }
+    return { success: true, message: 'Product restored successfully' };
+  }
+
   async getProductCount(tenantId: string, branchId?: string): Promise<number> {
     // Use cached count when no branch filter is applied
     if (!branchId) {
@@ -374,8 +423,9 @@ export class ProductService {
   }
 
   async clearAll(tenantId: string) {
-    const deleted = await this.prisma.product.deleteMany({
-      where: { tenantId },
+    const deleted = await this.prisma.product.updateMany({
+      where: { tenantId, deletedAt: null },
+      data: { deletedAt: new Date() },
     });
     return { deletedCount: deleted.count };
   }

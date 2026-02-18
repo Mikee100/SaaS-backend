@@ -351,6 +351,82 @@ export class TenantService {
     });
   }
 
+  private readonly NOTIFICATION_PREFS_KEY = 'notificationPreferences';
+
+  async getNotificationPreferences(tenantId: string): Promise<Record<string, unknown> | null> {
+    const raw = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      this.NOTIFICATION_PREFS_KEY,
+    );
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  async updateNotificationPreferences(
+    tenantId: string,
+    prefs: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const value = JSON.stringify(prefs);
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      this.NOTIFICATION_PREFS_KEY,
+      value,
+      {
+        description: 'Tenant notification preferences',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+    return prefs;
+  }
+
+  async getIntegrationsList(tenantId: string): Promise<
+    { id: string; name: string; description: string; status: 'connected' | 'disconnected' | 'error'; lastSync?: string }[]
+  > {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        mpesaIsActive: true,
+        stripeCustomerId: true,
+      },
+    });
+    const isStripeConfigured = Boolean(tenant?.stripeCustomerId);
+    const stripeConfigured = await this.tenantConfigurationService
+      .getTenantConfiguration(tenantId, 'STRIPE_SECRET_KEY')
+      .then((v) => Boolean(v));
+    return [
+      {
+        id: 'stripe',
+        name: 'Stripe',
+        description: 'Payment processing and billing',
+        status: isStripeConfigured || stripeConfigured ? 'connected' : 'disconnected',
+      },
+      {
+        id: 'mpesa',
+        name: 'M-Pesa',
+        description: 'Mobile money payments for Kenya',
+        status: tenant?.mpesaIsActive ? 'connected' : 'disconnected',
+      },
+      {
+        id: 'quickbooks',
+        name: 'QuickBooks',
+        description: 'Accounting and financial management',
+        status: 'disconnected',
+      },
+      {
+        id: 'slack',
+        name: 'Slack',
+        description: 'Team communication and notifications',
+        status: 'disconnected',
+      },
+    ];
+  }
+
   async createOwnerUser(data: {
     name: string;
     email: string;

@@ -34,6 +34,13 @@ export class SupplierController {
     return this.supplierService.getSupplierStats(tenantId);
   }
 
+  @Get('deleted')
+  @Permissions('view_inventory')
+  async findDeleted(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.supplierService.getDeletedSuppliers(tenantId);
+  }
+
   @Get(':id')
   @Permissions('view_inventory')
   async findOne(@Param('id') id: string, @Req() req) {
@@ -59,6 +66,13 @@ export class SupplierController {
       req.user.userId,
       req.ip,
     );
+  }
+
+  @Post(':id/restore')
+  @Permissions('edit_inventory')
+  async restore(@Param('id') id: string, @Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.supplierService.restoreSupplier(id, tenantId, req.user.userId, req.ip);
   }
 
   @Delete(':id')
