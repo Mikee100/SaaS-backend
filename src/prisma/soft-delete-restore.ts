@@ -36,10 +36,11 @@ export async function restoreSupplier(
 export async function restoreBranch(
   prisma: PrismaService,
   id: string,
+  tenantId: string,
 ): Promise<number> {
   return (prisma as any).$executeRaw`
     UPDATE "Branch" SET "deletedAt" = NULL
-    WHERE "id" = ${id} AND "deletedAt" IS NOT NULL
+    WHERE "id" = ${id} AND "tenantId" = ${tenantId} AND "deletedAt" IS NOT NULL
   ` as Promise<number>;
 }
 

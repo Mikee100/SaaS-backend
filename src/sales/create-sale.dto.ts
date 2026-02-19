@@ -5,6 +5,7 @@ import {
   IsOptional,
   Min,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -88,4 +89,46 @@ export class CreateSaleDto {
   @IsOptional()
   @Min(0)
   discountAmount?: number;
+
+  /** Whether this is a split payment */
+  @IsBoolean()
+  @IsOptional()
+  isSplitPayment?: boolean;
+
+  /** Split payments array - multiple payment methods */
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => SplitPaymentDto)
+  splitPayments?: SplitPaymentDto[];
+}
+
+class SplitPaymentDto {
+  @IsString()
+  method: 'cash' | 'mpesa' | 'credit';
+
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  amountReceived?: number; // For cash payments
+
+  @IsString()
+  @IsOptional()
+  mpesaTransactionId?: string; // For M-Pesa payments
+
+  @IsString()
+  @IsOptional()
+  mpesaReceipt?: string; // For M-Pesa payments
+
+  @IsString()
+  @IsOptional()
+  creditDueDate?: string; // For credit payments
+
+  @IsString()
+  @IsOptional()
+  creditNotes?: string; // For credit payments
 }

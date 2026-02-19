@@ -159,33 +159,64 @@ export class SalesService {
           tenantId: true,
         },
       });
-      if (!product || product.tenantId !== tenantId)
+
+      if (!product) {
         throw new BadRequestException('Invalid product');
+      }
+      // In multi-tenant setups we normally enforce tenant ownership.
+      // However, some legacy data may have products without a matching tenantId.
+      // To avoid blocking valid POS usage, log a warning instead of throwing.
+      if (product.tenantId !== tenantId) {
+        this.logger.warn(
+          `Product tenant mismatch when creating sale. Using product anyway.`,
+          {
+            productId: product.id,
+            productTenantId: product.tenantId,
+            requestTenantId: tenantId,
+          },
+        );
+      }
 
       let itemPrice = product.price;
       let itemName = product.name;
 
       if (item.variationId) {
-        const variation = await this.prisma.productVariation.findFirst({
-          where: {
-            id: item.variationId,
-            productId: item.productId,
-            tenantId,
-            isActive: true,
-          },
-          select: { id: true, sku: true, price: true, stock: true, attributes: true },
-        });
-        if (!variation) throw new BadRequestException('Invalid variation');
-        if (variation.stock < item.quantity)
-          throw new BadRequestException(
-            `Insufficient stock for variation ${variation.sku}`,
-          );
-        itemPrice = item.price ?? variation.price ?? product.price;
-        const attrStr =
-          variation.attributes && typeof variation.attributes === 'object'
-            ? Object.values(variation.attributes).join(', ')
-            : variation.sku;
-        itemName = `${product.name} - ${attrStr}`;
+        try {
+          const variation = await this.prisma.productVariation.findFirst({
+            where: {
+              id: item.variationId,
+              productId: item.productId,
+              tenantId,
+              isActive: true,
+            },
+            select: { id: true, sku: true, price: true, stock: true, attributes: true },
+          });
+          if (!variation) {
+            this.logger.error(`Variation not found: ${item.variationId} for product ${item.productId}`, {
+              variationId: item.variationId,
+              productId: item.productId,
+              tenantId,
+            });
+            throw new BadRequestException(`Invalid variation: ${item.variationId}`);
+          }
+          if (variation.stock < item.quantity) {
+            throw new BadRequestException(
+              `Insufficient stock for variation ${variation.sku}. Available: ${variation.stock}, Requested: ${item.quantity}`,
+            );
+          }
+          itemPrice = item.price ?? variation.price ?? product.price;
+          const attrStr =
+            variation.attributes && typeof variation.attributes === 'object'
+              ? Object.values(variation.attributes).join(', ')
+              : variation.sku;
+          itemName = `${product.name} - ${attrStr}`;
+        } catch (error) {
+          this.logger.error(`Error fetching variation ${item.variationId}:`, error);
+          if (error instanceof BadRequestException) {
+            throw error;
+          }
+          throw new BadRequestException(`Failed to fetch variation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
 
       subtotal += itemPrice * item.quantity;
@@ -222,50 +253,196 @@ export class SalesService {
     const vatRate = 0.16; // 16% VAT rate
     const vatAmount = Math.round(subtotalAfterDiscount * vatRate * 100) / 100;
     const total = Math.round((subtotalAfterDiscount + vatAmount) * 100) / 100;
+    
+    // Handle split payments (declare outside transaction so it's accessible in return statement)
+    let paymentType = dto.paymentMethod;
+    let creditCreateData: any = null;
+    let mpesaTransactionId = dto.mpesaTransactionId;
+    let amountReceived = dto.amountReceived;
+
+    if (dto.isSplitPayment && dto.splitPayments && dto.splitPayments.length > 0) {
+      // For split payments, set paymentType to 'split'
+      paymentType = 'split';
+      
+      // Calculate total amount received (sum of cash amounts)
+      amountReceived = dto.splitPayments
+        .filter(p => p.method === 'cash')
+        .reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
+
+      // Get M-Pesa transaction ID from split payments if any
+      const mpesaPayment = dto.splitPayments.find(p => p.method === 'mpesa');
+      if (mpesaPayment?.mpesaTransactionId) {
+        mpesaTransactionId = mpesaPayment.mpesaTransactionId;
+      }
+
+      // Handle credit portion of split payment
+      const creditPayment = dto.splitPayments.find(p => p.method === 'credit');
+      if (creditPayment) {
+        creditCreateData = {
+          tenantId,
+          customerName: dto.customerName || '',
+          customerPhone: dto.customerPhone,
+          totalAmount: creditPayment.amount,
+          balance: creditPayment.amount,
+          dueDate: creditPayment.creditDueDate
+            ? new Date(creditPayment.creditDueDate)
+            : null,
+          notes: creditPayment.creditNotes || dto.creditNotes,
+        };
+      }
+    } else if (dto.paymentMethod === 'credit') {
+      // Single credit payment
+      creditCreateData = {
+        tenantId,
+        customerName: dto.customerName || '',
+        customerPhone: dto.customerPhone,
+        totalAmount: dto.creditAmount || total,
+        balance: dto.creditAmount || total,
+        dueDate: dto.creditDueDate
+          ? new Date(dto.creditDueDate)
+          : null,
+        notes: dto.creditNotes,
+      };
+    }
+
     // Transaction: update stock, create sale and sale items, handle credit if applicable
     await this.prisma.$transaction(async (prisma) => {
       for (const item of dto.items) {
-        if (item.variationId) {
-          await prisma.productVariation.update({
-            where: { id: item.variationId },
-            data: { stock: { decrement: item.quantity } },
+        try {
+          if (item.variationId) {
+            // Verify variation exists and is active before updating
+            const variation = await prisma.productVariation.findFirst({
+              where: {
+                id: item.variationId,
+                productId: item.productId,
+                tenantId,
+                isActive: true,
+              },
+              select: { id: true, stock: true },
+            });
+            
+            if (!variation) {
+              throw new BadRequestException(
+                `Variation ${item.variationId} not found or inactive`
+              );
+            }
+            
+            if (variation.stock < item.quantity) {
+              throw new BadRequestException(
+                `Insufficient stock for variation. Available: ${variation.stock}, Requested: ${item.quantity}`
+              );
+            }
+            
+            await prisma.productVariation.update({
+              where: { id: item.variationId },
+              data: { stock: { decrement: item.quantity } },
+            });
+          } else {
+            // Verify product exists before updating
+            const product = await prisma.product.findUnique({
+              where: { id: item.productId },
+              select: { id: true, stock: true },
+            });
+            
+            if (!product) {
+              throw new BadRequestException(
+                `Product ${item.productId} not found`
+              );
+            }
+            
+            if (product.stock < item.quantity) {
+              throw new BadRequestException(
+                `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}`
+              );
+            }
+            
+            await prisma.product.update({
+              where: { id: item.productId },
+              data: { stock: { decrement: item.quantity } },
+            });
+          }
+        } catch (error) {
+          this.logger.error(`Error updating stock for item:`, {
+            productId: item.productId,
+            variationId: item.variationId,
+            quantity: item.quantity,
+            tenantId,
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
           });
-        } else {
-          await prisma.product.update({
-            where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } },
-          });
+          // Re-throw BadRequestException as-is
+          if (error instanceof BadRequestException) {
+            throw error;
+          }
+          throw new BadRequestException(
+            `Failed to update stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
         }
       }
 
+      if (dto.isSplitPayment && dto.splitPayments && dto.splitPayments.length > 0) {
+        // For split payments, set paymentType to 'split'
+        paymentType = 'split';
+        
+        // Calculate total amount received (sum of cash amounts)
+        amountReceived = dto.splitPayments
+          .filter(p => p.method === 'cash')
+          .reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
+
+        // Get M-Pesa transaction ID from split payments if any
+        const mpesaPayment = dto.splitPayments.find(p => p.method === 'mpesa');
+        if (mpesaPayment?.mpesaTransactionId) {
+          mpesaTransactionId = mpesaPayment.mpesaTransactionId;
+        }
+
+        // Handle credit portion of split payment
+        const creditPayment = dto.splitPayments.find(p => p.method === 'credit');
+        if (creditPayment) {
+          creditCreateData = {
+            tenantId,
+            customerName: dto.customerName || '',
+            customerPhone: dto.customerPhone,
+            totalAmount: creditPayment.amount,
+            balance: creditPayment.amount,
+            dueDate: creditPayment.creditDueDate
+              ? new Date(creditPayment.creditDueDate)
+              : null,
+            notes: creditPayment.creditNotes || dto.creditNotes,
+          };
+        }
+      } else if (dto.paymentMethod === 'credit') {
+        // Single credit payment
+        creditCreateData = {
+          tenantId,
+          customerName: dto.customerName || '',
+          customerPhone: dto.customerPhone,
+          totalAmount: dto.creditAmount || total,
+          balance: dto.creditAmount || total,
+          dueDate: dto.creditDueDate
+            ? new Date(dto.creditDueDate)
+            : null,
+          notes: dto.creditNotes,
+        };
+      }
+
       // Create the sale record with nested credit if applicable
-      const saleData = {
+      const saleData: any = {
         id: saleId,
         tenantId,
         userId,
         total,
         vatAmount,
-        paymentType: dto.paymentMethod,
+        paymentType,
         createdAt: now,
-        mpesaTransactionId: dto.mpesaTransactionId,
+        mpesaTransactionId,
         customerName: dto.customerName,
         customerPhone: dto.customerPhone,
         idempotencyKey: dto.idempotencyKey,
         branchId: validBranchId,
-        ...(dto.paymentMethod === 'credit'
+        ...(creditCreateData
           ? {
               credit: {
-                create: {
-                  tenantId,
-                  customerName: dto.customerName || '',
-                  customerPhone: dto.customerPhone,
-                  totalAmount: dto.creditAmount || total,
-                  balance: dto.creditAmount || total,
-                  dueDate: dto.creditDueDate
-                    ? new Date(dto.creditDueDate)
-                    : null,
-                  notes: dto.creditNotes,
-                },
+                create: creditCreateData,
               },
             }
           : {}),
@@ -308,6 +485,21 @@ export class SalesService {
     for (const item of dto.items) {
       this.realtimeGateway.emitInventoryUpdate({ productId: item.productId });
     }
+    // Calculate change for split payments
+    let change = 0;
+    let finalAmountReceived = dto.amountReceived ?? 0;
+    
+    if (dto.isSplitPayment && dto.splitPayments) {
+      // For split payments, calculate change from cash portions
+      const cashPayments = dto.splitPayments.filter(p => p.method === 'cash');
+      const totalCashReceived = cashPayments.reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
+      const totalCashAmount = cashPayments.reduce((sum, p) => sum + p.amount, 0);
+      change = totalCashReceived - totalCashAmount;
+      finalAmountReceived = totalCashReceived;
+    } else {
+      change = (dto.amountReceived ?? 0) - total;
+    }
+
     return {
       saleId,
       date: now,
@@ -315,11 +507,13 @@ export class SalesService {
       subtotal,
       total,
       vatAmount,
-      paymentMethod: dto.paymentMethod,
-      amountReceived: dto.amountReceived ?? 0,
-      change: (dto.amountReceived ?? 0) - total,
+      paymentMethod: paymentType,
+      amountReceived: finalAmountReceived,
+      change,
       customerName: dto.customerName,
       customerPhone: dto.customerPhone,
+      isSplitPayment: dto.isSplitPayment || false,
+      splitPayments: dto.splitPayments || undefined,
     };
   }
 

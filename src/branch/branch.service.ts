@@ -127,12 +127,25 @@ export class BranchService {
     });
   }
 
-  async restoreBranch(id: string) {
-    const count = await doRestoreBranch(this.prisma, id);
-    if (count === 0) {
-      throw new NotFoundException('Branch not found or not deleted');
+  async restoreBranch(id: string, tenantId: string) {
+    // Ensure the branch belongs to the current tenant before restoring
+    const branch = await this.prisma.branch.findFirst({
+      where: { id, tenantId },
+      // This query is filtered by the soft-delete extension (active branches only),
+      // but we use it here only to validate tenant ownership for non-deleted branches.
+    });
+
+    if (!branch) {
+      // Branch might be soft-deleted; rely on restore to enforce tenantId in SQL
+      const count = await doRestoreBranch(this.prisma, id, tenantId);
+      if (count === 0) {
+        throw new NotFoundException('Branch not found or not deleted');
+      }
+      return { success: true, message: 'Branch restored successfully' };
     }
-    return { success: true, message: 'Branch restored successfully' };
+
+    // If branch already exists and is not deleted, nothing to restore
+    return { success: true, message: 'Branch is already active' };
   }
 
   async updateUserBranch(userId: string, branchId: string) {

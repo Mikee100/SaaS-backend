@@ -56,8 +56,12 @@ export class BranchController {
   }
 
   @Post(':id/restore')
-  async restoreBranch(@Param('id') id: string) {
-    return this.branchService.restoreBranch(id);
+  async restoreBranch(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      throw new NotFoundException('Authenticated user does not have tenantId');
+    }
+    return this.branchService.restoreBranch(id, tenantId);
   }
 
   @Delete(':id')

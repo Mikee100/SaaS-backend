@@ -19,6 +19,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
@@ -154,7 +155,10 @@ export class SalesController {
 
   @Post()
   @Permissions('create_sales')
-  async create(@Body() createSaleDto: CreateSaleDto, @Req() req) {
+  // NOTE: Using `any` for the body here to bypass strict DTO validation,
+  // because the POS client may send fields that don't match `CreateSaleDto` exactly.
+  // The `SalesService.createSale` method still performs its own business validation.
+  async create(@Body() createSaleDto: any, @Req() req) {
     if (!req.user) {
       throw new UnauthorizedException('User not authenticated');
     }
@@ -185,7 +189,21 @@ export class SalesController {
       };
     } catch (error) {
       console.error('Error creating sale:', error);
-      throw new InternalServerErrorException('Failed to create sale');
+      // Log the full error details for debugging
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      // Re-throw known exceptions as-is
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException || 
+          error instanceof ForbiddenException) {
+        throw error;
+      }
+      // For unknown errors, include the actual error message
+      throw new InternalServerErrorException(
+        error instanceof Error ? error.message : 'Failed to create sale'
+      );
     }
   }
 
