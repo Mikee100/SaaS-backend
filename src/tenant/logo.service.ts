@@ -36,6 +36,7 @@ export class LogoService {
         logoUrl: true,
         etimsQrUrl: true,
         country: true,
+        kraEnabled: true,
       },
     });
 
@@ -45,7 +46,7 @@ export class LogoService {
 
     const requirements: LogoRequirements = {
       mainLogo: true, // Always required
-      etimsQrCode: tenant.country === 'Kenya', // Required for Kenya
+      etimsQrCode: !!(tenant.kraEnabled && tenant.country === 'Kenya'), // Required only when KRA compliance is enabled for Kenya
       favicon: false, // Optional
       receiptLogo: false, // Optional
       watermark: false, // Optional
@@ -119,8 +120,13 @@ export class LogoService {
       select: { country: true },
     });
 
+    const tenantForRec = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { country: true, kraEnabled: true },
+    });
     if (
-      tenant?.country === 'Kenya' &&
+      tenantForRec?.country === 'Kenya' &&
+      tenantForRec?.kraEnabled &&
       !validation.missing.includes('KRA eTIMS QR Code')
     ) {
       recommendations.push(

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "kraEnabled" BOOLEAN NOT NULL DEFAULT false;

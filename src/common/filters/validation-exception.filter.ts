@@ -57,10 +57,24 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       });
     }
 
-    // Return generic error to client (security: don't expose validation details)
+    // Return error to client: pass through single-string messages (e.g. "Product not found")
+    // so the POS can show them; sanitize validation-style responses (arrays/constraint objects)
+    const isValidationError =
+      exceptionResponse?.message &&
+      (Array.isArray(exceptionResponse.message) ||
+        (typeof exceptionResponse.message === 'object' &&
+          !Array.isArray(exceptionResponse.message) &&
+          exceptionResponse.message !== null));
+    const messageToSend =
+      !isValidationError &&
+      exceptionResponse?.message &&
+      typeof exceptionResponse.message === 'string'
+        ? exceptionResponse.message
+        : 'Bad Request';
+
     response.status(status).json({
       statusCode: status,
-      message: 'Bad Request',
+      message: messageToSend,
       timestamp: new Date().toISOString(),
       path: request.url,
     });

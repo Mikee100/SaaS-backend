@@ -8,8 +8,12 @@ import {
   Put,
   Param,
   Query,
+  UseGuards,
+  ForbiddenException,
+  Req,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
+import { AuthGuard } from '@nestjs/passport';
 import { MpesaService } from './mpesa.service';
 import { SalesService } from '../sales/sales.service';
 import { CreateSaleDto } from '../sales/create-sale.dto';
@@ -289,13 +293,25 @@ export class MpesaController {
   }
 
   @Get('config')
-  async getConfig(@Query('tenantId') tenantId: string, @Res() res: Response) {
+  @UseGuards(AuthGuard('jwt'))
+  async getConfig(
+    @Query('tenantId') tenantId: string,
+    @Res() res: Response,
+    @Req() req: any,
+  ) {
     try {
-      const config = await this.mpesaService.getTenantMpesaConfig(
-        tenantId,
-        false,
-      );
-      // Return config for both users and admins
+      const user = req?.user;
+      if (!user) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({ error: 'Unauthorized' });
+      }
+      if (!tenantId) {
+        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'tenantId is required' });
+      }
+      const canAccess = user.tenantId === tenantId || user.isSuperadmin === true;
+      if (!canAccess) {
+        throw new ForbiddenException('You can only view M-Pesa config for your own tenant.');
+      }
+      const config = await this.mpesaService.getTenantMpesaConfig(tenantId, false);
       return res.json({
         consumerKey: config.consumerKey,
         consumerSecret: config.consumerSecret,
@@ -305,14 +321,20 @@ export class MpesaController {
         environment: config.environment,
         isActive: config.isActive,
       });
-    } catch (error) {
-      return res.status(HttpStatus.BAD_REQUEST).json({ error: error.message });
+    } catch (error: any) {
+      const status = error instanceof ForbiddenException ? HttpStatus.FORBIDDEN : HttpStatus.BAD_REQUEST;
+      return res.status(status).json({ error: error?.message || 'Failed to get config' });
     }
   }
 
   @Post('config')
-  async updateConfig(@Body() body: any, @Res() res: Response) {
+  @UseGuards(AuthGuard('jwt'))
+  async updateConfig(@Body() body: any, @Res() res: Response, @Req() req: any) {
     try {
+      const user = req?.user;
+      if (!user) {
+        return res.status(HttpStatus.UNAUTHORIZED).json({ error: 'Unauthorized' });
+      }
       const {
         tenantId,
         mpesaConsumerKey,
@@ -324,7 +346,14 @@ export class MpesaController {
         mpesaEnvironment,
       } = body;
 
-      // Validate required fields
+      if (!tenantId) {
+        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'tenantId is required' });
+      }
+      const canUpdate = user.tenantId === tenantId || user.isSuperadmin === true;
+      if (!canUpdate) {
+        throw new ForbiddenException('Only an administrator can add or edit M-Pesa for this tenant.');
+      }
+
       if (
         !mpesaConsumerKey ||
         !mpesaConsumerSecret ||
@@ -337,7 +366,6 @@ export class MpesaController {
           .json({ error: 'All M-Pesa configuration fields are required' });
       }
 
-      // Encrypt sensitive fields
       const encryptedSecret = this.mpesaService['encrypt'](mpesaConsumerSecret);
       const encryptedPasskey = this.mpesaService['encrypt'](mpesaPasskey);
 
@@ -349,14 +377,15 @@ export class MpesaController {
           mpesaShortCode,
           mpesaPasskey: encryptedPasskey,
           mpesaCallbackUrl,
-          mpesaIsActive,
-          mpesaEnvironment,
+          mpesaIsActive: mpesaIsActive === true || mpesaIsActive === 'true',
+          mpesaEnvironment: mpesaEnvironment || 'sandbox',
         },
       });
 
       return res.json({ success: true, message: 'M-Pesa config updated' });
-    } catch (error) {
-      return res.status(HttpStatus.BAD_REQUEST).json({ error: error.message });
+    } catch (error: any) {
+      const status = error instanceof ForbiddenException ? HttpStatus.FORBIDDEN : HttpStatus.BAD_REQUEST;
+      return res.status(status).json({ error: error?.message || 'Failed to update config' });
     }
   }
 

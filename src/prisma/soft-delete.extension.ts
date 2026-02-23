@@ -89,7 +89,20 @@ export function softDeleteExtension(prisma: PrismaClient) {
         },
         async update({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as (typeof SOFT_DELETE_MODELS)[number])) {
-            args.where = withNotDeleted(args.where);
+            // Prisma update() requires WhereUniqueInput (e.g. { id }). Wrapping in AND makes it
+            // a general WhereInput and breaks. Guard by ensuring the row exists and is not
+            // soft-deleted, then run the update with the original where.
+            const extendedWhere = withNotDeleted(args.where);
+            const found = await (prisma as any)[model].findFirst({
+              where: extendedWhere,
+              select: { id: true },
+            });
+            if (!found) {
+              const error = new Error('Record to update does not exist or is soft-deleted');
+              (error as any).code = 'P2025';
+              throw error;
+            }
+            return query(args);
           }
           return query(args);
         },

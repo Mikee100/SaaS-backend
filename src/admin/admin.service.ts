@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma.service';
 import { AdminTenantStatsService } from '../adminTenantStats/admin-tenant-stats.service';
@@ -362,6 +367,12 @@ export class AdminService {
       businessType: tenant.businessType,
       contactEmail: tenant.contactEmail,
       contactPhone: tenant.contactPhone,
+      address: tenant.address ?? undefined,
+      country: tenant.country ?? undefined,
+      kraEnabled: tenant.kraEnabled ?? false,
+      kraPin: tenant.kraPin ?? undefined,
+      vatNumber: tenant.vatNumber ?? undefined,
+      etimsQrUrl: tenant.etimsQrUrl ?? undefined,
       createdAt: tenant.createdAt,
       userCount,
       productCount,
@@ -370,6 +381,31 @@ export class AdminService {
       spaceUsedMB,
       resourceSpaceUsage,
     };
+  }
+
+  /** Update tenant business & KRA details (admin only). */
+  async updateTenantBusiness(
+    tenantId: string,
+    dto: Partial<{
+      name: string;
+      businessType: string;
+      contactEmail: string;
+      contactPhone: string | null;
+      address: string | null;
+      country: string | null;
+      kraEnabled: boolean;
+      kraPin: string | null;
+      vatNumber: string | null;
+      etimsQrUrl: string | null;
+    }>,
+  ) {
+    const existing = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!existing) {
+      throw new Error('Tenant not found');
+    }
+    return this.tenantService.updateTenant(tenantId, dto);
   }
 
   async getTenantProducts(tenantId: string) {
@@ -1065,7 +1101,14 @@ export class AdminService {
       this.logger.error(
         `AdminService: Tenant not found for deletion: ${tenantId}`,
       );
-      throw new Error('Tenant not found');
+      throw new NotFoundException('Tenant not found');
+    }
+
+    if (tenant.deletedAt) {
+      this.logger.warn(
+        `AdminService: Tenant already deleted: ${tenantId}`,
+      );
+      throw new ConflictException('Tenant is already deleted');
     }
 
     this.logger.log(
@@ -1075,7 +1118,9 @@ export class AdminService {
     const now = new Date();
 
     // Soft-delete tenant and tenant-scoped entities (transactional data kept for audit)
-    await this.prisma.$transaction(async (prisma) => {
+    // Use 60s timeout: many updateMany calls can be slow for large tenants
+    await this.prisma.$transaction(
+      async (prisma) => {
       // Soft-delete child entities first
       await prisma.productVariation.updateMany({
         where: { tenantId, deletedAt: null },
@@ -1126,12 +1171,14 @@ export class AdminService {
         data: { deletedAt: now },
       });
 
-      // Soft-delete the tenant
-      await prisma.tenant.update({
+      // Soft-delete the tenant (updateMany avoids P2025 when 0 rows match)
+      await prisma.tenant.updateMany({
         where: { id: tenantId, deletedAt: null },
         data: { deletedAt: now },
       });
-    });
+    },
+    { timeout: 60_000 }
+    );
 
     this.logger.log(
       `AdminService: Successfully deleted tenant: ${tenant.name} (${tenantId})`,

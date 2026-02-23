@@ -243,12 +243,31 @@ export class AuthService {
         this.logger.error('Failed to record login history:', error);
       }
 
+      // Include tenant and branch names for receipts and POS display
+      const [tenant, branch] = await Promise.all([
+        payload.tenantId
+          ? this.prisma.tenant.findUnique({
+              where: { id: payload.tenantId },
+              select: { name: true },
+            })
+          : null,
+        payload.branchId
+          ? this.prisma.branch.findUnique({
+              where: { id: payload.branchId },
+              select: { name: true, address: true },
+            })
+          : null,
+      ]);
+
       const userResponse = {
         id: user.id,
         email: user.email,
         name: user.name,
         tenantId: payload.tenantId,
         branchId: payload.branchId,
+        tenantName: tenant?.name ?? null,
+        branchName: branch?.name ?? null,
+        branchAddress: branch?.address ?? null,
         roles: payload.roles,
         permissions: payload.permissions,
         isSuperadmin: payload.isSuperadmin,

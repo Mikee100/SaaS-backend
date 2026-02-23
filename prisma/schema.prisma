@@ -134,6 +134,7 @@ model Tenant {
   favicon             String?
   foundedYear         Int?
   invoiceFooter       String?
+  kraEnabled          Boolean               @default(false)
   kraPin              String?
   latitude            Float?
   longitude           Float?

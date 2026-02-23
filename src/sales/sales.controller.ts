@@ -182,11 +182,58 @@ export class SalesController {
         req.user.userId,
       );
 
-      return {
-        success: true,
-        data: sale,
-        message: 'Sale created successfully',
-      };
+      // Return full receipt (business name, branch name) when available; otherwise return sale data only
+      try {
+        const receipt = await this.salesService.getReceipt(
+          sale.saleId,
+          req.user.tenantId,
+          'customer',
+        );
+        const data = {
+          ...receipt,
+          saleId: sale.saleId,
+          amountReceived: sale.amountReceived,
+          change: sale.change,
+        };
+        return {
+          success: true,
+          data,
+          message: 'Sale created successfully',
+        };
+      } catch (receiptError) {
+        // getReceipt failed – still return sale data with businessInfo from tenant so POS/receipts show name and KRA
+        let businessInfo: Record<string, unknown> | undefined;
+        try {
+          const tenant = await this.salesService.getTenantInfo(req.user.tenantId);
+          if (tenant) {
+            businessInfo = {
+              name: tenant.name,
+              businessType: tenant.businessType ?? null,
+              address: tenant.address ?? null,
+              phone: tenant.contactPhone ?? null,
+              email: tenant.contactEmail ?? null,
+              receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
+              logoUrl: tenant.logoUrl ?? null,
+              watermark: tenant.watermark ?? null,
+              kraEnabled: tenant.kraEnabled ?? false,
+              kraPin: tenant.kraPin ?? null,
+              vatNumber: tenant.vatNumber ?? null,
+              etimsQrUrl: tenant.etimsQrUrl ?? null,
+            };
+          }
+        } catch (_) {
+          // ignore
+        }
+        return {
+          success: true,
+          data: {
+            ...sale,
+            businessInfo: businessInfo ?? undefined,
+            branch: undefined,
+          },
+          message: 'Sale created successfully',
+        };
+      }
     } catch (error) {
       console.error('Error creating sale:', error);
       // Log the full error details for debugging

@@ -150,6 +150,7 @@ export class SalesService {
     }[] = [];
     // Validate items and build receipt items
     for (const item of dto.items) {
+      // Try to find product, including soft-deleted ones to give better error message
       const product = await this.prisma.product.findUnique({
         where: { id: item.productId },
         select: {
@@ -157,11 +158,29 @@ export class SalesService {
           name: true,
           price: true,
           tenantId: true,
+          deletedAt: true,
         },
       });
 
       if (!product) {
-        throw new BadRequestException('Invalid product');
+        this.logger.error(`Product not found: ${item.productId}`, {
+          productId: item.productId,
+          tenantId,
+        });
+        throw new BadRequestException(
+          `Product with ID ${item.productId} not found. Please sync your product catalog or use a different product.`
+        );
+      }
+
+      // Check if product is soft-deleted
+      if (product.deletedAt) {
+        this.logger.warn(`Attempted to sell soft-deleted product: ${item.productId}`, {
+          productId: item.productId,
+          deletedAt: product.deletedAt,
+        });
+        throw new BadRequestException(
+          `Product "${product.name || item.productId}" has been deleted and cannot be sold. Please sync your product catalog.`
+        );
       }
       // In multi-tenant setups we normally enforce tenant ownership.
       // However, some legacy data may have products without a matching tenantId.
@@ -706,12 +725,17 @@ export class SalesService {
       change: 0,
       businessInfo: {
         name: tenant.name,
+        businessType: tenant.businessType ?? null,
         address: tenant.address,
         phone: tenant.contactPhone,
         email: tenant.contactEmail,
         receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
         logoUrl: tenant.logoUrl || null,
         watermark: tenant.watermark ?? null,
+        kraEnabled: tenant.kraEnabled ?? false,
+        kraPin: tenant.kraPin ?? null,
+        vatNumber: tenant.vatNumber ?? null,
+        etimsQrUrl: tenant.etimsQrUrl ?? null,
       },
       branch: sale.Branch
         ? { id: sale.Branch.id, name: sale.Branch.name, address: sale.Branch.address || '' }
@@ -890,37 +914,84 @@ export class SalesService {
         mpesaTransaction: true,
         Branch: true,
         Tenant: true,
+        credit: true,
       },
     });
-    return sales.map((sale) => ({
-      saleId: sale.id,
-      date: sale.createdAt,
-      total: sale.total,
-      paymentType: sale.paymentType,
-      customerName: sale.customerName,
-      customerPhone: sale.customerPhone,
-      cashier: sale.User ? sale.User.name : null,
-      mpesaTransaction: sale.mpesaTransaction
-        ? {
-            phoneNumber: sale.mpesaTransaction.phoneNumber,
+    return sales.map((sale) => {
+      // Reconstruct split payments if paymentType is 'split'
+      let splitPayments: any[] | undefined = undefined;
+      const isSplitPayment = sale.paymentType === 'split';
+      
+      if (isSplitPayment) {
+        splitPayments = [];
+        
+        // Add M-Pesa payment if exists
+        if (sale.mpesaTransaction) {
+          splitPayments.push({
+            method: 'mpesa',
             amount: sale.mpesaTransaction.amount,
-            status: sale.mpesaTransaction.status,
-          }
-        : null,
-      items: sale.SaleItem.map((item) => ({
-        productId: item.productId,
-        name: item.product?.name || '',
-        price: item.price,
-        quantity: item.quantity,
-      })),
-      branch: sale.Branch
-        ? {
-            id: sale.Branch.id,
-            name: sale.Branch.name,
-            address: sale.Branch.address,
-          }
-        : null,
-    }));
+            mpesaTransactionId: sale.mpesaTransaction.id,
+            mpesaReceipt: sale.mpesaTransaction.mpesaReceipt || sale.mpesaTransaction.transactionId,
+          });
+        }
+        
+        // Add credit payment if exists
+        if (sale.credit) {
+          splitPayments.push({
+            method: 'credit',
+            amount: sale.credit.totalAmount,
+            creditDueDate: sale.credit.dueDate?.toISOString(),
+            creditNotes: sale.credit.notes,
+          });
+        }
+        
+        // Calculate cash amount (total - mpesa - credit)
+        const mpesaAmount = sale.mpesaTransaction?.amount || 0;
+        const creditAmount = sale.credit?.totalAmount || 0;
+        const cashAmount = sale.total - mpesaAmount - creditAmount;
+        
+        if (cashAmount > 0) {
+          splitPayments.push({
+            method: 'cash',
+            amount: cashAmount,
+          });
+        }
+      }
+
+      return {
+        saleId: sale.id,
+        date: sale.createdAt,
+        total: sale.total,
+        paymentType: sale.paymentType,
+        customerName: sale.customerName,
+        customerPhone: sale.customerPhone,
+        cashier: sale.User ? sale.User.name : null,
+        mpesaTransaction: sale.mpesaTransaction
+          ? {
+              phoneNumber: sale.mpesaTransaction.phoneNumber,
+              amount: sale.mpesaTransaction.amount,
+              status: sale.mpesaTransaction.status,
+              mpesaReceipt: sale.mpesaTransaction.mpesaReceipt,
+              checkoutRequestID: sale.mpesaTransaction.checkoutRequestID,
+            }
+          : null,
+        items: sale.SaleItem.map((item) => ({
+          productId: item.productId,
+          name: item.product?.name || '',
+          price: item.price,
+          quantity: item.quantity,
+        })),
+        branch: sale.Branch
+          ? {
+              id: sale.Branch.id,
+              name: sale.Branch.name,
+              address: sale.Branch.address,
+            }
+          : null,
+        isSplitPayment,
+        splitPayments,
+      };
+    });
   }
 
   async getAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
@@ -1185,12 +1256,17 @@ export class SalesService {
       where: { id: tenantId },
       select: {
         name: true,
+        businessType: true,
         address: true,
         contactEmail: true,
         contactPhone: true,
         receiptLogo: true,
         logoUrl: true,
         watermark: true,
+        kraEnabled: true,
+        kraPin: true,
+        vatNumber: true,
+        etimsQrUrl: true,
       },
     });
     return tenant;

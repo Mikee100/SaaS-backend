@@ -103,6 +103,17 @@ export class AdminController {
     return this.adminService.getTenantById(tenantId);
   }
 
+  @Put('tenants/:id')
+  async updateTenant(
+    @Param('id') tenantId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    this.logger.log(
+      `AdminController: updateTenant called with tenantId: ${tenantId}`,
+    );
+    return this.adminService.updateTenantBusiness(tenantId, body as any);
+  }
+
   @Get('tenants/:id/products')
   async getTenantProducts(@Param('id') tenantId: string) {
     this.logger.log(

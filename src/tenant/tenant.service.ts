@@ -45,6 +45,7 @@ export class TenantService {
       'businessHours',
       'website',
       'socialMedia',
+      'kraEnabled',
       'kraPin',
       'vatNumber',
       'etimsQrUrl',
@@ -140,6 +141,7 @@ export class TenantService {
       businessHours: any;
       website: string | null;
       socialMedia: any;
+      kraEnabled: boolean | null;
       kraPin: string | null;
       vatNumber: string | null;
       etimsQrUrl: string | null;
@@ -199,6 +201,7 @@ export class TenantService {
       'businessHours',
       'website',
       'socialMedia',
+      'kraEnabled',
       'kraPin',
       'vatNumber',
       'etimsQrUrl',

@@ -7,7 +7,56 @@ export class MpesaService {
   constructor(public readonly prisma: PrismaService) {}
 
   async getTenantMpesaConfig(tenantId: string, requireActive = true) {
-    // Fetch M-Pesa configuration from .env file
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required.');
+    }
+
+    // Prefer tenant-level M-Pesa config (admin-configured) over .env
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        mpesaConsumerKey: true,
+        mpesaConsumerSecret: true,
+        mpesaShortCode: true,
+        mpesaPasskey: true,
+        mpesaCallbackUrl: true,
+        mpesaIsActive: true,
+        mpesaEnvironment: true,
+      },
+    });
+
+    if (
+      tenant?.mpesaConsumerKey &&
+      tenant.mpesaShortCode &&
+      tenant.mpesaPasskey
+    ) {
+      if (requireActive && !tenant.mpesaIsActive) {
+        throw new BadRequestException('M-Pesa is not enabled for this tenant.');
+      }
+      let consumerSecret = tenant.mpesaConsumerSecret ?? '';
+      let passkey = tenant.mpesaPasskey ?? '';
+      try {
+        if (consumerSecret && consumerSecret.includes(':')) {
+          consumerSecret = this.decrypt(consumerSecret);
+        }
+        if (passkey && passkey.includes(':')) {
+          passkey = this.decrypt(passkey);
+        }
+      } catch {
+        // If decrypt fails, use as-is (e.g. plain text from migration)
+      }
+      return {
+        consumerKey: tenant.mpesaConsumerKey,
+        consumerSecret,
+        shortCode: tenant.mpesaShortCode,
+        passkey,
+        callbackUrl: tenant.mpesaCallbackUrl || undefined,
+        environment: tenant.mpesaEnvironment || 'sandbox',
+        isActive: tenant.mpesaIsActive ?? false,
+      };
+    }
+
+    // Fallback to .env
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
     const shortCode = process.env.MPESA_SHORTCODE;
@@ -16,7 +65,9 @@ export class MpesaService {
     const environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
 
     if (!consumerKey || !consumerSecret || !shortCode || !passkey) {
-      throw new BadRequestException('M-Pesa configuration is incomplete. Please check .env file.');
+      throw new BadRequestException(
+        'M-Pesa configuration is incomplete. Configure it in Superadmin → Tenants → this tenant → Integrations, or set .env (MPESA_*).',
+      );
     }
 
     return {
@@ -26,7 +77,7 @@ export class MpesaService {
       passkey,
       callbackUrl,
       environment,
-      isActive: true, // Always active when using .env
+      isActive: true,
     };
   }
 
