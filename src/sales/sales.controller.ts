@@ -254,6 +254,54 @@ export class SalesController {
     }
   }
 
+  @Post(':id/returns')
+  @Permissions('create_sales')
+  async createReturn(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      items: { productId: string; quantity: number; unitPrice: number }[];
+      reason?: string;
+    },
+    @Req() req,
+  ) {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    if (!body || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new BadRequestException('Return must include at least one item');
+    }
+
+    try {
+      const result = await this.salesService.createReturn(
+        id,
+        req.user.tenantId,
+        req.user.userId,
+        body.items,
+        body.reason,
+      );
+      return {
+        success: true,
+        data: result,
+        message: 'Return created successfully',
+      };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      console.error('Error creating return:', error);
+      throw new InternalServerErrorException('Failed to create return');
+    }
+  }
+
   @Get()
   @Permissions('view_sales')
   async listSales(@Req() req) {

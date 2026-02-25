@@ -536,6 +536,148 @@ export class SalesService {
     };
   }
 
+  async createReturn(
+    saleId: string,
+    tenantId: string,
+    userId: string,
+    items: { productId: string; quantity: number; unitPrice: number }[],
+    reason?: string,
+  ) {
+    if (!saleId) throw new BadRequestException('Sale ID is required');
+    if (!tenantId) throw new BadRequestException('Tenant ID is required');
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      throw new BadRequestException('Return must include at least one item');
+    }
+
+    const originalSale = await this.prisma.sale.findUnique({
+      where: { id: saleId, tenantId },
+      include: {
+        SaleItem: true,
+      },
+    });
+
+    if (!originalSale) {
+      throw new NotFoundException('Original sale not found');
+    }
+
+    // Map original quantities by product for simple validation
+    const originalQuantities = new Map<string, number>();
+    for (const item of originalSale.SaleItem) {
+      const prev = originalQuantities.get(item.productId) ?? 0;
+      originalQuantities.set(item.productId, prev + item.quantity);
+    }
+
+    let refundSubtotal = 0;
+    for (const item of items) {
+      if (!item.productId) {
+        throw new BadRequestException('Each return item must include productId');
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        throw new BadRequestException('Return quantity must be greater than 0');
+      }
+      if (item.unitPrice == null || item.unitPrice < 0) {
+        throw new BadRequestException('Return unitPrice must be a non-negative number');
+      }
+
+      const soldQty = originalQuantities.get(item.productId) ?? 0;
+      if (soldQty <= 0) {
+        throw new BadRequestException(
+          `Product ${item.productId} does not exist on the original sale`,
+        );
+      }
+      if (item.quantity > soldQty) {
+        throw new BadRequestException(
+          `Return quantity for product ${item.productId} cannot exceed sold quantity (${soldQty})`,
+        );
+      }
+
+      refundSubtotal += item.unitPrice * item.quantity;
+    }
+
+    // Use same VAT logic as createSale
+    const vatRate = 0.16;
+    const refundVat = Math.round(refundSubtotal * vatRate * 100) / 100;
+    const refundTotal = Math.round((refundSubtotal + refundVat) * 100) / 100;
+
+    const returnId = uuidv4();
+    const now = new Date();
+
+    await this.prisma.$transaction(async (prisma) => {
+      // Restock products (basic: product-level only)
+      for (const item of items) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      // Create a negative sale to represent the return
+      await prisma.sale.create({
+        data: {
+          id: returnId,
+          tenantId,
+          userId,
+          total: -refundTotal,
+          vatAmount: -refundVat,
+          paymentType: 'refund',
+          createdAt: now,
+          customerName: originalSale.customerName,
+          customerPhone: originalSale.customerPhone,
+          branchId: originalSale.branchId,
+        },
+      });
+
+      for (const item of items) {
+        await prisma.saleItem.create({
+          data: {
+            id: uuidv4(),
+            saleId: returnId,
+            productId: item.productId,
+            variationId: null,
+            quantity: item.quantity,
+            price: -item.unitPrice,
+          },
+        });
+      }
+
+      if (this.auditLogService) {
+        await this.auditLogService.log(
+          userId,
+          'sale_return_created',
+          {
+            originalSaleId: saleId,
+            returnSaleId: returnId,
+            items,
+            refundSubtotal,
+            refundVat,
+            refundTotal,
+            reason,
+          },
+          undefined,
+          prisma,
+        );
+      }
+
+      this.realtimeGateway.emitSalesUpdate({
+        saleId: returnId,
+        items,
+        total: -refundTotal,
+      });
+      for (const item of items) {
+        this.realtimeGateway.emitInventoryUpdate({ productId: item.productId });
+      }
+    });
+
+    return {
+      returnId,
+      originalSaleId: saleId,
+      date: now,
+      subtotal: refundSubtotal,
+      vatAmount: refundVat,
+      total: refundTotal,
+    };
+  }
+
   async getSaleById(id: string, tenantId: string) {
     if (!id) throw new BadRequestException('Sale ID is required');
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
