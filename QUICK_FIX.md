@@ -32,7 +32,7 @@ Your backend should now compile without errors and the `/product-attributes` end
 ## Verify It Works
 
 1. Check backend compiles (no TypeScript errors)
-2. Try accessing: `http://localhost:9000/product-attributes/common` (with auth token)
+2. Try accessing: `http://localhost:5100/product-attributes/common` (with auth token)
 3. Frontend should now be able to load attributes
 
 

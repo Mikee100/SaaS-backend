@@ -31,7 +31,7 @@ async function bootstrap() {
       : [
           'http://localhost:3000',
           'http://localhost:5000',
-          'http://localhost:9000',
+          'http://localhost:5100',
           'https://saas-business.duckdns.org/',
         ];
 
@@ -52,9 +52,11 @@ async function bootstrap() {
         const localhostOrigins = [
           'http://localhost:3000',
           'http://localhost:5000',
-          'http://localhost:9000',
+          'http://localhost:5100',
           'http://127.0.0.1:3000',
           'http://127.0.0.1:5000',
+          'http://127.0.0.1:5100',
+          'http://localhost:5100',
           'https://saas-business.duckdns.org',
           'https://saas-business.duckdns.org/',
           // Hosted frontend (cookie-based auth requires this origin to be allowed)
@@ -144,7 +146,7 @@ async function bootstrap() {
       logger.warn('Failed to seed permissions on startup', error);
     }
 
-    const port = configService.get<number>('PORT', 4000);
+    const port = configService.get<number>('PORT', 5100);
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
 
@@ -216,8 +218,8 @@ async function bootstrap() {
       logger.error('JWT_SECRET is not set - authentication will fail');
     }
 
-    // Start the application
-    await app.listen(port, '0.0.0.0');
+    // Start the application (127.0.0.1 = local-only; use 0.0.0.0 only in Docker/production)
+    await app.listen(port, '127.0.0.1');
 
     // Log application startup information
     logger.log(`🚀 Application is running on: http://localhost:${port}`);

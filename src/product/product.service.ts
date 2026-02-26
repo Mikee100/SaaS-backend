@@ -615,8 +615,8 @@ export class ProductService {
     if (imagePath.startsWith('/uploads')) {
       return imagePath;
     }
-    // Otherwise, construct the full URL
-    return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9000'}${imagePath}`;
+    // Otherwise, construct the full URL (default to local dev backend)
+    return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100'}${imagePath}`;
   }
 
   async findOne(id: string, tenantId: string) {

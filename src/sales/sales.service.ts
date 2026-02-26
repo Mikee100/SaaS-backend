@@ -827,8 +827,14 @@ export class SalesService {
 
     if (!sale) throw new NotFoundException('Sale not found');
 
-    const tenant = await this.getTenantInfo(tenantId);
-    if (!tenant) throw new NotFoundException('Business information not found');
+    // Try to load tenant / business info, but don't block receipts if it's missing.
+    // The POS can still render a receipt and fall back to user/tenant data on the client.
+    let tenant: any | null = null;
+    try {
+      tenant = await this.getTenantInfo(tenantId);
+    } catch {
+      tenant = null;
+    }
 
     const items = sale.SaleItem.map((item) => {
       const base: { productId: string; name: string; price: number; quantity: number } = {
@@ -865,20 +871,22 @@ export class SalesService {
       paymentMethod: sale.paymentType,
       amountReceived: sale.paymentType === 'cash' ? sale.total : sale.total,
       change: 0,
-      businessInfo: {
-        name: tenant.name,
-        businessType: tenant.businessType ?? null,
-        address: tenant.address,
-        phone: tenant.contactPhone,
-        email: tenant.contactEmail,
-        receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
-        logoUrl: tenant.logoUrl || null,
-        watermark: tenant.watermark ?? null,
-        kraEnabled: tenant.kraEnabled ?? false,
-        kraPin: tenant.kraPin ?? null,
-        vatNumber: tenant.vatNumber ?? null,
-        etimsQrUrl: tenant.etimsQrUrl ?? null,
-      },
+      businessInfo: tenant
+        ? {
+            name: tenant.name,
+            businessType: tenant.businessType ?? null,
+            address: tenant.address,
+            phone: tenant.contactPhone,
+            email: tenant.contactEmail,
+            receiptLogo: tenant.receiptLogo || tenant.logoUrl || null,
+            logoUrl: tenant.logoUrl || null,
+            watermark: tenant.watermark ?? null,
+            kraEnabled: tenant.kraEnabled ?? false,
+            kraPin: tenant.kraPin ?? null,
+            vatNumber: tenant.vatNumber ?? null,
+            etimsQrUrl: tenant.etimsQrUrl ?? null,
+          }
+        : undefined,
       branch: sale.Branch
         ? { id: sale.Branch.id, name: sale.Branch.name, address: sale.Branch.address || '' }
         : null,
