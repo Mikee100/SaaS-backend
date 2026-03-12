@@ -616,7 +616,7 @@ export class ProductService {
       return imagePath;
     }
     // Otherwise, construct the full URL (default to local dev backend)
-    return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5100'}${imagePath}`;
+    return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7000'}${imagePath}`;
   }
 
   async findOne(id: string, tenantId: string) {

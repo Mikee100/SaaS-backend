@@ -9,6 +9,16 @@ export interface ChartData {
     data: number[];
     backgroundColor?: string | string[];
     borderColor?: string | string[];
+    borderWidth?: number;
+    tension?: number;
+    fill?: boolean;
+    pointBackgroundColor?: string;
+    pointBorderColor?: string;
+    pointBorderWidth?: number;
+    pointRadius?: number;
+    pointHoverRadius?: number;
+    borderRadius?: number;
+    borderSkipped?: boolean;
   }>;
 }
 
@@ -19,6 +29,7 @@ export interface ChartConfig {
   options?: {
     responsive?: boolean;
     maintainAspectRatio?: boolean;
+    plugins?: any;
     scales?: any;
   };
 }
@@ -28,7 +39,7 @@ export class ChartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dataService: DataService,
-  ) {}
+  ) { }
 
   async generateSalesChart(
     tenantId: string,
@@ -37,14 +48,14 @@ export class ChartService {
     period: '7days' | '30days' | '90days' | '1year' = '30days',
   ): Promise<ChartConfig> {
     const salesData = await this.dataService.getSalesData(tenantId, branchId);
-    
+
     let labels: string[] = [];
     let data: number[] = [];
 
     if (period === '7days') {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
+
       const dailySales: Record<string, number> = {};
       for (let i = 0; i < 7; i++) {
         const date = new Date(sevenDaysAgo);
@@ -73,7 +84,7 @@ export class ChartService {
     } else if (period === '30days') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
       const weeklySales: Record<string, number> = {};
       for (let i = 0; i < 4; i++) {
         const weekStart = new Date(thirtyDaysAgo);
@@ -106,7 +117,7 @@ export class ChartService {
     } else if (period === '90days') {
       const ninetyDaysAgo = new Date();
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      
+
       const monthlySales: Record<string, number> = {};
       for (let i = 0; i < 3; i++) {
         const monthStart = new Date(ninetyDaysAgo);
@@ -136,10 +147,10 @@ export class ChartService {
       // 1 year - monthly breakdown
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      
+
       const monthlySales: Record<string, number> = {};
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
+
       monthNames.forEach((month) => {
         monthlySales[month] = 0;
       });
@@ -173,14 +184,46 @@ export class ChartService {
           {
             label: 'Revenue',
             data,
-            backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.5)' : undefined,
+            backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.8)' : 'rgba(59, 130, 246, 0.15)',
             borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 2,
+            tension: 0.4, // Smooth curved lines
+            fill: chartType === 'area' || chartType === 'line', // Fill under the line
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: 'rgba(59, 130, 246, 1)',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
           },
         ],
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            titleFont: { size: 13, family: "'Inter', sans-serif" },
+            bodyFont: { size: 14, family: "'Inter', sans-serif" },
+            cornerRadius: 8,
+            displayColors: false,
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, padding: 10, color: '#6B7280' }
+          },
+          x: {
+            grid: { display: false, drawBorder: false },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
+          }
+        }
       },
     };
   }
@@ -220,13 +263,41 @@ export class ChartService {
             label: 'Revenue',
             data,
             backgroundColor: chartType === 'bar' ? colors[0] : colors.slice(0, limit),
-            borderColor: chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : undefined,
+            borderColor: chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : '#ffffff',
+            borderWidth: chartType === 'bar' ? 0 : 2,
+            borderRadius: chartType === 'bar' ? 6 : 0,
+            borderSkipped: false,
           },
         ],
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: chartType !== 'bar',
+            position: 'right',
+            labels: { font: { family: "'Inter', sans-serif", size: 12 }, usePointStyle: true, padding: 20 }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          }
+        },
+        scales: chartType === 'bar' ? {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)' },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
+          },
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
+          }
+        } : undefined
       },
     };
   }
@@ -252,21 +323,40 @@ export class ChartService {
             label: 'Stock Quantity',
             data,
             backgroundColor: items.map((item: any) => {
-              if (item.status === 'out') return 'rgba(239, 68, 68, 0.8)';
-              if (item.status === 'low') return 'rgba(245, 158, 11, 0.8)';
-              return 'rgba(16, 185, 129, 0.8)';
+              if (item.status === 'out') return 'rgba(239, 68, 68, 0.85)';
+              if (item.status === 'low') return 'rgba(245, 158, 11, 0.85)';
+              return 'rgba(16, 185, 129, 0.85)';
             }),
-            borderColor: items.map((item: any) => {
-              if (item.status === 'out') return 'rgba(239, 68, 68, 1)';
-              if (item.status === 'low') return 'rgba(245, 158, 11, 1)';
-              return 'rgba(16, 185, 129, 1)';
-            }),
+            borderWidth: 0,
+            borderRadius: 6,
+            borderSkipped: false,
           },
         ],
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          }
+        },
+        scales: chartType === 'bar' ? {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)' },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
+          },
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
+          }
+        } : undefined
       },
     };
   }
@@ -292,14 +382,37 @@ export class ChartService {
           {
             label: 'Revenue',
             data,
-            backgroundColor: 'rgba(139, 92, 246, 0.8)',
-            borderColor: 'rgba(139, 92, 246, 1)',
+            backgroundColor: 'rgba(139, 92, 246, 0.85)',
+            borderWidth: 0,
+            borderRadius: 6,
+            borderSkipped: false,
           },
         ],
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          }
+        },
+        scales: chartType === 'bar' ? {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)' },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
+          },
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
+          }
+        } : undefined
       },
     };
   }

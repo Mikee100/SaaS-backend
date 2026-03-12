@@ -4,7 +4,6 @@ import { BackupService } from '../backup/backup.service';
 import { OpenAIConfig } from './config/openai.config';
 import { ChatService, ChatContext } from './services/chat.service';
 import { DataService } from './services/data.service';
-import { ExtractionService } from './services/extraction.service';
 import { EmbeddingService } from './services/embedding.service';
 import { ChartService } from './services/chart.service';
 import { ReportService } from './services/report.service';
@@ -51,11 +50,10 @@ export class AiService {
     private openaiConfig: OpenAIConfig,
     private chatService: ChatService,
     private dataService: DataService,
-    private extractionService: ExtractionService,
     private embeddingService: EmbeddingService,
     private chartService: ChartService,
     private reportService: ReportService,
-  ) {}
+  ) { }
 
   async processChat(
     message: string,
@@ -89,8 +87,7 @@ export class AiService {
         20,
       );
 
-      // Get business data
-      const businessData = await this.dataService.getBusinessData(tenantId, branchId);
+      // Get tenant/branch metadata only — data is now fetched selectively inside ChatService (RAG)
       const tenantInfo = await this.dataService.getTenantInfo(tenantId);
       const branchInfo = await this.dataService.getBranchInfo(tenantId, branchId);
 
@@ -103,54 +100,12 @@ export class AiService {
 
       const chatContext: ChatContext = {
         conversationHistory: historyMessages,
-        businessData,
         tenantInfo,
         branchInfo,
         userPreferences: await this.getUserPreferences(userId, tenantId),
       };
 
-      // Check for commands first
-      const extracted = await this.extractionService.extractIntentAndEntities(
-        message,
-        JSON.stringify(chatContext),
-      );
-
-      if (extracted.intent?.startsWith('command_') || this.isCommand(message)) {
-        const commandResult = await this.executeCommand(
-          message,
-          extracted,
-          userId,
-          tenantId,
-          branchId,
-        );
-        if (commandResult.success) {
-          const result: ChatResult = {
-            response: commandResult.message,
-            category: 'Command Execution',
-            suggestions: ['View system status', 'Check command results'],
-            conversationId: activeConversationId,
-          };
-
-          // Add chart data if chart was generated
-          if (commandResult.data?.chartConfig) {
-            result.chartData = commandResult.data.chartConfig;
-          }
-
-          // Add report data if report was generated
-          if (commandResult.data?.downloadUrl) {
-            result.reportData = {
-              filename: commandResult.data.filename,
-              downloadUrl: commandResult.data.downloadUrl,
-              reportType: commandResult.data.reportType || 'sales',
-              format: commandResult.data.format || 'xlsx',
-            };
-          }
-
-          return result;
-        }
-      }
-
-      // Generate AI response
+      // Generate AI response with Tools
       const chatResponse = await this.chatService.generateResponse(
         message,
         chatContext,
@@ -158,11 +113,70 @@ export class AiService {
         branchId,
       );
 
+      let chartData: any | undefined;
+      let reportData: any | undefined;
+      let finalResponse = chatResponse.response;
+
+      // Handle Tool Calls if any
+      if (chatResponse.toolCalls && chatResponse.toolCalls.length > 0) {
+        for (const toolCall of chatResponse.toolCalls) {
+          const functionName = toolCall.function.name;
+          const args = JSON.parse(toolCall.function.arguments);
+
+          if (functionName === 'generate_chart') {
+            const chartResult = await this.executeGenerateChartCommand(
+              message,
+              { parameters: args },
+              tenantId,
+              branchId,
+            );
+            if (chartResult.success) {
+              chartData = chartResult.data.chartConfig;
+              if (!finalResponse) finalResponse = chartResult.message;
+            }
+          } else if (functionName === 'generate_report') {
+            const reportResult = await this.executeGenerateReportCommand(
+              message,
+              { parameters: args },
+              tenantId,
+              branchId,
+            );
+            if (reportResult.success) {
+              reportData = {
+                filename: reportResult.data.filename,
+                downloadUrl: reportResult.data.downloadUrl,
+                reportType: reportResult.data.reportType || 'sales',
+                format: reportResult.data.format || 'xlsx',
+              };
+              if (!finalResponse) finalResponse = reportResult.message;
+            }
+          } else if (functionName === 'update_inventory') {
+            const invResult = await this.executeUpdateInventoryCommand(
+              message,
+              { parameters: args },
+              tenantId,
+              branchId,
+            );
+            if (invResult.success) {
+              finalResponse = invResult.message;
+            }
+          } else if (functionName === 'initiate_backup') {
+            const backupResult = await this.executeBackupCommand(tenantId);
+            finalResponse = backupResult.message;
+          } else if (functionName === 'get_system_status') {
+            const statusResult = await this.executeStatusCommand(tenantId, branchId);
+            finalResponse = statusResult.message;
+          }
+        }
+      }
+
       return {
-        response: chatResponse.response,
+        response: finalResponse || chatResponse.response,
         category: chatResponse.category,
         suggestions: chatResponse.suggestions,
         conversationId: activeConversationId,
+        chartData,
+        reportData,
       };
     } catch (error) {
       console.error('Error processing AI chat:', error);
@@ -191,6 +205,8 @@ export class AiService {
       'generate report',
       'create chart',
       'show graph',
+      'chart',
+      'graph',
       'download report',
       'system status',
     ];
@@ -227,40 +243,42 @@ export class AiService {
       );
     }
 
-      if (
-        lowerMessage.includes('generate report') ||
-        lowerMessage.includes('sales report') ||
-        lowerMessage.includes('download report') ||
-        lowerMessage.includes('report')
-      ) {
-        return await this.executeGenerateReportCommand(
-          message,
-          extracted,
-          tenantId,
-          branchId,
-        );
-      }
-
-      if (
-        lowerMessage.includes('create chart') ||
-        lowerMessage.includes('show graph') ||
-        lowerMessage.includes('generate chart') ||
-        lowerMessage.includes('visualize')
-      ) {
-        return await this.executeGenerateChartCommand(
-          message,
-          extracted,
-          tenantId,
-          branchId,
-        );
-      }
-
-      return {
-        success: false,
-        message: 'Command not recognized. Please try a different command.',
-        action_taken: 'none',
-      };
+    if (
+      lowerMessage.includes('generate report') ||
+      lowerMessage.includes('sales report') ||
+      lowerMessage.includes('download report') ||
+      lowerMessage.includes('report')
+    ) {
+      return await this.executeGenerateReportCommand(
+        message,
+        extracted,
+        tenantId,
+        branchId,
+      );
     }
+
+    if (
+      lowerMessage.includes('create chart') ||
+      lowerMessage.includes('show graph') ||
+      lowerMessage.includes('generate chart') ||
+      lowerMessage.includes('visualize') ||
+      lowerMessage.includes('chart') ||
+      lowerMessage.includes('graph')
+    ) {
+      return await this.executeGenerateChartCommand(
+        message,
+        extracted,
+        tenantId,
+        branchId,
+      );
+    }
+
+    return {
+      success: false,
+      message: 'Command not recognized. Please try a different command.',
+      action_taken: 'none',
+    };
+  }
 
   private async executeBackupCommand(tenantId: string): Promise<CommandResult> {
     try {
@@ -320,8 +338,8 @@ export class AiService {
       const quantity = numberMatch
         ? parseInt(numberMatch[1])
         : extracted.parameters?.quantity ||
-          extracted.parameters?.numbers?.[0] ||
-          extracted.entities?.quantity;
+        extracted.parameters?.numbers?.[0] ||
+        extracted.entities?.quantity;
 
       // Enhanced product name extraction
       const productName =
@@ -454,12 +472,12 @@ export class AiService {
           // Extract year if mentioned, otherwise use current year or previous year if month is in the past
           const yearMatch = message.match(/\b(20\d{2})\b/);
           let year = yearMatch ? parseInt(yearMatch[1]) : currentYear;
-          
+
           // If month is in the future relative to current date, use previous year
           if (i > currentMonth && !yearMatch) {
             year = currentYear - 1;
           }
-          
+
           specificMonth = { year, month: i };
           break;
         }
@@ -515,7 +533,7 @@ export class AiService {
 
       return {
         success: true,
-        message: `✅ Report generated successfully!\n\n📄 Report Type: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report\n📅 Period: ${periodMessage}\n📊 Format: ${format.toUpperCase()}\n📁 Filename: ${reportResult.filename}\n\nYou can download the report using the download link.`,
+        message: `I've put together that ${reportType} report for ${periodMessage} for you! You can download it as an ${format.toUpperCase()} file right here:`,
         action_taken: 'report_generated',
         data: {
           reportType,
@@ -569,12 +587,31 @@ export class AiService {
       }
 
       // Determine period
+      const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+      const mentionsMonthName = monthNames.some(m => lowerMessage.includes(m));
+
       if (lowerMessage.includes('7 days') || lowerMessage.includes('week')) {
         period = '7days';
-      } else if (lowerMessage.includes('90 days') || lowerMessage.includes('3 months')) {
+      } else if (lowerMessage.includes('90 days') || lowerMessage.includes('3 months') || lowerMessage.includes('quarter')) {
         period = '90days';
-      } else if (lowerMessage.includes('year') || lowerMessage.includes('12 months')) {
+      } else if (
+        extracted?.parameters?.period === '1year' ||
+        extracted?.parameters?.period === 'monthly' ||
+        lowerMessage.includes('year') ||
+        lowerMessage.includes('12 months') ||
+        lowerMessage.includes('month ') ||
+        lowerMessage.includes('months') ||
+        lowerMessage.includes('monthly') ||
+        mentionsMonthName
+      ) {
+        // When user talks about months / monthly performance, show a 1-year monthly trend
         period = '1year';
+      } else if (extracted?.parameters?.period === '90days') {
+        period = '90days';
+      } else if (extracted?.parameters?.period === '7days') {
+        period = '7days';
+      } else {
+        period = '30days';
       }
 
       // Extract limit if mentioned
@@ -622,7 +659,7 @@ export class AiService {
 
       return {
         success: true,
-        message: `📊 Chart generated successfully!\n\nChart Type: ${chartConfig.type}\nTitle: ${chartConfig.title}\n\nThe chart data is ready to be displayed.`,
+        message: `Sure thing! Here's a visual breakdown of the data you asked for:`,
         action_taken: 'chart_generated',
         data: {
           chartConfig,

@@ -10,10 +10,13 @@ import { BackupModule } from '../backup/backup.module';
 import { OpenAIConfig } from './config/openai.config';
 import { ChatService } from './services/chat.service';
 import { DataService } from './services/data.service';
-import { ExtractionService } from './services/extraction.service';
+
 import { EmbeddingService } from './services/embedding.service';
 import { ChartService } from './services/chart.service';
 import { ReportService } from './services/report.service';
+
+import { FormatterService } from './services/formatter.service';
+import { ContextSelectorService } from './services/context-selector.service';
 
 @Module({
   imports: [UserModule, BackupModule],
@@ -27,10 +30,11 @@ import { ReportService } from './services/report.service';
     OpenAIConfig,
     ChatService,
     DataService,
-    ExtractionService,
     EmbeddingService,
     ChartService,
     ReportService,
+    FormatterService,
+    ContextSelectorService,
   ],
   exports: [AiService],
 })

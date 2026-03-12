@@ -1,9 +1,64 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
+import { ContextNeeds } from './context-selector.service';
 
 @Injectable()
 export class DataService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Fetch only the data slices that the user's question actually needs. */
+  async getSelectiveData(
+    tenantId: string,
+    branchId: string,
+    needs: ContextNeeds,
+  ): Promise<any> {
+    const nothingNeeded = !needs.needsSales && !needs.needsInventory && !needs.needsProducts && !needs.needsCustomers && !needs.needsCreditors && !needs.needsExpenses;
+
+    // For pure general chat, only return a lightweight summary
+    if (nothingNeeded) {
+      return this.getLightweightSummary(tenantId, branchId);
+    }
+
+    const tasks: Promise<any>[] = [];
+    const keys: string[] = [];
+
+    if (needs.needsSales) { tasks.push(this.getSalesData(tenantId, branchId)); keys.push('sales'); }
+    if (needs.needsInventory) { tasks.push(this.getInventoryData(tenantId, branchId)); keys.push('inventory'); }
+    if (needs.needsCustomers) { tasks.push(this.getCustomerData(tenantId, branchId)); keys.push('customers'); }
+    if (needs.needsProducts) { tasks.push(this.getProductData(tenantId, branchId)); keys.push('products'); }
+    if (needs.needsCreditors) { tasks.push(this.getCreditorData(tenantId)); keys.push('creditors'); }
+    if (needs.needsExpenses) { tasks.push(this.getExpenseData(tenantId, branchId)); keys.push('expenses'); }
+
+    try {
+      const results = await Promise.all(tasks);
+      const data: any = {};
+      keys.forEach((k, i) => { data[k] = results[i]; });
+      return data;
+    } catch (error) {
+      console.error('Error getting selective data:', error);
+      return {};
+    }
+  }
+
+  /** Tiny summary for non-business questions  */
+  private async getLightweightSummary(tenantId: string, branchId: string): Promise<any> {
+    try {
+      const [salesCount, productCount, customerCount] = await Promise.all([
+        this.prisma.sale.count({ where: { tenantId, branchId } }),
+        this.prisma.product.count({ where: { tenantId, deletedAt: null } }),
+        this.prisma.sale.groupBy({ by: ['customerName'], where: { tenantId, branchId } }).then((r) => r.length),
+      ]);
+      return {
+        summary: {
+          totalSales: salesCount,
+          totalProducts: productCount,
+          totalCustomers: customerCount,
+        },
+      };
+    } catch {
+      return {};
+    }
+  }
 
   async getBusinessData(tenantId: string, branchId: string): Promise<any> {
     try {
@@ -353,12 +408,23 @@ export class DataService {
         take: 500,
       }),
       this.prisma.product.findMany({
-        where: { tenantId },
+        where: { tenantId, deletedAt: null },
         select: {
           id: true,
           name: true,
+          sku: true,
           price: true,
           description: true,
+          hasVariations: true,
+          variations: {
+            where: { isActive: true },
+            select: {
+              sku: true,
+              price: true,
+              stock: true,
+              attributes: true,
+            },
+          },
         },
         take: 50,
       }),
@@ -405,6 +471,177 @@ export class DataService {
         bestPerformer: topProductsList[0] || null,
       },
     };
+  }
+
+  async getCreditorData(tenantId: string): Promise<any> {
+    try {
+      const [suppliers, credits, overdueCredits, totalOutstanding] = await Promise.all([
+        this.prisma.supplier.findMany({
+          where: { tenantId, isActive: true, deletedAt: null },
+          select: {
+            id: true,
+            name: true,
+            contactName: true,
+            email: true,
+            phone: true,
+            city: true,
+            country: true,
+            notes: true,
+          },
+          orderBy: { name: 'asc' },
+          take: 30,
+        }),
+        this.prisma.credit.findMany({
+          where: { tenantId, status: { in: ['active', 'overdue'] }, deletedAt: null },
+          select: {
+            customerName: true,
+            customerPhone: true,
+            totalAmount: true,
+            paidAmount: true,
+            balance: true,
+            status: true,
+            dueDate: true,
+          },
+          orderBy: { balance: 'desc' },
+          take: 20,
+        }),
+        this.prisma.credit.count({
+          where: { tenantId, status: 'overdue', deletedAt: null },
+        }),
+        this.prisma.credit.aggregate({
+          where: { tenantId, status: { in: ['active', 'overdue'] }, deletedAt: null },
+          _sum: { balance: true, totalAmount: true },
+          _count: true,
+        }),
+      ]);
+
+      return {
+        suppliers,
+        totalSuppliers: suppliers.length,
+        customerCredits: credits,
+        totalOutstandingBalance: totalOutstanding._sum.balance || 0,
+        totalCreditCount: totalOutstanding._count || 0,
+        overdueCount: overdueCredits,
+      };
+    } catch (error) {
+      console.error('Error getting creditor data:', error);
+      return { suppliers: [], customerCredits: [], totalSuppliers: 0, totalOutstandingBalance: 0, totalCreditCount: 0, overdueCount: 0 };
+    }
+  }
+
+  async getExpenseData(tenantId: string, branchId: string): Promise<any> {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+      const [recentExpenses, totalAggregate, byCategory, recurringExpenses] = await Promise.all([
+        this.prisma.expense.findMany({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            createdAt: { gte: thirtyDaysAgo },
+          },
+          select: {
+            amount: true,
+            description: true,
+            expenseType: true,
+            createdAt: true,
+            category: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        this.prisma.expense.aggregate({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            createdAt: { gte: ninetyDaysAgo },
+          },
+          _sum: { amount: true },
+          _count: true,
+          _avg: { amount: true },
+          _max: { amount: true },
+        }),
+        this.prisma.expense.groupBy({
+          by: ['categoryId'],
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            createdAt: { gte: ninetyDaysAgo },
+          },
+          _sum: { amount: true },
+          _count: true,
+          orderBy: { _sum: { amount: 'desc' } },
+          take: 10,
+        }),
+        this.prisma.expense.findMany({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            expenseType: 'recurring',
+            isActive: true,
+          },
+          select: {
+            amount: true,
+            description: true,
+            frequency: true,
+            nextDueDate: true,
+            category: { select: { name: true } },
+          },
+          orderBy: { amount: 'desc' },
+          take: 10,
+        }),
+      ]);
+
+      // Resolve category names from the grouped data
+      const categoryIds = byCategory.map((c) => c.categoryId).filter(Boolean) as string[];
+      const categories = categoryIds.length > 0
+        ? await this.prisma.expenseCategory.findMany({
+            where: { id: { in: categoryIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+      const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+
+      const categoryBreakdown = byCategory.map((c) => ({
+        category: c.categoryId ? (categoryMap[c.categoryId] || 'Uncategorized') : 'Uncategorized',
+        total: c._sum.amount || 0,
+        count: c._count,
+      }));
+
+      return {
+        recentExpenses: recentExpenses.map((e) => ({
+          amount: e.amount,
+          description: e.description,
+          category: e.category?.name || 'Uncategorized',
+          expenseType: e.expenseType,
+          createdAt: e.createdAt,
+        })),
+        totalLast90Days: totalAggregate._sum.amount || 0,
+        totalLast30Days: recentExpenses.reduce((sum, e) => sum + e.amount, 0),
+        expenseCount: totalAggregate._count || 0,
+        averageExpense: totalAggregate._avg?.amount || 0,
+        largestExpense: totalAggregate._max?.amount || 0,
+        categoryBreakdown,
+        recurringExpenses: recurringExpenses.map((e) => ({
+          amount: e.amount,
+          description: e.description,
+          frequency: e.frequency,
+          nextDueDate: e.nextDueDate,
+          category: e.category?.name || 'Uncategorized',
+        })),
+        recurringMonthlyTotal: recurringExpenses
+          .filter((e) => e.frequency === 'monthly')
+          .reduce((sum, e) => sum + e.amount, 0),
+      };
+    } catch (error) {
+      console.error('Error getting expense data:', error);
+      return { recentExpenses: [], totalLast90Days: 0, totalLast30Days: 0, expenseCount: 0, categoryBreakdown: [], recurringExpenses: [] };
+    }
   }
 
   async getTenantInfo(tenantId: string): Promise<any> {
