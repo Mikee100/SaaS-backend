@@ -76,9 +76,11 @@ export class AuthController {
 
       this.logger.log(`Successful login for user: ${emailLower}`);
       // Return user only; tokens are in cookies. Include access_token for legacy clients during migration.
+      // Now also includes refresh_token for non-browser platforms like Flutter and Electron.
       return {
         user: result.user,
         access_token: result.access_token,
+        refresh_token: result.refresh_token,
       };
     } catch (error: any) {
       this.logger.error(
@@ -97,8 +99,9 @@ export class AuthController {
   async refresh(
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
+    @Body() body?: { refreshToken?: string },
   ) {
-    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN];
+    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN] || body?.refreshToken;
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token required');
     }
@@ -106,7 +109,11 @@ export class AuthController {
       const result = await this.authService.refresh(refreshToken);
       this.cookieService.setAccessToken(res, result.access_token);
       this.cookieService.setRefreshToken(res, result.refresh_token);
-      return { user: result.user };
+      return { 
+        user: result.user,
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+      };
     } catch (error: any) {
       this.cookieService.clearAuthCookies(res);
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -115,8 +122,12 @@ export class AuthController {
 
   @Public()
   @Post('logout')
-  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN];
+  async logout(
+    @Req() req: any, 
+    @Res({ passthrough: true }) res: Response,
+    @Body() body?: { refreshToken?: string },
+  ) {
+    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN] || body?.refreshToken;
     try {
       if (req.user?.sessionId) {
         await this.authService.revokeSession(req.user.sessionId);

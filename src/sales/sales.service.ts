@@ -249,16 +249,20 @@ export class SalesService {
     }
     // Validate branchId if provided
     let validBranchId: string | null = dto.branchId || null;
+    let validBranch: { id: string; name: string; address: string | null } | null = null;
     if (dto.branchId) {
       const branchExists = await this.prisma.branch.findUnique({
         where: { id: dto.branchId },
-        select: { id: true, tenantId: true },
+        select: { id: true, name: true, address: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
         this.logger.warn(
-          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`,
+          `BranchId ${dto.branchId} not found or does not belong to tenant ${tenantId}. Sale will be saved without branch.`,
+          { branchId: dto.branchId, tenantId, found: !!branchExists, branchTenantId: branchExists?.tenantId },
         );
         validBranchId = null;
+      } else {
+        validBranch = { id: branchExists.id, name: branchExists.name, address: branchExists.address };
       }
     }
 
@@ -533,6 +537,7 @@ export class SalesService {
       customerPhone: dto.customerPhone,
       isSplitPayment: dto.isSplitPayment || false,
       splitPayments: dto.splitPayments || undefined,
+      branch: validBranch,
     };
   }
 

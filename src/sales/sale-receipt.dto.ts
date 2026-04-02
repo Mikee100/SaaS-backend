@@ -22,4 +22,5 @@ export class SaleReceiptDto {
   customerPhone?: string;
   isSplitPayment?: boolean;
   splitPayments?: SplitPaymentReceipt[];
+  branch?: { id: string; name: string; address?: string | null } | null;
 }
