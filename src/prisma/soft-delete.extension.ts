@@ -60,7 +60,7 @@ export function softDeleteExtension(prisma: PrismaClient) {
             // For findUnique, we can't wrap with AND because Prisma requires unique fields at top level
             // Instead, fetch the record and check deletedAt manually
             const result = await query(args);
-            if (result && (result as any).deletedAt !== null) {
+            if (result && (result as any).deletedAt) {
               return null; // Return null if soft-deleted
             }
             return result;
@@ -77,7 +77,7 @@ export function softDeleteExtension(prisma: PrismaClient) {
           if (SOFT_DELETE_MODELS.includes(model as (typeof SOFT_DELETE_MODELS)[number])) {
             // For findUniqueOrThrow, fetch and check deletedAt manually
             const result = await query(args);
-            if (result && (result as any).deletedAt !== null) {
+            if (result && (result as any).deletedAt) {
               // Throw a NotFoundError to match Prisma's behavior
               const error = new Error(`Record to findUniqueOrThrow does not exist or is soft-deleted`);
               (error as any).code = 'P2025';

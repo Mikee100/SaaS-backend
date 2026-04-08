@@ -23,4 +23,15 @@ export class SaleReceiptDto {
   isSplitPayment?: boolean;
   splitPayments?: SplitPaymentReceipt[];
   branch?: { id: string; name: string; address?: string | null } | null;
+  businessInfo?: {
+    name: string;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    kraEnabled?: boolean;
+    kraPin?: string | null;
+    vatNumber?: string | null;
+    receiptLogo?: string | null;
+    etimsQrUrl?: string | null;
+  };
 }

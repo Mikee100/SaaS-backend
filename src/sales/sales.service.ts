@@ -105,16 +105,57 @@ export class SalesService {
   ): Promise<SaleReceiptDto> {
     if (!dto.idempotencyKey)
       throw new BadRequestException('Missing idempotency key');
+    // Fetch tenant info for the receipt
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        name: true,
+        address: true,
+        contactEmail: true,
+        contactPhone: true,
+        kraEnabled: true,
+        kraPin: true,
+        vatNumber: true,
+        receiptLogo: true,
+        logoUrl: true,
+        etimsQrUrl: true,
+      },
+    });
+
+    const businessInfo = tenant ? {
+      name: tenant.name,
+      address: tenant.address,
+      phone: tenant.contactPhone,
+      email: tenant.contactEmail,
+      kraEnabled: tenant.kraEnabled,
+      kraPin: tenant.kraPin,
+      vatNumber: tenant.vatNumber,
+      receiptLogo: tenant.receiptLogo || tenant.logoUrl,
+      etimsQrUrl: tenant.etimsQrUrl,
+    } : undefined;
+
     // Check for existing sale with this idempotencyKey for this user
     const existing = await this.prisma.sale.findFirst({
       where: { idempotencyKey: dto.idempotencyKey, userId },
     });
+
     if (existing) {
-      // Optionally, return a receipt DTO for the existing sale
+      // Fetch branch info for existing sale if it has one
+      let existingBranch: any = null;
+      if (existing.branchId) {
+        const branch = await this.prisma.branch.findUnique({
+          where: { id: existing.branchId },
+          select: { id: true, name: true, address: true },
+        });
+        if (branch) {
+          existingBranch = branch;
+        }
+      }
+
       return {
         saleId: existing.id,
         date: existing.createdAt,
-        items: [], // Optionally fetch items if needed
+        items: [], // In a real scenario, we might want to fetch these
         subtotal: (existing.total ?? 0) - (existing.vatAmount ?? 0),
         total: existing.total,
         vatAmount: existing.vatAmount ?? 0,
@@ -123,6 +164,8 @@ export class SalesService {
         change: (dto.amountReceived ?? 0) - existing.total,
         customerName: existing.customerName || undefined,
         customerPhone: existing.customerPhone || undefined,
+        branch: existingBranch,
+        businessInfo,
       };
     }
 
@@ -250,20 +293,35 @@ export class SalesService {
     // Validate branchId if provided
     let validBranchId: string | null = dto.branchId || null;
     let validBranch: { id: string; name: string; address: string | null } | null = null;
+    
+    this.logger.debug(`[BRANCH_CHECK] Incoming branchId: ${dto.branchId}`);
+    this.logger.debug(`[BRANCH_CHECK] Incoming tenantId: ${tenantId}`);
+
     if (dto.branchId) {
       const branchExists = await this.prisma.branch.findUnique({
         where: { id: dto.branchId },
         select: { id: true, name: true, address: true, tenantId: true },
       });
-      if (!branchExists || branchExists.tenantId !== tenantId) {
-        this.logger.warn(
-          `BranchId ${dto.branchId} not found or does not belong to tenant ${tenantId}. Sale will be saved without branch.`,
-          { branchId: dto.branchId, tenantId, found: !!branchExists, branchTenantId: branchExists?.tenantId },
-        );
+      
+      if (!branchExists) {
+        this.logger.warn(`[BRANCH_CHECK] BranchId ${dto.branchId} NOT FOUND in database.`);
         validBranchId = null;
       } else {
-        validBranch = { id: branchExists.id, name: branchExists.name, address: branchExists.address };
+        this.logger.debug(`[BRANCH_CHECK] Found branch: ${branchExists.name} with tenantId: ${branchExists.tenantId}`);
+        if (branchExists.tenantId !== tenantId) {
+          this.logger.warn(
+            `[BRANCH_CHECK] Tenant mismatch! Branch tenant: [${branchExists.tenantId}], Request tenant: [${tenantId}]`,
+            { branchId: dto.branchId, tenantId, branchTenantId: branchExists.tenantId },
+          );
+          validBranchId = null;
+        } else {
+          this.logger.debug(`[BRANCH_CHECK] SUCCESS: Branch validated for tenant.`);
+          validBranch = { id: branchExists.id, name: branchExists.name, address: branchExists.address };
+          validBranchId = branchExists.id;
+        }
       }
+    } else {
+      this.logger.debug('[BRANCH_CHECK] No branchId provided in payload.');
     }
 
     // Apply discount (optional): cap at subtotal, then VAT on discounted subtotal
@@ -403,51 +461,6 @@ export class SalesService {
         }
       }
 
-      if (dto.isSplitPayment && dto.splitPayments && dto.splitPayments.length > 0) {
-        // For split payments, set paymentType to 'split'
-        paymentType = 'split';
-        
-        // Calculate total amount received (sum of cash amounts)
-        amountReceived = dto.splitPayments
-          .filter(p => p.method === 'cash')
-          .reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
-
-        // Get M-Pesa transaction ID from split payments if any
-        const mpesaPayment = dto.splitPayments.find(p => p.method === 'mpesa');
-        if (mpesaPayment?.mpesaTransactionId) {
-          mpesaTransactionId = mpesaPayment.mpesaTransactionId;
-        }
-
-        // Handle credit portion of split payment
-        const creditPayment = dto.splitPayments.find(p => p.method === 'credit');
-        if (creditPayment) {
-          creditCreateData = {
-            tenantId,
-            customerName: dto.customerName || '',
-            customerPhone: dto.customerPhone,
-            totalAmount: creditPayment.amount,
-            balance: creditPayment.amount,
-            dueDate: creditPayment.creditDueDate
-              ? new Date(creditPayment.creditDueDate)
-              : null,
-            notes: creditPayment.creditNotes || dto.creditNotes,
-          };
-        }
-      } else if (dto.paymentMethod === 'credit') {
-        // Single credit payment
-        creditCreateData = {
-          tenantId,
-          customerName: dto.customerName || '',
-          customerPhone: dto.customerPhone,
-          totalAmount: dto.creditAmount || total,
-          balance: dto.creditAmount || total,
-          dueDate: dto.creditDueDate
-            ? new Date(dto.creditDueDate)
-            : null,
-          notes: dto.creditNotes,
-        };
-      }
-
       // Create the sale record with nested credit if applicable
       const saleData: any = {
         id: saleId,
@@ -538,6 +551,7 @@ export class SalesService {
       isSplitPayment: dto.isSplitPayment || false,
       splitPayments: dto.splitPayments || undefined,
       branch: validBranch,
+      businessInfo,
     };
   }
 
@@ -1442,6 +1456,14 @@ export class SalesService {
           customerName: true,
           customerPhone: true,
           createdAt: true,
+          branchId: true,
+          Branch: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
           SaleItem: {
             select: {
               quantity: true,
@@ -1465,6 +1487,12 @@ export class SalesService {
         customerName: sale.customerName || null,
         customerPhone: sale.customerPhone || null,
         date: sale.createdAt,
+        branchId: sale.branchId,
+        branch: sale.Branch ? {
+          id: sale.Branch.id,
+          name: sale.Branch.name,
+          address: sale.Branch.address,
+        } : null,
         items: sale.SaleItem.map((item) => ({
           productId: item.product?.id || '',
           productName: item.product?.name || 'Unknown',
