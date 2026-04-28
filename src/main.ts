@@ -196,6 +196,10 @@ async function bootstrap() {
     const uploadsPath = join(process.cwd(), 'uploads');
     app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
 
+    // Serve POS updates statically
+    const posUpdatesPath = join(process.cwd(), 'uploads', 'pos-updates');
+    app.useStaticAssets(posUpdatesPath, { prefix: '/updates/pos/' });
+
     // API documentation endpoint will be available when @nestjs/swagger is installed
     if (!isProduction) {
       logger.log(

@@ -26,7 +26,7 @@ export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Post()
-  @Permissions('create_sales')
+  @Permissions('manage_expenses')
   async createExpense(@Body() createExpenseDto: any, @Req() req) {
     if (!req.user?.tenantId) {
       throw new BadRequestException('Tenant ID is required');
@@ -50,7 +50,7 @@ export class ExpensesController {
   }
 
   @Get()
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpenses(@Req() req, @Query() query: any) {
     const branchId = req.headers['x-branch-id'] as string;
     const result = await this.expensesService.getExpenses(req.user.tenantId, branchId, query);
@@ -67,13 +67,13 @@ export class ExpensesController {
   }
 
   @Get(':id')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpenseById(@Param('id') id: string, @Req() req) {
     return this.expensesService.getExpenseById(id, req.user.tenantId);
   }
 
   @Put(':id')
-  @Permissions('create_sales')
+  @Permissions('manage_expenses')
   async updateExpense(
     @Param('id') id: string,
     @Body() updateExpenseDto: any,
@@ -87,13 +87,13 @@ export class ExpensesController {
   }
 
   @Delete(':id')
-  @Permissions('create_sales')
+  @Permissions('manage_expenses')
   async deleteExpense(@Param('id') id: string, @Req() req) {
     return this.expensesService.deleteExpense(id, req.user.tenantId);
   }
 
   @Get('analytics/summary')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpenseAnalytics(@Req() req, @Query() query: any) {
     const { startDate, endDate } = query;
     return this.expensesService.getExpenseAnalytics(
@@ -104,13 +104,13 @@ export class ExpensesController {
   }
 
   @Get('categories/list')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpenseCategories(@Req() req) {
     return this.expensesService.getExpenseCategories(req.user.tenantId);
   }
 
   @Get('comparison/branches')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getBranchComparison(@Req() req, @Query() query: any) {
     const { startDate, endDate } = query;
     return this.expensesService.getBranchComparison(
@@ -121,20 +121,20 @@ export class ExpensesController {
   }
 
   @Post('reset-monthly')
-  @Permissions('create_sales')
+  @Permissions('manage_expenses')
   async resetMonthlyExpenses(@Req() req) {
     return this.expensesService.resetMonthlyExpenses(req.user.tenantId, req.user.userId);
   }
 
   @Get('past-months')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getPastMonthsRecords(@Req() req, @Query() query: any) {
     const { months = 12 } = query;
     return this.expensesService.getPastMonthsRecords(req.user.tenantId, parseInt(months));
   }
 
   @Get('current-month-total')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getCurrentMonthExpenseTotal(@Req() req) {
     const result = await this.expensesService.getCurrentMonthExpenseTotal(req.user.tenantId);
     return {
@@ -144,7 +144,7 @@ export class ExpensesController {
   }
 
   @Get('total-expense')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpenseTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
     console.log(`Controller: getExpenseTotalForMonth called with month: ${month}, year: ${year}, tenantId: ${req.user.tenantId}`);
     if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
@@ -159,7 +159,7 @@ export class ExpensesController {
   }
 
   @Get('by-month')
-  @Permissions('view_sales')
+  @Permissions('view_expenses')
   async getExpensesByMonth(@Req() req, @Query() query: any) {
     const { month, year } = query;
     if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {

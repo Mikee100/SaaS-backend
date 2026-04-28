@@ -21,42 +21,42 @@ export class SupplierController {
   constructor(private readonly supplierService: SupplierService) {}
 
   @Get()
-  @Permissions('view_inventory')
+  @Permissions('view_suppliers')
   async findAll(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.findAll(tenantId);
   }
 
   @Get('stats')
-  @Permissions('view_inventory')
+  @Permissions('view_suppliers')
   async getStats(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.getSupplierStats(tenantId);
   }
 
   @Get('deleted')
-  @Permissions('view_inventory')
+  @Permissions('view_suppliers')
   async findDeleted(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.getDeletedSuppliers(tenantId);
   }
 
   @Get(':id')
-  @Permissions('view_inventory')
+  @Permissions('view_suppliers')
   async findOne(@Param('id') id: string, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.findOne(id, tenantId);
   }
 
   @Post()
-  @Permissions('create_inventory')
+  @Permissions('manage_suppliers')
   async create(@Body() data: any, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.create(data, tenantId, req.user.userId, req.ip);
   }
 
   @Put(':id')
-  @Permissions('edit_inventory')
+  @Permissions('manage_suppliers')
   async update(@Param('id') id: string, @Body() data: any, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.update(
@@ -69,14 +69,14 @@ export class SupplierController {
   }
 
   @Post(':id/restore')
-  @Permissions('edit_inventory')
+  @Permissions('manage_suppliers')
   async restore(@Param('id') id: string, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.restoreSupplier(id, tenantId, req.user.userId, req.ip);
   }
 
   @Delete(':id')
-  @Permissions('delete_inventory')
+  @Permissions('manage_suppliers')
   async remove(@Param('id') id: string, @Req() req) {
     const tenantId = req.user.tenantId;
     return this.supplierService.remove(id, tenantId, req.user.userId, req.ip);

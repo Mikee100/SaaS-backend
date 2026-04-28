@@ -119,7 +119,8 @@ export class BillingController {
   }
 
   @Get('limits')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('view_billing')
   async getPlanLimits(@Req() req) {
     try {
       if (!req.user?.tenantId) {
@@ -244,7 +245,8 @@ export class BillingController {
   }
 
   @Post('create-payment-intent')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('edit_billing')
   async createPaymentIntent(
     @Req() req: any,
     @Body()
@@ -323,7 +325,8 @@ export class BillingController {
   }
 
   @Post('record-one-time-payment')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('edit_billing')
   async recordOneTimePayment(
     @Req() req: any,
     @Body()

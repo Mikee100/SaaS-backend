@@ -11,7 +11,7 @@ export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   @Get()
-  @Permissions('view_audit_logs')
+  @Permissions('view_audit_log')
   async getLogs(@Query('limit') limit: string) {
     return this.auditLogService.getLogs(Number(limit) || 100);
   }

@@ -55,14 +55,14 @@ export class TenantConfigurationController {
   ) {}
 
   @Get()
-  @Permissions('view_billing')
+  @Permissions('view_settings')
   async getAllConfigurations(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.tenantConfigurationService.getAllTenantConfigurations(tenantId);
   }
 
   @Get('category/:category')
-  @Permissions('view_billing')
+  @Permissions('view_settings')
   async getConfigurationsByCategory(
     @Param('category') category: string,
     @Req() req,
@@ -75,7 +75,7 @@ export class TenantConfigurationController {
   }
 
   @Get(':key')
-  @Permissions('view_billing')
+  @Permissions('view_settings')
   async getConfiguration(@Param('key') key: string, @Req() req) {
     const tenantId = req.user.tenantId;
     const value = await this.tenantConfigurationService.getTenantConfiguration(
@@ -86,7 +86,7 @@ export class TenantConfigurationController {
   }
 
   @Post()
-  @Permissions('edit_billing')
+  @Permissions('edit_settings')
   async createConfiguration(@Body() dto: CreateConfigurationDto, @Req() req) {
     const tenantId = req.user.tenantId;
     await this.tenantConfigurationService.setTenantConfiguration(
@@ -104,7 +104,7 @@ export class TenantConfigurationController {
   }
 
   @Put(':key')
-  @Permissions('edit_billing')
+  @Permissions('edit_settings')
   async updateConfiguration(
     @Param('key') key: string,
     @Body() dto: UpdateConfigurationDto,
@@ -126,7 +126,7 @@ export class TenantConfigurationController {
   }
 
   @Delete(':key')
-  @Permissions('edit_billing')
+  @Permissions('edit_settings')
   async deleteConfiguration(@Param('key') key: string, @Req() req) {
     const tenantId = req.user.tenantId;
     await this.tenantConfigurationService.deleteTenantConfiguration(

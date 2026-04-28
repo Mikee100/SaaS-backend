@@ -213,8 +213,9 @@ export class SalesController {
     @Param('id') id: string,
     @Body()
     body: {
-      items: { productId: string; quantity: number; unitPrice: number }[];
+      items: { productId: string; quantity: number; unitPrice: number; variationId?: string; isResalable?: boolean }[];
       reason?: string;
+      refundMethod?: string;
     },
     @Req() req,
   ) {
@@ -236,6 +237,7 @@ export class SalesController {
         req.user.userId,
         body.items,
         body.reason,
+        body.refundMethod,
       );
       return {
         success: true,

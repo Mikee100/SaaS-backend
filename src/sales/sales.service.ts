@@ -559,8 +559,9 @@ export class SalesService {
     saleId: string,
     tenantId: string,
     userId: string,
-    items: { productId: string; quantity: number; unitPrice: number }[],
+    items: { productId: string; quantity: number; unitPrice: number; variationId?: string; isResalable?: boolean }[],
     reason?: string,
+    refundMethod?: string,
   ) {
     if (!saleId) throw new BadRequestException('Sale ID is required');
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
@@ -579,11 +580,12 @@ export class SalesService {
       throw new NotFoundException('Original sale not found');
     }
 
-    // Map original quantities by product for simple validation
+    // Map original quantities by product/variation for simple validation
     const originalQuantities = new Map<string, number>();
     for (const item of originalSale.SaleItem) {
-      const prev = originalQuantities.get(item.productId) ?? 0;
-      originalQuantities.set(item.productId, prev + item.quantity);
+      const key = item.variationId ? `${item.productId}-${item.variationId}` : item.productId;
+      const prev = originalQuantities.get(key) ?? 0;
+      originalQuantities.set(key, prev + item.quantity);
     }
 
     let refundSubtotal = 0;
@@ -598,15 +600,16 @@ export class SalesService {
         throw new BadRequestException('Return unitPrice must be a non-negative number');
       }
 
-      const soldQty = originalQuantities.get(item.productId) ?? 0;
+      const key = item.variationId ? `${item.productId}-${item.variationId}` : item.productId;
+      const soldQty = originalQuantities.get(key) ?? 0;
       if (soldQty <= 0) {
         throw new BadRequestException(
-          `Product ${item.productId} does not exist on the original sale`,
+          `Product/Variation ${key} does not exist on the original sale`,
         );
       }
       if (item.quantity > soldQty) {
         throw new BadRequestException(
-          `Return quantity for product ${item.productId} cannot exceed sold quantity (${soldQty})`,
+          `Return quantity for ${key} cannot exceed sold quantity (${soldQty})`,
         );
       }
 
@@ -622,12 +625,38 @@ export class SalesService {
     const now = new Date();
 
     await this.prisma.$transaction(async (prisma) => {
-      // Restock products (basic: product-level only)
+      // Restock products (supporting variations and isResalable flag)
       for (const item of items) {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
+        if (item.isResalable !== false) {
+          if (item.variationId) {
+            await prisma.productVariation.update({
+              where: { id: item.variationId },
+              data: { stock: { increment: item.quantity } },
+            });
+          } else {
+            await prisma.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+        }
+      }
+
+      // Handle Credit Sales Refund
+      if (originalSale.paymentType === 'credit') {
+        const creditRecord = await prisma.credit.findUnique({ where: { saleId: originalSale.id } });
+        if (creditRecord) {
+          const newTotal = Math.max(0, creditRecord.totalAmount - refundTotal);
+          const newBalance = Math.max(0, creditRecord.balance - refundTotal);
+          await prisma.credit.update({
+            where: { id: creditRecord.id },
+            data: {
+              totalAmount: newTotal,
+              balance: newBalance,
+              status: newBalance <= 0 ? 'paid' : creditRecord.status
+            }
+          });
+        }
       }
 
       // Create a negative sale to represent the return
@@ -638,7 +667,7 @@ export class SalesService {
           userId,
           total: -refundTotal,
           vatAmount: -refundVat,
-          paymentType: 'refund',
+          paymentType: refundMethod || 'refund',
           createdAt: now,
           customerName: originalSale.customerName,
           customerPhone: originalSale.customerPhone,
@@ -652,7 +681,7 @@ export class SalesService {
             id: uuidv4(),
             saleId: returnId,
             productId: item.productId,
-            variationId: null,
+            variationId: item.variationId || null,
             quantity: item.quantity,
             price: -item.unitPrice,
           },
@@ -671,6 +700,7 @@ export class SalesService {
             refundVat,
             refundTotal,
             reason,
+            refundMethod,
           },
           undefined,
           prisma,

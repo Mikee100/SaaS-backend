@@ -17,12 +17,13 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
 
-@UseGuards(AuthGuard('jwt'), TrialGuard)
+@UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('branches')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
 
   @Post()
+  @Permissions('manage_branches')
   async createBranch(@Body() data: any, @Req() req: any) {
     // Inject tenantId from authenticated user (JWT)
     const tenantId = req.user?.tenantId;
@@ -33,6 +34,7 @@ export class BranchController {
   }
 
   @Get()
+  @Permissions('view_branches')
   async getAllBranches(@Req() req: any) {
     // If user is authenticated, filter by tenantId
     const tenantId = req.user?.tenantId;
@@ -44,6 +46,7 @@ export class BranchController {
   }
 
   @Get(':id')
+  @Permissions('view_branches')
   async getBranchById(@Param('id') id: string) {
     const branch = await this.branchService.getBranchById(id);
     if (!branch) throw new NotFoundException('Branch not found');
@@ -51,11 +54,13 @@ export class BranchController {
   }
 
   @Put(':id')
+  @Permissions('manage_branches')
   async updateBranch(@Param('id') id: string, @Body() data: any) {
     return this.branchService.updateBranch(id, data);
   }
 
   @Post(':id/restore')
+  @Permissions('manage_branches')
   async restoreBranch(@Param('id') id: string, @Req() req: any) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
@@ -65,6 +70,7 @@ export class BranchController {
   }
 
   @Delete(':id')
+  @Permissions('manage_branches')
   async deleteBranch(@Param('id') id: string) {
     return this.branchService.deleteBranch(id);
   }

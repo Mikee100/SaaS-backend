@@ -20,11 +20,21 @@ const permissions = [
   { name: 'edit_products', description: 'Edit products' },
   { name: 'delete_products', description: 'Delete products' },
   { name: 'view_analytics', description: 'View analytics' },
+  { name: 'view_reports', description: 'View advanced reports' },
   { name: 'export_data', description: 'Export data' },
   { name: 'view_settings', description: 'View settings' },
   { name: 'edit_settings', description: 'Edit settings' },
   { name: 'view_billing', description: 'View billing' },
-  { name: 'edit_billing', description: 'Edit billing' }
+  { name: 'edit_billing', description: 'Edit billing' },
+  { name: 'use_ai_assistant', description: 'Use AI assistant chat' },
+  { name: 'manage_ai', description: 'Manage AI settings and configuration' },
+  { name: 'view_branches', description: 'View business branches' },
+  { name: 'manage_branches', description: 'Create, edit and delete branches' },
+  { name: 'view_suppliers', description: 'View suppliers' },
+  { name: 'manage_suppliers', description: 'Manage supplier records' },
+  { name: 'view_expenses', description: 'View expenses' },
+  { name: 'manage_expenses', description: 'Create and manage expenses' },
+  { name: 'view_audit_log', description: 'View system audit logs' }
 ];
 
 export async function seedPermissions() {
