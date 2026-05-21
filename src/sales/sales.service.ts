@@ -757,15 +757,21 @@ export class SalesService {
     };
   }
 
-  async getSaleById(id: string, tenantId: string) {
+  async getSaleById(id: string, tenantId: string, branchId?: string) {
     if (!id) throw new BadRequestException('Sale ID is required');
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
 
     try {
-      this.logger.debug(`Fetching sale with ID: ${id} for tenant: ${tenantId}`);
+      this.logger.debug(
+        `Fetching sale with ID: ${id} for tenant: ${tenantId}${branchId ? ` and branch: ${branchId}` : ''}`,
+      );
 
-      const sale = await this.prisma.sale.findUnique({
-        where: { id, tenantId },
+      const sale = await this.prisma.sale.findFirst({
+        where: {
+          id,
+          tenantId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           User: {
             select: {
@@ -815,7 +821,9 @@ export class SalesService {
       });
 
       if (!sale) {
-        this.logger.warn(`Sale not found with ID: ${id} for tenant: ${tenantId}`);
+        this.logger.warn(
+          `Sale not found with ID: ${id} for tenant: ${tenantId}${branchId ? ` and branch: ${branchId}` : ''}`,
+        );
         throw new NotFoundException('Sale not found');
       }
 
@@ -878,13 +886,18 @@ export class SalesService {
   async getReceipt(
     saleId: string,
     tenantId: string,
+    branchId?: string,
     type: 'customer' | 'merchant' = 'customer',
   ) {
     if (!saleId) throw new BadRequestException('Sale ID is required');
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
 
-    const sale = await this.prisma.sale.findUnique({
-      where: { id: saleId, tenantId },
+    const sale = await this.prisma.sale.findFirst({
+      where: {
+        id: saleId,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         SaleItem: {
           include: {
@@ -1507,12 +1520,17 @@ export class SalesService {
     return tenant;
   }
 
-  async getRecentSales(tenantId: string, limit: number = 10) {
+  async getRecentSales(tenantId: string, limit: number = 10, branchId?: string) {
     try {
-      this.logger.debug(`Fetching recent sales for tenant: ${tenantId}`);
+      this.logger.debug(
+        `Fetching recent sales for tenant: ${tenantId}${branchId ? ` and branch: ${branchId}` : ''}`,
+      );
 
       const recentSales = await this.prisma.sale.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          ...(branchId ? { branchId } : {}),
+        },
         orderBy: { createdAt: 'desc' },
         take: limit,
         select: {
@@ -1574,9 +1592,12 @@ export class SalesService {
   }
 
   // Credit management methods
-  async getCredits(tenantId: string) {
+  async getCredits(tenantId: string, branchId?: string) {
     return this.prisma.credit.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        ...(branchId ? { sale: { branchId } } : {}),
+      },
       include: {
         payments: true,
         sale: {
@@ -1610,9 +1631,13 @@ export class SalesService {
     });
   }
 
-  async getCreditById(id: string, tenantId: string) {
+  async getCreditById(id: string, tenantId: string, branchId?: string) {
     return this.prisma.credit.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { sale: { branchId } } : {}),
+      },
       include: {
         payments: true,
         sale: {
@@ -1745,6 +1770,7 @@ export class SalesService {
     tenantId: string,
     customerName: string,
     customerPhone?: string,
+    branchId?: string,
   ) {
     this.logger.debug('calculateCustomerCreditScore called', {
       tenantId,
@@ -1758,6 +1784,7 @@ export class SalesService {
         tenantId,
         customerName: customerName.trim(),
         ...(customerPhone && { customerPhone: customerPhone.trim() }),
+        ...(branchId ? { sale: { branchId } } : {}),
       },
       include: {
         payments: true,
@@ -1924,6 +1951,7 @@ export class SalesService {
     customerName: string,
     requestedAmount: number,
     customerPhone?: string,
+    branchId?: string,
   ) {
     this.logger.debug('checkCreditEligibility called', {
       tenantId,
@@ -1946,6 +1974,7 @@ export class SalesService {
       tenantId,
       customerName,
       customerPhone,
+      branchId,
     );
     this.logger.debug(`Credit score: ${score}`);
 
@@ -2020,7 +2049,12 @@ export class SalesService {
   }
 
   // Credit Analytics Dashboard
-  async getCreditAnalytics(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getCreditAnalytics(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+    branchId?: string,
+  ) {
     this.logger.debug('getCreditAnalytics called', {
       tenantId,
       startDate,
@@ -2042,6 +2076,7 @@ export class SalesService {
           gte: start,
           lte: end,
         },
+        ...(branchId ? { sale: { branchId } } : {}),
       },
       include: {
         payments: true,
@@ -2188,6 +2223,7 @@ export class SalesService {
     tenantId: string,
     customerName: string,
     customerPhone?: string,
+    branchId?: string,
   ) {
     this.logger.debug('getCustomerCreditHistory called', {
       tenantId,
@@ -2200,6 +2236,7 @@ export class SalesService {
         tenantId,
         customerName: customerName.trim(),
         ...(customerPhone && { customerPhone: customerPhone.trim() }),
+        ...(branchId ? { sale: { branchId } } : {}),
       },
       include: {
         payments: {
@@ -2330,7 +2367,7 @@ export class SalesService {
   }
 
   // Credit Aging Analysis
-  async getCreditAgingAnalysis(tenantId: string) {
+  async getCreditAgingAnalysis(tenantId: string, branchId?: string) {
     this.logger.debug('getCreditAgingAnalysis called', { tenantId });
 
     const credits = await this.prisma.credit.findMany({
@@ -2338,6 +2375,7 @@ export class SalesService {
         tenantId,
         status: { in: ['active', 'overdue'] },
         balance: { gt: 0 },
+        ...(branchId ? { sale: { branchId } } : {}),
       },
       select: {
         id: true,

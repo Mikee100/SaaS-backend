@@ -271,16 +271,16 @@ export class AnalyticsService {
     );
   }
 
-  async getDailySales(tenantId: string) {
-    return this.getSalesByTimePeriod(tenantId, 'day');
+  async getDailySales(tenantId: string, branchId?: string) {
+    return this.getSalesByTimePeriod(tenantId, 'day', branchId);
   }
 
-  async getWeeklySales(tenantId: string) {
-    return this.getSalesByTimePeriod(tenantId, 'week');
+  async getWeeklySales(tenantId: string, branchId?: string) {
+    return this.getSalesByTimePeriod(tenantId, 'week', branchId);
   }
 
-  async getYearlySales(tenantId: string) {
-    return this.getSalesByTimePeriod(tenantId, 'year');
+  async getYearlySales(tenantId: string, branchId?: string) {
+    return this.getSalesByTimePeriod(tenantId, 'year', branchId);
   }
 
   private async getBranchSalesByTimePeriod(
@@ -919,6 +919,7 @@ export class AnalyticsService {
   async getBranchComparisonTimeSeries(
     tenantId: string,
     timeRange: string = '30days',
+    branchId?: string,
   ) {
     try {
       // Calculate date range
@@ -963,7 +964,10 @@ export class AnalyticsService {
 
       // Get all branches for this tenant
       const branches = await this.prisma.branch.findMany({
-        where: { tenantId },
+        where: {
+          tenantId,
+          ...(branchId ? { id: branchId } : {}),
+        },
         select: { id: true, name: true },
       });
 
@@ -981,6 +985,7 @@ export class AnalyticsService {
           AND s."createdAt" >= ${startDate}
           AND s."createdAt" <= ${endDate}
         WHERE b."tenantId" = ${tenantId}
+          ${branchId ? Prisma.sql`AND b.id = ${branchId}` : Prisma.empty}
         GROUP BY b.id, b.name, period
         ORDER BY b.name, period ASC
       `;
@@ -998,6 +1003,7 @@ export class AnalyticsService {
           AND s."createdAt" >= ${startDate}
           AND s."createdAt" <= ${endDate}
         WHERE b."tenantId" = ${tenantId}
+          ${branchId ? Prisma.sql`AND b.id = ${branchId}` : Prisma.empty}
         GROUP BY b.id, b.name
         ORDER BY total_sales DESC
       `;
@@ -1064,6 +1070,7 @@ export class AnalyticsService {
   async getBranchProductComparison(
     tenantId: string,
     timeRange: string = '30days',
+    branchId?: string,
   ) {
     try {
       // Calculate date range
@@ -1103,6 +1110,7 @@ export class AnalyticsService {
           AND s."createdAt" <= ${endDate}
         LEFT JOIN "SaleItem" si ON si."saleId" = s.id AND si."productId" = p.id
         WHERE b."tenantId" = ${tenantId}
+          ${branchId ? Prisma.sql`AND b.id = ${branchId}` : Prisma.empty}
         GROUP BY p.id, p.name, b.id, b.name
         ORDER BY p.name, b.name
       `;
@@ -1122,6 +1130,7 @@ export class AnalyticsService {
           AND s."tenantId" = ${tenantId}
           AND s."createdAt" >= ${startDate}
           AND s."createdAt" <= ${endDate}
+          ${branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty}
         WHERE p."tenantId" = ${tenantId}
         GROUP BY p.id, p.name
         HAVING SUM(si.quantity) > 0
@@ -1142,6 +1151,7 @@ export class AnalyticsService {
           AND s."createdAt" >= ${startDate}
           AND s."createdAt" <= ${endDate}
         WHERE b."tenantId" = ${tenantId}
+          ${branchId ? Prisma.sql`AND b.id = ${branchId}` : Prisma.empty}
         GROUP BY b.id, b.name
         ORDER BY "totalSales" DESC
       `;
@@ -1204,14 +1214,21 @@ export class AnalyticsService {
    * Returns a time series of total sales per branch per month,
    * suitable for a combined bar/line chart (bar: branch sales, line: total sales).
    */
-  async getBranchMonthlySalesComparison(tenantId: string, months: number = 6) {
+  async getBranchMonthlySalesComparison(
+    tenantId: string,
+    months: number = 6,
+    branchId?: string,
+  ) {
     // Calculate date range
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
 
     // Get all branches for this tenant
     const branches = await this.prisma.branch.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        ...(branchId ? { id: branchId } : {}),
+      },
       select: { id: true, name: true },
     });
 
@@ -1227,6 +1244,7 @@ export class AnalyticsService {
         AND s."tenantId" = ${tenantId}
         AND s."createdAt" >= ${startDate}
       WHERE b."tenantId" = ${tenantId}
+        ${branchId ? Prisma.sql`AND b.id = ${branchId}` : Prisma.empty}
       GROUP BY b.id, b.name, month
       ORDER BY month ASC, b.name ASC
     `;
@@ -1239,6 +1257,7 @@ export class AnalyticsService {
       FROM "Sale"
       WHERE "tenantId" = ${tenantId}
         AND "createdAt" >= ${startDate}
+        ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
       GROUP BY month
       ORDER BY month ASC
     `;
@@ -1289,7 +1308,12 @@ export class AnalyticsService {
     return chartData;
   }
 
-  async getRevenueForPeriod(tenantId: string, startDate: Date, endDate: Date): Promise<number> {
+  async getRevenueForPeriod(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    branchId?: string,
+  ): Promise<number> {
     const result = await this.prisma.sale.aggregate({
       where: {
         tenantId,
@@ -1297,13 +1321,19 @@ export class AnalyticsService {
           gte: startDate,
           lt: endDate,
         },
+        ...(branchId ? { branchId } : {}),
       },
       _sum: { total: true },
     });
     return result._sum.total || 0;
   }
 
-  async getSalesCountForPeriod(tenantId: string, startDate: Date, endDate: Date): Promise<number> {
+  async getSalesCountForPeriod(
+    tenantId: string,
+    startDate: Date,
+    endDate: Date,
+    branchId?: string,
+  ): Promise<number> {
     return this.prisma.sale.count({
       where: {
         tenantId,
@@ -1311,6 +1341,7 @@ export class AnalyticsService {
           gte: startDate,
           lt: endDate,
         },
+        ...(branchId ? { branchId } : {}),
       },
     });
   }

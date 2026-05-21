@@ -187,9 +187,13 @@ export class SalaryService {
     };
   }
 
-  async getSalarySchemeById(id: string, tenantId: string) {
+  async getSalarySchemeById(id: string, tenantId: string, branchId?: string) {
     const salaryScheme = await this.prisma.salaryScheme.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         user: {
           select: {
@@ -213,10 +217,14 @@ export class SalaryService {
     return salaryScheme;
   }
 
-  async updateSalaryScheme(id: string, dto: any, tenantId: string) {
+  async updateSalaryScheme(id: string, dto: any, tenantId: string, branchId?: string) {
     // Check if salary scheme exists and belongs to tenant
     const existingSalaryScheme = await this.prisma.salaryScheme.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingSalaryScheme) {
@@ -268,10 +276,14 @@ export class SalaryService {
     return updatedSalaryScheme;
   }
 
-  async deleteSalaryScheme(id: string, tenantId: string) {
+  async deleteSalaryScheme(id: string, tenantId: string, branchId?: string) {
     // Check if salary scheme exists and belongs to tenant
     const existingSalaryScheme = await this.prisma.salaryScheme.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingSalaryScheme) {
@@ -294,6 +306,7 @@ export class SalaryService {
     tenantId: string,
     startDate?: Date,
     endDate?: Date,
+    branchId?: string,
   ) {
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
@@ -304,6 +317,7 @@ export class SalaryService {
     const salarySchemes = await this.prisma.salaryScheme.findMany({
       where: {
         tenantId,
+        ...(branchId ? { branchId } : {}),
         createdAt: {
           gte: start,
           lte: end,
@@ -340,7 +354,7 @@ export class SalaryService {
     };
   }
 
-  async getCurrentMonthSalaryTotal(tenantId: string) {
+  async getCurrentMonthSalaryTotal(tenantId: string, branchId?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -349,6 +363,7 @@ export class SalaryService {
     const salarySchemes = await this.prisma.salaryScheme.findMany({
       where: {
         tenantId,
+        ...(branchId ? { branchId } : {}),
         isActive: true,
       },
     });
@@ -384,7 +399,7 @@ export class SalaryService {
     };
   }
 
-  async getSalaryTotalForMonth(tenantId: string, month: number, year: number) {
+  async getSalaryTotalForMonth(tenantId: string, month: number, year: number, branchId?: string) {
     console.log(`getSalaryTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
@@ -393,6 +408,7 @@ export class SalaryService {
     const salarySchemes = await this.prisma.salaryScheme.findMany({
       where: {
         tenantId,
+        ...(branchId ? { branchId } : {}),
         isActive: true,
       },
     });

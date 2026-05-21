@@ -69,12 +69,7 @@ export class ProductService {
     }
 
     if (branchId) {
-      conditions.push({
-        OR: [
-          { branchId: branchId },
-          { branchId: null }
-        ]
-      });
+      conditions.push({ branchId });
     }
 
     if (conditions.length > 0) {
@@ -223,6 +218,7 @@ export class ProductService {
     // Validate branch and tenant existence before create
     const branch = await this.prisma.branch.findUnique({
       where: { id: data.branchId },
+      select: { id: true, tenantId: true },
     });
     if (!branch) {
       throw new BadRequestException(`Branch with id ${data.branchId} does not exist`);
@@ -232,6 +228,12 @@ export class ProductService {
     });
     if (!tenant) {
       throw new BadRequestException(`Tenant with id ${data.tenantId} does not exist`);
+    }
+
+    if (branch.tenantId !== data.tenantId) {
+      throw new BadRequestException(
+        `Branch with id ${data.branchId} does not belong to tenant ${data.tenantId}`,
+      );
     }
 
     // Build create data - use spread but ensure supplier is not included
@@ -297,9 +299,19 @@ export class ProductService {
     id: string,
     data: any,
     tenantId: string,
+    branchId: string,
     actorUserId?: string,
     ip?: string,
   ) {
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id, tenantId, branchId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found for the selected branch');
+    }
+
     // Separate standard and custom fields
     const {
       name,
@@ -343,7 +355,7 @@ export class ProductService {
     }
 
     const result = await this.prisma.product.updateMany({
-      where: { id, tenantId },
+      where: { id, tenantId, branchId, deletedAt: null },
       data: updateData,
     });
 
@@ -364,18 +376,28 @@ export class ProductService {
   async deleteProduct(
     id: string,
     tenantId: string,
+    branchId: string,
     actorUserId?: string,
     ip?: string,
   ) {
+    const existingProduct = await this.prisma.product.findFirst({
+      where: { id, tenantId, branchId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found for the selected branch');
+    }
+
     const now = new Date();
     const result = await this.prisma.$transaction(async (prisma) => {
       await prisma.productVariation.updateMany({
-        where: { productId: id, tenantId, deletedAt: null },
+        where: { productId: id, tenantId, branchId, deletedAt: null },
         data: { deletedAt: now },
       });
 
       const deleted = await prisma.product.updateMany({
-        where: { id, tenantId, deletedAt: null },
+        where: { id, tenantId, branchId, deletedAt: null },
         data: { deletedAt: now },
       });
 

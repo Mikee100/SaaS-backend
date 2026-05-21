@@ -27,6 +27,38 @@ import {
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
+  private getNormalizedRoleNames(user: any): string[] {
+    if (!Array.isArray(user?.roles)) return [];
+    return user.roles
+      .map((role: any) =>
+        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
+      )
+      .filter(Boolean);
+  }
+
+  private resolveSalesBranchScope(req: any): string | undefined {
+    const roles = this.getNormalizedRoleNames(req?.user);
+    const assignedBranchId = req?.user?.branchId as string | undefined;
+    const requestedBranchId = req?.headers?.['x-branch-id'] as string | undefined;
+    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+
+    if (isBranchScopedRole) {
+      if (!assignedBranchId) {
+        throw new ForbiddenException(
+          'Your account is branch-scoped but has no assigned branch. Contact an admin.',
+        );
+      }
+
+      return assignedBranchId;
+    }
+
+    if (requestedBranchId && requestedBranchId !== 'all') {
+      return requestedBranchId;
+    }
+
+    return undefined;
+  }
+
   @Get('test')
   async test() {
     console.log('Test endpoint called');
@@ -90,10 +122,12 @@ export class SalesController {
         throw new UnauthorizedException('Invalid user context');
       }
 
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const receiptType = type === 'merchant' ? 'merchant' : 'customer';
       return await this.salesService.getReceipt(
         id,
         req.user.tenantId,
+        effectiveBranchId,
         receiptType,
       );
     } catch (error) {
@@ -128,10 +162,12 @@ export class SalesController {
         throw new UnauthorizedException('Invalid user context');
       }
 
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       console.log('Fetching recent sales...', logContext);
       const recentSales = await this.salesService.getRecentSales(
         req.user.tenantId,
         10,
+        effectiveBranchId,
       );
 
       console.log(`Found ${recentSales.length} recent sales`, {
@@ -260,28 +296,30 @@ export class SalesController {
   @Get()
   @Permissions('view_sales')
   async listSales(@Req() req) {
-    const branchId = req.headers['x-branch-id'] as string;
-    return this.salesService.listSales(req.user.tenantId, branchId);
+    const effectiveBranchId = this.resolveSalesBranchScope(req);
+    return this.salesService.listSales(req.user.tenantId, effectiveBranchId);
   }
 
   @Get(':id')
   @Permissions('view_sales')
   async getSaleById(@Param('id') id: string, @Req() req) {
-    // Optionally: check tenant/user permissions
-    return this.salesService.getSaleById(id, req.user?.tenantId);
+    const effectiveBranchId = this.resolveSalesBranchScope(req);
+    return this.salesService.getSaleById(id, req.user?.tenantId, effectiveBranchId);
   }
 
   // Credit management endpoints
   @Get('credits/all')
   @Permissions('view_sales')
   async getCredits(@Req() req) {
-    return this.salesService.getCredits(req.user.tenantId);
+    const effectiveBranchId = this.resolveSalesBranchScope(req);
+    return this.salesService.getCredits(req.user.tenantId, effectiveBranchId);
   }
 
   @Get('credits/:id')
   @Permissions('view_sales')
   async getCreditById(@Param('id') id: string, @Req() req) {
-    return this.salesService.getCreditById(id, req.user.tenantId);
+    const effectiveBranchId = this.resolveSalesBranchScope(req);
+    return this.salesService.getCreditById(id, req.user.tenantId, effectiveBranchId);
   }
 
   @Post('credits/:id/payment')
@@ -310,10 +348,12 @@ export class SalesController {
       tenantId: req.user.tenantId,
     });
     try {
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.calculateCustomerCreditScore(
         req.user.tenantId,
         customerName as string,
         customerPhone as string,
+        effectiveBranchId,
       );
       console.log('getCreditScore result:', result);
       return result;
@@ -339,11 +379,13 @@ export class SalesController {
       tenantId: req.user.tenantId,
     });
     try {
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.checkCreditEligibility(
         req.user.tenantId,
         body.customerName,
         body.requestedAmount,
         body.customerPhone,
+        effectiveBranchId,
       );
       console.log('checkCreditEligibility result:', result);
       return result;
@@ -363,10 +405,12 @@ export class SalesController {
       endDate,
     });
     try {
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.getCreditAnalytics(
         req.user.tenantId,
         startDate ? new Date(startDate as string) : undefined,
         endDate ? new Date(endDate as string) : undefined,
+        effectiveBranchId,
       );
       console.log('getCreditAnalytics result:', result);
       return result;
@@ -386,10 +430,12 @@ export class SalesController {
       customerPhone,
     });
     try {
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.getCustomerCreditHistory(
         req.user.tenantId,
         customerName as string,
         customerPhone as string,
+        effectiveBranchId,
       );
       console.log('getCustomerCreditHistory result:', result);
       return result;
@@ -406,8 +452,10 @@ export class SalesController {
       tenantId: req.user.tenantId,
     });
     try {
+      const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.getCreditAgingAnalysis(
         req.user.tenantId,
+        effectiveBranchId,
       );
       console.log('getCreditAgingAnalysis result:', result);
       return result;

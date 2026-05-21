@@ -18,12 +18,56 @@ import {
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('salary-schemes')
 export class SalaryController {
   constructor(private readonly salaryService: SalaryService) {}
+
+  private getNormalizedRoleNames(user: any): string[] {
+    const roles: any[] = [];
+
+    if (Array.isArray(user?.roles)) {
+      roles.push(...user.roles);
+    }
+
+    if (user?.role) {
+      roles.push(user.role);
+    }
+
+    return roles
+      .map((role: any) =>
+        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
+      )
+      .filter(Boolean);
+  }
+
+  private resolveBranchScope(req: any): string | undefined {
+    const roles = this.getNormalizedRoleNames(req?.user);
+    const assignedBranchId = req?.user?.branchId as string | undefined;
+    const requestedBranchId =
+      (req?.headers?.['x-branch-id'] as string | undefined) ||
+      (req?.query?.branchId as string | undefined);
+    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+
+    if (isBranchScopedRole) {
+      if (!assignedBranchId) {
+        throw new ForbiddenException(
+          'Your account is branch-scoped but has no assigned branch. Contact an admin.',
+        );
+      }
+
+      return assignedBranchId;
+    }
+
+    if (requestedBranchId && requestedBranchId !== 'all') {
+      return requestedBranchId;
+    }
+
+    return undefined;
+  }
 
   @Post()
   @Permissions('create_sales')
@@ -33,6 +77,11 @@ export class SalaryController {
     }
 
     try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      if (effectiveBranchId) {
+        createSalarySchemeDto.branchId = effectiveBranchId;
+      }
+
       const salaryScheme = await this.salaryService.createSalaryScheme(
         createSalarySchemeDto,
         req.user.tenantId,
@@ -52,8 +101,12 @@ export class SalaryController {
   @Get()
   @Permissions('view_sales')
   async getSalarySchemes(@Req() req, @Query() query: any) {
-    const branchId = req.headers['x-branch-id'] as string;
-    const result = await this.salaryService.getSalarySchemes(req.user.tenantId, branchId, query);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.getSalarySchemes(
+      req.user.tenantId,
+      effectiveBranchId,
+      query,
+    );
     return {
       success: true,
       data: result.salarySchemes,
@@ -70,17 +123,23 @@ export class SalaryController {
   @Permissions('view_sales')
   async getSalaryAnalytics(@Req() req, @Query() query: any) {
     const { startDate, endDate } = query;
+    const effectiveBranchId = this.resolveBranchScope(req);
     return this.salaryService.getSalaryAnalytics(
       req.user.tenantId,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
+      effectiveBranchId,
     );
   }
 
   @Get('current-month-total')
   @Permissions('view_sales')
   async getCurrentMonthSalaryTotal(@Req() req) {
-    const result = await this.salaryService.getCurrentMonthSalaryTotal(req.user.tenantId);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.getCurrentMonthSalaryTotal(
+      req.user.tenantId,
+      effectiveBranchId,
+    );
     return {
       success: true,
       data: result,
@@ -94,7 +153,13 @@ export class SalaryController {
     if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
       throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
     }
-    const result = await this.salaryService.getSalaryTotalForMonth(req.user.tenantId, month, year);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.getSalaryTotalForMonth(
+      req.user.tenantId,
+      month,
+      year,
+      effectiveBranchId,
+    );
     console.log(`Controller: returning result:`, result);
     return {
       success: true,
@@ -109,8 +174,14 @@ export class SalaryController {
     if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
       throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
     }
-    const branchId = req.headers['x-branch-id'] as string;
-    const result = await this.salaryService.getSalarySchemesByMonth(req.user.tenantId, parseInt(month), parseInt(year), branchId, query);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.getSalarySchemesByMonth(
+      req.user.tenantId,
+      parseInt(month),
+      parseInt(year),
+      effectiveBranchId,
+      query,
+    );
     return {
       success: true,
       data: result.salarySchemes,
@@ -126,7 +197,8 @@ export class SalaryController {
   @Get(':id')
   @Permissions('view_sales')
   async getSalarySchemeById(@Param('id') id: string, @Req() req) {
-    return this.salaryService.getSalarySchemeById(id, req.user.tenantId);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.salaryService.getSalarySchemeById(id, req.user.tenantId, effectiveBranchId);
   }
 
   @Put(':id')
@@ -136,16 +208,23 @@ export class SalaryController {
     @Body() updateSalarySchemeDto: any,
     @Req() req,
   ) {
+    const effectiveBranchId = this.resolveBranchScope(req);
+    if (effectiveBranchId) {
+      updateSalarySchemeDto.branchId = effectiveBranchId;
+    }
+
     return this.salaryService.updateSalaryScheme(
       id,
       updateSalarySchemeDto,
       req.user.tenantId,
+      effectiveBranchId,
     );
   }
 
   @Delete(':id')
   @Permissions('create_sales')
   async deleteSalaryScheme(@Param('id') id: string, @Req() req) {
-    return this.salaryService.deleteSalaryScheme(id, req.user.tenantId);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.salaryService.deleteSalaryScheme(id, req.user.tenantId, effectiveBranchId);
   }
 }

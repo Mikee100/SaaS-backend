@@ -243,9 +243,13 @@ export class ExpensesService {
     };
   }
 
-  async getExpenseById(id: string, tenantId: string) {
+  async getExpenseById(id: string, tenantId: string, branchId?: string) {
     const expense = await this.prisma.expense.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         user: {
           select: {
@@ -269,10 +273,14 @@ export class ExpensesService {
     return expense;
   }
 
-  async updateExpense(id: string, dto: any, tenantId: string) {
+  async updateExpense(id: string, dto: any, tenantId: string, branchId?: string) {
     // Check if expense exists and belongs to tenant
     const existingExpense = await this.prisma.expense.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingExpense) {
@@ -338,10 +346,14 @@ export class ExpensesService {
     return updatedExpense;
   }
 
-  async deleteExpense(id: string, tenantId: string) {
+  async deleteExpense(id: string, tenantId: string, branchId?: string) {
     // Check if expense exists and belongs to tenant
     const existingExpense = await this.prisma.expense.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingExpense) {
@@ -350,7 +362,7 @@ export class ExpensesService {
 
     const now = new Date();
     await this.prisma.expense.update({
-      where: { id, tenantId, deletedAt: null },
+      where: { id, tenantId, ...(branchId ? { branchId } : {}), deletedAt: null },
       data: { deletedAt: now, isActive: false },
     });
 
@@ -361,6 +373,7 @@ export class ExpensesService {
     tenantId: string,
     startDate?: Date,
     endDate?: Date,
+    branchId?: string,
   ) {
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
@@ -376,6 +389,7 @@ export class ExpensesService {
           lte: end,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
       include: {
         category: {
@@ -451,7 +465,12 @@ export class ExpensesService {
     return categories;
   }
 
-  async getBranchComparison(tenantId: string, startDate?: Date, endDate?: Date) {
+  async getBranchComparison(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+    branchId?: string,
+  ) {
     // Set default date range if not provided (last 30 days)
     const end = endDate || new Date();
     const start = startDate || new Date();
@@ -466,6 +485,7 @@ export class ExpensesService {
           lte: end,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
       include: {
         branch: {
@@ -531,7 +551,7 @@ export class ExpensesService {
     };
   }
 
-  async resetMonthlyExpenses(tenantId: string, userId: string) {
+  async resetMonthlyExpenses(tenantId: string, userId: string, branchId?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -545,6 +565,7 @@ export class ExpensesService {
           lte: endOfMonth,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
     });
 
@@ -588,6 +609,7 @@ export class ExpensesService {
           lte: endOfMonth,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
       data: {
         isActive: false,
@@ -606,7 +628,7 @@ export class ExpensesService {
     };
   }
 
-  async getPastMonthsRecords(tenantId: string, months: number = 12) {
+  async getPastMonthsRecords(tenantId: string, months: number = 12, branchId?: string) {
     const now = new Date();
     const records: Array<{
       month: string;
@@ -631,6 +653,7 @@ export class ExpensesService {
             lte: endOfMonth,
           },
           isActive: true,
+          ...(branchId ? { branchId } : {}),
         },
         include: {
           branch: {
@@ -682,7 +705,12 @@ export class ExpensesService {
     };
   }
 
-  async getExpenseTotalForMonth(tenantId: string, month: number, year: number) {
+  async getExpenseTotalForMonth(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+  ) {
     console.log(`getExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
@@ -696,6 +724,7 @@ export class ExpensesService {
           lte: endOfMonth,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
     });
     console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
@@ -713,7 +742,12 @@ export class ExpensesService {
     };
   }
 
-  async fetchExpenseTotalForMonth(tenantId: string, month: number, year: number) {
+  async fetchExpenseTotalForMonth(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+  ) {
     console.log(`fetchExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
@@ -727,6 +761,7 @@ export class ExpensesService {
           lte: endOfMonth,
         },
         isActive: true,
+        ...(branchId ? { branchId } : {}),
       },
     });
     console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
@@ -744,12 +779,12 @@ export class ExpensesService {
     };
   }
 
-  async getCurrentMonthExpenseTotal(tenantId: string) {
+  async getCurrentMonthExpenseTotal(tenantId: string, branchId?: string) {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    return this.getExpenseTotalForMonth(tenantId, month, year);
+    return this.getExpenseTotalForMonth(tenantId, month, year, branchId);
   }
 
   async getExpensesByMonth(tenantId: string, month: number, year: number, branchId?: string, query?: any) {

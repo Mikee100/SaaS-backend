@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
 import { TrialGuard } from '../auth/trial.guard';
@@ -6,6 +7,39 @@ import { TrialGuard } from '../auth/trial.guard';
 @Controller()
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
+
+  private getNormalizedRoleNames(user: any): string[] {
+    if (!Array.isArray(user?.roles)) return [];
+    return user.roles
+      .map((role: any) =>
+        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
+      )
+      .filter(Boolean);
+  }
+
+  private resolveBranchScope(req: any): string | undefined {
+    const roles = this.getNormalizedRoleNames(req?.user);
+    const assignedBranchId = req?.user?.branchId as string | undefined;
+    const requestedBranchId =
+      (req?.headers?.['x-branch-id'] as string | undefined) ||
+      (req?.query?.branchId as string | undefined);
+    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+
+    if (isBranchScopedRole) {
+      if (!assignedBranchId) {
+        throw new ForbiddenException(
+          'Your account is branch-scoped but has no assigned branch. Contact an admin.',
+        );
+      }
+      return assignedBranchId;
+    }
+
+    if (requestedBranchId && requestedBranchId !== 'all') {
+      return requestedBranchId;
+    }
+
+    return undefined;
+  }
 
   @Get('/analytics/basic')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
@@ -18,7 +52,11 @@ export class AnalyticsController {
     }
 
     try {
-      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      const data = await this.analyticsService.getDashboardAnalytics(
+        tenantId,
+        effectiveBranchId,
+      );
       
       // Calculate previous period for growth comparison
       const now = new Date();
@@ -31,14 +69,16 @@ export class AnalyticsController {
       const previousRevenue = await this.analyticsService.getRevenueForPeriod(
         tenantId,
         sixtyDaysAgo,
-        thirtyDaysAgo
+        thirtyDaysAgo,
+        effectiveBranchId,
       );
       
       // Get previous period sales count
       const previousSales = await this.analyticsService.getSalesCountForPeriod(
         tenantId,
         sixtyDaysAgo,
-        thirtyDaysAgo
+        thirtyDaysAgo,
+        effectiveBranchId,
       );
 
       // Calculate growth percentages
@@ -90,23 +130,11 @@ export class AnalyticsController {
   async getDashboardAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
-    const userId = req.user.id;
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
 
-    // Branch resolution order: header > query > user branch > main branch
-    let branchId = req.headers['x-branch-id'] || req.query.branchId;
-    if (!branchId && userId) {
-      // Get user's current branch from DB
-      const user = await this.analyticsService.prisma.user.findUnique({ where: { id: userId } });
-      branchId = user?.branchId;
-    }
-    if (!branchId) {
-      // Fallback to main branch for tenant
-      const mainBranch = await this.analyticsService.prisma.branch.findFirst({ where: { tenantId, isMainBranch: true } });
-      branchId = mainBranch?.id;
-    }
+    const branchId = this.resolveBranchScope(req);
 
     try {
       return await this.analyticsService.getDashboardAnalytics(tenantId, branchId);
@@ -126,7 +154,11 @@ export class AnalyticsController {
     }
 
     try {
-      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      const data = await this.analyticsService.getDashboardAnalytics(
+        tenantId,
+        effectiveBranchId,
+      );
       return {
         ...data,
         // Add any advanced metrics here
@@ -147,7 +179,11 @@ export class AnalyticsController {
     }
 
     try {
-      const data = await this.analyticsService.getDashboardAnalytics(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      const data = await this.analyticsService.getDashboardAnalytics(
+        tenantId,
+        effectiveBranchId,
+      );
       return {
         ...data,
         // Add any enterprise-specific metrics here
@@ -168,7 +204,8 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getDailySales(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getDailySales(tenantId, effectiveBranchId);
     } catch (error) {
       console.error('Error fetching daily sales:', error);
       throw new Error('Failed to fetch daily sales');
@@ -185,7 +222,8 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getWeeklySales(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getWeeklySales(tenantId, effectiveBranchId);
     } catch (error) {
       console.error('Error fetching weekly sales:', error);
       throw new Error('Failed to fetch weekly sales');
@@ -202,7 +240,8 @@ export class AnalyticsController {
     }
 
     try {
-      return await this.analyticsService.getYearlySales(tenantId);
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getYearlySales(tenantId, effectiveBranchId);
     } catch (error) {
       console.error('Error fetching yearly sales:', error);
       throw new Error('Failed to fetch yearly sales');
@@ -213,17 +252,19 @@ export class AnalyticsController {
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchSales(@Req() req: any) {
     const { tenantId } = req.params;
-    const { timeRange = '30days', branchId } = req.query;
+    const { timeRange = '30days' } = req.query;
+    const userTenantId = req.user?.tenantId;
 
-    if (!tenantId) {
-      throw new Error('Tenant ID is required');
+    if (!tenantId || !userTenantId || tenantId !== userTenantId) {
+      throw new ForbiddenException('Access denied for tenant reports');
     }
 
     try {
+      const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchSales(
         tenantId,
         timeRange as string,
-        branchId as string,
+        effectiveBranchId,
       );
     } catch (error) {
       console.error('Error fetching branch sales:', error);
@@ -236,15 +277,18 @@ export class AnalyticsController {
   async getBranchComparisonTimeSeries(@Req() req: any) {
     const { tenantId } = req.params;
     const { timeRange = '30days' } = req.query;
+    const userTenantId = req.user?.tenantId;
 
-    if (!tenantId) {
-      throw new Error('Tenant ID is required');
+    if (!tenantId || !userTenantId || tenantId !== userTenantId) {
+      throw new ForbiddenException('Access denied for tenant reports');
     }
 
     try {
+      const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchComparisonTimeSeries(
         tenantId,
         timeRange as string,
+        effectiveBranchId,
       );
     } catch (error) {
       console.error('Error fetching branch comparison time series:', error);
@@ -257,15 +301,18 @@ export class AnalyticsController {
   async getBranchProductComparison(@Req() req: any) {
     const { tenantId } = req.params;
     const { timeRange = '30days' } = req.query;
+    const userTenantId = req.user?.tenantId;
 
-    if (!tenantId) {
-      throw new Error('Tenant ID is required');
+    if (!tenantId || !userTenantId || tenantId !== userTenantId) {
+      throw new ForbiddenException('Access denied for tenant reports');
     }
 
     try {
+      const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchProductComparison(
         tenantId,
         timeRange as string,
+        effectiveBranchId,
       );
     } catch (error) {
       console.error('Error fetching branch product comparison:', error);
@@ -284,9 +331,11 @@ export class AnalyticsController {
     }
 
     try {
+      const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchMonthlySalesComparison(
         tenantId,
         parseInt(months as string) || 6,
+        effectiveBranchId,
       );
     } catch (error) {
       console.error('Error fetching branch monthly sales comparison:', error);

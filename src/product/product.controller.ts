@@ -87,8 +87,22 @@ export class ProductController {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
     // Priority for branchId: 1. From request body 2. From header 3. From user context
-    const branchId =
-      body.branchId || req.headers['x-branch-id'] || req.user?.branchId;
+    const bodyBranchId =
+      typeof body.branchId === 'string' ? body.branchId.trim() : undefined;
+    const headerBranchId =
+      typeof req.headers['x-branch-id'] === 'string'
+        ? req.headers['x-branch-id'].trim()
+        : undefined;
+    const userBranchId =
+      typeof req.user?.branchId === 'string' ? req.user.branchId.trim() : undefined;
+
+    if (bodyBranchId && headerBranchId && bodyBranchId !== headerBranchId) {
+      throw new BadRequestException(
+        'branchId in request body does not match x-branch-id header',
+      );
+    }
+
+    const branchId = bodyBranchId || headerBranchId || userBranchId;
 
     if (!branchId) {
       throw new BadRequestException('Branch ID is required to create a product');
@@ -178,11 +192,32 @@ export class ProductController {
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
+    const bodyBranchId =
+      typeof body.branchId === 'string' ? body.branchId.trim() : undefined;
+    const headerBranchId =
+      typeof req.headers['x-branch-id'] === 'string'
+        ? req.headers['x-branch-id'].trim()
+        : undefined;
+    const userBranchId =
+      typeof req.user?.branchId === 'string' ? req.user.branchId.trim() : undefined;
+
+    if (bodyBranchId && headerBranchId && bodyBranchId !== headerBranchId) {
+      throw new BadRequestException(
+        'branchId in request body does not match x-branch-id header',
+      );
+    }
+
+    const branchId = bodyBranchId || headerBranchId || userBranchId;
+    if (!branchId) {
+      throw new BadRequestException('Branch ID is required to update a product');
+    }
+
     const tenantId = req.user.tenantId;
     return this.productService.updateProduct(
       id,
       body,
       tenantId,
+      branchId,
       req.user.userId,
       req.ip,
     );
@@ -209,10 +244,23 @@ export class ProductController {
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
+    const headerBranchId =
+      typeof req.headers['x-branch-id'] === 'string'
+        ? req.headers['x-branch-id'].trim()
+        : undefined;
+    const userBranchId =
+      typeof req.user?.branchId === 'string' ? req.user.branchId.trim() : undefined;
+    const branchId = headerBranchId || userBranchId;
+
+    if (!branchId) {
+      throw new BadRequestException('Branch ID is required to delete a product');
+    }
+
     const tenantId = req.user.tenantId;
     return this.productService.deleteProduct(
       id,
       tenantId,
+      branchId,
       req.user.userId,
       req.ip,
     );
