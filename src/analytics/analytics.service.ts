@@ -12,8 +12,9 @@ export class AnalyticsService {
     private cache: CacheService,
   ) {}
 
-  async getDashboardAnalytics(tenantId: string) {
-    const cacheKey = `analytics:dashboard:${tenantId}`;
+
+  async getDashboardAnalytics(tenantId: string, branchId?: string) {
+    const cacheKey = `analytics:dashboard:${tenantId}:${branchId || 'all'}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
       return cached;
@@ -43,53 +44,63 @@ export class AnalyticsService {
       forecastData,
     ] = await Promise.all([
       // Total Sales (count of sales in the last 30 days)
+
       this.prisma.sale.count({
         where: {
           tenantId,
           createdAt: { gte: thirtyDaysAgo },
+          ...(branchId ? { branchId } : {}),
         },
       }),
 
       // Total Revenue (sum of sales in the last 30 days)
+
       this.prisma.sale.aggregate({
         where: {
           tenantId,
           createdAt: { gte: thirtyDaysAgo },
+          ...(branchId ? { branchId } : {}),
         },
         _sum: { total: true },
       }),
 
       // Total Products
+
       this.prisma.product.count({
         where: { tenantId },
       }),
 
       // Total Customers (unique customer names in sales)
+
       this.prisma.sale.groupBy({
         by: ['customerPhone'],
         where: {
           tenantId,
           customerPhone: { not: null },
+          ...(branchId ? { branchId } : {}),
         },
         _count: true,
       }),
 
       // Sales by day (last 7 days)
-      this.getSalesByTimePeriod(tenantId, 'day'),
+
+      this.getSalesByTimePeriod(tenantId, 'day', branchId),
 
       // Sales by week (last 4 weeks)
-      this.getSalesByTimePeriod(tenantId, 'week'),
+      this.getSalesByTimePeriod(tenantId, 'week', branchId),
 
       // Sales by month (last 6 months)
-      this.getSalesByTimePeriod(tenantId, 'month'),
+      this.getSalesByTimePeriod(tenantId, 'month', branchId),
 
       // Get all branches for this tenant
+
       this.prisma.branch.findMany({
         where: { tenantId },
         select: { id: true, name: true },
       }),
 
       // Branch-specific sales by day (last 7 days)
+
       this.getBranchSalesByTimePeriod(tenantId, 'day'),
 
       // Branch-specific sales by week (last 4 weeks)
@@ -99,20 +110,22 @@ export class AnalyticsService {
       this.getBranchSalesByTimePeriod(tenantId, 'month'),
 
       // Top selling products
-      this.getTopProducts(tenantId, 5),
+
+      this.getTopProducts(tenantId, 5, branchId),
 
       // Branch top products
       this.getBranchTopProducts(tenantId),
 
       // Inventory analytics
+
       this.getInventoryAnalytics(tenantId),
 
       // Sales forecasting
-      this.generateSalesForecast(tenantId),
+      this.generateSalesForecast(tenantId, branchId),
     ]);
 
     // Calculate customer retention (simplified)
-    const repeatCustomers = await this.getRepeatCustomers(tenantId);
+    const repeatCustomers = await this.getRepeatCustomers(tenantId, branchId);
     const totalUniqueCustomers = totalCustomers.length;
     const retentionRate =
       totalUniqueCustomers > 0
@@ -188,6 +201,7 @@ export class AnalyticsService {
   private async getSalesByTimePeriod(
     tenantId: string,
     period: 'day' | 'week' | 'month' | 'year',
+    branchId?: string,
   ) {
     const date = new Date();
     if (period === 'day') date.setDate(date.getDate() - 7);
@@ -211,6 +225,7 @@ export class AnalyticsService {
           FROM "Sale"
           WHERE "tenantId" = ${tenantId}
             AND "createdAt" >= ${date}
+            ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
         ) sub
         GROUP BY week_start
         ORDER BY week_start ASC
@@ -231,17 +246,20 @@ export class AnalyticsService {
           ? 'YYYY-MM'
           : 'YYYY';
 
-    const sales = await this.prisma.$queryRaw`
-      SELECT
-        TO_CHAR("createdAt" AT TIME ZONE 'UTC', ${format}) as period,
-        COUNT(*) as count,
-        COALESCE(SUM(total), 0) as total
-      FROM "Sale"
-      WHERE "tenantId" = ${tenantId}
-        AND "createdAt" >= ${date}
-      GROUP BY period
-      ORDER BY period ASC
-    `;
+    const sales = await this.prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          TO_CHAR("createdAt" AT TIME ZONE 'UTC', ${format}) as period,
+          COUNT(*) as count,
+          COALESCE(SUM(total), 0) as total
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "createdAt" >= ${date}
+          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
+        GROUP BY period
+        ORDER BY period ASC
+      `
+    );
 
     type SalesData = { period: string; total: string };
     return (sales as SalesData[]).reduce<Record<string, number>>(
@@ -342,11 +360,14 @@ export class AnalyticsService {
     return branchSales;
   }
 
-  private async getTopProducts(tenantId: string, limit: number) {
+  private async getTopProducts(tenantId: string, limit: number, branchId?: string) {
     const topProducts = await this.prisma.saleItem.groupBy({
       by: ['productId'],
       where: {
-        sale: { tenantId },
+        sale: {
+          tenantId,
+          ...(branchId ? { branchId } : {}),
+        },
       },
       _sum: {
         quantity: true,
@@ -523,13 +544,14 @@ export class AnalyticsService {
     }, 0);
   }
 
-  private async getRepeatCustomers(tenantId: string) {
+  private async getRepeatCustomers(tenantId: string, branchId?: string) {
     const repeatCustomers = await this.prisma.$queryRaw(
       Prisma.sql`
         SELECT "customerPhone", COUNT(*) as purchase_count
         FROM "Sale"
         WHERE "tenantId" = ${tenantId}
           AND "customerPhone" IS NOT NULL
+          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
         GROUP BY "customerPhone"
         HAVING COUNT(*) > 1
       `,
@@ -645,7 +667,7 @@ export class AnalyticsService {
     };
   }
 
-  private async generateSalesForecast(tenantId: string) {
+  private async generateSalesForecast(tenantId: string, branchId?: string) {
     // Get historical sales data for the last 6 months to base forecast on
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -659,6 +681,7 @@ export class AnalyticsService {
         FROM "Sale"
         WHERE "tenantId" = ${tenantId}
           AND "createdAt" >= ${sixMonthsAgo}
+          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
         GROUP BY month
         ORDER BY month ASC
       `,

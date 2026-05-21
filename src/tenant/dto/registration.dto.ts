@@ -15,7 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import * as DOMPurify from 'dompurify';
+import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
 // Create a DOMPurify instance for server-side usage

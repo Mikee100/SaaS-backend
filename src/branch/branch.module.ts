@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BranchController } from './branch.controller';
 import { BranchService } from './branch.service';
-import { PrismaService } from '../prisma.service';
 import { UserModule } from '../user/user.module';
 import { AuthModule } from '../auth/auth.module';
 import { TrialGuard } from '../auth/trial.guard';
@@ -13,7 +12,6 @@ import { BillingService } from '../billing/billing.service';
   controllers: [BranchController],
   providers: [
     BranchService,
-    PrismaService,
     TrialGuard,
     SubscriptionService,
     BillingService,

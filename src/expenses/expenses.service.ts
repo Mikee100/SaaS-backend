@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -12,7 +13,37 @@ export class ExpensesService {
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
+    private ledgerService: LedgerService,
   ) {}
+
+  private async resolveCategoryId(
+    tenantId: string,
+    dto: any,
+  ): Promise<string | null> {
+    const rawCategoryId =
+      typeof dto?.categoryId === 'string' && dto.categoryId.trim()
+        ? dto.categoryId.trim()
+        : null;
+    const rawCategory =
+      typeof dto?.category === 'string' && dto.category.trim()
+        ? dto.category.trim()
+        : null;
+
+    const candidate = rawCategoryId || rawCategory;
+    if (!candidate) return null;
+
+    // Accept either category ID or category name from older clients.
+    const category = await this.prisma.expenseCategory.findFirst({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: [{ id: candidate }, { name: { equals: candidate, mode: 'insensitive' } }],
+      },
+      select: { id: true },
+    });
+
+    return category?.id || null;
+  }
 
   async createExpense(dto: any, tenantId: string, userId: string) {
     // Validate required fields
@@ -40,6 +71,7 @@ export class ExpensesService {
 
     const expenseId = uuidv4();
     const now = new Date();
+    const categoryId = await this.resolveCategoryId(tenantId, dto);
 
     // Create expense record
     const expense = await this.prisma.expense.create({
@@ -49,7 +81,7 @@ export class ExpensesService {
         userId,
         amount: dto.amount,
         description: dto.description.trim(),
-        categoryId: dto.categoryId,
+        categoryId,
         expenseType: dto.expenseType || 'one_time',
         frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
         nextDueDate:
@@ -101,6 +133,19 @@ export class ExpensesService {
         },
         undefined,
       );
+    }
+
+    try {
+      await this.ledgerService.recordExpenseAutomation(tenantId, userId, {
+        expenseId: expense.id,
+        amount: expense.amount,
+        description: expense.description,
+        categoryName: expense.category?.name || dto.category,
+        paymentMethod: dto.paymentMethod,
+        date: expense.createdAt,
+      });
+    } catch (error) {
+      console.error('Failed to record automated expense entry:', error);
     }
 
     return expense;
@@ -249,12 +294,18 @@ export class ExpensesService {
       }
     }
 
+    const resolvedCategoryId = await this.resolveCategoryId(tenantId, dto);
+    const nextCategoryId =
+      dto.categoryId !== undefined || dto.category !== undefined
+        ? resolvedCategoryId
+        : existingExpense.categoryId;
+
     const updatedExpense = await this.prisma.expense.update({
       where: { id },
       data: {
         amount: dto.amount,
         description: dto.description?.trim(),
-        category: dto.category,
+        categoryId: nextCategoryId,
         expenseType: dto.expenseType,
         frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
         nextDueDate:

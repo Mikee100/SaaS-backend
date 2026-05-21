@@ -38,21 +38,19 @@ const permissions = [
 ];
 
 export async function seedPermissions() {
-  for (const perm of permissions) {
-    const exists = await prisma.permission.findUnique({ where: { name: perm.name } });
-    if (!exists) {
-      await prisma.permission.create({ data: perm });
-      console.log(`Created permission: ${perm.name}`);
-    } else {
-      console.log(`Permission already exists: ${perm.name}`);
-    }
-  }
-  console.log('Permission seeding complete.');
-  await prisma.$disconnect();
+  const result = await prisma.permission.createMany({
+    data: permissions,
+    skipDuplicates: true,
+  });
+
+  console.log(`Permission seeding complete. Created ${result.count} permission(s).`);
 }
 
 // For standalone execution
 if (require.main === module) {
   seedPermissions()
-    .catch(e => { console.error(e); process.exit(1); });
+    .catch(e => { console.error(e); process.exit(1); })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }

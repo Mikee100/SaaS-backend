@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryController } from './inventory.controller';
-import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeModule } from '../realtime.module';
 import { UserModule } from '../user/user.module';
@@ -13,7 +12,6 @@ import { BillingService } from '../billing/billing.service';
   controllers: [InventoryController],
   providers: [
     InventoryService,
-    PrismaService,
     AuditLogService,
     TrialGuard,
     SubscriptionService,

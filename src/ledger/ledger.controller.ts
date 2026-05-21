@@ -41,9 +41,17 @@ export class LedgerController {
   async getTrialBalance(@Req() req: any, @Query('date') date?: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new UnauthorizedException();
+
+    let asOfDate: Date | undefined;
+    if (date) {
+      asOfDate = new Date(date);
+      // Include the entire selected day, not just midnight.
+      asOfDate.setHours(23, 59, 59, 999);
+    }
+
     return this.ledgerService.getTrialBalance(
       tenantId,
-      date ? new Date(date) : undefined,
+      asOfDate,
     );
   }
 
@@ -78,6 +86,13 @@ export class LedgerController {
     const userId = req.user?.userId || req.user?.sub;
     if (!tenantId || !userId) throw new UnauthorizedException();
     return this.ledgerService.syncLedger(tenantId, userId);
+  }
+
+  @Post('reclassify-expenses')
+  async reclassifyExpenses(@Req() req: any) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new UnauthorizedException();
+    return this.ledgerService.reclassifyExpenseEntries(tenantId);
   }
 
   @Get('accounts/:id/entries')

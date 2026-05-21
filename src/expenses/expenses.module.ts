@@ -4,18 +4,17 @@ import { ExpensesController } from './expenses.controller';
 import { ExpenseCategoriesService } from './expense-categories.service';
 import { ExpenseCategoriesController } from './expense-categories.controller';
 import { RecurringExpensesScheduler } from './recurring-expenses.scheduler';
-import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { UserModule } from '../user/user.module';
+import { LedgerModule } from '../ledger/ledger.module';
 
 @Module({
-  imports: [UserModule],
+  imports: [UserModule, LedgerModule],
   controllers: [ExpensesController, ExpenseCategoriesController],
   providers: [
     ExpensesService,
     ExpenseCategoriesService,
     RecurringExpensesScheduler,
-    PrismaService,
     AuditLogService,
   ],
   exports: [ExpensesService, ExpenseCategoriesService],

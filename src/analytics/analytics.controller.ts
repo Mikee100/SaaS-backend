@@ -84,18 +84,32 @@ export class AnalyticsController {
     }
   }
 
+
   @Get('/analytics/dashboard')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getDashboardAnalytics(@Req() req: any) {
     // Get the tenant ID from the authenticated user
     const tenantId = req.user.tenantId;
-
+    const userId = req.user.id;
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
 
+    // Branch resolution order: header > query > user branch > main branch
+    let branchId = req.headers['x-branch-id'] || req.query.branchId;
+    if (!branchId && userId) {
+      // Get user's current branch from DB
+      const user = await this.analyticsService.prisma.user.findUnique({ where: { id: userId } });
+      branchId = user?.branchId;
+    }
+    if (!branchId) {
+      // Fallback to main branch for tenant
+      const mainBranch = await this.analyticsService.prisma.branch.findFirst({ where: { tenantId, isMainBranch: true } });
+      branchId = mainBranch?.id;
+    }
+
     try {
-      return await this.analyticsService.getDashboardAnalytics(tenantId);
+      return await this.analyticsService.getDashboardAnalytics(tenantId, branchId);
     } catch (error) {
       console.error('Error fetching dashboard analytics:', error);
       throw new Error('Failed to fetch dashboard data');

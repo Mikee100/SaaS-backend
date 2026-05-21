@@ -7,6 +7,39 @@ import { JournalEntryDto, TrialBalance, ProfitAndLoss, BalanceSheet } from './ac
 export class LedgerService {
   constructor(private prisma: PrismaService) {}
 
+  private resolveExpenseSubtype(categoryName?: string, description?: string) {
+    const lowerHints = `${categoryName || ''} ${description || ''}`.toLowerCase();
+
+    if (lowerHints.includes('rent')) return 'rent';
+    if (
+      lowerHints.includes('salary') ||
+      lowerHints.includes('wage') ||
+      lowerHints.includes('payroll')
+    ) {
+      return 'salary';
+    }
+    if (
+      lowerHints.includes('utility') ||
+      lowerHints.includes('electric') ||
+      lowerHints.includes('water') ||
+      lowerHints.includes('internet')
+    ) {
+      return 'utilities';
+    }
+
+    return 'general';
+  }
+
+  private selectExpenseAccount(
+    accounts: Array<{ id: string; subtype: string | null }>,
+    categoryName?: string,
+    description?: string,
+  ) {
+    const subtype = this.resolveExpenseSubtype(categoryName, description);
+    const account = accounts.find((a) => a.subtype === subtype);
+    return account || accounts.find((a) => a.subtype === 'general') || null;
+  }
+
   // --- Formal Accounting Methods ---
 
   async initializeCOA(tenantId: string) {
@@ -408,6 +441,162 @@ export class LedgerService {
     }
   }
 
+  async recordExpenseAutomation(tenantId: string, userId: string | null, data: {
+    expenseId: string,
+    amount: number,
+    description: string,
+    categoryName?: string,
+    paymentMethod?: string,
+    date?: Date,
+  }) {
+    try {
+      if (!data.amount || data.amount <= 0) return;
+
+      await this.initializeCOA(tenantId);
+
+      const accounts = await this.getAccounts(tenantId);
+      const getAccount = (subtype: string) => accounts.find(a => a.subtype === subtype);
+      const expenseAcc = this.selectExpenseAccount(
+        accounts,
+        data.categoryName,
+        data.description,
+      );
+
+      const normalizedPayment = (data.paymentMethod || 'cash').toLowerCase();
+      let paymentAcc = getAccount('cash');
+      if (['mpesa', 'bank', 'card'].includes(normalizedPayment)) {
+        paymentAcc = getAccount('bank') || paymentAcc;
+      } else if (['credit', 'payable', 'on_credit'].includes(normalizedPayment)) {
+        paymentAcc = getAccount('accounts_payable') || paymentAcc;
+      }
+
+      if (!expenseAcc || !paymentAcc) {
+        console.warn('Accounting setup incomplete for expense posting', {
+          tenantId,
+          expenseId: data.expenseId,
+        });
+        return;
+      }
+
+      return this.createJournalEntry(tenantId, userId, {
+        date: data.date || new Date(),
+        description: `Automated Expense Entry: ${data.description}`,
+        type: 'expense',
+        reference: `EXPENSE-${data.expenseId}`,
+        lines: [
+          { accountId: expenseAcc.id, debit: data.amount, credit: 0, description: `Expense recorded (${data.categoryName || 'General'})` },
+          { accountId: paymentAcc.id, debit: 0, credit: data.amount, description: `Expense payment (${normalizedPayment})` },
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to record automated expense entry:', error);
+    }
+  }
+
+  async reclassifyExpenseEntries(tenantId: string) {
+    await this.initializeCOA(tenantId);
+
+    const accounts = await this.getAccounts(tenantId);
+
+    const journalEntries = await this.prisma.journalEntry.findMany({
+      where: {
+        tenantId,
+        type: 'expense',
+        reference: { startsWith: 'EXPENSE-' },
+      },
+      include: {
+        ledgerEntries: {
+          include: { account: true },
+        },
+      },
+    });
+
+    const expenseIds = Array.from(
+      new Set(
+        journalEntries
+          .map((je) => je.reference?.replace('EXPENSE-', ''))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+
+    const expenses = expenseIds.length
+      ? await this.prisma.expense.findMany({
+          where: {
+            tenantId,
+            id: { in: expenseIds },
+          },
+          include: { category: true },
+        })
+      : [];
+
+    const expenseMap = new Map(expenses.map((expense) => [expense.id, expense]));
+
+    let reclassifiedCount = 0;
+    let unchangedCount = 0;
+    let skippedNoExpense = 0;
+    let skippedNoExpenseLine = 0;
+    const movedToAccount: Record<string, number> = {};
+
+    for (const journalEntry of journalEntries) {
+      const expenseId = journalEntry.reference?.replace('EXPENSE-', '');
+      if (!expenseId) {
+        skippedNoExpense += 1;
+        continue;
+      }
+
+      const expense = expenseMap.get(expenseId);
+      if (!expense) {
+        skippedNoExpense += 1;
+        continue;
+      }
+
+      const targetExpenseAccount = this.selectExpenseAccount(
+        accounts,
+        expense.category?.name,
+        expense.description,
+      );
+
+      if (!targetExpenseAccount) {
+        skippedNoExpenseLine += 1;
+        continue;
+      }
+
+      const expenseLine = journalEntry.ledgerEntries.find(
+        (line) => line.account.type === 'expense' && line.debit > 0,
+      );
+
+      if (!expenseLine) {
+        skippedNoExpenseLine += 1;
+        continue;
+      }
+
+      if (expenseLine.accountId === targetExpenseAccount.id) {
+        unchangedCount += 1;
+        continue;
+      }
+
+      await this.prisma.ledgerEntry.update({
+        where: { id: expenseLine.id },
+        data: {
+          accountId: targetExpenseAccount.id,
+        },
+      });
+
+      reclassifiedCount += 1;
+      const key = `${targetExpenseAccount.code} - ${targetExpenseAccount.name}`;
+      movedToAccount[key] = (movedToAccount[key] || 0) + 1;
+    }
+
+    return {
+      scanned: journalEntries.length,
+      reclassifiedCount,
+      unchangedCount,
+      skippedNoExpense,
+      skippedNoExpenseLine,
+      movedToAccount,
+    };
+  }
+
   // --- Virtual Ledger Methods (Aggregated from other tables) ---
 
   // Aggregates all relevant transactions into unified ledger entries
@@ -528,12 +717,36 @@ export class LedgerService {
       }
     }
 
-    // 2. Sync Expenses (If we have automated recording for expenses)
-    // For now, let's just focus on Sales.
+    // 2. Sync Expenses
+    const expenses = await this.prisma.expense.findMany({
+      where: { tenantId, deletedAt: null },
+      include: { category: true },
+    });
+
+    const syncedExpenses: string[] = [];
+    for (const expense of expenses) {
+      const existing = await this.prisma.journalEntry.findFirst({
+        where: { tenantId, reference: `EXPENSE-${expense.id}` },
+      });
+
+      if (!existing) {
+        await this.recordExpenseAutomation(tenantId, userId, {
+          expenseId: expense.id,
+          amount: expense.amount,
+          description: expense.description,
+          categoryName: expense.category?.name,
+          paymentMethod: 'cash',
+          date: expense.createdAt,
+        });
+        syncedExpenses.push(expense.id);
+      }
+    }
     
     return {
       syncedSalesCount: syncedSales.length,
       syncedSales: syncedSales,
+      syncedExpensesCount: syncedExpenses.length,
+      syncedExpenses,
     };
   }
 

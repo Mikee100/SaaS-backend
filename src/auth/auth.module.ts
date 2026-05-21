@@ -11,7 +11,6 @@ import { PassportModule } from '@nestjs/passport';
 import { EmailModule } from '../email/email.module';
 import { BillingModule } from '../billing/billing.module';
 import { SubscriptionService } from '../billing/subscription.service';
-import { PrismaService } from '../prisma.service';
 import { TrialGuard } from './trial.guard';
 import { CookieService } from './cookie.service';
 import { SessionService } from './session.service';

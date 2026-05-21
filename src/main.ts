@@ -4,16 +4,40 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import * as compression from 'compression';
+import { existsSync } from 'fs';
+import compression from 'compression';
 // Swagger documentation will be added when @nestjs/swagger is installed
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
-import * as cookieParser from 'cookie-parser';
-import { seedPermissions } from '../scripts/seed-permissions';
+import cookieParser from 'cookie-parser';
 import { ApiLoggingMiddleware } from './middleware/api-logging.middleware';
 import { AuditLogService } from './audit-log.service';
 import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
+
+type SeedPermissionsFn = () => Promise<void>;
+
+function loadSeedPermissions(logger: Logger): SeedPermissionsFn | null {
+  const candidates = [
+    join(__dirname, 'scripts', 'seed-permissions.js'),
+    join(__dirname, '..', 'scripts', 'seed-permissions.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue;
+
+    try {
+      const mod = require(candidate) as { seedPermissions?: SeedPermissionsFn };
+      if (typeof mod.seedPermissions === 'function') {
+        return mod.seedPermissions;
+      }
+    } catch (error) {
+      logger.warn(`Failed to load permission seed script at ${candidate}`, error);
+    }
+  }
+
+  return null;
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -139,11 +163,27 @@ async function bootstrap() {
     // Get config service
     const configService = app.get(ConfigService);
 
-    // Seed permissions if not present
-    try {
-      await seedPermissions();
-    } catch (error) {
-      logger.warn('Failed to seed permissions on startup', error);
+    const shouldSeedPermissionsOnStartup =
+      process.env.SEED_PERMISSIONS_ON_STARTUP === 'true';
+
+    if (shouldSeedPermissionsOnStartup) {
+      try {
+        const seedPermissions = loadSeedPermissions(logger);
+        if (!seedPermissions) {
+          logger.warn(
+            'SEED_PERMISSIONS_ON_STARTUP=true but seed-permissions script was not found in runtime paths.',
+          );
+        } else {
+          await seedPermissions();
+          logger.log('Permission seed completed during startup');
+        }
+      } catch (error) {
+        logger.warn('Failed to seed permissions on startup', error);
+      }
+    } else {
+      logger.debug(
+        'Skipping permission seeding on startup. Set SEED_PERMISSIONS_ON_STARTUP=true to enable it.',
+      );
     }
 
     const port = configService.get<number>('PORT', 5100);
