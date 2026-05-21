@@ -46,6 +46,7 @@ model User {
   authDevices             AuthDevice[]
   supportTickets          SupportTicket[]
   supportTicketResponses  SupportTicketResponse[]
+  JournalEntry            JournalEntry[]
 
   @@index([email])
   @@index([branchId])
@@ -102,72 +103,82 @@ model UserRole {
 }
 
 model Tenant {
-  id                  String                @id @default(uuid())
-  name                String
-  businessType        String
-  contactEmail        String
-  contactPhone        String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  deletedAt           DateTime?
-  address             String?
-  currency            String?               @default("KES")
-  logoUrl             String?
-  timezone            String?               @default("Africa/Nairobi")
-  vatNumber           String?
-  city                String?
-  country             String?
-  taxId               String?
-  website             String?
-  annualRevenue       String?
-  apiKey              String?
-  backupRestore       Boolean               @default(false)
-  businessCategory    String?
-  businessDescription String?
-  businessHours       Json?
-  businessLicense     String?
-  businessSubcategory String?
-  customDomain        String?
-  customIntegrations  Boolean               @default(false)
-  employeeCount       String?
-  etimsQrUrl          String?
-  favicon             String?
-  foundedYear         Int?
-  invoiceFooter       String?
-  kraEnabled          Boolean               @default(false)
-  kraPin              String?
-  latitude            Float?
-  longitude           Float?
-  postalCode          String?
-  primaryColor        String?
-  primaryProducts     Json?
-  rateLimit           Int?
-  receiptLogo         String?
-  secondaryColor      String?
-  secondaryProducts   Json?
-  socialMedia         Json?
-  ssoEnabled          Boolean               @default(false)
-  state               String?
-  stripeCustomerId    String?               @unique
-  watermark           String?
-  webhookUrl          String?
-  whiteLabel          Boolean               @default(false)
-  dashboardLogoUrl    String?
-  emailLogoUrl        String?
-  loginLogoUrl        String?
-  logoSettings        Json?
-  pdfTemplate         Json?
-  mobileLogoUrl       String?
-  auditLogsEnabled    Boolean               @default(false)
-  credits             Float?                @default(0)
-  mpesaConsumerKey    String?
-  mpesaConsumerSecret String?
-  mpesaShortCode      String?
-  mpesaPasskey        String?
-  mpesaCallbackUrl    String?
-  mpesaIsActive       Boolean               @default(false)
-  mpesaEnvironment    String?               @default("sandbox")
-  isSuspended         Boolean               @default(false)
+  id                        String                     @id @default(uuid())
+  name                      String
+  businessType              String
+  contactEmail              String
+  contactPhone              String?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  deletedAt                 DateTime?
+  address                   String?
+  currency                  String?                    @default("KES")
+  logoUrl                   String?
+  timezone                  String?                    @default("Africa/Nairobi")
+  vatNumber                 String?
+  city                      String?
+  country                   String?
+  taxId                     String?
+  website                   String?
+  annualRevenue             String?
+  apiKey                    String?
+  backupRestore             Boolean                    @default(false)
+  businessCategory          String?
+  businessDescription       String?
+  businessHours             Json?
+  businessLicense           String?
+  businessSubcategory       String?
+  customDomain              String?
+  customIntegrations        Boolean                    @default(false)
+  employeeCount             String?
+  etimsQrUrl                String?
+  favicon                   String?
+  foundedYear               Int?
+  invoiceFooter             String?
+  kraEnabled                Boolean                    @default(false)
+  kraPin                    String?
+  latitude                  Float?
+  longitude                 Float?
+  postalCode                String?
+  primaryColor              String?
+  primaryProducts           Json?
+  rateLimit                 Int?
+  receiptLogo               String?
+  secondaryColor            String?
+  secondaryProducts         Json?
+  socialMedia               Json?
+  ssoEnabled                Boolean                    @default(false)
+  state                     String?
+  stripeCustomerId          String?                    @unique
+  watermark                 String?
+  webhookUrl                String?
+  whiteLabel                Boolean                    @default(false)
+  dashboardLogoUrl          String?
+  emailLogoUrl              String?
+  loginLogoUrl              String?
+  logoSettings              Json?
+  pdfTemplate               Json?
+  mobileLogoUrl             String?
+  auditLogsEnabled          Boolean                    @default(false)
+  credits                   Float?                     @default(0)
+  mpesaConsumerKey          String?
+  mpesaConsumerSecret       String?
+  mpesaShortCode            String?
+  mpesaPasskey              String?
+  mpesaCallbackUrl          String?
+  mpesaIsActive             Boolean                    @default(false)
+  mpesaEnvironment          String?                    @default("sandbox")
+  isSuspended               Boolean                    @default(false)
+
+  // Business Classification (one primary, one optional secondary)
+  classificationId          String?
+  secondaryClassificationId String?
+  measurementPreferences    Json?    // { "defaultUnit": "kg", "allowedUnits": ["g","kg"] }
+  classificationAssigned    Boolean  @default(false) // false = admin must assign on next login
+
+  classification            BusinessClassification?    @relation("TenantPrimaryClassification", fields: [classificationId], references: [id])
+  secondaryClassification   BusinessClassification?    @relation("TenantSecondaryClassification", fields: [secondaryClassificationId], references: [id])
+
   Branch              Branch[]
   Inventory           Inventory[]
   InventoryMovement   InventoryMovement[]
@@ -196,12 +207,15 @@ model Tenant {
   supportTickets      SupportTicket[]
   expenses            Expense[]             // New
   expenseCategories   ExpenseCategory[]     // New
-  salesTargets         SalesTarget[]         // New
-  salarySchemes        SalaryScheme[]        // New
-  loginHistory         LoginHistory[]
+  salesTargets        SalesTarget[]         // New
+  salarySchemes       SalaryScheme[]        // New
+  loginHistory        LoginHistory[]
+  accounts            Account[]
+  journalEntries      JournalEntry[]
 
   @@index([name])
   @@index([deletedAt])
+  @@index([classificationId])
 }
 
 model AuditLog {
@@ -254,20 +268,21 @@ model Branch {
 }
 
 model Inventory {
-  id           String   @id
-  productId    String
-  quantity     Int
-  tenantId     String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime
-  branchId     String?
-  minStock     Int      @default(0)
-  maxStock     Int      @default(1000)
-  reorderPoint Int      @default(10)
-  location     String   @default("Main Warehouse")
-  branch       Branch?  @relation(fields: [branchId], references: [id])
-  product      Product  @relation("ProductInventory", fields: [productId], references: [id])
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  id               String   @id
+  productId        String
+  quantity         Float    // Float to support fractional units (e.g. 0.5 kg)
+  tenantId         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  branchId         String?
+  minStock         Float    @default(0)
+  maxStock         Float    @default(1000)
+  reorderPoint     Float    @default(10)
+  location         String   @default("Main Warehouse")
+  unitAbbreviation String?  // e.g. "kg", "L", "S"
+  branch           Branch?  @relation(fields: [branchId], references: [id])
+  product          Product  @relation("ProductInventory", fields: [productId], references: [id])
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([branchId])
   @@index([productId])
@@ -605,23 +620,29 @@ model ProductVariation {
 }
 
 model Product {
-  id           String      @id
-  name         String
-  sku          String      // Base SKU, variations will have their own
-  price        Float       // Base price
-  description  String?
-  tenantId     String
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  deletedAt    DateTime?
-  stock        Int         @default(0) // Total stock across all variations
-  customFields Json?
-  branchId     String?
-  cost         Float       @default(0) // Base cost
-  images       String[]    // Array of image URLs
-  supplierId   String?
-  hasVariations Boolean    @default(false) // New: Whether this product has variations
-  supplier     Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
+  id               String      @id
+  name             String
+  sku              String      // Base SKU, variations will have their own
+  price            Float       // Base price
+  description      String?
+  tenantId         String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+  stock            Int         @default(0) // Total stock across all variations
+  customFields     Json?
+  branchId         String?
+  cost             Float       @default(0) // Base cost
+  images           String[]    // Array of image URLs
+  supplierId       String?
+  hasVariations    Boolean     @default(false)
+  // Measurement unit fields
+  unitId           String?     // FK to MeasurementUnit
+  unitAbbreviation String?     // Denormalized for performance: "kg", "g", "L", "38"
+  unitName         String?     // e.g. "Kilogram", "Small"
+  pricePerUnit     Boolean     @default(false) // true = price is per unit (e.g. KES 800/kg)
+  supplier         Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
+  unit             MeasurementUnit? @relation("ProductUnit", fields: [unitId], references: [id])
   inventory           Inventory[]          @relation("ProductInventory")
   inventoryMovements  InventoryMovement[]
   inventoryAlerts     InventoryAlert[]
@@ -629,11 +650,12 @@ model Product {
   tenant              Tenant               @relation("TenantProducts", fields: [tenantId], references: [id])
   saleItems           SaleItem[]           @relation("ProductSaleItems")
   productAdditions    ProductAdditionRecord[]
-  variations          ProductVariation[]   @relation("ProductVariations") // New
+  variations          ProductVariation[]   @relation("ProductVariations")
 
   @@index([branchId])
   @@index([tenantId])
   @@index([supplierId])
+  @@index([unitId])
   @@index([createdAt])
   @@index([tenantId, branchId])
   @@index([tenantId, createdAt])
@@ -673,18 +695,20 @@ model Sale {
 }
 
 model SaleItem {
-  id          String  @id
-  saleId      String
-  productId   String
-  variationId String? // New: Optional variation ID for product variations
-  quantity    Int
-  price       Float
-  product     Product @relation("ProductSaleItems", fields: [productId], references: [id])
-  sale        Sale    @relation(fields: [saleId], references: [id])
-  variation   ProductVariation? @relation("VariationSaleItems", fields: [variationId], references: [id]) // New
+  id               String  @id
+  saleId           String
+  productId        String
+  variationId      String?  // Optional variation ID for product variations
+  quantity         Float    // Float to support fractional units (e.g. 0.5 kg)
+  price            Float
+  unitAbbreviation String?  // Snapshot of unit at sale time (e.g. "kg", "S", "38")
+  unitName         String?  // Snapshot of unit name (e.g. "Kilogram", "Small")
+  product          Product  @relation("ProductSaleItems", fields: [productId], references: [id])
+  sale             Sale     @relation(fields: [saleId], references: [id])
+  variation        ProductVariation? @relation("VariationSaleItems", fields: [variationId], references: [id])
 
   @@index([productId])
-  @@index([variationId]) // New
+  @@index([variationId])
 }
 
 model Subscription {
@@ -1121,3 +1145,109 @@ model SupportTicketResponse {
   @@index([userId])
 }
 
+
+// ---------------------------------------------------------
+// Business Classification & Measurement Units
+// ---------------------------------------------------------
+
+model BusinessClassification {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  isActive    Boolean  @default(true)
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  units            MeasurementUnit[]
+  primaryTenants   Tenant[] @relation("TenantPrimaryClassification")
+  secondaryTenants Tenant[] @relation("TenantSecondaryClassification")
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+model MeasurementUnit {
+  id               String   @id @default(uuid())
+  classificationId String
+  name             String
+  abbreviation     String
+  type             String
+  baseUnit         String?
+  conversionFactor Float?
+  isBaseUnit       Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  classification BusinessClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+  products       Product[] @relation("ProductUnit")
+
+  @@unique([classificationId, abbreviation])
+  @@index([classificationId])
+  @@index([type])
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------
+// Accounting (Formal Double-Entry)
+// ---------------------------------------------------------
+
+model Account {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String   // e.g., "1000", "5000"
+  type        String   // "asset", "liability", "equity", "revenue", "expense"
+  subtype     String?  // "cash", "bank", "inventory", "accounts_receivable", etc.
+  description String?
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model JournalEntry {
+  id          String   @id @default(uuid())
+  tenantId    String
+  date        DateTime @default(now())
+  description String
+  reference   String?  // Link to Sale ID, Expense ID, etc.
+  type        String   // "manual", "sale", "expense", "capital_injection", "adjustment"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  @@index([tenantId])
+  @@index([date])
+}
+
+model LedgerEntry {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  accountId      String
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  description    String?
+  createdAt      DateTime     @default(now())
+
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account        Account      @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}

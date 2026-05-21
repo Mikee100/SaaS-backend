@@ -30,6 +30,8 @@ import { SalaryModule } from './salary/salary.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { BackupModule } from './backup/backup.module';
 import { SalesTargetModule } from './sales-target/sales-target.module';
+import { ClassificationModule } from './classification/classification.module';
+import { LedgerModule } from './ledger/ledger.module';
 import { ImpersonationInterceptor } from './admin/impersonation.interceptor';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
@@ -78,7 +80,9 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
     SalaryModule,
     MonitoringModule,
     BackupModule,
-    SalesTargetModule
+    SalesTargetModule,
+    ClassificationModule,
+    LedgerModule,
   ],
   controllers: [AppController],
   providers: [

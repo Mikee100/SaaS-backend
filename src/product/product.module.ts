@@ -8,10 +8,11 @@ import { CacheModule } from '../cache/cache.module';
 import { AuditLogService } from '../audit-log.service';
 import { BillingModule } from '../billing/billing.module';
 import { UserModule } from '../user/user.module';
+import { LedgerModule } from '../ledger/ledger.module';
 import { TrialGuard } from '../auth/trial.guard';
 
 @Module({
-  imports: [PrismaModule, CacheModule, BillingModule, UserModule],
+  imports: [PrismaModule, CacheModule, BillingModule, UserModule, LedgerModule],
   controllers: [ProductController, ProductAttributeController],
   providers: [
     ProductService,

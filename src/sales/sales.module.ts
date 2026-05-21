@@ -10,11 +10,14 @@ import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
 
+import { LedgerModule } from '../ledger/ledger.module';
+
 @Module({
   imports: [
     RealtimeModule,
     UserModule,
     ConfigModule, // Import ConfigModule to provide CONFIG_OPTIONS
+    LedgerModule,
   ],
   controllers: [SalesController],
   providers: [

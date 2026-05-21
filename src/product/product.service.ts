@@ -12,6 +12,7 @@ import { AuditLogService } from '../audit-log.service';
 import * as qrcode from 'qrcode';
 import { BillingService } from '../billing/billing.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { restoreProduct } from '../prisma/soft-delete-restore';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -26,6 +27,7 @@ export class ProductService {
     private auditLogService: AuditLogService,
     private billingService: BillingService,
     private subscriptionService: SubscriptionService,
+    private ledgerService: LedgerService,
   ) {}
 
   async findAllByTenantAndBranch(
@@ -272,6 +274,22 @@ export class ProductService {
         ip,
       );
     }
+
+    // --- Automated Accounting Entry ---
+    if (product.stock > 0 && product.cost > 0) {
+      try {
+        await this.ledgerService.recordInitialCapital(data.tenantId, actorUserId || 'system', {
+          productId: product.id,
+          sku: product.sku,
+          name: product.name,
+          quantity: product.stock,
+          cost: product.cost
+        });
+      } catch (accError) {
+        console.error('Failed to create automated accounting entry for product capital:', accError);
+      }
+    }
+
     return product;
   }
 
@@ -653,12 +671,34 @@ export class ProductService {
     tenantId: string;
     branchId?: string;
   }) {
-    return this.prisma.productVariation.create({
+    const variation = await this.prisma.productVariation.create({
       data: {
         ...data,
         id: uuidv4(),
       },
     });
+
+    // --- Automated Accounting Entry ---
+    if (variation.stock > 0 && variation.cost && variation.cost > 0) {
+      try {
+        // Fetch product name for better description
+        const product = await this.prisma.product.findUnique({
+          where: { id: variation.productId },
+          select: { name: true },
+        });
+        await this.ledgerService.recordInitialCapital(data.tenantId, 'system', {
+          productId: variation.id,
+          sku: variation.sku,
+          name: `${product?.name || 'Product'} (Variation: ${variation.sku})`,
+          quantity: variation.stock,
+          cost: variation.cost
+        });
+      } catch (accError) {
+        console.error('Failed to create automated accounting entry for variation capital:', accError);
+      }
+    }
+
+    return variation;
   }
 
   async getVariationsByProduct(productId: string, tenantId: string) {

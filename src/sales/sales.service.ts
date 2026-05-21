@@ -82,6 +82,7 @@ import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
 import { ConfigurationService } from '../config/configuration.service';
 import { SubscriptionService } from '../billing/subscription.service';
+import { LedgerService } from '../ledger/ledger.service';
 import axios from 'axios';
 
 @Injectable()
@@ -93,6 +94,7 @@ export class SalesService {
     private realtimeGateway: RealtimeGateway, // Inject gateway
     private configurationService: ConfigurationService,
     private subscriptionService: SubscriptionService,
+    private ledgerService: LedgerService,
   ) {}
 
   async createSale(
@@ -520,6 +522,34 @@ export class SalesService {
     this.realtimeGateway.emitSalesUpdate({ saleId, items: dto.items, total });
     for (const item of dto.items) {
       this.realtimeGateway.emitInventoryUpdate({ productId: item.productId });
+    }
+
+    // --- Automated Accounting Entry ---
+    try {
+      // Fetch product costs for COGS calculation
+      const itemsWithCost: any[] = [];
+      for (const item of dto.items) {
+        const product = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+          select: { cost: true, name: true }
+        });
+        itemsWithCost.push({
+          productId: item.productId,
+          name: product?.name || 'Unknown',
+          quantity: item.quantity,
+          price: item.price ?? 0,
+          cost: product?.cost ?? 0
+        });
+      }
+
+      await this.ledgerService.recordSaleAutomation(tenantId, userId, {
+        saleId,
+        total,
+        paymentMethod: paymentType,
+        items: itemsWithCost
+      });
+    } catch (accError) {
+      this.logger.error('Failed to create automated accounting entry for sale:', accError);
     }
     // Calculate change for split payments
     let change = 0;
@@ -1242,6 +1272,8 @@ export class SalesService {
         productId: string;
         quantity: number;
         price: number;
+        unitAbbreviation?: string | null;
+        unitName?: string | null;
         product: {
           id: string;
           name: string;
@@ -1265,6 +1297,8 @@ export class SalesService {
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
+          unitAbbreviation: (item as any).unitAbbreviation ?? null,
+          unitName: (item as any).unitName ?? null,
           product: item.product
             ? {
                 id: item.product.id,
@@ -1290,6 +1324,8 @@ export class SalesService {
           variationId: null, // Add variationId field
           quantity: item.quantity,
           price: item.price,
+          unitAbbreviation: item.unitAbbreviation ?? null,
+          unitName: item.unitName ?? null,
           product: item.product
             ? {
                 id: item.product.id,
