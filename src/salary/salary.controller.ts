@@ -98,6 +98,27 @@ export class SalaryController {
     }
   }
 
+  @Post('sync-expenses')
+  @Permissions('create_sales')
+  async syncSalarySchemeExpenses(@Req() req) {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.syncSalarySchemeExpenses(
+      req.user.tenantId,
+      req.user.userId,
+      effectiveBranchId,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: 'Salary expense synchronization completed',
+    };
+  }
+
   @Get()
   @Permissions('view_sales')
   async getSalarySchemes(@Req() req, @Query() query: any) {

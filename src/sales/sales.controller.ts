@@ -329,11 +329,13 @@ export class SalesController {
     @Body() body: { amount: number; paymentMethod: string; notes?: string },
     @Req() req,
   ) {
+    const userId = req.user?.userId || req.user?.sub;
     return this.salesService.makeCreditPayment(
       creditId,
       body.amount,
       body.paymentMethod,
       req.user.tenantId,
+      userId,
       body.notes,
     );
   }

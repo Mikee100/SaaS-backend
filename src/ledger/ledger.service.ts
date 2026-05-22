@@ -7,6 +7,45 @@ import { JournalEntryDto, TrialBalance, ProfitAndLoss, BalanceSheet } from './ac
 export class LedgerService {
   constructor(private prisma: PrismaService) {}
 
+  private readonly viableDefaultAccounts = [
+    // Assets (1000-1999)
+    { name: 'Cash', code: '1000', type: 'asset', subtype: 'cash' },
+    { name: 'Bank Account', code: '1100', type: 'asset', subtype: 'bank' },
+    { name: 'Inventory', code: '1200', type: 'asset', subtype: 'inventory' },
+    {
+      name: 'Accounts Receivable',
+      code: '1300',
+      type: 'asset',
+      subtype: 'accounts_receivable',
+    },
+
+    // Liabilities (2000-2999)
+    {
+      name: 'Accounts Payable',
+      code: '2000',
+      type: 'liability',
+      subtype: 'accounts_payable',
+    },
+
+    // Equity (3000-3999)
+    { name: 'Owner Capital', code: '3000', type: 'equity', subtype: 'capital' },
+
+    // Revenue (4000-4999)
+    { name: 'Sales Revenue', code: '4000', type: 'revenue', subtype: 'sales' },
+
+    // Expenses (5000-5999)
+    { name: 'Cost of Goods Sold', code: '5000', type: 'expense', subtype: 'cogs' },
+    { name: 'Rent Expense', code: '5100', type: 'expense', subtype: 'rent' },
+    { name: 'Salary Expense', code: '5200', type: 'expense', subtype: 'salary' },
+    { name: 'Utilities Expense', code: '5300', type: 'expense', subtype: 'utilities' },
+    {
+      name: 'General & Administrative',
+      code: '5400',
+      type: 'expense',
+      subtype: 'general',
+    },
+  ] as const;
+
   private resolveExpenseSubtype(categoryName?: string, description?: string) {
     const lowerHints = `${categoryName || ''} ${description || ''}`.toLowerCase();
 
@@ -40,47 +79,263 @@ export class LedgerService {
     return account || accounts.find((a) => a.subtype === 'general') || null;
   }
 
+  private extractBranchScope(reference?: string | null): string | undefined {
+    if (!reference) return undefined;
+    const match = /^BRANCH:([^:]+):/.exec(reference);
+    return match?.[1];
+  }
+
+  private stripBranchScope(reference?: string | null): string {
+    if (!reference) return '';
+    return reference.replace(/^BRANCH:[^:]+:/, '');
+  }
+
+  private extractCreditId(reference: string): string | undefined {
+    const scopedReference = this.stripBranchScope(reference);
+    const modernMatch = /^CREDIT:([^:]+):PAYMENT:/.exec(scopedReference);
+    if (modernMatch?.[1]) return modernMatch[1];
+
+    // Legacy fallback: "CREDIT-<creditId>".
+    if (
+      scopedReference.startsWith('CREDIT-') &&
+      !scopedReference.startsWith('CREDIT-PAYMENT-')
+    ) {
+      return scopedReference.slice('CREDIT-'.length);
+    }
+
+    return undefined;
+  }
+
+  private async filterJournalEntriesByBranch(
+    tenantId: string,
+    branchId: string,
+    journalEntries: any[],
+  ) {
+    if (!journalEntries.length) return journalEntries;
+
+    const saleIds = new Set<string>();
+    const expenseIds = new Set<string>();
+    const initStockIds = new Set<string>();
+    const creditIds = new Set<string>();
+
+    for (const journalEntry of journalEntries) {
+      const reference = this.stripBranchScope(journalEntry.reference);
+      if (reference.startsWith('SALE-')) {
+        saleIds.add(reference.slice('SALE-'.length));
+      } else if (reference.startsWith('EXPENSE-')) {
+        expenseIds.add(reference.slice('EXPENSE-'.length));
+      } else if (reference.startsWith('INIT-STOCK-')) {
+        initStockIds.add(reference.slice('INIT-STOCK-'.length));
+      }
+
+      const creditId = this.extractCreditId(reference);
+      if (creditId) creditIds.add(creditId);
+    }
+
+    const [sales, expenses, products, variations, credits] = await Promise.all([
+      saleIds.size
+        ? this.prisma.sale.findMany({
+            where: {
+              tenantId,
+              branchId,
+              id: { in: Array.from(saleIds) },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      expenseIds.size
+        ? this.prisma.expense.findMany({
+            where: {
+              tenantId,
+              branchId,
+              deletedAt: null,
+              id: { in: Array.from(expenseIds) },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      initStockIds.size
+        ? this.prisma.product.findMany({
+            where: {
+              tenantId,
+              branchId,
+              id: { in: Array.from(initStockIds) },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      initStockIds.size
+        ? this.prisma.productVariation.findMany({
+            where: {
+              tenantId,
+              branchId,
+              id: { in: Array.from(initStockIds) },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      creditIds.size
+        ? this.prisma.credit.findMany({
+            where: {
+              tenantId,
+              id: { in: Array.from(creditIds) },
+              sale: { branchId },
+            },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const allowedSaleIds = new Set(sales.map((sale) => sale.id));
+    const allowedExpenseIds = new Set(expenses.map((expense) => expense.id));
+    const allowedInitStockIds = new Set([
+      ...products.map((product) => product.id),
+      ...variations.map((variation) => variation.id),
+    ]);
+    const allowedCreditIds = new Set(credits.map((credit) => credit.id));
+
+    return journalEntries.filter((journalEntry) => {
+      const explicitBranchScope = this.extractBranchScope(journalEntry.reference);
+      if (explicitBranchScope) {
+        return explicitBranchScope === branchId;
+      }
+
+      const reference = this.stripBranchScope(journalEntry.reference);
+      if (!reference) return false;
+
+      if (reference.startsWith('SALE-')) {
+        const saleId = reference.slice('SALE-'.length);
+        return allowedSaleIds.has(saleId);
+      }
+
+      if (reference.startsWith('EXPENSE-')) {
+        const expenseId = reference.slice('EXPENSE-'.length);
+        return allowedExpenseIds.has(expenseId);
+      }
+
+      if (reference.startsWith('INIT-STOCK-')) {
+        const stockId = reference.slice('INIT-STOCK-'.length);
+        return allowedInitStockIds.has(stockId);
+      }
+
+      const creditId = this.extractCreditId(reference);
+      if (creditId) {
+        return allowedCreditIds.has(creditId);
+      }
+
+      return false;
+    });
+  }
+
+  private async getJournalEntriesForReporting(
+    tenantId: string,
+    params: {
+      asOfDate?: Date;
+      startDate?: Date;
+      endDate?: Date;
+      branchId?: string;
+    },
+  ) {
+    const whereClause: any = { tenantId };
+
+    if (params.asOfDate) {
+      whereClause.date = { lte: params.asOfDate };
+    } else if (params.startDate || params.endDate) {
+      whereClause.date = {};
+      if (params.startDate) whereClause.date.gte = params.startDate;
+      if (params.endDate) {
+        const endOfDay = new Date(params.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        whereClause.date.lte = endOfDay;
+      }
+    }
+
+    const journalEntries = await this.prisma.journalEntry.findMany({
+      where: whereClause,
+      include: {
+        user: true,
+        ledgerEntries: {
+          include: { account: true },
+        },
+      },
+    });
+
+    if (!params.branchId) return journalEntries;
+
+    return this.filterJournalEntriesByBranch(
+      tenantId,
+      params.branchId,
+      journalEntries,
+    );
+  }
+
   // --- Formal Accounting Methods ---
 
   async initializeCOA(tenantId: string) {
-    const existing = await this.prisma.account.findFirst({ where: { tenantId } });
-    if (existing) return;
-
-    const defaultAccounts = [
-      // Assets (1000-1999)
-      { name: 'Cash', code: '1000', type: 'asset', subtype: 'cash' },
-      { name: 'Bank Account', code: '1100', type: 'asset', subtype: 'bank' },
-      { name: 'Inventory', code: '1200', type: 'asset', subtype: 'inventory' },
-      { name: 'Accounts Receivable', code: '1300', type: 'asset', subtype: 'accounts_receivable' },
-      
-      // Liabilities (2000-2999)
-      { name: 'Accounts Payable', code: '2000', type: 'liability', subtype: 'accounts_payable' },
-      { name: 'Loans', code: '2100', type: 'liability', subtype: 'loans' },
-
-      // Equity (3000-3999)
-      { name: 'Owner Capital', code: '3000', type: 'equity', subtype: 'capital' },
-      { name: 'Retained Earnings', code: '3100', type: 'equity', subtype: 'earnings' },
-
-      // Revenue (4000-4999)
-      { name: 'Sales Revenue', code: '4000', type: 'revenue', subtype: 'sales' },
-      { name: 'Service Revenue', code: '4100', type: 'revenue', subtype: 'services' },
-
-      // Expenses (5000-5999)
-      { name: 'Cost of Goods Sold', code: '5000', type: 'expense', subtype: 'cogs' },
-      { name: 'Rent Expense', code: '5100', type: 'expense', subtype: 'rent' },
-      { name: 'Salary Expense', code: '5200', type: 'expense', subtype: 'salary' },
-      { name: 'Utilities Expense', code: '5300', type: 'expense', subtype: 'utilities' },
-      { name: 'General & Administrative', code: '5400', type: 'expense', subtype: 'general' },
-    ];
-
-    await this.prisma.account.createMany({
-      data: defaultAccounts.map(acc => ({ ...acc, tenantId, isSystem: true })),
+    const existingAccounts = await this.prisma.account.findMany({
+      where: { tenantId },
+      select: { id: true, code: true, isSystem: true },
     });
+
+    const existingCodes = new Set(existingAccounts.map((a) => a.code));
+    const viableCodes = new Set(this.viableDefaultAccounts.map((a) => a.code));
+
+    const missingAccounts = this.viableDefaultAccounts.filter(
+      (acc) => !existingCodes.has(acc.code),
+    );
+
+    if (missingAccounts.length > 0) {
+      await this.prisma.account.createMany({
+        data: missingAccounts.map((acc) => ({
+          ...acc,
+          tenantId,
+          isSystem: true,
+          isActive: true,
+        })),
+      });
+    }
+
+    // Keep viable defaults active for consistent posting and reporting.
+    for (const account of this.viableDefaultAccounts) {
+      await this.prisma.account.updateMany({
+        where: { tenantId, code: account.code },
+        data: {
+          name: account.name,
+          type: account.type,
+          subtype: account.subtype,
+          isSystem: true,
+          isActive: true,
+        },
+      });
+    }
+
+    // Deactivate old non-viable system accounts only when they have no posted lines.
+    const nonViableSystemAccounts = await this.prisma.account.findMany({
+      where: {
+        tenantId,
+        isSystem: true,
+        code: { notIn: Array.from(viableCodes) },
+      },
+      select: { id: true },
+    });
+
+    for (const account of nonViableSystemAccounts) {
+      const usageCount = await this.prisma.ledgerEntry.count({
+        where: { accountId: account.id },
+      });
+
+      if (usageCount === 0) {
+        await this.prisma.account.update({
+          where: { id: account.id },
+          data: { isActive: false },
+        });
+      }
+    }
   }
 
   async getAccounts(tenantId: string) {
     return this.prisma.account.findMany({
-      where: { tenantId },
+      where: { tenantId, isActive: true },
       orderBy: { code: 'asc' },
     });
   }
@@ -128,23 +383,18 @@ export class LedgerService {
     });
   }
 
-  async getTrialBalance(tenantId: string, asOfDate?: Date): Promise<TrialBalance> {
-    const whereClause: any = { tenantId };
-    if (asOfDate) {
-      whereClause.date = { lte: asOfDate };
-    }
-
-    const journalEntries = await this.prisma.journalEntry.findMany({
-      where: whereClause,
-      include: {
-        ledgerEntries: {
-          include: { account: true },
-        },
-      },
+  async getTrialBalance(
+    tenantId: string,
+    asOfDate?: Date,
+    branchId?: string,
+  ): Promise<TrialBalance> {
+    const journalEntries = await this.getJournalEntriesForReporting(tenantId, {
+      asOfDate,
+      branchId,
     });
 
     const accounts = await this.prisma.account.findMany({
-      where: { tenantId },
+      where: { tenantId, isActive: true },
     });
 
     const accountMap = new Map<string, { debit: number; credit: number }>();
@@ -164,15 +414,21 @@ export class LedgerService {
     let totalCredit = 0;
 
     const trialBalanceAccounts = accounts.map(account => {
-      const { debit, credit } = accountMap.get(account.id) || { debit: 0, credit: 0 };
+      const { debit: movementDebit, credit: movementCredit } =
+        accountMap.get(account.id) || { debit: 0, credit: 0 };
+      const netMovement = movementDebit - movementCredit;
       
       // Calculate balance based on account type
       let balance = 0;
       if (['asset', 'expense'].includes(account.type)) {
-        balance = debit - credit;
+        balance = movementDebit - movementCredit;
       } else {
-        balance = credit - debit;
+        balance = movementCredit - movementDebit;
       }
+
+      // Trial balance columns should reflect raw ledger net movement per account.
+      const debit = netMovement > 0 ? netMovement : 0;
+      const credit = netMovement < 0 ? Math.abs(netMovement) : 0;
 
       totalDebit += debit;
       totalCredit += credit;
@@ -195,25 +451,16 @@ export class LedgerService {
     };
   }
 
-  async getProfitAndLoss(tenantId: string, startDate?: Date, endDate?: Date): Promise<ProfitAndLoss> {
-    const whereClause: any = { tenantId };
-    if (startDate || endDate) {
-      whereClause.date = {};
-      if (startDate) whereClause.date.gte = startDate;
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        whereClause.date.lte = endOfDay;
-      }
-    }
-
-    const journalEntries = await this.prisma.journalEntry.findMany({
-      where: whereClause,
-      include: {
-        ledgerEntries: {
-          include: { account: true },
-        },
-      },
+  async getProfitAndLoss(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+    branchId?: string,
+  ): Promise<ProfitAndLoss> {
+    const journalEntries = await this.getJournalEntriesForReporting(tenantId, {
+      startDate,
+      endDate,
+      branchId,
     });
 
     const revenueMap = new Map<string, number>();
@@ -257,8 +504,12 @@ export class LedgerService {
     };
   }
 
-  async getBalanceSheet(tenantId: string, asOfDate?: Date): Promise<BalanceSheet> {
-    const trialBalance = await this.getTrialBalance(tenantId, asOfDate);
+  async getBalanceSheet(
+    tenantId: string,
+    asOfDate?: Date,
+    branchId?: string,
+  ): Promise<BalanceSheet> {
+    const trialBalance = await this.getTrialBalance(tenantId, asOfDate, branchId);
     
     const assets = trialBalance.accounts
       .filter(a => a.type === 'asset')
@@ -273,7 +524,12 @@ export class LedgerService {
       .map(a => ({ name: a.name, amount: a.balance }));
 
     // Add Retained Earnings to Equity (Net Profit up to asOfDate)
-    const pAndL = await this.getProfitAndLoss(tenantId, undefined, asOfDate);
+    const pAndL = await this.getProfitAndLoss(
+      tenantId,
+      undefined,
+      asOfDate,
+      branchId,
+    );
     equity.push({ name: 'Retained Earnings', amount: pAndL.netProfit });
 
     const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
@@ -493,7 +749,71 @@ export class LedgerService {
     }
   }
 
-  async reclassifyExpenseEntries(tenantId: string) {
+  async recordCustomerPaymentAutomation(
+    tenantId: string,
+    userId: string | null,
+    data: {
+      creditId: string;
+      amount: number;
+      paymentMethod: string;
+      paymentId?: string;
+      date?: Date;
+      notes?: string;
+    },
+  ) {
+    try {
+      if (!data.amount || data.amount <= 0) return;
+
+      await this.initializeCOA(tenantId);
+
+      const accounts = await this.getAccounts(tenantId);
+      const getAccount = (subtype: string) =>
+        accounts.find((a) => a.subtype === subtype);
+
+      const receivableAcc = getAccount('accounts_receivable');
+
+      const normalizedPayment = (data.paymentMethod || 'cash').toLowerCase();
+      let paymentAcc = getAccount('cash');
+      if (['mpesa', 'bank', 'card'].includes(normalizedPayment)) {
+        paymentAcc = getAccount('bank') || paymentAcc;
+      }
+
+      if (!receivableAcc || !paymentAcc) {
+        console.warn('Accounting setup incomplete for customer payment posting', {
+          tenantId,
+          creditId: data.creditId,
+        });
+        return;
+      }
+
+      return this.createJournalEntry(tenantId, userId, {
+        date: data.date || new Date(),
+        description: `Automated Credit Payment Entry${data.notes ? `: ${data.notes}` : ''}`,
+        type: 'customer_payment',
+        reference: data.paymentId
+          ? `CREDIT:${data.creditId}:PAYMENT:${data.paymentId}`
+          : `CREDIT-${data.creditId}`,
+        lines: [
+          {
+            accountId: paymentAcc.id,
+            debit: data.amount,
+            credit: 0,
+            description: `Customer payment received via ${normalizedPayment}`,
+          },
+          {
+            accountId: receivableAcc.id,
+            debit: 0,
+            credit: data.amount,
+            description: `Receivable settlement for credit ${data.creditId}`,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to record customer payment entry:', error);
+    }
+  }
+
+  async reclassifyExpenseEntries(tenantId: string, branchId?: string) {
     await this.initializeCOA(tenantId);
 
     const accounts = await this.getAccounts(tenantId);
@@ -511,9 +831,13 @@ export class LedgerService {
       },
     });
 
+    const scopedJournalEntries = branchId
+      ? await this.filterJournalEntriesByBranch(tenantId, branchId, journalEntries)
+      : journalEntries;
+
     const expenseIds = Array.from(
       new Set(
-        journalEntries
+        scopedJournalEntries
           .map((je) => je.reference?.replace('EXPENSE-', ''))
           .filter((id): id is string => Boolean(id)),
       ),
@@ -523,6 +847,7 @@ export class LedgerService {
       ? await this.prisma.expense.findMany({
           where: {
             tenantId,
+            ...(branchId ? { branchId } : {}),
             id: { in: expenseIds },
           },
           include: { category: true },
@@ -537,7 +862,7 @@ export class LedgerService {
     let skippedNoExpenseLine = 0;
     const movedToAccount: Record<string, number> = {};
 
-    for (const journalEntry of journalEntries) {
+    for (const journalEntry of scopedJournalEntries) {
       const expenseId = journalEntry.reference?.replace('EXPENSE-', '');
       if (!expenseId) {
         skippedNoExpense += 1;
@@ -588,7 +913,7 @@ export class LedgerService {
     }
 
     return {
-      scanned: journalEntries.length,
+      scanned: scopedJournalEntries.length,
       reclassifiedCount,
       unchangedCount,
       skippedNoExpense,
@@ -600,7 +925,10 @@ export class LedgerService {
   // --- Virtual Ledger Methods (Aggregated from other tables) ---
 
   // Aggregates all relevant transactions into unified ledger entries
-  async getLedgerEntries(tenantId: string): Promise<LedgerEntryType[]> {
+  async getLedgerEntries(
+    tenantId: string,
+    branchId?: string,
+  ): Promise<LedgerEntryType[]> {
     // Keep existing logic for transaction history view
     // ... (omitted for brevity, will merge in the next step or keep as is)
     const [
@@ -611,22 +939,19 @@ export class LedgerService {
       journalEntries,
     ] = await Promise.all([
       this.prisma.sale.findMany({
-        where: { tenantId },
+        where: { tenantId, ...(branchId ? { branchId } : {}) },
         include: { SaleItem: { include: { product: true } }, User: true },
       }),
       this.prisma.expense.findMany({
-        where: { tenantId },
+        where: { tenantId, ...(branchId ? { branchId } : {}) },
         include: { user: true, branch: true, category: true },
       }),
       this.prisma.inventoryMovement.findMany({
-        where: { tenantId },
+        where: { tenantId, ...(branchId ? { branchId } : {}) },
         include: { product: true, branch: true },
       }),
       this.prisma.payment.findMany({ where: { tenantId } }),
-      this.prisma.journalEntry.findMany({
-        where: { tenantId },
-        include: { ledgerEntries: { include: { account: true } } },
-      }),
+      this.getJournalEntriesForReporting(tenantId, { branchId }),
     ]);
 
     // Normalize sales, expenses, inventory, payments (existing logic)
@@ -684,12 +1009,12 @@ export class LedgerService {
     return allEntries;
   }
 
-  async syncLedger(tenantId: string, userId: string) {
+  async syncLedger(tenantId: string, userId: string, branchId?: string) {
     await this.initializeCOA(tenantId);
 
     // 1. Sync Sales
     const sales = await this.prisma.sale.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(branchId ? { branchId } : {}) },
       include: { SaleItem: { include: { product: true } } },
     });
 
@@ -719,7 +1044,7 @@ export class LedgerService {
 
     // 2. Sync Expenses
     const expenses = await this.prisma.expense.findMany({
-      where: { tenantId, deletedAt: null },
+      where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
       include: { category: true },
     });
 
@@ -750,37 +1075,31 @@ export class LedgerService {
     };
   }
 
-  async getAccountEntries(tenantId: string, accountId: string) {
-    const entries = await this.prisma.ledgerEntry.findMany({
-      where: {
-        accountId,
-        journalEntry: {
-          tenantId,
-        },
-      },
-      include: {
-        journalEntry: {
-          include: { user: true },
-        },
-        account: true,
-      },
-      orderBy: {
-        journalEntry: {
-          date: 'desc',
-        },
-      },
+  async getAccountEntries(tenantId: string, accountId: string, branchId?: string) {
+    const journalEntries = await this.getJournalEntriesForReporting(tenantId, {
+      branchId,
     });
 
-    return entries.map(le => ({
-      id: le.id,
-      date: le.journalEntry.date,
-      reference: le.journalEntry.reference,
-      type: le.journalEntry.type,
-      description: le.journalEntry.description + (le.description ? ` (${le.description})` : ''),
-      debit: le.debit,
-      credit: le.credit,
-      user: le.journalEntry.user?.name,
-      meta: { journalEntryId: le.journalEntryId },
-    }));
+    const entries = journalEntries
+      .flatMap((journalEntry) =>
+        journalEntry.ledgerEntries
+          .filter((ledgerEntry) => ledgerEntry.accountId === accountId)
+          .map((ledgerEntry) => ({
+            id: ledgerEntry.id,
+            date: journalEntry.date,
+            reference: journalEntry.reference,
+            type: journalEntry.type,
+            description:
+              journalEntry.description +
+              (ledgerEntry.description ? ` (${ledgerEntry.description})` : ''),
+            debit: ledgerEntry.debit,
+            credit: ledgerEntry.credit,
+            user: journalEntry.user?.name,
+            meta: { journalEntryId: ledgerEntry.journalEntryId },
+          })),
+      )
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return entries;
   }
 }

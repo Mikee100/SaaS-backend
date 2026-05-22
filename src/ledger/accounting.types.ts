@@ -10,7 +10,13 @@ export interface Account {
 export interface JournalEntryDto {
   date: Date;
   description: string;
-  type: 'manual' | 'sale' | 'expense' | 'capital_injection' | 'adjustment';
+  type:
+    | 'manual'
+    | 'sale'
+    | 'expense'
+    | 'capital_injection'
+    | 'adjustment'
+    | 'customer_payment';
   reference?: string;
   lines: LedgerLineDto[];
 }

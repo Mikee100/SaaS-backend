@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
+import { ExpensesService } from '../expenses/expenses.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -12,7 +13,36 @@ export class SalaryService {
   constructor(
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
+    private expensesService: ExpensesService,
   ) {}
+
+  private async getOrCreateSalaryCategory(tenantId: string): Promise<string> {
+    let salaryCategory = await this.prisma.expenseCategory.findFirst({
+      where: {
+        tenantId,
+        name: {
+          equals: 'Salary',
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!salaryCategory) {
+      salaryCategory = await this.prisma.expenseCategory.create({
+        data: {
+          tenantId,
+          name: 'Salary',
+          description: 'Employee salary expenses',
+          color: '#FF6B6B',
+          isActive: true,
+        },
+        select: { id: true },
+      });
+    }
+
+    return salaryCategory.id;
+  }
 
   async createSalaryScheme(dto: any, tenantId: string, userId: string) {
     // Validate required fields
@@ -117,7 +147,120 @@ export class SalaryService {
       );
     }
 
+    // Post the first salary expense for schemes that start today or in the past.
+    if (startDate <= now) {
+      try {
+        const salaryCategoryId = await this.getOrCreateSalaryCategory(tenantId);
+        await this.expensesService.createExpense(
+          {
+            amount: dto.salaryAmount,
+            description: `Salary for ${dto.employeeName.trim()}`,
+            categoryId: salaryCategoryId,
+            expenseType: 'one_time',
+            branchId: validBranchId,
+            notes: `Auto-generated initial salary expense for scheme ${salaryScheme.id}`,
+          },
+          tenantId,
+          validUserId || userId,
+        );
+
+        await this.prisma.salaryScheme.update({
+          where: { id: salaryScheme.id },
+          data: {
+            lastPaidDate: startDate,
+            updatedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        console.error('Failed to create initial salary expense entry:', error);
+      }
+    }
+
     return salaryScheme;
+  }
+
+  async syncSalarySchemeExpenses(
+    tenantId: string,
+    actorUserId: string,
+    branchId?: string,
+  ) {
+    const now = new Date();
+    const salaryCategoryId = await this.getOrCreateSalaryCategory(tenantId);
+
+    const schemes = await this.prisma.salaryScheme.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        startDate: { lte: now },
+        ...(branchId ? { branchId } : {}),
+      },
+      select: {
+        id: true,
+        employeeName: true,
+        salaryAmount: true,
+        userId: true,
+        branchId: true,
+        startDate: true,
+        lastPaidDate: true,
+      },
+    });
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const scheme of schemes) {
+      const marker = `Auto-generated initial salary expense for scheme ${scheme.id}`;
+
+      const existingExpense = await this.prisma.expense.findFirst({
+        where: {
+          tenantId,
+          deletedAt: null,
+          notes: { contains: marker },
+        },
+        select: { id: true },
+      });
+
+      if (existingExpense) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await this.expensesService.createExpense(
+          {
+            amount: scheme.salaryAmount,
+            description: `Salary for ${scheme.employeeName}`,
+            categoryId: salaryCategoryId,
+            expenseType: 'one_time',
+            branchId: scheme.branchId,
+            notes: marker,
+          },
+          tenantId,
+          scheme.userId || actorUserId,
+        );
+
+        await this.prisma.salaryScheme.update({
+          where: { id: scheme.id },
+          data: {
+            lastPaidDate: scheme.lastPaidDate || scheme.startDate,
+            updatedAt: new Date(),
+          },
+        });
+
+        created += 1;
+      } catch (error) {
+        failed += 1;
+        console.error(`Failed to sync salary scheme expense for ${scheme.id}:`, error);
+      }
+    }
+
+    return {
+      scanned: schemes.length,
+      created,
+      skipped,
+      failed,
+    };
   }
 
   async getSalarySchemes(tenantId: string, branchId?: string, query?: any) {

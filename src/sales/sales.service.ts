@@ -1668,9 +1668,10 @@ export class SalesService {
     amount: number,
     paymentMethod: string,
     tenantId: string,
+    userId: string,
     notes?: string,
   ) {
-    return this.prisma.$transaction(async (prisma) => {
+    const paymentResult = await this.prisma.$transaction(async (prisma) => {
       // Get current credit
       const credit = await prisma.credit.findFirst({
         where: { id: creditId, tenantId },
@@ -1691,7 +1692,7 @@ export class SalesService {
       }
 
       // Create payment record
-      await prisma.creditPayment.create({
+      const payment = await prisma.creditPayment.create({
         data: {
           creditId,
           amount,
@@ -1704,7 +1705,7 @@ export class SalesService {
       const newBalance = credit.balance - amount;
       const newStatus = newBalance <= 0 ? 'paid' : 'active';
 
-      return prisma.credit.update({
+      const updatedCredit = await prisma.credit.update({
         where: { id: creditId },
         data: {
           paidAmount: credit.paidAmount + amount,
@@ -1712,7 +1713,23 @@ export class SalesService {
           status: newStatus,
         },
       });
+
+      return { updatedCredit, payment };
     });
+
+    try {
+      await this.ledgerService.recordCustomerPaymentAutomation(tenantId, userId, {
+        creditId,
+        amount,
+        paymentMethod,
+        paymentId: paymentResult.payment.id,
+        notes,
+      });
+    } catch (error) {
+      this.logger.error('Failed to create accounting entry for credit payment', error);
+    }
+
+    return paymentResult.updatedCredit;
   }
 
   async getCustomerCreditBalance(

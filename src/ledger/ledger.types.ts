@@ -4,6 +4,7 @@ export type LedgerEntryType =
   | 'expense'
   | 'stock_addition'
   | 'refund'
+  | 'customer_payment'
   | 'capital_injection'
   | 'capital_withdrawal'
   | 'adjustment'
