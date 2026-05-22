@@ -34,6 +34,7 @@ export interface TrialBalance {
     name: string;
     code: string;
     type: string;
+    subtype?: string;
     debit: number;
     credit: number;
     balance: number;

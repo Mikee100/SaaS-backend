@@ -393,8 +393,10 @@ export class LedgerService {
       branchId,
     });
 
+    // Use all tenant accounts so reports remain historically accurate even
+    // when some system accounts were later deactivated.
     const accounts = await this.prisma.account.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId },
     });
 
     const accountMap = new Map<string, { debit: number; credit: number }>();
@@ -438,6 +440,7 @@ export class LedgerService {
         name: account.name,
         code: account.code,
         type: account.type,
+        subtype: account.subtype || undefined,
         debit,
         credit,
         balance,
@@ -523,14 +526,31 @@ export class LedgerService {
       .filter(a => a.type === 'equity')
       .map(a => ({ name: a.name, amount: a.balance }));
 
-    // Add Retained Earnings to Equity (Net Profit up to asOfDate)
-    const pAndL = await this.getProfitAndLoss(
-      tenantId,
-      undefined,
-      asOfDate,
-      branchId,
+    // Derive current earnings from the same trial-balance scope to keep
+    // Assets and Liabilities+Equity in sync.
+    const totalRevenue = trialBalance.accounts
+      .filter((a) => a.type === 'revenue')
+      .reduce((sum, a) => sum + a.balance, 0);
+    const totalExpenses = trialBalance.accounts
+      .filter((a) => a.type === 'expense')
+      .reduce((sum, a) => sum + a.balance, 0);
+    const currentEarnings = totalRevenue - totalExpenses;
+
+    const retainedEarningsIndex = trialBalance.accounts.findIndex(
+      (a) =>
+        a.type === 'equity' &&
+        (a.subtype === 'retained_earnings' || a.name.toLowerCase() === 'retained earnings'),
     );
-    equity.push({ name: 'Retained Earnings', amount: pAndL.netProfit });
+
+    if (retainedEarningsIndex >= 0) {
+      const retainedName = trialBalance.accounts[retainedEarningsIndex].name;
+      const equityIndex = equity.findIndex((e) => e.name === retainedName);
+      if (equityIndex >= 0) {
+        equity[equityIndex].amount += currentEarnings;
+      }
+    } else {
+      equity.push({ name: 'Retained Earnings', amount: currentEarnings });
+    }
 
     const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
     const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);

@@ -21,6 +21,15 @@ import { Permissions } from '../auth/permissions.decorator';
 export class LedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
 
+  private parseAsOfDate(date?: string): Date | undefined {
+    if (!date) return undefined;
+
+    const parsedDate = new Date(date);
+    // Include the entire selected day, not just midnight.
+    parsedDate.setHours(23, 59, 59, 999);
+    return parsedDate;
+  }
+
   private getNormalizedRoleNames(user: any): string[] {
     const roles: any[] = [];
 
@@ -117,16 +126,9 @@ export class LedgerController {
     if (!tenantId) throw new UnauthorizedException();
     const effectiveBranchId = this.resolveBranchScope(req);
 
-    let asOfDate: Date | undefined;
-    if (date) {
-      asOfDate = new Date(date);
-      // Include the entire selected day, not just midnight.
-      asOfDate.setHours(23, 59, 59, 999);
-    }
-
     return this.ledgerService.getTrialBalance(
       tenantId,
-      asOfDate,
+      this.parseAsOfDate(date),
       effectiveBranchId,
     );
   }
@@ -157,7 +159,7 @@ export class LedgerController {
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.ledgerService.getBalanceSheet(
       tenantId,
-      date ? new Date(date) : undefined,
+      this.parseAsOfDate(date),
       effectiveBranchId,
     );
   }
