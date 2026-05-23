@@ -57,7 +57,7 @@ export class AnalyticsController {
         tenantId,
         effectiveBranchId,
       );
-      
+
       // Calculate previous period for growth comparison
       const now = new Date();
       const sixtyDaysAgo = new Date();
@@ -72,7 +72,7 @@ export class AnalyticsController {
         thirtyDaysAgo,
         effectiveBranchId,
       );
-      
+
       // Get previous period sales count
       const previousSales = await this.analyticsService.getSalesCountForPeriod(
         tenantId,
@@ -82,27 +82,30 @@ export class AnalyticsController {
       );
 
       // Calculate growth percentages
-      const revenueGrowth = previousRevenue > 0 
-        ? ((data.totalRevenue - previousRevenue) / previousRevenue) * 100 
+      const revenueGrowth = previousRevenue > 0
+        ? ((data.totalRevenue - previousRevenue) / previousRevenue) * 100
         : 0;
-      const salesGrowth = previousSales > 0 
-        ? ((data.totalSales - previousSales) / previousSales) * 100 
+      const salesGrowth = previousSales > 0
+        ? ((data.totalSales - previousSales) / previousSales) * 100
         : 0;
 
       // Calculate average order value
-      const averageOrderValue = data.totalSales > 0 
-        ? data.totalRevenue / data.totalSales 
+      const averageOrderValue = data.totalSales > 0
+        ? data.totalRevenue / data.totalSales
         : 0;
 
       // Format sales by month for chart (last 6 months)
       const salesByMonth = data.salesByMonth || {};
-      
+
       // Get top products with revenue
       const topProducts = (data.topProducts || []).map((product: any) => ({
         name: product.name || 'Unknown Product',
         revenue: product.revenue || 0,
         sales: product.sales || 0,
       }));
+
+      // Get COGS for last 30 days
+      const cogs = await this.analyticsService.getCostOfGoodsSold(tenantId, 30);
 
       return {
         totalSales: data.totalSales,
@@ -116,6 +119,7 @@ export class AnalyticsController {
         revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
         salesGrowth: parseFloat(salesGrowth.toFixed(1)),
         customerRetention: data.customerRetention?.retentionRate || 0,
+        cogs: parseFloat(cogs.toFixed(2)),
         message: 'Basic analytics available to all plans',
       };
     } catch (error) {
