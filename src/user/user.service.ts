@@ -334,6 +334,12 @@ export class UserService {
             tenant: true,
           },
         },
+        userPermissions: {
+          where: { tenantId },
+          select: {
+            permission: true,
+          },
+        },
       },
     });
   }
@@ -345,6 +351,11 @@ export class UserService {
           include: {
             role: true,
             tenant: true,
+          },
+        },
+        userPermissions: {
+          select: {
+            permission: true,
           },
         },
       },

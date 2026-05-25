@@ -80,6 +80,21 @@ export class UserController {
     const sameTenant = targetUser && targetUser.tenantId === req.user.tenantId;
     if (!sameTenant)
       throw new ForbiddenException('Can only update users in your tenant');
+
+    const isTenantUser =
+      targetUser &&
+      Array.isArray(targetUser.userRoles) &&
+      targetUser.userRoles.some(
+        (ur: any) =>
+          ur.tenantId === req.user.tenantId &&
+          (ur.role?.name?.toLowerCase() === 'owner' ||
+            ur.role?.name?.toLowerCase() === 'admin'),
+      );
+    if (isTenantUser)
+      throw new ForbiddenException(
+        'This is the tenant and permissions cannot be edited.',
+      );
+
     return this.userService.updateUserPermissions(
       id,
       body.permissions,
@@ -105,12 +120,48 @@ export class UserController {
   async getUsers(@Req() req: any) {
     const isSuperadmin = req.user.isSuperadmin;
     let tenantId = req.user.tenantId;
+    const normalizePermissions = async (users: any[]) =>
+      Promise.all(
+        users.map(async (u) => {
+          const directPermissions = Array.isArray(u.userPermissions)
+            ? u.userPermissions
+                .map((up: any) => up?.permission)
+                .filter(
+                  (perm: unknown): perm is string =>
+                    typeof perm === 'string' && perm.length > 0,
+                )
+            : [];
+
+          const effectivePermissions = (
+            await this.userService.getEffectivePermissions(
+              u.id,
+              u.tenantId || tenantId || undefined,
+            )
+          )
+            .map((p) => p.name)
+            .filter((perm): perm is string => typeof perm === 'string' && perm.length > 0);
+
+          const inheritedPermissions = effectivePermissions.filter(
+            (perm) => !directPermissions.includes(perm),
+          );
+
+          return {
+            ...u,
+            permissions: directPermissions,
+            effectivePermissions,
+            inheritedPermissions,
+          };
+        }),
+      );
+
     if (isSuperadmin) {
       // Return all users for superadmin
-      return await this.userService.findAll();
+      const users = await this.userService.findAll();
+      return await normalizePermissions(users as any[]);
     }
     // Return users for tenant
-    return await this.userService.findAllByTenant(tenantId);
+    const users = await this.userService.findAllByTenant(tenantId);
+    return await normalizePermissions(users as any[]);
   }
 
   @Get('protected')
