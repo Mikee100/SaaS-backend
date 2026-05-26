@@ -283,6 +283,128 @@ export class AnalyticsService {
     return this.getSalesByTimePeriod(tenantId, 'year', branchId);
   }
 
+  async getStockoutLostSales(tenantId: string, branchId?: string) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+      },
+      include: {
+        inventory: {
+          where: branchId ? { branchId } : undefined,
+          select: {
+            quantity: true,
+            reorderPoint: true,
+            updatedAt: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const stockoutItems: Array<{
+      id: string;
+      productName: string;
+      stockoutDate: string;
+      daysOutOfStock: number;
+      estimatedLostSales: number;
+      lastSalePrice: number;
+      reorderPoint: number;
+    }> = [];
+
+    for (const product of products) {
+      const inventoryStock = product.inventory.reduce(
+        (sum, inv) => sum + inv.quantity,
+        0,
+      );
+
+      // If there is no inventory row for this scope, fall back to product-level stock.
+      const currentStock =
+        product.inventory.length > 0
+          ? inventoryStock
+          : typeof product.stock === 'number'
+            ? product.stock
+            : 0;
+
+      if (currentStock > 0) {
+        continue;
+      }
+
+      const latestSaleItem = await this.prisma.saleItem.findFirst({
+        where: {
+          productId: product.id,
+          sale: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+        orderBy: { sale: { createdAt: 'desc' } },
+        select: {
+          price: true,
+          quantity: true,
+          sale: { select: { createdAt: true } },
+        },
+      });
+
+      const salesStats = await this.prisma.saleItem.aggregate({
+        where: {
+          productId: product.id,
+          sale: {
+            tenantId,
+            createdAt: { gte: thirtyDaysAgo },
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+        _sum: { quantity: true },
+      });
+
+      const totalQtyLast30Days = Number(salesStats._sum.quantity || 0);
+      const avgDailyDemand = totalQtyLast30Days / 30;
+      const lastSalePrice = latestSaleItem?.price || product.price || 0;
+
+      const stockoutStartDate =
+        product.inventory[0]?.updatedAt ||
+        latestSaleItem?.sale?.createdAt ||
+        product.updatedAt;
+
+      const daysOutOfStock = Math.max(
+        1,
+        Math.ceil(
+          (now.getTime() - new Date(stockoutStartDate).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      );
+
+      const estimatedLostSales = Math.max(
+        0,
+        Math.round(avgDailyDemand * daysOutOfStock * lastSalePrice),
+      );
+
+      const reorderPoint =
+        product.inventory.length > 0
+          ? Number(product.inventory[0]?.reorderPoint || 10)
+          : 10;
+
+      stockoutItems.push({
+        id: product.id,
+        productName: product.name,
+        stockoutDate: new Date(stockoutStartDate).toISOString(),
+        daysOutOfStock,
+        estimatedLostSales,
+        lastSalePrice,
+        reorderPoint,
+      });
+    }
+
+    return stockoutItems.sort(
+      (a, b) => b.estimatedLostSales - a.estimatedLostSales,
+    );
+  }
+
   private async getBranchSalesByTimePeriod(
     tenantId: string,
     period: 'day' | 'week' | 'month' | 'year',
@@ -484,13 +606,21 @@ export class AnalyticsService {
     let overstockItems = 0;
     let totalStockValue = 0;
     let totalCost = 0;
+    let outOfStockItems = 0;
 
     // Calculate inventory metrics
     products.forEach((product) => {
-      const stock = product.inventory.reduce(
+      // Prefer branch-level inventory totals. Fall back to product.stock only if no inventory rows exist.
+      const inventoryStock = product.inventory.reduce(
         (sum, inv) => sum + inv.quantity,
         0,
       );
+      const stock =
+        product.inventory.length > 0
+          ? inventoryStock
+          : typeof product.stock === 'number'
+          ? product.stock
+          : 0;
       const value = stock * (product.price || 0);
       const cost = stock * (product.cost || 0);
 
@@ -499,6 +629,7 @@ export class AnalyticsService {
 
       if (stock <= lowStockThreshold) lowStockItems++;
       if (stock >= overstockThreshold) overstockItems++;
+      if (stock <= 0) outOfStockItems++;
     });
 
     // Calculate inventory turnover (simplified)
@@ -509,9 +640,7 @@ export class AnalyticsService {
 
     // Calculate stockout rate (simplified)
     const stockoutRate =
-      products.length > 0
-        ? products.filter((p) => p.stock <= 0).length / products.length
-        : 0;
+      products.length > 0 ? outOfStockItems / products.length : 0;
 
     return {
       lowStockItems,

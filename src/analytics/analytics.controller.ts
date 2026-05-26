@@ -252,6 +252,27 @@ export class AnalyticsController {
     }
   }
 
+  @Get('/analytics/stockout-lost-sales')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getStockoutLostSales(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+
+    if (!tenantId) {
+      throw new Error('Tenant ID not found in user session');
+    }
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getStockoutLostSales(
+        tenantId,
+        effectiveBranchId,
+      );
+    } catch (error) {
+      console.error('Error fetching stockout lost sales report:', error);
+      throw new Error('Failed to fetch stockout lost sales report');
+    }
+  }
+
   @Get('/api/reports/branches/:tenantId/sales')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchSales(@Req() req: any) {
