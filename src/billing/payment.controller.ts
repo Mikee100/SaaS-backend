@@ -18,23 +18,6 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  @Post('methods')
-  async savePaymentMethod(
-    @Body() body: { paymentMethodId: string },
-    @Req() req,
-  ) {
-    try {
-      await this.paymentService.addPaymentMethod(
-        req.user?.tenantId,
-        body.paymentMethodId,
-      );
-      return { success: true };
-    } catch (error) {
-      console.error('Error saving payment method:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
-
   /**
    * Get payment methods
    */

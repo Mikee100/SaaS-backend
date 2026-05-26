@@ -207,9 +207,29 @@ async function bootstrap() {
     // Cookie parser (required for enterprise auth: access_token / refresh_token cookies)
     app.use(cookieParser());
 
-    // Request size limits
-    app.use(json({ limit: '10mb' }));
-    app.use(urlencoded({ extended: true, limit: '10mb' }));
+    // Request size limits.
+    // Preserve raw body for Stripe webhook signature verification.
+    app.use(
+      json({
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          if (req.originalUrl?.includes('/billing/webhook')) {
+            req.rawBody = buf;
+          }
+        },
+      }),
+    );
+    app.use(
+      urlencoded({
+        extended: true,
+        limit: '10mb',
+        verify: (req: any, _res, buf) => {
+          if (req.originalUrl?.includes('/billing/webhook')) {
+            req.rawBody = buf;
+          }
+        },
+      }),
+    );
 
     // API logging middleware
     const auditLogService = app.get(AuditLogService);

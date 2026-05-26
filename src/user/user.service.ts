@@ -251,7 +251,9 @@ export class UserService {
       // If no custom include is provided, use the default one
       const queryInclude = include || defaultInclude;
 
-      this.logger.log(`Querying database for user with email: ${normalizedEmail}`);
+      this.logger.debug(
+        `Querying database for user with email: ${normalizedEmail}`,
+      );
 
       try {
         const user = await this.prisma.user.findUnique({
@@ -260,10 +262,12 @@ export class UserService {
         });
 
         if (user) {
-          this.logger.log(`Found user: ${user.id} with email: ${normalizedEmail}`);
+          this.logger.debug(
+            `Found user: ${user.id} with email: ${normalizedEmail}`,
+          );
           return user;
         } else {
-          this.logger.warn(`No user found with email: ${normalizedEmail}`);
+          this.logger.debug(`No user found with email: ${normalizedEmail}`);
           return null;
         }
       } catch (error) {

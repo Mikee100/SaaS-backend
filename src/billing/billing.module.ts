@@ -14,6 +14,8 @@ import { UserModule } from '../user/user.module';
 import { PrismaModule } from '../prisma.module';
 import { ConfigModule } from '../config/config.module';
 import { CacheModule } from '../cache/cache.module';
+import { EmailModule } from '../email/email.module';
+import { SubscriptionEnforcementService } from './subscription-enforcement.service';
 
 @Module({
   imports: [
@@ -21,6 +23,7 @@ import { CacheModule } from '../cache/cache.module';
     PrismaModule,
     ConfigModule, // Add ConfigModule to provide CONFIG_OPTIONS
     CacheModule,
+    EmailModule,
   ],
   controllers: [
     BillingController,
@@ -33,6 +36,7 @@ import { CacheModule } from '../cache/cache.module';
     PaymentService,
     StripeService,
     SubscriptionService,
+    SubscriptionEnforcementService,
     BillingLoggerService,
     TenantConfigurationService,
     AuditLogService,

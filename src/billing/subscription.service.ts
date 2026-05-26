@@ -8,7 +8,7 @@ import { BillingService } from './billing.service';
 
 interface CreateSubscriptionDto {
   tenantId: string;
-  userId?: string | null;
+  userId: string;
   planId: string;
   paymentMethodId?: string;
 }
@@ -27,6 +27,16 @@ export class SubscriptionService {
 
   async createSubscription(data: CreateSubscriptionDto) {
     try {
+      // Ensure only superadmins can assign subscriptions
+      const user = await this.prisma.user.findUnique({
+        where: { id: data.userId },
+        select: { isSuperadmin: true },
+      });
+
+      if (!user?.isSuperadmin) {
+        throw new BadRequestException('Only superadmins can assign subscriptions');
+      }
+
       console.log('Creating subscription with data:', data);
 
       const plan = await this.prisma.plan.findUnique({
@@ -66,7 +76,32 @@ export class SubscriptionService {
         throw new NotFoundException('Plan not found');
       }
 
+      if (plan.price > 0) {
+        throw new BadRequestException(
+          'Paid plans must be created through Stripe checkout session',
+        );
+      }
+
       console.log('Found plan:', plan.name);
+
+      // Log superadmin action
+      const userId = data.userId;
+      if (!userId) {
+        throw new BadRequestException('User ID is required');
+      }
+
+      await this.prisma.auditLog.create({
+        data: {
+          id: `audit_${Date.now()}`,
+          userId,
+          action: 'superadmin_subscription_assignment',
+          details: JSON.stringify({
+            tenantId: data.tenantId,
+            planId: data.planId,
+          }),
+          createdAt: new Date(),
+        },
+      });
 
       // Check if tenant already has an active subscription
       const existingSubscription = await this.prisma.subscription.findFirst({
@@ -250,16 +285,9 @@ export class SubscriptionService {
     });
   }
 
-  private calculateEndDate(interval: string): Date {
+  private calculateEndDate(_interval: string): Date {
     const now = new Date();
-    switch (interval) {
-      case 'monthly':
-        return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-      case 'yearly':
-        return new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-      default:
-        return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-    }
+    return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
 
   private isPlanUpgrade(currentPlan: string, newPlan: string): boolean {
@@ -359,16 +387,21 @@ export class SubscriptionService {
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
-        status: 'active',
+        status: {
+          in: ['active', 'trialing', 'past_due'],
+        },
       },
       include: {
         Plan: true,
         ScheduledPlan: true,
       },
+      orderBy: {
+        currentPeriodStart: 'desc',
+      },
     });
 
     if (!subscription) {
-      throw new NotFoundException('No active subscription found');
+      throw new NotFoundException('No active or trial subscription found');
     }
 
     // Transform to match frontend expectations
@@ -388,15 +421,20 @@ export class SubscriptionService {
     const currentSubscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
-        status: 'active',
+        status: {
+          in: ['active', 'trialing', 'past_due'],
+        },
       },
       include: {
         Plan: true,
       },
+      orderBy: {
+        currentPeriodStart: 'desc',
+      },
     });
 
     if (!currentSubscription) {
-      throw new NotFoundException('No active subscription found');
+      throw new NotFoundException('No active or trial subscription found');
     }
 
     const newPlan = await this.prisma.plan.findUnique({

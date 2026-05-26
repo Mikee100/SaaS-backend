@@ -23,6 +23,160 @@ export interface InvoiceWithSubscription {
 @Injectable()
 export class BillingService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getAccessStatus(tenantId?: string, isSuperadmin = false) {
+    if (isSuperadmin) {
+      return {
+        restricted: false,
+        reason: null,
+        status: 'active',
+        currentPeriodEnd: null,
+        graceEndsAt: null,
+        daysSinceExpiry: 0,
+        renewalPath: '/account/billing',
+      };
+    }
+
+    if (!tenantId) {
+      return {
+        restricted: true,
+        reason:
+          'No tenant is assigned to your account yet. Contact your administrator to activate access.',
+        status: 'no_tenant',
+        currentPeriodEnd: null,
+        graceEndsAt: null,
+        daysSinceExpiry: null,
+        renewalPath: '/account/billing',
+      };
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        isSuspended: true,
+        Subscription: {
+          orderBy: {
+            currentPeriodStart: 'desc',
+          },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            currentPeriodStart: true,
+            currentPeriodEnd: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      return {
+        restricted: true,
+        reason: 'Tenant account was not found. Contact support for assistance.',
+        status: 'tenant_not_found',
+        currentPeriodEnd: null,
+        graceEndsAt: null,
+        daysSinceExpiry: null,
+        renewalPath: '/account/billing',
+      };
+    }
+
+    const subscription = tenant.Subscription?.[0];
+    if (!subscription) {
+      return {
+        restricted: true,
+        reason:
+          'No active subscription was found for this tenant. Renew or subscribe to restore access.',
+        status: 'no_subscription',
+        currentPeriodEnd: null,
+        graceEndsAt: null,
+        daysSinceExpiry: null,
+        renewalPath: '/account/billing',
+      };
+    }
+
+    const now = new Date();
+    const currentPeriodEnd = subscription.currentPeriodEnd;
+
+    if (currentPeriodEnd > now && !tenant.isSuspended) {
+      return {
+        restricted: false,
+        reason: null,
+        status: subscription.status,
+        currentPeriodEnd,
+        graceEndsAt: null,
+        daysSinceExpiry: 0,
+        renewalPath: '/account/billing',
+      };
+    }
+
+    const extensionDays = await this.getExtraGraceDays(
+      tenantId,
+      subscription.currentPeriodStart,
+      subscription.id,
+    );
+    const totalGraceDays = 3 + extensionDays;
+    const graceEndsAt = new Date(currentPeriodEnd);
+    graceEndsAt.setDate(graceEndsAt.getDate() + totalGraceDays);
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysSinceExpiry = Math.max(
+      0,
+      Math.floor((now.getTime() - currentPeriodEnd.getTime()) / msPerDay),
+    );
+
+    const inGraceWindow = now <= graceEndsAt;
+    const restricted = tenant.isSuspended || !inGraceWindow;
+
+    return {
+      restricted,
+      reason: restricted
+        ? 'Your subscription has expired and access is restricted. Renew in Billing to restore full access.'
+        : 'Your subscription has expired. You are currently within grace period.',
+      status: tenant.isSuspended ? 'suspended' : subscription.status,
+      currentPeriodEnd,
+      graceEndsAt,
+      daysSinceExpiry,
+      renewalPath: '/account/billing',
+    };
+  }
+
+  private async getExtraGraceDays(
+    tenantId: string,
+    periodStart: Date,
+    subscriptionId: string,
+  ): Promise<number> {
+    const extensions = await this.prisma.notification.findMany({
+      where: {
+        tenantId,
+        type: 'subscription_grace_extension',
+        createdAt: {
+          gte: periodStart,
+        },
+      },
+      select: {
+        data: true,
+      },
+    });
+
+    return extensions.reduce((sum, extension) => {
+      const data = extension.data as
+        | { days?: number; subscriptionId?: string }
+        | null;
+      if (!data) {
+        return sum;
+      }
+      if (data.subscriptionId && data.subscriptionId !== subscriptionId) {
+        return sum;
+      }
+      const days = Number(data.days || 0);
+      if (!Number.isFinite(days) || days <= 0) {
+        return sum;
+      }
+      return sum + Math.floor(days);
+    }, 0);
+  }
+
   // ADMIN: Get all tenants and their subscriptions
   async getAllTenantSubscriptions() {
     // Get all tenants with their subscriptions

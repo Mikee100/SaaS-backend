@@ -4,6 +4,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
@@ -58,6 +59,64 @@ export class StripeService {
         error,
       );
       return null;
+    }
+  }
+
+  private getWebhookEventKey(eventId: string): string {
+    return `stripe_webhook_event:${eventId}`;
+  }
+
+  private async acquireWebhookEventLock(event: Stripe.Event): Promise<string | null> {
+    const key = this.getWebhookEventKey(event.id);
+
+    try {
+      await this.prisma.systemConfiguration.create({
+        data: {
+          id: randomUUID(),
+          key,
+          value: 'processing',
+          description: `Stripe webhook lock for ${event.type}`,
+          category: 'billing_webhook',
+          isEncrypted: false,
+          isPublic: false,
+          updatedAt: new Date(),
+        },
+      });
+
+      return key;
+    } catch (error) {
+      if ((error as any)?.code === 'P2002') {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
+  private async markWebhookEventProcessed(
+    key: string,
+    event: Stripe.Event,
+  ): Promise<void> {
+    await this.prisma.systemConfiguration.update({
+      where: { key },
+      data: {
+        value: JSON.stringify({
+          status: 'processed',
+          eventType: event.type,
+          eventId: event.id,
+          processedAt: new Date().toISOString(),
+        }),
+        description: `Stripe webhook processed for ${event.type}`,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  private async releaseWebhookEventLock(key: string): Promise<void> {
+    try {
+      await this.prisma.systemConfiguration.delete({ where: { key } });
+    } catch (error) {
+      this.logger.warn(`Failed to release webhook lock for key: ${key}`, error);
     }
   }
 
@@ -145,7 +204,9 @@ export class StripeService {
           customer = customerData as Stripe.Customer;
         }
       } catch (error) {
-        this.logger.error(`Failed to retrieve customer: ${error.message}`);
+        this.logger.error(
+          `Failed to retrieve customer: ${(error as any).message}`,
+        );
       }
     }
 
@@ -237,6 +298,12 @@ export class StripeService {
       return;
     }
 
+    const eventKey = await this.acquireWebhookEventLock(event);
+    if (!eventKey) {
+      this.logger.log(`Skipping duplicate Stripe webhook event: ${event.id}`);
+      return;
+    }
+
     try {
       this.logger.log(
         `Processing Stripe webhook: ${event.type} for event: ${event.id}`,
@@ -271,10 +338,13 @@ export class StripeService {
         },
       );
 
+      await this.markWebhookEventProcessed(eventKey, event);
+
       this.logger.log(
         `Successfully processed webhook: ${event.type} for event: ${event.id}`,
       );
     } catch (error) {
+      await this.releaseWebhookEventLock(eventKey);
       this.logger.error(`Failed to process webhook: ${event.type}`, error);
       throw error;
     }
@@ -305,36 +375,42 @@ export class StripeService {
         planId = 'enterprise-plan';
       }
 
-      await this.prisma.subscription.create({
-        data: {
+      const mappedData = {
+        tenantId,
+        planId,
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: subscription.customer as string,
+        stripePriceId: priceId,
+        stripeCurrentPeriodEnd: new Date(
+          (subscription as any).current_period_end * 1000,
+        ),
+        status: subscription.status,
+        currentPeriodStart: new Date(
+          (subscription as any).current_period_start * 1000,
+        ),
+        currentPeriodEnd: new Date(
+          (subscription as any).current_period_end * 1000,
+        ),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        canceledAt: subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000)
+          : null,
+        trialStart: subscription.trial_start
+          ? new Date(subscription.trial_start * 1000)
+          : null,
+        trialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000)
+          : null,
+        userId: userId || null,
+      };
+
+      await this.prisma.subscription.upsert({
+        where: { stripeSubscriptionId: subscription.id },
+        create: {
           id: subscription.id,
-          tenantId,
-          planId,
-          stripeSubscriptionId: subscription.id,
-          stripeCustomerId: subscription.customer as string,
-          stripePriceId: priceId,
-          stripeCurrentPeriodEnd: new Date(
-            (subscription as any).current_period_end * 1000,
-          ),
-          status: subscription.status,
-          currentPeriodStart: new Date(
-            (subscription as any).current_period_start * 1000,
-          ),
-          currentPeriodEnd: new Date(
-            (subscription as any).current_period_end * 1000,
-          ),
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-          canceledAt: subscription.cancel_at
-            ? new Date(subscription.cancel_at * 1000)
-            : null,
-          trialStart: subscription.trial_start
-            ? new Date(subscription.trial_start * 1000)
-            : null,
-          trialEnd: subscription.trial_end
-            ? new Date(subscription.trial_end * 1000)
-            : null,
-          userId: userId || 'system', // Use system as fallback if userId is not provided
+          ...mappedData,
         },
+        update: mappedData,
       });
 
       await this.auditLogService.log(
@@ -1452,5 +1528,9 @@ export class StripeService {
         'Failed to confirm payment intent',
       );
     }
+  }
+
+  async getTenantWebhookSecret(tenantId: string): Promise<string | null> {
+    return this.tenantConfigurationService.getStripeWebhookSecret(tenantId);
   }
 }

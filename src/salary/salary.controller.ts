@@ -170,7 +170,6 @@ export class SalaryController {
   @Get('total-expense')
   @Permissions('view_sales')
   async getSalaryTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
-    console.log(`Controller: getSalaryTotalForMonth called with month: ${month}, year: ${year}, tenantId: ${req.user.tenantId}`);
     if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
       throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
     }
@@ -181,7 +180,6 @@ export class SalaryController {
       year,
       effectiveBranchId,
     );
-    console.log(`Controller: returning result:`, result);
     return {
       success: true,
       data: result,

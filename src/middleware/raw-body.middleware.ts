@@ -4,14 +4,15 @@ import { Request, Response, NextFunction } from 'express';
 @Injectable()
 export class RawBodyMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
-    if (req.originalUrl === '/billing/webhook') {
+    const isBillingWebhook = req.originalUrl?.includes('/billing/webhook');
+    if (isBillingWebhook) {
       let data = '';
       req.setEncoding('utf8');
       req.on('data', (chunk) => {
         data += chunk;
       });
       req.on('end', () => {
-        (req as any).rawBody = data;
+        (req as any).rawBody = Buffer.from(data, 'utf8');
         next();
       });
     } else {

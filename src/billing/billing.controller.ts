@@ -6,6 +6,8 @@ import {
   Req,
   UseGuards,
   Logger,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
@@ -17,6 +19,7 @@ import { TrialGuard } from '../auth/trial.guard';
 import { RawBodyRequest } from '@nestjs/common';
 import { Response } from 'express';
 import { PrismaService } from '../prisma.service';
+import { Param } from '@nestjs/common';
 
 @Controller('billing')
 export class BillingController {
@@ -28,6 +31,50 @@ export class BillingController {
     private readonly subscriptionService: SubscriptionService,
     private readonly prisma: PrismaService,
   ) {}
+
+  private resolveBillingUrls(req: any, successUrl?: string, cancelUrl?: string) {
+    const origin =
+      req.headers?.origin ||
+      process.env.FRONTEND_URL ||
+      'http://localhost:3000';
+
+    return {
+      successUrl:
+        successUrl ||
+        `${origin}/settings/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: cancelUrl || `${origin}/settings/billing/subscription?checkout=cancelled`,
+    };
+  }
+
+  private async resolvePriceIdForCheckout(
+    tenantId: string,
+    body: { planId?: string; priceId?: string },
+  ): Promise<string> {
+    if (body.priceId) {
+      return body.priceId;
+    }
+
+    if (!body.planId) {
+      throw new BadRequestException('Either planId or priceId is required');
+    }
+
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: body.planId },
+      select: { id: true, stripePriceId: true },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    if (!plan.stripePriceId) {
+      throw new BadRequestException(
+        'Selected plan is not mapped to a Stripe price',
+      );
+    }
+
+    return plan.stripePriceId;
+  }
   // ADMIN: Get all tenants and their subscriptions
   @Get('admin/billing/tenants')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -50,7 +97,7 @@ export class BillingController {
     } catch (error) {
       console.error('Test endpoint error:', error);
       return {
-        error: error.message,
+        error: (error as any).message,
         timestamp: new Date().toISOString(),
       };
     }
@@ -80,7 +127,7 @@ export class BillingController {
     } catch (error) {
       console.error('Subscription test error:', error);
       return {
-        error: error.message,
+        error: (error as any).message,
         timestamp: new Date().toISOString(),
       };
     }
@@ -94,6 +141,15 @@ export class BillingController {
       service: 'billing',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  @Get('access-status')
+  @UseGuards(AuthGuard('jwt'))
+  async getAccessStatus(@Req() req) {
+    return this.billingService.getAccessStatus(
+      req.user?.tenantId,
+      !!req.user?.isSuperadmin,
+    );
   }
 
   @Get('plans')
@@ -149,13 +205,54 @@ export class BillingController {
         throw new Error('No tenant ID found in user object');
       }
 
+      const plan = await this.prisma.plan.findUnique({
+        where: { id: body.planId },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          stripePriceId: true,
+        },
+      });
+
+      if (!plan) {
+        throw new NotFoundException('Plan not found');
+      }
+
+      // Paid plans must flow through Stripe Checkout to avoid local/Stripe state drift.
+      if (plan.price > 0) {
+        if (!plan.stripePriceId) {
+          throw new BadRequestException(
+            'Paid plan is missing Stripe price mapping',
+          );
+        }
+
+        const { successUrl, cancelUrl } = this.resolveBillingUrls(req);
+        const session = await this.stripeService.createCheckoutSession(
+          req.user.tenantId,
+          plan.stripePriceId,
+          successUrl,
+          cancelUrl,
+          req.user.id,
+        );
+
+        return {
+          message: 'Checkout session created',
+          requiresCheckout: true,
+          sessionId: session.id,
+          url: session.url,
+        };
+      }
+
       const subscription = await this.subscriptionService.createSubscription({
         tenantId: req.user.tenantId,
         planId: body.planId,
+        userId: req.user.id,
       });
 
       return {
         message: 'Subscription created successfully',
+        requiresCheckout: false,
         subscription,
       };
     } catch (error) {
@@ -167,14 +264,27 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
   async createCheckoutSession(
-    @Body() body: { priceId: string; successUrl: string; cancelUrl: string },
+    @Body()
+    body: {
+      planId?: string;
+      priceId?: string;
+      successUrl?: string;
+      cancelUrl?: string;
+    },
     @Req() req,
   ) {
-    const session = await this.stripeService.createCheckoutSession(
-      req.user.tenantId,
-      body.priceId,
+    const priceId = await this.resolvePriceIdForCheckout(req.user.tenantId, body);
+    const { successUrl, cancelUrl } = this.resolveBillingUrls(
+      req,
       body.successUrl,
       body.cancelUrl,
+    );
+
+    const session = await this.stripeService.createCheckoutSession(
+      req.user.tenantId,
+      priceId,
+      successUrl,
+      cancelUrl,
       req.user.id,
     );
     return { sessionId: session.id, url: session.url };
@@ -241,6 +351,39 @@ export class BillingController {
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       throw new Error('Webhook signature verification failed');
+    }
+  }
+
+  @Post('webhook/:tenantId')
+  async handleTenantWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Body() body: any,
+    @Param('tenantId') tenantId: string,
+  ) {
+    const sig = req.headers['stripe-signature'];
+    const rawBody = req.rawBody;
+
+    if (!sig || !rawBody) {
+      throw new BadRequestException('Missing Stripe signature or raw body');
+    }
+
+    try {
+      const secret = await this.stripeService.getTenantWebhookSecret(tenantId);
+      if (!secret) {
+        throw new NotFoundException('Webhook secret not configured for tenant');
+      }
+
+      const event = await this.stripeService.verifyWebhookSignature(
+        rawBody,
+        sig,
+        secret,
+      );
+
+      await this.stripeService.handleWebhook(event);
+      return { received: true };
+    } catch (err) {
+      this.logger.error('Webhook verification failed:', err);
+      throw new BadRequestException('Webhook verification failed');
     }
   }
 
@@ -392,5 +535,34 @@ export class BillingController {
       SET credits = COALESCE(credits, 0) + ${Math.floor(amount / 100)}
       WHERE id = ${tenantId}
     `;
+  }
+
+  @Post('superadmin/assign-subscription')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+  @Permissions('superadmin')
+  async assignSubscription(
+    @Body() body: { tenantId: string; planId: string },
+    @Req() req,
+  ) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new BadRequestException('User ID is required');
+      }
+
+      const result = await this.subscriptionService.createSubscription({
+        tenantId: body.tenantId,
+        planId: body.planId,
+        userId,
+      });
+
+      return {
+        success: true,
+        subscription: result,
+      };
+    } catch (error) {
+      this.logger.error('Failed to assign subscription:', error);
+      throw error;
+    }
   }
 }

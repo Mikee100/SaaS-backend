@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma.module';
@@ -34,6 +34,7 @@ import { ClassificationModule } from './classification/classification.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { ImpersonationInterceptor } from './admin/impersonation.interceptor';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { RawBodyMiddleware } from './middleware/raw-body.middleware';
 
 @Module({
   imports: [
@@ -97,4 +98,10 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RawBodyMiddleware)
+      .forRoutes({ path: 'billing/webhook', method: RequestMethod.POST });
+  }
+}

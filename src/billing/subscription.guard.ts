@@ -22,7 +22,9 @@ export class SubscriptionGuard implements CanActivate {
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
-        status: 'active',
+        status: {
+          in: ['active', 'trialing', 'past_due'],
+        },
       },
       include: {
         Plan: true,
@@ -30,7 +32,15 @@ export class SubscriptionGuard implements CanActivate {
     });
 
     if (!subscription) {
-      throw new ForbiddenException('No active subscription found');
+      throw new ForbiddenException('No active or trial subscription found');
+    }
+
+    // For past_due subscriptions, allow temporary access only until period end.
+    if (
+      subscription.status === 'past_due' &&
+      subscription.currentPeriodEnd < new Date()
+    ) {
+      throw new ForbiddenException('Subscription payment is overdue');
     }
 
     const plan = subscription.Plan;

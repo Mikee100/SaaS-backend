@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma.service';
 import { StripeService } from './stripe.service';
 import { AuditLogService } from '../audit-log.service';
@@ -28,20 +29,41 @@ export class PaymentService {
         `Processing one-time payment for tenant: ${tenantId}, amount: ${amount}`,
       );
 
-      // Mock implementation for now - replace with actual Stripe integration once configured
-      const mockPaymentId = `pi_${Date.now()}`;
-      const mockClientSecret = `pi_${Date.now()}_secret_${Math.random().toString(36).substr(2, 9)}`;
+      const paymentIntent = await this.stripeService.createOneTimePaymentIntent(
+        tenantId,
+        amount,
+        currency,
+        description,
+        metadata,
+      );
+
+      const payment = await this.prisma.payment.create({
+        data: {
+          id: randomUUID(),
+          tenantId,
+          stripePaymentIntentId: paymentIntent.id,
+          amount,
+          currency: currency.toUpperCase(),
+          status: paymentIntent.status,
+          description,
+          metadata,
+          completedAt:
+            paymentIntent.status === 'succeeded' ? new Date() : undefined,
+          updatedAt: new Date(),
+        },
+      });
 
       await this.auditLogService.log(null, 'payment_created', {
         tenantId,
-        paymentId: mockPaymentId,
+        paymentId: payment.id,
+        paymentIntentId: paymentIntent.id,
         amount,
         currency,
       });
 
       return {
-        paymentId: mockPaymentId,
-        clientSecret: mockClientSecret,
+        paymentId: payment.id,
+        clientSecret: paymentIntent.client_secret,
         amount,
         currency,
       };
@@ -61,13 +83,41 @@ export class PaymentService {
     try {
       this.logger.log(`Confirming payment: ${paymentId}`);
 
-      // Mock implementation for now - replace with actual database update once Payment model is migrated
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: paymentId },
+      });
+
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      if (payment.stripePaymentIntentId !== paymentIntentId) {
+        throw new Error('Payment intent does not match payment record');
+      }
+
+      const paymentIntent = await this.stripeService.retrievePaymentIntent(
+        payment.tenantId,
+        paymentIntentId,
+      );
+
+      const isSucceeded = paymentIntent.status === 'succeeded';
+
+      await this.prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: paymentIntent.status,
+          completedAt: isSucceeded ? new Date() : null,
+          updatedAt: new Date(),
+        },
+      });
+
       await this.auditLogService.log(null, 'payment_confirmed', {
         paymentId,
         paymentIntentId,
+        status: paymentIntent.status,
       });
 
-      return { success: true, paymentId };
+      return { success: isSucceeded, paymentId };
     } catch (error) {
       this.logger.error(`Failed to confirm payment: ${paymentId}`, error);
       throw error;
@@ -103,12 +153,12 @@ export class PaymentService {
       // Store invoice record
       const invoice = await this.prisma.invoice.create({
         data: {
-          id: `inv_${Date.now()}`,
+          id: stripeInvoice.id,
           tenantId: subscription.tenantId,
           subscriptionId: subscription.id,
           number: stripeInvoice.number || `INV-${Date.now()}`,
-          amount: amount / 100, // Convert from cents to dollars if needed
-          status: 'draft',
+          amount,
+          status: stripeInvoice.status || 'open',
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
           updatedAt: new Date(),
         },
@@ -143,24 +193,46 @@ export class PaymentService {
         `Getting payment analytics for tenant: ${tenantId}, period: ${period}`,
       );
 
-      // Mock data for now - replace with actual database queries once Payment model is migrated
-      const mockAnalytics = {
+      const now = new Date();
+      const startDate = new Date(now);
+      if (period === 'month') {
+        startDate.setMonth(now.getMonth() - 1);
+      } else if (period === 'quarter') {
+        startDate.setMonth(now.getMonth() - 3);
+      } else {
+        startDate.setFullYear(now.getFullYear() - 1);
+      }
+
+      const [aggregate, statusBreakdown] = await Promise.all([
+        this.prisma.payment.aggregate({
+          where: {
+            tenantId,
+            createdAt: { gte: startDate },
+            status: { in: ['succeeded', 'completed'] },
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+        this.prisma.payment.groupBy({
+          by: ['status'],
+          where: {
+            tenantId,
+            createdAt: { gte: startDate },
+          },
+          _count: { status: true },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const totalRevenue = aggregate._sum.amount || 0;
+      const paymentCount = aggregate._count.id || 0;
+
+      const analytics = {
         period,
-        totalRevenue: 1250.0,
-        paymentCount: 15,
-        averagePayment: 83.33,
-        paymentMethods: [
-          {
-            paymentMethod: 'card',
-            _count: { paymentMethod: 12 },
-            _sum: { amount: 1000.0 },
-          },
-          {
-            paymentMethod: 'bank_transfer',
-            _count: { paymentMethod: 3 },
-            _sum: { amount: 250.0 },
-          },
-        ],
+        totalRevenue,
+        paymentCount,
+        averagePayment: paymentCount > 0 ? totalRevenue / paymentCount : 0,
+        statusBreakdown,
         currency: 'USD',
       };
 
@@ -169,7 +241,7 @@ export class PaymentService {
         period,
       });
 
-      return mockAnalytics;
+      return analytics;
     } catch (error) {
       this.logger.error(
         `Failed to get payment analytics for tenant: ${tenantId}`,
@@ -192,36 +264,46 @@ export class PaymentService {
         `Getting payment history for tenant: ${tenantId}, limit: ${limit}, offset: ${offset}`,
       );
 
-      // Mock data for now - replace with actual database queries once Payment model is migrated
-      const mockHistory = [
-        {
-          id: '1',
-          amount: 99.99,
-          currency: 'USD',
-          status: 'completed',
-          description: 'Monthly subscription payment',
-          createdAt: new Date().toISOString(),
-          type: 'payment',
-        },
-        {
-          id: '2',
-          amount: 29.99,
-          currency: 'USD',
-          status: 'completed',
-          description: 'One-time payment',
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          type: 'payment',
-        },
-        {
-          id: '3',
-          amount: 199.99,
-          currency: 'USD',
-          status: 'pending',
-          description: 'Annual subscription',
-          createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          type: 'invoice',
-        },
-      ];
+      const [payments, invoices] = await Promise.all([
+        this.prisma.payment.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        this.prisma.invoice.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: Math.max(10, Math.ceil(limit / 2)),
+        }),
+      ]);
+
+      const paymentHistory = payments.map((payment) => ({
+        id: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        description: payment.description || 'One-time payment',
+        createdAt: payment.createdAt.toISOString(),
+        type: 'payment',
+      }));
+
+      const invoiceHistory = invoices.map((invoice) => ({
+        id: invoice.id,
+        amount: invoice.amount,
+        currency: 'USD',
+        status: invoice.status,
+        description: `Invoice ${invoice.number}`,
+        createdAt: invoice.createdAt.toISOString(),
+        type: 'invoice',
+      }));
+
+      const history = [...paymentHistory, ...invoiceHistory]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .slice(0, limit);
 
       await this.auditLogService.log(null, 'payment_history_viewed', {
         tenantId,
@@ -229,7 +311,7 @@ export class PaymentService {
         offset,
       });
 
-      return mockHistory;
+      return history;
     } catch (error) {
       this.logger.error(
         `Failed to get payment history for tenant: ${tenantId}`,
@@ -296,35 +378,38 @@ export class PaymentService {
     try {
       this.logger.log(`Getting payment methods for tenant: ${tenantId}`);
 
-      // Mock data for now - replace with actual Stripe calls once configured
-      const mockMethods = [
-        {
-          id: 'pm_1',
-          type: 'card',
-          card: {
-            brand: 'visa',
-            last4: '4242',
-            expMonth: 12,
-            expYear: 2025,
-          },
-        },
-        {
-          id: 'pm_2',
-          type: 'card',
-          card: {
-            brand: 'mastercard',
-            last4: '5555',
-            expMonth: 6,
-            expYear: 2026,
-          },
-        },
-      ];
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { stripeCustomerId: true },
+      });
+
+      if (!tenant?.stripeCustomerId) {
+        return [];
+      }
+
+      const methods = await this.stripeService.getPaymentMethods(
+        tenantId,
+        tenant.stripeCustomerId,
+      );
+
+      const normalizedMethods = methods.map((method) => ({
+        id: method.id,
+        type: method.type,
+        card: method.card
+          ? {
+              brand: method.card.brand,
+              last4: method.card.last4,
+              expMonth: method.card.exp_month,
+              expYear: method.card.exp_year,
+            }
+          : null,
+      }));
 
       await this.auditLogService.log(null, 'payment_methods_viewed', {
         tenantId,
       });
 
-      return mockMethods;
+      return normalizedMethods;
     } catch (error) {
       this.logger.error(
         `Failed to get payment methods for tenant: ${tenantId}`,

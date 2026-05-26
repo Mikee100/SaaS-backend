@@ -166,7 +166,6 @@ export class ProductController {
   @Delete('clear-all')
   @Permissions('delete_products')
   async clearAll(@Req() req: Request) {
-    console.log('[clearAll] called', { user: req.user });
     // Only allow for current tenant
     return this.productService.clearAll(
       (req.user! as { tenantId: string }).tenantId,
@@ -399,7 +398,6 @@ export class ProductController {
     }>,
     @Req() req,
   ) {
-    console.log('[updateVariation] called', { id, body, user: req.user });
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -410,7 +408,6 @@ export class ProductController {
   @UseGuards(AuthGuard('jwt'))
   @Permissions('delete_products')
   async deleteVariation(@Param('id') id: string, @Req() req) {
-    console.log('[deleteVariation] called', { id, user: req.user });
     if (!req.user || !req.user.tenantId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
@@ -422,7 +419,6 @@ export class ProductController {
   @UseGuards(AuthGuard('jwt'))
   @Permissions('edit_products')
   async generateVariationsLegacy(@Param('id') id: string, @Req() req) {
-    console.log('[generateVariationsLegacy] called', { id, user: req.user });
     if (!req.user || !req.user.tenantId || !req.user.userId) {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }

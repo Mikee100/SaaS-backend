@@ -67,7 +67,9 @@ export class AuthService {
         },
       });
 
-      console.log('the user: ', user);
+      this.logger.debug(
+        `Login attempt for ${email} (user resolved: ${user ? 'yes' : 'no'})`,
+      );
 
       // 2. Check if user exists and password is correct
       if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -159,7 +161,7 @@ export class AuthService {
           });
         }
       } catch (error) {
-        console.error('Error fetching user permissions:', error);
+        this.logger.error('Error fetching user permissions', error as Error);
       }
 
       // 6. Device (enterprise auth): find or create by fingerprint

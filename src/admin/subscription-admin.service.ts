@@ -1,11 +1,922 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+
+interface BillingOpsFilters {
+  search?: string;
+  state?: string;
+  suspendedOnly?: boolean;
+}
+
+interface RecordManualPaymentInput {
+  amount: number;
+  currency?: string;
+  method?: string;
+  referenceCode?: string;
+  payerName?: string;
+  receiptUrl?: string;
+  notes?: string;
+  months?: number;
+  applyNow?: boolean;
+  reason?: string;
+  planId?: string;
+}
 
 @Injectable()
 export class SubscriptionAdminService {
   private readonly logger = new Logger(SubscriptionAdminService.name);
+  private static readonly BASE_GRACE_DAYS = 3;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async getTenantBillingOperationsOverview(filters: BillingOpsFilters = {}) {
+    const search = (filters.search || '').trim();
+    const where: any = {
+      deletedAt: null,
+    };
+
+    if (filters.suspendedOnly) {
+      where.isSuspended = true;
+    }
+
+    if (search) {
+      where.OR = [
+        {
+          name: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+        {
+          contactEmail: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+
+    const tenants = await this.prisma.tenant.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        contactEmail: true,
+        isSuspended: true,
+        createdAt: true,
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+        Subscription: {
+          orderBy: {
+            currentPeriodStart: 'desc',
+          },
+          take: 1,
+          include: {
+            Plan: true,
+          },
+        },
+      },
+    });
+
+    const now = new Date();
+
+    const mapped = await Promise.all(
+      tenants.map(async (tenant) => {
+        const sub = tenant.Subscription?.[0] || null;
+        const extensionDays = sub
+          ? await this.getExtraGraceDays(tenant.id, sub.currentPeriodStart, sub.id)
+          : 0;
+
+        const baseGraceDays = SubscriptionAdminService.BASE_GRACE_DAYS;
+        const totalGraceDays = baseGraceDays + extensionDays;
+
+        const currentPeriodEnd = sub?.currentPeriodEnd || null;
+        const graceEndsAt = currentPeriodEnd
+          ? this.addDays(currentPeriodEnd, totalGraceDays)
+          : null;
+
+        const daysToNextBilling =
+          currentPeriodEnd && currentPeriodEnd > now
+            ? Math.ceil(
+                (currentPeriodEnd.getTime() - now.getTime()) /
+                  (1000 * 60 * 60 * 24),
+              )
+            : 0;
+
+        const daysSinceExpiry =
+          currentPeriodEnd && currentPeriodEnd < now
+            ? Math.ceil(
+                (now.getTime() - currentPeriodEnd.getTime()) /
+                  (1000 * 60 * 60 * 24),
+              )
+            : 0;
+
+        const inGrace =
+          !!currentPeriodEnd &&
+          currentPeriodEnd < now &&
+          !!graceEndsAt &&
+          now <= graceEndsAt;
+
+        const overGrace = !!graceEndsAt && now > graceEndsAt;
+
+        const billingState = !sub
+          ? 'no_subscription'
+          : currentPeriodEnd && currentPeriodEnd > now
+            ? 'active'
+            : inGrace
+              ? 'in_grace'
+              : overGrace
+                ? 'expired_over_grace'
+                : 'expired';
+
+        return {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          tenantEmail: tenant.contactEmail,
+          billingCycle: 'monthly',
+          planName: sub?.Plan?.name || null,
+          planPrice: sub?.Plan?.price || 0,
+          subscriptionId: sub?.id || null,
+          subscriptionStatus: sub?.status || null,
+          currentPeriodStart: sub?.currentPeriodStart || null,
+          currentPeriodEnd,
+          nextBillingDate: currentPeriodEnd,
+          daysToNextBilling,
+          daysSinceExpiry,
+          baseGraceDays,
+          extensionGraceDays: extensionDays,
+          totalGraceDays,
+          graceEndsAt,
+          billingState,
+          inGrace,
+          overGrace,
+          isSuspended: tenant.isSuspended,
+          linkedAccountsCount: tenant._count.users,
+          accountActionLabel: tenant.isSuspended
+            ? 'Remove access restriction'
+            : 'Restrict access',
+        };
+      }),
+    );
+
+    const state = (filters.state || 'all').toLowerCase();
+    return mapped.filter((item) => state === 'all' || item.billingState === state);
+  }
+
+  async reactivateTenantBillingAccess(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, isSuspended: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { isSuspended: false },
+      }),
+      this.prisma.notification.create({
+        data: {
+          id: this.newId('notif'),
+          tenantId,
+          type: 'subscription_manual_reactivation',
+          title: 'Tenant reactivated by admin',
+          message: 'Admin removed billing access restrictions for this tenant.',
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Tenant access restriction removed',
+      tenantId,
+    };
+  }
+
+  async suspendTenantBillingAccess(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { isSuspended: true },
+      }),
+      this.prisma.notification.create({
+        data: {
+          id: this.newId('notif'),
+          tenantId,
+          type: 'subscription_manual_suspension',
+          title: 'Tenant suspended by admin',
+          message: 'Admin manually restricted billing access for this tenant.',
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Tenant access restricted',
+      tenantId,
+    };
+  }
+
+  async extendTenantGracePeriod(
+    tenantId: string,
+    days: number,
+    reason?: string,
+  ) {
+    const normalizedDays = Math.max(1, Math.min(365, Math.floor(days)));
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        isSuspended: true,
+        Subscription: {
+          orderBy: {
+            currentPeriodStart: 'desc',
+          },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            currentPeriodStart: true,
+            currentPeriodEnd: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const subscription = tenant.Subscription?.[0];
+    if (!subscription) {
+      throw new NotFoundException('No subscription found for tenant');
+    }
+
+    const currentExtensionDays = await this.getExtraGraceDays(
+      tenantId,
+      subscription.currentPeriodStart,
+      subscription.id,
+    );
+
+    const totalGraceDays =
+      SubscriptionAdminService.BASE_GRACE_DAYS + currentExtensionDays + normalizedDays;
+    const newGraceEndsAt = this.addDays(subscription.currentPeriodEnd, totalGraceDays);
+    const now = new Date();
+
+    const tx: any[] = [
+      this.prisma.notification.create({
+        data: {
+          id: this.newId('notif'),
+          tenantId,
+          type: 'subscription_grace_extension',
+          title: 'Grace period extended',
+          message: `Admin extended grace period by ${normalizedDays} day(s).`,
+          data: {
+            days: normalizedDays,
+            reason: reason || 'No reason provided',
+            subscriptionId: subscription.id,
+            subscriptionPeriodStart: subscription.currentPeriodStart,
+            subscriptionPeriodEnd: subscription.currentPeriodEnd,
+          },
+        },
+      }),
+    ];
+
+    if (tenant.isSuspended && now <= newGraceEndsAt) {
+      tx.push(
+        this.prisma.tenant.update({
+          where: { id: tenantId },
+          data: { isSuspended: false },
+        }),
+      );
+      tx.push(
+        this.prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status:
+              subscription.currentPeriodEnd < now ? 'past_due' : subscription.status,
+          },
+        }),
+      );
+    }
+
+    await this.prisma.$transaction(tx);
+
+    return {
+      success: true,
+      tenantId,
+      subscriptionId: subscription.id,
+      extensionDaysAdded: normalizedDays,
+      totalGraceDays,
+      graceEndsAt: newGraceEndsAt,
+      message: `Grace period extended by ${normalizedDays} day(s).`,
+    };
+  }
+
+  async manuallyRenewTenantSubscription(
+    tenantId: string,
+    months = 1,
+    reason?: string,
+    planId?: string,
+    manualPayment?: {
+      amount?: number;
+      currency?: string;
+      method?: string;
+      referenceCode?: string;
+      payerName?: string;
+      receiptUrl?: string;
+      notes?: string;
+      paymentId?: string;
+    },
+  ) {
+    const normalizedMonths = Math.max(1, Math.min(24, Math.floor(months)));
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        stripeCustomerId: true,
+        isSuspended: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    let subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      orderBy: { currentPeriodStart: 'desc' },
+      include: {
+        Plan: true,
+      },
+    });
+
+    if (!subscription && !planId) {
+      throw new BadRequestException(
+        'No existing subscription found. Provide a planId to create a manual monthly subscription.',
+      );
+    }
+
+    const now = new Date();
+    const tx: any[] = [];
+
+    if (!subscription && planId) {
+      const plan = await this.prisma.plan.findUnique({
+        where: { id: planId },
+      });
+
+      if (!plan) {
+        throw new NotFoundException('Plan not found for manual renewal');
+      }
+
+      const periodStart = now;
+      const periodEnd = this.addMonths(periodStart, normalizedMonths);
+
+      const created = await this.prisma.subscription.create({
+        data: {
+          id: this.newId('sub'),
+          tenantId,
+          planId: plan.id,
+          status: 'active',
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+          canceledAt: null,
+          stripePriceId: plan.stripePriceId || '',
+          stripeSubscriptionId: `manual-${tenantId}-${Date.now()}`,
+          stripeCurrentPeriodEnd: periodEnd,
+          stripeCustomerId: tenant.stripeCustomerId || '',
+          isTrial: false,
+          userId: null,
+        },
+        include: {
+          Plan: true,
+        },
+      });
+
+      subscription = created;
+    } else if (subscription) {
+      const anchorStart =
+        subscription.currentPeriodEnd && subscription.currentPeriodEnd > now
+          ? subscription.currentPeriodEnd
+          : now;
+      const nextEnd = this.addMonths(anchorStart, normalizedMonths);
+
+      tx.push(
+        this.prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: 'active',
+            cancelAtPeriodEnd: false,
+            canceledAt: null,
+            currentPeriodStart: anchorStart,
+            currentPeriodEnd: nextEnd,
+            stripeCurrentPeriodEnd: nextEnd,
+            trialStart: null,
+            trialEnd: null,
+            isTrial: false,
+          },
+        }),
+      );
+    }
+
+    tx.push(
+      this.prisma.tenant.update({
+        where: { id: tenantId },
+        data: { isSuspended: false },
+      }),
+    );
+
+    tx.push(
+      this.prisma.notification.create({
+        data: {
+          id: this.newId('notif'),
+          tenantId,
+          type: 'subscription_manual_renewal',
+          title: 'Manual subscription renewal recorded',
+          message: `Admin recorded off-system payment and renewed subscription for ${normalizedMonths} month(s).`,
+          data: {
+            months: normalizedMonths,
+            reason: reason || 'Off-system payment received',
+            planId: subscription?.planId || planId || null,
+          },
+        },
+      }),
+    );
+
+    await this.prisma.$transaction(tx);
+
+    const updated = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      orderBy: { currentPeriodStart: 'desc' },
+      include: { Plan: true },
+    });
+
+    const invoiceAmount =
+      manualPayment?.amount && Number.isFinite(manualPayment.amount)
+        ? Number(manualPayment.amount)
+        : Number(updated?.Plan?.price || 0) * normalizedMonths;
+
+    const createdInvoice = await this.prisma.invoice.create({
+      data: {
+        id: this.newId('inv'),
+        number: `INV-MAN-${Date.now()}`,
+        tenantId,
+        subscriptionId: updated?.id || null,
+        amount: Math.max(0, invoiceAmount),
+        status: 'paid',
+        dueDate: now,
+        paidAt: now,
+        updatedAt: now,
+      },
+    });
+
+    if (manualPayment?.paymentId) {
+      const existingPayment = await this.prisma.payment.findUnique({
+        where: { id: manualPayment.paymentId },
+        select: { metadata: true },
+      });
+
+      const metadata =
+        existingPayment &&
+        existingPayment.metadata &&
+        typeof existingPayment.metadata === 'object'
+          ? (existingPayment.metadata as Record<string, unknown>)
+          : {};
+
+      await this.prisma.payment.update({
+        where: { id: manualPayment.paymentId },
+        data: {
+          status: 'completed',
+          completedAt: now,
+          description: `Manual subscription payment applied (${normalizedMonths} month(s))`,
+          metadata: {
+            ...metadata,
+            appliedToSubscription: true,
+            appliedAt: now.toISOString(),
+            renewedMonths: normalizedMonths,
+            subscriptionId: updated?.id || null,
+            invoiceId: createdInvoice.id,
+          },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      tenantId,
+      subscriptionId: updated?.id || null,
+      planName: updated?.Plan?.name || null,
+      renewedMonths: normalizedMonths,
+      currentPeriodStart: updated?.currentPeriodStart || null,
+      currentPeriodEnd: updated?.currentPeriodEnd || null,
+      invoiceId: createdInvoice.id,
+      invoiceNumber: createdInvoice.number,
+      invoiceAmount: createdInvoice.amount,
+      message: `Manual renewal applied for ${normalizedMonths} month(s). Access is active.`,
+    };
+  }
+
+  async recordManualPayment(
+    tenantId: string,
+    input: RecordManualPaymentInput,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        Subscription: {
+          orderBy: { currentPeriodStart: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            currentPeriodStart: true,
+            currentPeriodEnd: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    if (!Number.isFinite(input.amount) || input.amount <= 0) {
+      throw new BadRequestException('amount must be a positive number');
+    }
+
+    const latestSubscription = tenant.Subscription?.[0] || null;
+    const now = new Date();
+    const normalizedMonths = Math.max(1, Math.min(24, Math.floor(input.months || 1)));
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        id: this.newId('pay'),
+        tenantId,
+        amount: Number(input.amount),
+        currency: input.currency || 'KES',
+        status: input.applyNow ? 'processing' : 'recorded',
+        description: 'Manual off-system subscription payment',
+        metadata: {
+          source: 'manual_subscription_register',
+          method: input.method || 'bank_transfer',
+          referenceCode: input.referenceCode || null,
+          payerName: input.payerName || null,
+          receiptUrl: input.receiptUrl || null,
+          notes: input.notes || null,
+          months: normalizedMonths,
+          applyNow: !!input.applyNow,
+          appliedToSubscription: false,
+          linkedSubscriptionId: latestSubscription?.id || null,
+          linkedPeriodStart: latestSubscription?.currentPeriodStart || null,
+          linkedPeriodEnd: latestSubscription?.currentPeriodEnd || null,
+        },
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        id: this.newId('notif'),
+        tenantId,
+        type: 'subscription_manual_payment_recorded',
+        title: 'Manual subscription payment recorded',
+        message: `Manual payment of ${payment.amount} ${payment.currency} was recorded${input.applyNow ? ' and queued for immediate application' : ''}.`,
+        data: {
+          paymentId: payment.id,
+          referenceCode: input.referenceCode || null,
+          method: input.method || 'bank_transfer',
+          months: normalizedMonths,
+        },
+      },
+    });
+
+    if (input.applyNow) {
+      const renewal = await this.manuallyRenewTenantSubscription(
+        tenantId,
+        normalizedMonths,
+        input.reason || input.notes || 'Applied from manual payment register',
+        input.planId,
+        {
+          amount: Number(input.amount),
+          currency: input.currency || 'KES',
+          method: input.method || 'bank_transfer',
+          referenceCode: input.referenceCode,
+          payerName: input.payerName,
+          receiptUrl: input.receiptUrl,
+          notes: input.notes,
+          paymentId: payment.id,
+        },
+      );
+
+      return {
+        payment,
+        renewal,
+      };
+    }
+
+    return {
+      payment,
+    };
+  }
+
+  async listManualPayments(tenantId: string) {
+    const payments = await this.prisma.payment.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return payments
+      .filter((payment) => {
+        const metadata = payment.metadata as Record<string, unknown> | null;
+        return metadata?.source === 'manual_subscription_register';
+      })
+      .map((payment) => {
+        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        return {
+          id: payment.id,
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+          createdAt: payment.createdAt,
+          completedAt: payment.completedAt,
+          method: metadata.method || null,
+          referenceCode: metadata.referenceCode || null,
+          payerName: metadata.payerName || null,
+          receiptUrl: metadata.receiptUrl || null,
+          notes: metadata.notes || null,
+          months: Number(metadata.months || 1),
+          applyNow: !!metadata.applyNow,
+          appliedToSubscription: !!metadata.appliedToSubscription,
+          linkedSubscriptionId: metadata.linkedSubscriptionId || null,
+          linkedPeriodStart: metadata.linkedPeriodStart || null,
+          linkedPeriodEnd: metadata.linkedPeriodEnd || null,
+          invoiceId: metadata.invoiceId || null,
+        };
+      });
+  }
+
+  async applyManualPaymentToSubscription(
+    tenantId: string,
+    paymentId: string,
+    months?: number,
+    reason?: string,
+    planId?: string,
+  ) {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        tenantId,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Manual payment record not found');
+    }
+
+    const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+    if (metadata.source !== 'manual_subscription_register') {
+      throw new BadRequestException('Payment is not a manual subscription register entry');
+    }
+
+    if (metadata.appliedToSubscription) {
+      throw new BadRequestException('This payment is already applied to a subscription');
+    }
+
+    const normalizedMonths =
+      months && Number.isFinite(months)
+        ? Math.max(1, Math.min(24, Math.floor(months)))
+        : Math.max(1, Math.min(24, Math.floor(Number(metadata.months || 1))));
+
+    return this.manuallyRenewTenantSubscription(
+      tenantId,
+      normalizedMonths,
+      reason || String(metadata.notes || 'Applied from manual payment register'),
+      planId,
+      {
+        amount: payment.amount,
+        currency: payment.currency,
+        method: String(metadata.method || 'bank_transfer'),
+        referenceCode:
+          typeof metadata.referenceCode === 'string' ? metadata.referenceCode : undefined,
+        payerName:
+          typeof metadata.payerName === 'string' ? metadata.payerName : undefined,
+        receiptUrl:
+          typeof metadata.receiptUrl === 'string' ? metadata.receiptUrl : undefined,
+        notes: typeof metadata.notes === 'string' ? metadata.notes : undefined,
+        paymentId,
+      },
+    );
+  }
+
+  async getTenantSubscriptionTimeline(tenantId: string) {
+    const [subscriptions, invoices, manualPayments, notifications] = await Promise.all([
+      this.prisma.subscription.findMany({
+        where: { tenantId },
+        include: { Plan: true },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+      this.prisma.invoice.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      }),
+      this.listManualPayments(tenantId),
+      this.prisma.notification.findMany({
+        where: {
+          tenantId,
+          type: {
+            in: [
+              'subscription_grace_extension',
+              'subscription_manual_suspension',
+              'subscription_manual_reactivation',
+              'subscription_manual_renewal',
+              'subscription_manual_payment_recorded',
+            ],
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+    ]);
+
+    const timeline = [
+      ...subscriptions.map((sub) => ({
+        id: `sub_created_${sub.id}`,
+        at: sub.createdAt,
+        type: 'subscription_created',
+        title: `Subscription created (${sub.Plan?.name || 'Unknown plan'})`,
+        details: {
+          subscriptionId: sub.id,
+          status: sub.status,
+          periodStart: sub.currentPeriodStart,
+          periodEnd: sub.currentPeriodEnd,
+        },
+      })),
+      ...invoices.map((invoice) => ({
+        id: `invoice_${invoice.id}`,
+        at: invoice.createdAt,
+        type: 'invoice_generated',
+        title: `Invoice ${invoice.number} (${invoice.status})`,
+        details: {
+          invoiceId: invoice.id,
+          amount: invoice.amount,
+          status: invoice.status,
+          paidAt: invoice.paidAt,
+          dueDate: invoice.dueDate,
+        },
+      })),
+      ...manualPayments.map((payment) => ({
+        id: `manual_payment_${payment.id}`,
+        at: new Date(payment.createdAt),
+        type: 'manual_payment_recorded',
+        title: `Manual payment ${payment.amount} ${payment.currency}`,
+        details: {
+          paymentId: payment.id,
+          status: payment.status,
+          method: payment.method,
+          referenceCode: payment.referenceCode,
+          payerName: payment.payerName,
+          appliedToSubscription: payment.appliedToSubscription,
+          invoiceId: payment.invoiceId,
+        },
+      })),
+      ...notifications.map((notification) => ({
+        id: `notif_${notification.id}`,
+        at: notification.createdAt,
+        type: notification.type,
+        title: notification.title,
+        details: {
+          message: notification.message,
+          data: notification.data,
+          userId: notification.userId,
+        },
+      })),
+    ];
+
+    return timeline.sort((a, b) => b.at.getTime() - a.at.getTime());
+  }
+
+  async getBillingActionPreview(
+    tenantId: string,
+    action: 'grace' | 'renew' | 'suspend' | 'reactivate',
+    options?: { days?: number; months?: number },
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        isSuspended: true,
+        Subscription: {
+          orderBy: { currentPeriodStart: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            currentPeriodStart: true,
+            currentPeriodEnd: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const subscription = tenant.Subscription?.[0] || null;
+    if (!subscription && action !== 'suspend' && action !== 'reactivate') {
+      throw new NotFoundException('No subscription found for tenant');
+    }
+
+    const now = new Date();
+    const currentPeriodEnd = subscription?.currentPeriodEnd || null;
+    const extensionDays = subscription
+      ? await this.getExtraGraceDays(
+          tenantId,
+          subscription.currentPeriodStart,
+          subscription.id,
+        )
+      : 0;
+    const currentGraceDays = SubscriptionAdminService.BASE_GRACE_DAYS + extensionDays;
+    const currentGraceEnd =
+      currentPeriodEnd && subscription
+        ? this.addDays(currentPeriodEnd, currentGraceDays)
+        : null;
+
+    let newPeriodEnd = currentPeriodEnd;
+    let newGraceEnd = currentGraceEnd;
+    let accessImpact = tenant.isSuspended
+      ? 'Currently restricted'
+      : 'Currently full access';
+
+    if (action === 'grace' && subscription && currentPeriodEnd) {
+      const days = Math.max(1, Math.min(365, Math.floor(options?.days || 1)));
+      newGraceEnd = this.addDays(currentPeriodEnd, currentGraceDays + days);
+      accessImpact = now <= newGraceEnd
+        ? 'Tenant will be in grace/full access window after extension'
+        : 'Tenant remains over grace and restricted if already suspended';
+    }
+
+    if (action === 'renew' && subscription) {
+      const months = Math.max(1, Math.min(24, Math.floor(options?.months || 1)));
+      const anchorStart =
+        subscription.currentPeriodEnd && subscription.currentPeriodEnd > now
+          ? subscription.currentPeriodEnd
+          : now;
+      newPeriodEnd = this.addMonths(anchorStart, months);
+      newGraceEnd = this.addDays(newPeriodEnd, SubscriptionAdminService.BASE_GRACE_DAYS);
+      accessImpact = 'Tenant will have full access after renewal';
+    }
+
+    if (action === 'suspend') {
+      accessImpact = 'Tenant and linked accounts will be restricted immediately';
+    }
+
+    if (action === 'reactivate') {
+      accessImpact = 'Tenant and linked accounts will regain full access immediately';
+    }
+
+    return {
+      tenantId,
+      action,
+      currentPeriodEnd,
+      newPeriodEnd,
+      currentGraceEnd,
+      newGraceEnd,
+      currentAccess: tenant.isSuspended ? 'restricted' : 'full_access',
+      projectedAccess:
+        action === 'suspend'
+          ? 'restricted'
+          : action === 'reactivate'
+            ? 'full_access'
+            : accessImpact.toLowerCase().includes('full access')
+              ? 'full_access'
+              : tenant.isSuspended
+                ? 'restricted'
+                : 'full_access',
+      accessImpact,
+    };
+  }
 
   async getAllSubscriptions() {
     try {
@@ -202,5 +1113,57 @@ export class SubscriptionAdminService {
         },
       });
     }
+  }
+
+  private async getExtraGraceDays(
+    tenantId: string,
+    periodStart: Date,
+    subscriptionId: string,
+  ): Promise<number> {
+    const extensions = await this.prisma.notification.findMany({
+      where: {
+        tenantId,
+        type: 'subscription_grace_extension',
+        createdAt: {
+          gte: periodStart,
+        },
+      },
+      select: {
+        data: true,
+      },
+    });
+
+    return extensions.reduce((sum, extension) => {
+      const data = extension.data as
+        | { days?: number; subscriptionId?: string }
+        | null;
+      if (!data) {
+        return sum;
+      }
+      if (data.subscriptionId && data.subscriptionId !== subscriptionId) {
+        return sum;
+      }
+      const days = Number(data.days || 0);
+      if (!Number.isFinite(days) || days <= 0) {
+        return sum;
+      }
+      return sum + Math.floor(days);
+    }, 0);
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const copy = new Date(date);
+    copy.setDate(copy.getDate() + days);
+    return copy;
+  }
+
+  private addMonths(date: Date, months: number): Date {
+    const copy = new Date(date);
+    copy.setMonth(copy.getMonth() + months);
+    return copy;
+  }
+
+  private newId(prefix: string): string {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 }
