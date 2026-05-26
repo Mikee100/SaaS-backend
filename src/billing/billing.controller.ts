@@ -290,6 +290,24 @@ export class BillingController {
     return { sessionId: session.id, url: session.url };
   }
 
+  @Post('sync-checkout-session')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
+  @Permissions('view_billing')
+  async syncCheckoutSession(
+    @Body() body: { sessionId: string },
+    @Req() req,
+  ) {
+    if (!body?.sessionId) {
+      throw new BadRequestException('sessionId is required');
+    }
+
+    return this.stripeService.syncCheckoutSession(
+      req.user.tenantId,
+      body.sessionId,
+      req.user.id,
+    );
+  }
+
   @Post('create-portal-session')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')
