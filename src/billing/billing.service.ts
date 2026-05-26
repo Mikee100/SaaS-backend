@@ -24,6 +24,32 @@ export interface InvoiceWithSubscription {
 export class BillingService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async getPhysicalProductCount(tenantId: string): Promise<number> {
+    const [activeVariationCount, nonVariationProductCount] = await Promise.all([
+      this.prisma.productVariation.count({
+        where: {
+          tenantId,
+          isActive: true,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          tenantId,
+          deletedAt: null,
+          variations: {
+            none: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return activeVariationCount + nonVariationProductCount;
+  }
+
   async getAccessStatus(tenantId?: string, isSuperadmin = false) {
     if (isSuperadmin) {
       return {
@@ -509,7 +535,7 @@ export class BillingService {
         limit = limits.maxUsers || 3;
         break;
       case 'products':
-        current = await this.prisma.product.count({ where: { tenantId } });
+        current = await this.getPhysicalProductCount(tenantId);
         limit = limits.maxProducts || 100;
         break;
       case 'sales':

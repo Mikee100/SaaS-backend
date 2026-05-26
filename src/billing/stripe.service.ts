@@ -197,12 +197,29 @@ export class StripeService {
       return null;
     }
 
-    const currentPeriodStart = new Date(
-      (subscription as any).current_period_start * 1000,
+    const rawCurrentPeriodStart = Number(
+      (subscription as any).current_period_start ??
+        (subscription as any).start_date ??
+        0,
     );
-    const currentPeriodEnd = new Date(
-      (subscription as any).current_period_end * 1000,
+    const rawCurrentPeriodEnd = Number(
+      (subscription as any).current_period_end ??
+        (subscription as any).trial_end ??
+        0,
     );
+
+    const hasValidStart = Number.isFinite(rawCurrentPeriodStart) && rawCurrentPeriodStart > 0;
+    const hasValidEnd = Number.isFinite(rawCurrentPeriodEnd) && rawCurrentPeriodEnd > 0;
+
+    const fallbackStart = new Date();
+    const fallbackEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const currentPeriodStart = hasValidStart
+      ? new Date(rawCurrentPeriodStart * 1000)
+      : fallbackStart;
+    const currentPeriodEnd = hasValidEnd
+      ? new Date(rawCurrentPeriodEnd * 1000)
+      : fallbackEnd;
 
     const created = await this.prisma.subscription.upsert({
       where: { stripeSubscriptionId: subscription.id },
@@ -494,6 +511,196 @@ export class StripeService {
       message: subscriptionId || invoiceId
         ? 'Checkout session synced successfully'
         : 'Checkout session found but no subscription/invoice records were synced',
+    };
+  }
+
+  async syncTenantBillingRecords(
+    tenantId: string,
+    userId?: string,
+  ): Promise<{
+    syncedSubscriptions: number;
+    syncedInvoices: number;
+    syncedPayments: number;
+    message: string;
+  }> {
+    const stripe = await this.getStripeForTenant(tenantId);
+    if (!stripe) {
+      throw new Error('Stripe is not configured for this tenant');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { stripeCustomerId: true },
+    });
+
+    let stripeCustomerId = tenant?.stripeCustomerId || null;
+
+    if (!stripeCustomerId) {
+      try {
+        const customerSearch = await stripe.customers.search({
+          query: `metadata['tenantId']:'${tenantId}'`,
+          limit: 1,
+        });
+        stripeCustomerId = customerSearch.data[0]?.id || null;
+      } catch {
+        const customerList = await stripe.customers.list({ limit: 100 });
+        stripeCustomerId =
+          customerList.data.find((c) => c.metadata?.tenantId === tenantId)?.id ||
+          null;
+      }
+
+      if (stripeCustomerId) {
+        await this.prisma.tenant.update({
+          where: { id: tenantId },
+          data: { stripeCustomerId },
+        });
+      }
+    }
+
+    if (!stripeCustomerId) {
+      return {
+        syncedSubscriptions: 0,
+        syncedInvoices: 0,
+        syncedPayments: 0,
+        message:
+          'No Stripe customer is linked to this tenant yet. Complete checkout first to establish mapping.',
+      };
+    }
+
+    const [subscriptions, invoices] = await Promise.all([
+      stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'all',
+        limit: 20,
+      }),
+      stripe.invoices.list({
+        customer: stripeCustomerId,
+        limit: 50,
+      }),
+    ]);
+
+    let syncedSubscriptions = 0;
+    let syncedInvoices = 0;
+    let syncedPayments = 0;
+
+    for (const subscription of subscriptions.data) {
+      const synced = await this.syncSubscriptionFromStripe(subscription, userId);
+      if (synced) {
+        syncedSubscriptions += 1;
+      }
+    }
+
+    for (const invoice of invoices.data) {
+      const stripeSubscriptionId =
+        typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice.subscription?.id;
+
+      const localSubscription = stripeSubscriptionId
+        ? await this.prisma.subscription.findUnique({
+            where: { stripeSubscriptionId },
+            select: { id: true },
+          })
+        : null;
+
+      const amountMajor = this.toMajorAmount(
+        invoice.amount_paid || invoice.amount_due || invoice.total,
+      );
+
+      await this.prisma.invoice.upsert({
+        where: { id: invoice.id },
+        create: {
+          id: invoice.id,
+          number: invoice.number || `INV-${invoice.id}`,
+          tenantId,
+          subscriptionId: localSubscription?.id || null,
+          amount: amountMajor,
+          status:
+            invoice.status === 'paid'
+              ? 'paid'
+              : invoice.status === 'void'
+                ? 'void'
+                : invoice.status === 'uncollectible'
+                  ? 'failed'
+                  : 'open',
+          dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+          paidAt: invoice.status === 'paid' ? new Date() : null,
+          updatedAt: new Date(),
+        },
+        update: {
+          number: invoice.number || `INV-${invoice.id}`,
+          subscriptionId: localSubscription?.id || null,
+          amount: amountMajor,
+          status:
+            invoice.status === 'paid'
+              ? 'paid'
+              : invoice.status === 'void'
+                ? 'void'
+                : invoice.status === 'uncollectible'
+                  ? 'failed'
+                  : 'open',
+          dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+          paidAt: invoice.status === 'paid' ? new Date() : null,
+          updatedAt: new Date(),
+        },
+      });
+
+      syncedInvoices += 1;
+
+      if (invoice.status === 'paid') {
+        const paymentIntentId =
+          typeof invoice.payment_intent === 'string'
+            ? invoice.payment_intent
+            : invoice.payment_intent?.id || null;
+
+        await this.prisma.payment.upsert({
+          where: { id: `stripe_inv_${invoice.id}` },
+          create: {
+            id: `stripe_inv_${invoice.id}`,
+            tenantId,
+            stripePaymentIntentId: paymentIntentId,
+            amount: amountMajor,
+            currency: (invoice.currency || 'KES').toUpperCase(),
+            status: 'succeeded',
+            description: `Subscription invoice ${invoice.number || invoice.id}`,
+            metadata: {
+              stripeInvoiceId: invoice.id,
+              stripeSubscriptionId: stripeSubscriptionId || null,
+            },
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          },
+          update: {
+            stripePaymentIntentId: paymentIntentId,
+            amount: amountMajor,
+            currency: (invoice.currency || 'KES').toUpperCase(),
+            status: 'succeeded',
+            description: `Subscription invoice ${invoice.number || invoice.id}`,
+            metadata: {
+              stripeInvoiceId: invoice.id,
+              stripeSubscriptionId: stripeSubscriptionId || null,
+            },
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+        syncedPayments += 1;
+      }
+    }
+
+    await this.auditLogService.log(userId || 'system', 'stripe_billing_synced', {
+      tenantId,
+      syncedSubscriptions,
+      syncedInvoices,
+      syncedPayments,
+    });
+
+    return {
+      syncedSubscriptions,
+      syncedInvoices,
+      syncedPayments,
+      message: 'Stripe billing records synced successfully',
     };
   }
 

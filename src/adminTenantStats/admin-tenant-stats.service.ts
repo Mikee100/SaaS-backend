@@ -7,11 +7,6 @@ interface TenantSpaceRow {
   bytes_used: string;
 }
 
-interface ProductCountRow {
-  tenantId: string | null;
-  product_count: bigint;
-}
-
 @Injectable()
 export class AdminTenantStatsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -93,27 +88,40 @@ export class AdminTenantStatsService {
     // Fetch all tenant metadata
     const tenants = await this.prisma.tenant.findMany();
 
-    // Fetch product counts per tenant
-    const productCounts = await this.prisma.$queryRaw<ProductCountRow[]>`
-      SELECT "tenantId", COUNT(*) AS "product_count"
-      FROM "Product"
-      GROUP BY "tenantId"
-    `;
-    const productCountMap: Record<string, number> = {};
-    for (const row of productCounts) {
-      if (!row.tenantId) continue;
-      productCountMap[row.tenantId] = Number(row.product_count) || 0;
-    }
-
     // Calculate space for each tenant using the same method as getTenantById
     const tenantStats = await Promise.all(
       tenants.map(async (tenant) => {
-        const bytes = await this.getTenantSpace(tenant.id);
+        const [bytes, activeVariationCount, nonVariationProductCount] =
+          await Promise.all([
+            this.getTenantSpace(tenant.id),
+            this.prisma.productVariation.count({
+              where: {
+                tenantId: tenant.id,
+                isActive: true,
+                deletedAt: null,
+              },
+            }),
+            this.prisma.product.count({
+              where: {
+                tenantId: tenant.id,
+                deletedAt: null,
+                variations: {
+                  none: {
+                    isActive: true,
+                    deletedAt: null,
+                  },
+                },
+              },
+            }),
+          ]);
+
+        const productCount = activeVariationCount + nonVariationProductCount;
+
         return {
           ...tenant,
           tenantId: tenant.id,
           spaceUsedMB: (bytes / (1024 * 1024)).toFixed(2),
-          productCount: productCountMap[tenant.id] || 0,
+          productCount,
         };
       }),
     );

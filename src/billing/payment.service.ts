@@ -288,10 +288,19 @@ export class PaymentService {
         type: 'payment',
       }));
 
+      const invoiceCurrencyById = new Map(
+        payments
+          .filter((payment) => payment.id.startsWith('stripe_inv_'))
+          .map((payment) => [
+            payment.id.replace('stripe_inv_', ''),
+            (payment.currency || 'KES').toUpperCase(),
+          ]),
+      );
+
       const invoiceHistory = invoices.map((invoice) => ({
         id: invoice.id,
         amount: invoice.amount,
-        currency: 'USD',
+        currency: invoiceCurrencyById.get(invoice.id) || 'KES',
         status: invoice.status,
         description: `Invoice ${invoice.number}`,
         createdAt: invoice.createdAt.toISOString(),

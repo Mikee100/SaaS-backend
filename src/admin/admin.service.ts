@@ -20,6 +20,34 @@ export class AdminService {
     private readonly tenantService: TenantService,
   ) {}
 
+  private async getPhysicalProductCount(tenantId?: string): Promise<number> {
+    const tenantFilter = tenantId ? { tenantId } : {};
+
+    const [activeVariationCount, nonVariationProductCount] = await Promise.all([
+      this.prisma.productVariation.count({
+        where: {
+          ...tenantFilter,
+          isActive: true,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          ...tenantFilter,
+          deletedAt: null,
+          variations: {
+            none: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return activeVariationCount + nonVariationProductCount;
+  }
+
   async getPlatformStats() {
     this.logger.log('AdminService: getPlatformStats called');
 
@@ -34,7 +62,7 @@ export class AdminService {
     ] = await Promise.all([
       this.prisma.tenant.count(),
       this.prisma.user.count(),
-      this.prisma.product.count(),
+      this.getPhysicalProductCount(),
       this.prisma.sale.count(),
       this.prisma.subscription.count({
         where: { status: 'active' },
@@ -204,7 +232,6 @@ export class AdminService {
         _count: {
           select: {
             users: true,
-            products: true,
             Sale: true,
           },
         },
@@ -216,6 +243,17 @@ export class AdminService {
 
     this.logger.log(`AdminService: Found ${tenants.length} tenants`);
 
+    const productCounts = await Promise.all(
+      tenants.map(async (tenant) => ({
+        tenantId: tenant.id,
+        productCount: await this.getPhysicalProductCount(tenant.id),
+      })),
+    );
+
+    const productCountMap = new Map(
+      productCounts.map((row) => [row.tenantId, row.productCount]),
+    );
+
     const result = tenants.map((tenant) => ({
       id: tenant.id,
       name: tenant.name,
@@ -224,7 +262,7 @@ export class AdminService {
       contactPhone: tenant.contactPhone,
       createdAt: tenant.createdAt,
       userCount: tenant._count.users,
-      productCount: tenant._count.products,
+      productCount: productCountMap.get(tenant.id) || 0,
       salesCount: tenant._count.Sale,
     }));
 
@@ -270,7 +308,7 @@ export class AdminService {
     const [userCount, productCount, salesCount, branchCount] =
       await Promise.all([
         this.prisma.user.count({ where: { tenantId } }),
-        this.prisma.product.count({ where: { tenantId } }),
+        this.getPhysicalProductCount(tenantId),
         this.prisma.sale.count({ where: { tenantId } }),
         this.prisma.branch.count({ where: { tenantId } }),
       ]);

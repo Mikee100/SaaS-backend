@@ -33,6 +33,12 @@ export class SubscriptionAdminController {
     private readonly subscriptionAdminService: SubscriptionAdminService,
   ) {}
 
+  // List all subscriptions with scheduled plan changes and usage info
+  @Get('scheduled')
+  async getAllScheduledPlanChanges() {
+    return this.subscriptionAdminService.getAllScheduledPlanChanges();
+  }
+
   @Get()
   async getAllSubscriptions() {
     try {

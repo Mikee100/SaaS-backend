@@ -308,6 +308,16 @@ export class BillingController {
     );
   }
 
+  @Post('sync-records')
+  @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
+  @Permissions('view_billing')
+  async syncBillingRecords(@Req() req) {
+    return this.stripeService.syncTenantBillingRecords(
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
   @Post('create-portal-session')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
   @Permissions('edit_billing')

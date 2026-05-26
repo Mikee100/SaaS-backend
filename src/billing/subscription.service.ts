@@ -25,6 +25,39 @@ export class SubscriptionService {
     private readonly billingService: BillingService,
   ) {}
 
+  private async getPhysicalProductCount(
+    tenantId: string,
+    createdAfter?: Date,
+  ): Promise<number> {
+    const createdAtFilter = createdAfter ? { gte: createdAfter } : undefined;
+
+    const [activeVariationCount, nonVariationProductCount] = await Promise.all([
+      this.prisma.productVariation.count({
+        where: {
+          tenantId,
+          isActive: true,
+          deletedAt: null,
+          ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          tenantId,
+          deletedAt: null,
+          ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
+          variations: {
+            none: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return activeVariationCount + nonVariationProductCount;
+  }
+
   async createSubscription(data: CreateSubscriptionDto) {
     try {
       // Ensure only superadmins can assign subscriptions
@@ -212,12 +245,17 @@ export class SubscriptionService {
       throw new NotFoundException('Current plan not found');
     }
 
+    if (currentPlan.id === newPlan.id) {
+      throw new BadRequestException('Selected plan is already active');
+    }
+
     // Handle upgrade/downgrade logic
-    const isUpgrade = this.isPlanUpgrade(currentPlan.name, newPlan.name);
+    const isUpgrade = this.isPlanUpgrade(currentPlan, newPlan);
 
     if (isUpgrade) {
-      // Immediate upgrade
-      return await this.handleUpgrade(currentSubscription, newPlan);
+      throw new BadRequestException(
+        'Plan upgrades require successful payment. Please use checkout to change plan.',
+      );
     } else {
       // Schedule downgrade for next billing cycle
       return await this.handleDowngrade(
@@ -290,10 +328,27 @@ export class SubscriptionService {
     return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
 
-  private isPlanUpgrade(currentPlan: string, newPlan: string): boolean {
-    const planHierarchy = { Basic: 1, Pro: 2, Enterprise: 3 };
-    const currentLevel = planHierarchy[currentPlan] || 0;
-    const newLevel = planHierarchy[newPlan] || 0;
+  private isPlanUpgrade(
+    currentPlan: { name?: string | null; price?: number | null },
+    newPlan: { name?: string | null; price?: number | null },
+  ): boolean {
+    const currentPrice = Number(currentPlan?.price ?? 0);
+    const nextPrice = Number(newPlan?.price ?? 0);
+
+    if (nextPrice !== currentPrice) {
+      return nextPrice > currentPrice;
+    }
+
+    const planHierarchy: Record<string, number> = {
+      basic: 1,
+      standard: 2,
+      pro: 3,
+      premium: 4,
+      enterprise: 5,
+    };
+
+    const currentLevel = planHierarchy[(currentPlan?.name || '').toLowerCase()] || 0;
+    const newLevel = planHierarchy[(newPlan?.name || '').toLowerCase()] || 0;
     return newLevel > currentLevel;
   }
 
@@ -445,14 +500,19 @@ export class SubscriptionService {
       throw new NotFoundException('Plan not found');
     }
 
+    if (currentSubscription.planId === newPlan.id) {
+      throw new BadRequestException('Selected plan is already active');
+    }
+
     const isUpgrade = this.isPlanUpgrade(
-      currentSubscription.Plan.name,
-      newPlan.name,
+      currentSubscription.Plan,
+      newPlan,
     );
 
     if (isUpgrade) {
-      // Immediate upgrade
-      return await this.handleUpgrade(currentSubscription, newPlan);
+      throw new BadRequestException(
+        'Plan upgrades require successful payment. Please use checkout to change plan.',
+      );
     } else {
       // Schedule downgrade
       return await this.handleDowngrade(
@@ -768,9 +828,7 @@ export class SubscriptionService {
       return true; // Unlimited
     }
 
-    const currentProducts = await this.prisma.product.count({
-      where: { tenantId },
-    });
+    const currentProducts = await this.getPhysicalProductCount(tenantId);
 
     return currentProducts < maxProducts;
   }
@@ -836,15 +894,8 @@ export class SubscriptionService {
       },
     });
 
-    // Count products created during trial
-    const productCount = await this.prisma.product.count({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: trialStart,
-        },
-      },
-    });
+    // Count physical items created during trial (variations + non-variation products)
+    const productCount = await this.getPhysicalProductCount(tenantId, trialStart);
 
     // Count branches created during trial
     const branchCount = await this.prisma.branch.count({
@@ -941,9 +992,7 @@ export class SubscriptionService {
     try {
       // Count current usage first
       const userCount = await this.prisma.user.count({ where: { tenantId } });
-      const productCount = await this.prisma.product.count({
-        where: { tenantId },
-      });
+      const productCount = await this.getPhysicalProductCount(tenantId);
       const branchCount = await this.prisma.branch.count({
         where: { tenantId },
       });

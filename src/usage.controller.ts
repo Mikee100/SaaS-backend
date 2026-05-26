@@ -25,9 +25,27 @@ export class UsageController {
       if (branchId) where.branchId = branchId;
     }
 
-    const productsCount = await this.prisma.product.count({
-      where: isSuperadmin ? {} : where,
-    });
+    const [activeVariationCount, nonVariationProductCount] = await Promise.all([
+      this.prisma.productVariation.count({
+        where: isSuperadmin
+          ? { isActive: true, deletedAt: null }
+          : { ...where, isActive: true, deletedAt: null },
+      }),
+      this.prisma.product.count({
+        where: isSuperadmin
+          ? {
+              deletedAt: null,
+              variations: { none: { isActive: true, deletedAt: null } },
+            }
+          : {
+              ...where,
+              deletedAt: null,
+              variations: { none: { isActive: true, deletedAt: null } },
+            },
+      }),
+    ]);
+
+    const productsCount = activeVariationCount + nonVariationProductCount;
 
     return {
       products: { current: productsCount, limit: 10 },

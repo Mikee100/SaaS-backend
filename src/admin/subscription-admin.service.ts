@@ -46,6 +46,47 @@ export class SubscriptionAdminService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  // Returns all subscriptions with a scheduled plan change, including tenant info, user count, and new plan user limit
+  async getAllScheduledPlanChanges() {
+    const scheduledSubs = await this.prisma.subscription.findMany({
+      where: {
+        scheduledPlanId: { not: null },
+        scheduledEffectiveDate: { not: null },
+      },
+      include: {
+        Plan: true,
+        ScheduledPlan: true,
+        Tenant: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            users: { select: { id: true } },
+          },
+        },
+      },
+      orderBy: { scheduledEffectiveDate: 'asc' },
+    });
+
+    // For each, return relevant info and highlight if user count exceeds new plan limit
+    return scheduledSubs.map((sub) => {
+      const userCount = sub.Tenant.users.length;
+      const newPlanUserLimit = sub.ScheduledPlan?.maxUsers ?? null;
+      return {
+        tenantId: sub.Tenant.id,
+        tenantName: sub.Tenant.name,
+        tenantEmail: sub.Tenant.contactEmail,
+        subscriptionId: sub.id,
+        currentPlan: sub.Plan?.name,
+        scheduledPlan: sub.ScheduledPlan?.name,
+        scheduledEffectiveDate: sub.scheduledEffectiveDate,
+        userCount,
+        newPlanUserLimit,
+        overLimit: newPlanUserLimit !== null && userCount > newPlanUserLimit,
+      };
+    });
+  }
+
   async getTenantBillingOperationsOverview(filters: BillingOpsFilters = {}) {
     const search = (filters.search || '').trim();
     const where: any = {
@@ -1482,11 +1523,31 @@ export class SubscriptionAdminService {
   }
 
   async getTenantUsage(tenantId: string) {
-    const [userCount, productCount, salesCount] = await Promise.all([
+    const [userCount, activeVariationCount, nonVariationProductCount, salesCount] = await Promise.all([
       this.prisma.user.count({ where: { tenantId } }),
-      this.prisma.product.count({ where: { tenantId } }),
+      this.prisma.productVariation.count({
+        where: {
+          tenantId,
+          isActive: true,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.product.count({
+        where: {
+          tenantId,
+          deletedAt: null,
+          variations: {
+            none: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+        },
+      }),
       this.prisma.sale.count({ where: { tenantId } }),
     ]);
+
+    const productCount = activeVariationCount + nonVariationProductCount;
 
     return {
       tenantId,

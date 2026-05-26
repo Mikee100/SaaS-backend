@@ -66,6 +66,32 @@ export class SubscriptionEnforcementService {
         continue;
       }
 
+      // Activate scheduled plan change if due
+      if (
+        latestSubscription.scheduledPlanId &&
+        latestSubscription.scheduledEffectiveDate &&
+        new Date(latestSubscription.scheduledEffectiveDate) <= now
+      ) {
+        try {
+          await this.prisma.subscription.update({
+            where: { id: latestSubscription.id },
+            data: {
+              planId: latestSubscription.scheduledPlanId,
+              scheduledPlanId: null,
+              scheduledEffectiveDate: null,
+            },
+          });
+          this.logger.log(
+            `Activated scheduled plan for tenant ${tenant.id} (subscription ${latestSubscription.id})`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Failed to activate scheduled plan for tenant ${tenant.id}:`,
+            err,
+          );
+        }
+      }
+
       try {
         await this.enforceForTenant(tenant, latestSubscription, now);
       } catch (error) {
