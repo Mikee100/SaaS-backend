@@ -19,6 +19,24 @@ interface RecordManualPaymentInput {
   applyNow?: boolean;
   reason?: string;
   planId?: string;
+  receiptUploadFailed?: boolean;
+  receiptUploadError?: string;
+}
+
+interface ReconciliationFilters {
+  search?: string;
+  tenantId?: string;
+  overdueOnly?: boolean;
+  mismatchOnly?: boolean;
+}
+
+interface CreateManualInvoiceInput {
+  amount: number;
+  status?: 'draft' | 'issued' | 'paid' | 'void';
+  dueDate?: string;
+  subscriptionId?: string;
+  paymentId?: string;
+  notes?: string;
 }
 
 @Injectable()
@@ -579,6 +597,8 @@ export class SubscriptionAdminService {
           referenceCode: input.referenceCode || null,
           payerName: input.payerName || null,
           receiptUrl: input.receiptUrl || null,
+          receiptUploadFailed: !!input.receiptUploadFailed,
+          receiptUploadError: input.receiptUploadError || null,
           notes: input.notes || null,
           months: normalizedMonths,
           applyNow: !!input.applyNow,
@@ -663,6 +683,8 @@ export class SubscriptionAdminService {
           payerName: metadata.payerName || null,
           receiptUrl: metadata.receiptUrl || null,
           notes: metadata.notes || null,
+          receiptUploadFailed: !!metadata.receiptUploadFailed,
+          receiptUploadError: metadata.receiptUploadError || null,
           months: Number(metadata.months || 1),
           applyNow: !!metadata.applyNow,
           appliedToSubscription: !!metadata.appliedToSubscription,
@@ -918,6 +940,487 @@ export class SubscriptionAdminService {
     };
   }
 
+  async listManualInvoices(tenantId: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        tenantId,
+        number: {
+          startsWith: 'INV-MAN',
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    const payments = await this.listManualPayments(tenantId);
+    const paymentByInvoice = new Map<string, (typeof payments)[number]>();
+    for (const payment of payments) {
+      if (payment.invoiceId) {
+        paymentByInvoice.set(String(payment.invoiceId), payment);
+      }
+    }
+
+    return invoices.map((invoice) => {
+      const linkedPayment = paymentByInvoice.get(invoice.id);
+      return {
+        id: invoice.id,
+        number: invoice.number,
+        amount: invoice.amount,
+        status: invoice.status,
+        dueDate: invoice.dueDate,
+        paidAt: invoice.paidAt,
+        createdAt: invoice.createdAt,
+        updatedAt: invoice.updatedAt,
+        subscriptionId: invoice.subscriptionId,
+        linkedPaymentId: linkedPayment?.id || null,
+        linkedPaymentAmount: linkedPayment?.amount || null,
+        linkedPaymentStatus: linkedPayment?.status || null,
+        linkedReceiptUrl: linkedPayment?.receiptUrl || null,
+        linkedReferenceCode: linkedPayment?.referenceCode || null,
+      };
+    });
+  }
+
+  async createManualInvoice(tenantId: string, input: CreateManualInvoiceInput) {
+    if (!Number.isFinite(input.amount) || input.amount < 0) {
+      throw new BadRequestException('amount must be a non-negative number');
+    }
+
+    const status = this.normalizeInvoiceStatus(input.status || 'draft');
+    const now = new Date();
+    const dueDate = input.dueDate ? new Date(input.dueDate) : null;
+    if (input.dueDate && Number.isNaN(dueDate?.getTime())) {
+      throw new BadRequestException('dueDate must be a valid ISO date');
+    }
+
+    if (input.subscriptionId) {
+      const sub = await this.prisma.subscription.findFirst({
+        where: { id: input.subscriptionId, tenantId },
+        select: { id: true },
+      });
+      if (!sub) {
+        throw new BadRequestException('subscriptionId does not belong to tenant');
+      }
+    }
+
+    const invoice = await this.prisma.invoice.create({
+      data: {
+        id: this.newId('inv'),
+        number: `INV-MAN-${Date.now()}`,
+        tenantId,
+        subscriptionId: input.subscriptionId || null,
+        amount: Number(input.amount),
+        status,
+        dueDate,
+        paidAt: status === 'paid' ? now : null,
+        updatedAt: now,
+      },
+    });
+
+    if (input.paymentId) {
+      const payment = await this.prisma.payment.findFirst({
+        where: { id: input.paymentId, tenantId },
+        select: { id: true, metadata: true },
+      });
+      if (!payment) {
+        throw new BadRequestException('paymentId does not belong to tenant');
+      }
+      const metadata =
+        payment.metadata && typeof payment.metadata === 'object'
+          ? (payment.metadata as Record<string, unknown>)
+          : {};
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          metadata: {
+            ...metadata,
+            invoiceId: invoice.id,
+          },
+        },
+      });
+    }
+
+    await this.prisma.notification.create({
+      data: {
+        id: this.newId('notif'),
+        tenantId,
+        type: 'subscription_manual_invoice_created',
+        title: 'Manual invoice created',
+        message: `Manual invoice ${invoice.number} created with status ${status}.`,
+        data: {
+          invoiceId: invoice.id,
+          status,
+          dueDate,
+          notes: input.notes || null,
+        },
+      },
+    });
+
+    return invoice;
+  }
+
+  async transitionManualInvoiceStatus(
+    tenantId: string,
+    invoiceId: string,
+    nextStatusInput: 'draft' | 'issued' | 'paid' | 'void',
+    reason?: string,
+  ) {
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        paidAt: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if (!invoice.number.startsWith('INV-MAN')) {
+      throw new BadRequestException('Only manual invoices can be transitioned here');
+    }
+
+    const currentStatus = this.normalizeInvoiceStatus(invoice.status);
+    const nextStatus = this.normalizeInvoiceStatus(nextStatusInput);
+    if (currentStatus === nextStatus) {
+      return {
+        success: true,
+        message: `Invoice already in ${nextStatus} state`,
+      };
+    }
+
+    const allowedTransitions: Record<string, string[]> = {
+      draft: ['issued', 'void'],
+      issued: ['paid', 'void'],
+      paid: ['void'],
+      void: [],
+    };
+
+    if (!allowedTransitions[currentStatus]?.includes(nextStatus)) {
+      throw new BadRequestException(
+        `Invalid transition from ${currentStatus} to ${nextStatus}`,
+      );
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        status: nextStatus,
+        paidAt: nextStatus === 'paid' ? now : nextStatus === 'void' ? null : invoice.paidAt,
+        updatedAt: now,
+      },
+    });
+
+    if (nextStatus === 'void') {
+      const payments = await this.prisma.payment.findMany({
+        where: { tenantId },
+        select: { id: true, status: true, metadata: true },
+      });
+
+      for (const payment of payments) {
+        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        if (metadata.invoiceId === invoice.id) {
+          await this.prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: payment.status === 'completed' ? 'voided' : payment.status,
+              metadata: {
+                ...metadata,
+                invoiceVoided: true,
+                invoiceVoidedAt: now.toISOString(),
+              },
+            },
+          });
+        }
+      }
+    }
+
+    await this.prisma.notification.create({
+      data: {
+        id: this.newId('notif'),
+        tenantId,
+        type: 'subscription_manual_invoice_status_changed',
+        title: 'Manual invoice status updated',
+        message: `Invoice ${updated.number} moved from ${currentStatus} to ${nextStatus}.`,
+        data: {
+          invoiceId: updated.id,
+          from: currentStatus,
+          to: nextStatus,
+          reason: reason || null,
+        },
+      },
+    });
+
+    return {
+      success: true,
+      invoice: updated,
+    };
+  }
+
+  async getReconciliationDashboard(filters: ReconciliationFilters = {}) {
+    const search = (filters.search || '').trim();
+    const now = new Date();
+
+    const paymentWhere: any = {};
+    if (filters.tenantId) {
+      paymentWhere.tenantId = filters.tenantId;
+    }
+    if (search) {
+      paymentWhere.Tenant = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { contactEmail: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const [payments, invoices, tenantOps] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: paymentWhere,
+        include: {
+          Tenant: {
+            select: {
+              id: true,
+              name: true,
+              contactEmail: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+      }),
+      this.prisma.invoice.findMany({
+        where: {
+          ...(filters.tenantId ? { tenantId: filters.tenantId } : {}),
+          ...(search
+            ? {
+                Tenant: {
+                  OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { contactEmail: { contains: search, mode: 'insensitive' } },
+                  ],
+                },
+              }
+            : {}),
+          number: {
+            startsWith: 'INV-MAN',
+          },
+        },
+        include: {
+          Tenant: {
+            select: {
+              id: true,
+              name: true,
+              contactEmail: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1000,
+      }),
+      this.getTenantBillingOperationsOverview({
+        search,
+      }),
+    ]);
+
+    const manualPayments = payments
+      .map((payment) => {
+        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        return {
+          id: payment.id,
+          tenantId: payment.tenantId,
+          tenantName: payment.Tenant?.name || 'Unknown tenant',
+          tenantEmail: payment.Tenant?.contactEmail || null,
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+          createdAt: payment.createdAt,
+          appliedToSubscription: !!metadata.appliedToSubscription,
+          referenceCode:
+            typeof metadata.referenceCode === 'string' ? metadata.referenceCode : null,
+          receiptUrl: typeof metadata.receiptUrl === 'string' ? metadata.receiptUrl : null,
+          receiptUploadFailed: !!metadata.receiptUploadFailed,
+          receiptUploadError:
+            typeof metadata.receiptUploadError === 'string'
+              ? metadata.receiptUploadError
+              : null,
+          source: metadata.source,
+          invoiceId: typeof metadata.invoiceId === 'string' ? metadata.invoiceId : null,
+        };
+      })
+      .filter((payment) => payment.source === 'manual_subscription_register');
+
+    const unappliedManualPayments = manualPayments.filter(
+      (payment) =>
+        !payment.appliedToSubscription &&
+        payment.status !== 'void' &&
+        payment.status !== 'voided' &&
+        payment.status !== 'refunded',
+    );
+
+    const failedReceiptUploads = manualPayments.filter(
+      (payment) => payment.receiptUploadFailed,
+    );
+
+    const paymentByInvoiceId = new Map<string, typeof manualPayments>();
+    for (const payment of manualPayments) {
+      if (!payment.invoiceId) continue;
+      if (!paymentByInvoiceId.has(payment.invoiceId)) {
+        paymentByInvoiceId.set(payment.invoiceId, []);
+      }
+      paymentByInvoiceId.get(payment.invoiceId)!.push(payment);
+    }
+
+    const invoicePaymentMismatches = invoices
+      .map((invoice) => {
+        const linkedPayments = paymentByInvoiceId.get(invoice.id) || [];
+        const paidAmount = linkedPayments.reduce((sum, p) => sum + p.amount, 0);
+
+        let issue: string | null = null;
+        if (invoice.status === 'paid' && linkedPayments.length === 0) {
+          issue = 'Paid invoice has no linked manual payment';
+        } else if (
+          linkedPayments.length > 0 &&
+          Math.abs(Number(invoice.amount) - Number(paidAmount)) > 0.01
+        ) {
+          issue = 'Invoice amount does not match linked payment total';
+        } else if (
+          invoice.status === 'void' &&
+          linkedPayments.some((p) => p.status === 'completed')
+        ) {
+          issue = 'Invoice is void but linked payment is still completed';
+        }
+
+        if (!issue) {
+          return null;
+        }
+
+        return {
+          invoiceId: invoice.id,
+          invoiceNumber: invoice.number,
+          tenantId: invoice.tenantId,
+          tenantName: invoice.Tenant?.name || 'Unknown tenant',
+          tenantEmail: invoice.Tenant?.contactEmail || null,
+          invoiceStatus: invoice.status,
+          invoiceAmount: invoice.amount,
+          linkedPaymentCount: linkedPayments.length,
+          linkedPaymentAmount: paidAmount,
+          issue,
+          createdAt: invoice.createdAt,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => !!row);
+
+    const overdueTenants = tenantOps
+      .filter((tenant) => tenant.billingState === 'expired_over_grace')
+      .map((tenant) => ({
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        tenantEmail: tenant.tenantEmail,
+        billingState: tenant.billingState,
+        currentPeriodEnd: tenant.currentPeriodEnd,
+        graceEndsAt: tenant.graceEndsAt,
+        daysSinceExpiry: tenant.daysSinceExpiry,
+        isSuspended: tenant.isSuspended,
+      }));
+
+    const filteredMismatches = filters.mismatchOnly
+      ? invoicePaymentMismatches
+      : invoicePaymentMismatches;
+    const filteredOverdue = filters.overdueOnly ? overdueTenants : overdueTenants;
+
+    return {
+      generatedAt: now,
+      summary: {
+        unappliedManualPayments: unappliedManualPayments.length,
+        failedReceiptUploads: failedReceiptUploads.length,
+        invoicePaymentMismatches: filteredMismatches.length,
+        overdueTenants: filteredOverdue.length,
+      },
+      unappliedManualPayments,
+      failedReceiptUploads,
+      invoicePaymentMismatches: filteredMismatches,
+      overdueTenants: filteredOverdue,
+    };
+  }
+
+  async exportReconciliationRows(filters: ReconciliationFilters = {}) {
+    const report = await this.getReconciliationDashboard(filters);
+    const rows: Array<Record<string, string | number | null>> = [];
+
+    for (const payment of report.unappliedManualPayments) {
+      rows.push({
+        category: 'unapplied_manual_payment',
+        tenantId: payment.tenantId,
+        tenantName: payment.tenantName,
+        tenantEmail: payment.tenantEmail,
+        recordId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        reference: payment.referenceCode,
+        issue: 'Manual payment not yet applied to subscription',
+        createdAt: payment.createdAt.toISOString(),
+      });
+    }
+
+    for (const payment of report.failedReceiptUploads) {
+      rows.push({
+        category: 'failed_receipt_upload',
+        tenantId: payment.tenantId,
+        tenantName: payment.tenantName,
+        tenantEmail: payment.tenantEmail,
+        recordId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        reference: payment.referenceCode,
+        issue: payment.receiptUploadError || 'Receipt upload failed',
+        createdAt: payment.createdAt.toISOString(),
+      });
+    }
+
+    for (const mismatch of report.invoicePaymentMismatches) {
+      rows.push({
+        category: 'invoice_payment_mismatch',
+        tenantId: mismatch.tenantId,
+        tenantName: mismatch.tenantName,
+        tenantEmail: mismatch.tenantEmail,
+        recordId: mismatch.invoiceId,
+        amount: mismatch.invoiceAmount,
+        currency: 'KES',
+        status: mismatch.invoiceStatus,
+        reference: mismatch.invoiceNumber,
+        issue: mismatch.issue,
+        createdAt: mismatch.createdAt.toISOString(),
+      });
+    }
+
+    for (const tenant of report.overdueTenants) {
+      rows.push({
+        category: 'overdue_tenant',
+        tenantId: tenant.tenantId,
+        tenantName: tenant.tenantName,
+        tenantEmail: tenant.tenantEmail,
+        recordId: tenant.tenantId,
+        amount: null,
+        currency: null,
+        status: tenant.billingState,
+        reference: tenant.currentPeriodEnd
+          ? new Date(tenant.currentPeriodEnd).toISOString()
+          : null,
+        issue: `Over grace by ${tenant.daysSinceExpiry} day(s)`,
+        createdAt: new Date(report.generatedAt).toISOString(),
+      });
+    }
+
+    return rows;
+  }
+
   async getAllSubscriptions() {
     try {
       const subscriptions = await this.prisma.subscription.findMany({
@@ -1165,5 +1668,14 @@ export class SubscriptionAdminService {
 
   private newId(prefix: string): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private normalizeInvoiceStatus(status: string): 'draft' | 'issued' | 'paid' | 'void' {
+    const normalized = String(status || '').toLowerCase();
+    if (normalized === 'draft') return 'draft';
+    if (normalized === 'issued') return 'issued';
+    if (normalized === 'paid') return 'paid';
+    if (normalized === 'void') return 'void';
+    throw new BadRequestException('Invoice status must be one of: draft, issued, paid, void');
   }
 }

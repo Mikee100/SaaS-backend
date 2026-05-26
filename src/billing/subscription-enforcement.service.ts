@@ -99,7 +99,35 @@ export class SubscriptionEnforcementService {
     },
     now: Date,
   ) {
+    const daysUntilExpiry = this.diffInDays(subscription.currentPeriodEnd, now);
+
     if (subscription.currentPeriodEnd > now) {
+      if (daysUntilExpiry === 7) {
+        await this.sendOwnerAlertOncePerCycle({
+          tenant,
+          subscription,
+          type: 'subscription_dunning_t_minus_7',
+          title: 'Subscription renewal reminder (7 days)',
+          message:
+            'Your subscription renews in 7 days. Please confirm payment to avoid interruption.',
+          emailSubject: 'Renewal reminder: 7 days remaining',
+          emailBody: this.buildDunningEmailBody(tenant.name, 7, true),
+        });
+      }
+
+      if (daysUntilExpiry === 3) {
+        await this.sendOwnerAlertOncePerCycle({
+          tenant,
+          subscription,
+          type: 'subscription_dunning_t_minus_3',
+          title: 'Subscription renewal reminder (3 days)',
+          message:
+            'Your subscription renews in 3 days. Please renew now to avoid grace/suspension actions.',
+          emailSubject: 'Renewal reminder: 3 days remaining',
+          emailBody: this.buildDunningEmailBody(tenant.name, 3, true),
+        });
+      }
+
       await this.tryAutoReactivateTenant(tenant, subscription, now);
       return;
     }
@@ -118,6 +146,34 @@ export class SubscriptionEnforcementService {
     );
 
     if (now <= gracePeriodEndsAt) {
+      const daysAfterExpiry = this.diffInDays(now, subscription.currentPeriodEnd);
+
+      if (daysAfterExpiry === 1) {
+        await this.sendOwnerAlertOncePerCycle({
+          tenant,
+          subscription,
+          type: 'subscription_dunning_t_plus_1',
+          title: 'Subscription expired (1 day ago)',
+          message:
+            'Your subscription expired yesterday. Renew now to avoid suspension after grace period.',
+          emailSubject: 'Subscription expired: renew now',
+          emailBody: this.buildDunningEmailBody(tenant.name, 1, false),
+        });
+      }
+
+      if (daysAfterExpiry === 7) {
+        await this.sendOwnerAlertOncePerCycle({
+          tenant,
+          subscription,
+          type: 'subscription_dunning_t_plus_7',
+          title: 'Subscription expired (7 days ago)',
+          message:
+            'Your subscription has been expired for 7 days. Immediate renewal is required to restore operations.',
+          emailSubject: 'Subscription overdue by 7 days',
+          emailBody: this.buildDunningEmailBody(tenant.name, 7, false),
+        });
+      }
+
       if (subscription.status === 'active' || subscription.status === 'trialing') {
         await this.prisma.subscription.update({
           where: { id: subscription.id },
@@ -368,6 +424,25 @@ export class SubscriptionEnforcementService {
     `;
   }
 
+  private buildDunningEmailBody(
+    tenantName: string,
+    days: number,
+    beforeExpiry: boolean,
+  ) {
+    const phrase = beforeExpiry
+      ? `${days} day(s) before renewal date`
+      : `${days} day(s) after subscription expiry`;
+
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2>Subscription reminder</h2>
+        <p>Hello ${tenantName},</p>
+        <p>This is an automated reminder sent <strong>${phrase}</strong>.</p>
+        <p>Please complete renewal to keep billing and account access in good standing.</p>
+      </div>
+    `;
+  }
+
   private newId(prefix: string): string {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -406,5 +481,13 @@ export class SubscriptionEnforcementService {
       }
       return sum + Math.floor(days);
     }, 0);
+  }
+
+  private diffInDays(left: Date, right: Date): number {
+    const l = new Date(left);
+    l.setHours(0, 0, 0, 0);
+    const r = new Date(right);
+    r.setHours(0, 0, 0, 0);
+    return Math.round((l.getTime() - r.getTime()) / (1000 * 60 * 60 * 24));
   }
 }

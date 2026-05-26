@@ -12,7 +12,9 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -130,6 +132,70 @@ export class SubscriptionAdminController {
     return this.subscriptionAdminService.listManualPayments(tenantId);
   }
 
+  @Get('operations/reconciliation')
+  async getReconciliationDashboard(
+    @Query('search') search?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('overdueOnly') overdueOnly?: string,
+    @Query('mismatchOnly') mismatchOnly?: string,
+  ) {
+    return this.subscriptionAdminService.getReconciliationDashboard({
+      search,
+      tenantId,
+      overdueOnly: overdueOnly === 'true',
+      mismatchOnly: mismatchOnly === 'true',
+    });
+  }
+
+  @Get('operations/reconciliation/export-csv')
+  async exportReconciliationCsv(
+    @Res() res: Response,
+    @Query('search') search?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('overdueOnly') overdueOnly?: string,
+    @Query('mismatchOnly') mismatchOnly?: string,
+  ) {
+    const rows = await this.subscriptionAdminService.exportReconciliationRows({
+      search,
+      tenantId,
+      overdueOnly: overdueOnly === 'true',
+      mismatchOnly: mismatchOnly === 'true',
+    });
+
+    const headers = [
+      'category',
+      'tenantId',
+      'tenantName',
+      'tenantEmail',
+      'recordId',
+      'amount',
+      'currency',
+      'status',
+      'reference',
+      'issue',
+      'createdAt',
+    ];
+
+    const escape = (value: unknown) => {
+      const raw = value == null ? '' : String(value);
+      const escaped = raw.replace(/"/g, '""');
+      return `"${escaped}"`;
+    };
+
+    const body = [
+      headers.join(','),
+      ...rows.map((row) => headers.map((h) => escape((row as any)[h])).join(',')),
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="billing-reconciliation-${Date.now()}.csv"`,
+    );
+
+    return res.send(body);
+  }
+
   @Post('operations/tenants/:tenantId/manual-payments')
   async createManualPayment(
     @Param('tenantId') tenantId: string,
@@ -142,6 +208,8 @@ export class SubscriptionAdminController {
     @Body('notes') notes?: string,
     @Body('months') months?: number,
     @Body('applyNow') applyNow?: boolean,
+    @Body('receiptUploadFailed') receiptUploadFailed?: boolean,
+    @Body('receiptUploadError') receiptUploadError?: string,
     @Body('reason') reason?: string,
     @Body('planId') planId?: string,
   ) {
@@ -155,9 +223,51 @@ export class SubscriptionAdminController {
       notes,
       months: months ? Number(months) : undefined,
       applyNow: !!applyNow,
+      receiptUploadFailed: !!receiptUploadFailed,
+      receiptUploadError,
       reason,
       planId,
     });
+  }
+
+  @Get('operations/tenants/:tenantId/manual-invoices')
+  async getManualInvoices(@Param('tenantId') tenantId: string) {
+    return this.subscriptionAdminService.listManualInvoices(tenantId);
+  }
+
+  @Post('operations/tenants/:tenantId/manual-invoices')
+  async createManualInvoice(
+    @Param('tenantId') tenantId: string,
+    @Body('amount') amount: number,
+    @Body('status') status?: 'draft' | 'issued' | 'paid' | 'void',
+    @Body('dueDate') dueDate?: string,
+    @Body('subscriptionId') subscriptionId?: string,
+    @Body('paymentId') paymentId?: string,
+    @Body('notes') notes?: string,
+  ) {
+    return this.subscriptionAdminService.createManualInvoice(tenantId, {
+      amount: Number(amount),
+      status,
+      dueDate,
+      subscriptionId,
+      paymentId,
+      notes,
+    });
+  }
+
+  @Patch('operations/tenants/:tenantId/manual-invoices/:invoiceId/status')
+  async transitionManualInvoiceStatus(
+    @Param('tenantId') tenantId: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body('status') status: 'draft' | 'issued' | 'paid' | 'void',
+    @Body('reason') reason?: string,
+  ) {
+    return this.subscriptionAdminService.transitionManualInvoiceStatus(
+      tenantId,
+      invoiceId,
+      status,
+      reason,
+    );
   }
 
   @Post('operations/tenants/:tenantId/manual-payments/upload-receipt')
