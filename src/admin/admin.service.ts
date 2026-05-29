@@ -490,6 +490,40 @@ export class AdminService {
     return transactions;
   }
 
+  async getTenantBranches(tenantId: string) {
+    this.logger.log(
+      `AdminService: getTenantBranches called with tenantId: ${tenantId}`,
+    );
+
+    const branches = await this.prisma.branch.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        state: true,
+        country: true,
+        phone: true,
+        email: true,
+        manager: true,
+        isMainBranch: true,
+        status: true,
+        createdAt: true,
+        deletedAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    this.logger.log(
+      `AdminService: Found ${branches.length} branches for tenant ${tenantId}`,
+    );
+
+    return branches;
+  }
+
   async switchToTenant(tenantId: string) {
     this.logger.log(
       `AdminService: switchToTenant called with tenantId: ${tenantId}`,

@@ -130,6 +130,14 @@ export class AdminController {
     return this.adminService.getTenantTransactions(tenantId);
   }
 
+  @Get('tenants/:id/branches')
+  async getTenantBranches(@Param('id') tenantId: string) {
+    this.logger.log(
+      `AdminController: getTenantBranches called with tenantId: ${tenantId}`,
+    );
+    return this.adminService.getTenantBranches(tenantId);
+  }
+
   @Post('tenants/:id/switch')
   async switchToTenant(@Param('id') tenantId: string) {
     this.logger.log(
