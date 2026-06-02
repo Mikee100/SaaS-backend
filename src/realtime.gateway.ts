@@ -36,6 +36,11 @@ export class RealtimeGateway
     this.server.emit('inventoryUpdate', data);
   }
 
+  // Emit ledger update to all clients
+  emitLedgerUpdate(data: any) {
+    this.server.emit('ledgerUpdate', data);
+  }
+
   // Emit notification to all clients
   emitNotification(data: any) {
     this.server.emit('notification', data);

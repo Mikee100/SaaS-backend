@@ -66,6 +66,7 @@
     "rxjs": "^7.8.1",
     "sharp": "^0.34.4",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.3",
     "stripe": "^18.5.0",
     "systeminformation": "^5.27.11",
     "uuid": "^11.1.0",

@@ -11,6 +11,7 @@ export type LedgerEntryType =
   | 'manual';
 
 export interface LedgerEntry {
+  id?: string;
   date: Date;
   reference: string;
   type: LedgerEntryType;
@@ -21,5 +22,6 @@ export interface LedgerEntry {
   credit: number; // Money in
   balance?: number; // Running balance (optional, can be calculated)
   user?: string;
+  tag?: string; // Tag or category for the entry
   meta?: Record<string, any>; // For extra details (e.g., saleId, expenseId, etc.)
 }

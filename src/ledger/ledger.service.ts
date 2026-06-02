@@ -2,10 +2,14 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { LedgerEntry as LedgerEntryType } from './ledger.types';
 import { PrismaService } from '../prisma.service';
 import { JournalEntryDto, TrialBalance, ProfitAndLoss, BalanceSheet } from './accounting.types';
+import { RealtimeGateway } from '../realtime.gateway';
 
 @Injectable()
 export class LedgerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private realtimeGateway: RealtimeGateway,
+  ) {}
 
   private readonly viableDefaultAccounts = [
     // Assets (1000-1999)
@@ -104,6 +108,85 @@ export class LedgerService {
     }
 
     return undefined;
+  }
+
+  private resolveLedgerSource(reference?: string | null): {
+    type: 'invoice' | 'payment' | 'expense' | 'credit_note' | 'sale' | 'return' | 'manual' | 'stock';
+    id?: string;
+    paymentId?: string;
+    url: string;
+    label: string;
+  } {
+    const scopedReference = this.stripBranchScope(reference || '');
+
+    const creditPayment = /^CREDIT:([^:]+):PAYMENT:([^:]+)$/.exec(scopedReference);
+    if (creditPayment) {
+      const creditId = creditPayment[1];
+      const paymentId = creditPayment[2];
+      return {
+        type: 'payment',
+        id: creditId,
+        paymentId,
+        url: `/credit?creditId=${encodeURIComponent(creditId)}&paymentId=${encodeURIComponent(paymentId)}`,
+        label: 'Open payment',
+      };
+    }
+
+    if (scopedReference.startsWith('CREDIT-')) {
+      const creditId = scopedReference.slice('CREDIT-'.length);
+      return {
+        type: 'credit_note',
+        id: creditId,
+        url: `/credit?creditId=${encodeURIComponent(creditId)}`,
+        label: 'Open credit note',
+      };
+    }
+
+    if (scopedReference.startsWith('EXPENSE-')) {
+      const expenseId = scopedReference.slice('EXPENSE-'.length);
+      return {
+        type: 'expense',
+        id: expenseId,
+        url: `/expenses?expenseId=${encodeURIComponent(expenseId)}`,
+        label: 'Open expense',
+      };
+    }
+
+    if (scopedReference.startsWith('SALE-')) {
+      const saleId = scopedReference.slice('SALE-'.length);
+      return {
+        type: 'invoice',
+        id: saleId,
+        url: `/sales/history?saleId=${encodeURIComponent(saleId)}`,
+        label: 'Open invoice',
+      };
+    }
+
+    if (scopedReference.startsWith('RETURN-')) {
+      const returnId = scopedReference.slice('RETURN-'.length);
+      return {
+        type: 'return',
+        id: returnId,
+        url: `/sales/history?returnId=${encodeURIComponent(returnId)}`,
+        label: 'Open return',
+      };
+    }
+
+    if (scopedReference.startsWith('INIT-STOCK-')) {
+      const stockId = scopedReference.slice('INIT-STOCK-'.length);
+      return {
+        type: 'stock',
+        id: stockId,
+        url: `/products/unified`,
+        label: 'Open stock item',
+      };
+    }
+
+    return {
+      type: 'manual',
+      url: '/accounts/ledgers',
+      label: 'Open ledger',
+    };
   }
 
   private async filterJournalEntriesByBranch(
@@ -362,7 +445,7 @@ export class LedgerService {
       throw new BadRequestException('Journal entry must be balanced (Total Debit must equal Total Credit)');
     }
 
-    return this.prisma.journalEntry.create({
+    const created = await this.prisma.journalEntry.create({
       data: {
         tenantId,
         userId: validUserId,
@@ -381,6 +464,18 @@ export class LedgerService {
       },
       include: { ledgerEntries: { include: { account: true } } },
     });
+
+    this.realtimeGateway.emitLedgerUpdate({
+      tenantId,
+      type: 'journal_entry_created',
+      reference: created.reference,
+      accountIds: created.ledgerEntries.map((entry) => entry.accountId),
+      branchId: this.extractBranchScope(created.reference),
+      journalEntryId: created.id,
+      timestamp: new Date().toISOString(),
+    });
+
+    return created;
   }
 
   async getTrialBalance(
@@ -1087,39 +1182,145 @@ export class LedgerService {
       }
     }
     
-    return {
+    const result = {
       syncedSalesCount: syncedSales.length,
       syncedSales: syncedSales,
       syncedExpensesCount: syncedExpenses.length,
       syncedExpenses,
     };
-  }
 
-  async getAccountEntries(tenantId: string, accountId: string, branchId?: string) {
-    const journalEntries = await this.getJournalEntriesForReporting(tenantId, {
+    this.realtimeGateway.emitLedgerUpdate({
+      tenantId,
+      type: 'ledger_synced',
       branchId,
+      syncedSalesCount: syncedSales.length,
+      syncedExpensesCount: syncedExpenses.length,
+      timestamp: new Date().toISOString(),
     });
 
-    const entries = journalEntries
-      .flatMap((journalEntry) =>
-        journalEntry.ledgerEntries
-          .filter((ledgerEntry) => ledgerEntry.accountId === accountId)
-          .map((ledgerEntry) => ({
-            id: ledgerEntry.id,
-            date: journalEntry.date,
-            reference: journalEntry.reference,
-            type: journalEntry.type,
-            description:
-              journalEntry.description +
-              (ledgerEntry.description ? ` (${ledgerEntry.description})` : ''),
-            debit: ledgerEntry.debit,
-            credit: ledgerEntry.credit,
-            user: journalEntry.user?.name,
-            meta: { journalEntryId: ledgerEntry.journalEntryId },
-          })),
-      )
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+    return result;
+  }
 
-    return entries;
+  async getAccountEntries(
+    tenantId: string,
+    accountId: string,
+    branchId?: string,
+    options?: {
+      cursor?: string;
+      limit?: number;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ) {
+    const requestedLimit = Number(options?.limit || 50);
+    const limit = Math.min(Math.max(requestedLimit, 10), 200);
+
+    const journalWhere: any = {
+      tenantId,
+    };
+
+    if (options?.startDate || options?.endDate) {
+      journalWhere.date = {};
+      if (options.startDate) journalWhere.date.gte = options.startDate;
+      if (options.endDate) {
+        const endOfDay = new Date(options.endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        journalWhere.date.lte = endOfDay;
+      }
+    }
+
+    if (branchId) {
+      journalWhere.reference = {
+        startsWith: `BRANCH:${branchId}:`,
+      };
+    }
+
+    const rows = await this.prisma.ledgerEntry.findMany({
+      where: {
+        accountId,
+        journalEntry: journalWhere,
+      },
+      include: {
+        journalEntry: {
+          select: {
+            id: true,
+            date: true,
+            reference: true,
+            type: true,
+            description: true,
+            user: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [
+        { journalEntry: { date: 'desc' } },
+        { id: 'desc' },
+      ],
+      ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
+      take: limit + 1,
+    });
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+
+    const items = pageRows.map((row) => ({
+      id: row.id,
+      date: row.journalEntry.date,
+      reference: row.journalEntry.reference || `JE-${row.journalEntryId}`,
+      type: row.journalEntry.type,
+      description:
+        row.journalEntry.description +
+        (row.description ? ` (${row.description})` : ''),
+      debit: row.debit,
+      credit: row.credit,
+      user: row.journalEntry.user?.name,
+      tag: row.tag || 'general',
+      source: this.resolveLedgerSource(row.journalEntry.reference),
+      meta: { journalEntryId: row.journalEntryId },
+    }));
+
+    return {
+      items,
+      hasMore,
+      nextCursor: hasMore ? pageRows[pageRows.length - 1].id : null,
+    };
+  }
+
+  async updateLedgerEntryTag(tenantId: string, entryId: string, tag: string) {
+    // Only allow tags from a safe list or sanitize input as needed
+    const allowedTags = ['general', 'tax', 'refund', 'adjustment', 'expense', 'income', 'other'];
+    const safeTag = allowedTags.includes(tag) ? tag : 'other';
+
+    const existingEntry = await this.prisma.ledgerEntry.findFirst({
+      where: { id: entryId, journalEntry: { tenantId } },
+      select: {
+        id: true,
+        accountId: true,
+        journalEntryId: true,
+        journalEntry: { select: { reference: true } },
+      },
+    });
+
+    if (!existingEntry) {
+      return { success: false, tag: safeTag };
+    }
+
+    await this.prisma.ledgerEntry.update({
+      where: { id: existingEntry.id },
+      data: { tag: safeTag },
+    });
+
+    this.realtimeGateway.emitLedgerUpdate({
+      tenantId,
+      type: 'ledger_tag_updated',
+      entryId: existingEntry.id,
+      journalEntryId: existingEntry.journalEntryId,
+      accountId: existingEntry.accountId,
+      branchId: this.extractBranchScope(existingEntry.journalEntry.reference),
+      tag: safeTag,
+      timestamp: new Date().toISOString(),
+    });
+
+    return { success: true, tag: safeTag };
   }
 }

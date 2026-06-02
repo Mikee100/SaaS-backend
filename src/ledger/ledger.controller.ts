@@ -9,6 +9,7 @@ import {
   UnauthorizedException,
   Param,
   ForbiddenException,
+  Patch,
 } from '@nestjs/common';
 import { LedgerService } from './ledger.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -185,10 +186,38 @@ export class LedgerController {
 
   @Get('accounts/:id/entries')
   @Permissions('view_reports')
-  async getAccountEntries(@Req() req: any, @Param('id') id: string) {
+  async getAccountEntries(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limitText?: string,
+    @Query('startDate') startDateText?: string,
+    @Query('endDate') endDateText?: string,
+  ) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new UnauthorizedException();
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.ledgerService.getAccountEntries(tenantId, id, effectiveBranchId);
+    const parsedLimit = limitText ? Number(limitText) : undefined;
+    const startDate = startDateText ? new Date(startDateText) : undefined;
+    const endDate = endDateText ? new Date(endDateText) : undefined;
+
+    return this.ledgerService.getAccountEntries(tenantId, id, effectiveBranchId, {
+      cursor,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+      startDate,
+      endDate,
+    });
+  }
+
+  @Patch('entry/:id/tag')
+  @Permissions('edit_ledger')
+  async updateLedgerEntryTag(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body('tag') tag: string
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) throw new UnauthorizedException();
+    return this.ledgerService.updateLedgerEntryTag(tenantId, id, tag);
   }
 }
