@@ -107,3 +107,20 @@ export class UpdateMeasurementUnitDto {
   @IsBoolean()
   isActive?: boolean;
 }
+
+export class AssignTenantClassificationDto {
+  @IsString()
+  @MinLength(1)
+  classificationId: string;
+
+  @IsOptional()
+  @IsString()
+  secondaryClassificationId?: string;
+
+  @IsOptional()
+  measurementPreferences?: Record<string, any>;
+
+  @IsOptional()
+  @IsBoolean()
+  provisionDefaults?: boolean;
+}

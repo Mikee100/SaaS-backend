@@ -18,6 +18,7 @@ import {
   UpdateClassificationDto,
   CreateMeasurementUnitDto,
   UpdateMeasurementUnitDto,
+  AssignTenantClassificationDto,
 } from './dto/classification.dto';
 
 @Controller()
@@ -46,19 +47,22 @@ export class ClassificationController {
   @UseGuards(AuthGuard('jwt'))
   async assignTenantClassification(
     @Req() req: any,
-    @Body()
-    body: {
-      classificationId: string;
-      secondaryClassificationId?: string;
-      measurementPreferences?: Record<string, any>;
-    },
+    @Body() body: AssignTenantClassificationDto,
   ) {
     return this.classificationService.assignTenantClassification(
       req.user.tenantId,
       body.classificationId,
       body.secondaryClassificationId,
       body.measurementPreferences,
+      body.provisionDefaults,
     );
+  }
+
+  /** POST /tenant/classification/provision-defaults — provision defaults for current tenant */
+  @Post('tenant/classification/provision-defaults')
+  @UseGuards(AuthGuard('jwt'))
+  async provisionDefaultsForTenant(@Req() req: any) {
+    return this.classificationService.syncTenantMetricDefaults(req.user.tenantId);
   }
 
   // ─── Superadmin: full CRUD ──────────────────────────────────────────────────
@@ -135,16 +139,21 @@ export class ClassificationController {
   @UseGuards(AuthGuard('jwt'))
   async assignForTenant(
     @Param('tenantId') tenantId: string,
-    @Body()
-    body: {
-      classificationId: string;
-      secondaryClassificationId?: string;
-    },
+    @Body() body: AssignTenantClassificationDto,
   ) {
     return this.classificationService.assignTenantClassification(
       tenantId,
       body.classificationId,
       body.secondaryClassificationId,
+      body.measurementPreferences,
+      body.provisionDefaults,
     );
+  }
+
+  /** POST /admin/tenants/:tenantId/classification/provision-defaults */
+  @Post('admin/tenants/:tenantId/classification/provision-defaults')
+  @UseGuards(AuthGuard('jwt'))
+  async provisionDefaultsForSpecificTenant(@Param('tenantId') tenantId: string) {
+    return this.classificationService.syncTenantMetricDefaults(tenantId);
   }
 }

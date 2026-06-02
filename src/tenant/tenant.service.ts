@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
 import { BranchService } from '../branch/branch.service';
 import { TenantConfigurationService } from '../config/tenant-configuration.service';
+import { ClassificationService } from '../classification/classification.service';
 
 @Injectable()
 export class TenantService {
@@ -18,7 +19,69 @@ export class TenantService {
     private userService: UserService,
     private branchService: BranchService,
     private tenantConfigurationService: TenantConfigurationService,
+    private classificationService: ClassificationService,
   ) {}
+
+  private normalizeToken(input?: string | null) {
+    return (input ?? '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  private async tryAutoAssignClassification(
+    tenantId: string,
+    businessType?: string,
+  ) {
+    const normalized = this.normalizeToken(businessType);
+    if (!normalized) return null;
+
+    const activeClassifications = await this.prisma.businessClassification.findMany({
+      where: { isActive: true },
+      select: { id: true, slug: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    if (activeClassifications.length === 0) return null;
+
+    const exact = activeClassifications.find(
+      (c) => this.normalizeToken(c.slug) === normalized || this.normalizeToken(c.name) === normalized,
+    );
+
+    const tokenFallback = activeClassifications.find((c) => {
+      const slug = this.normalizeToken(c.slug);
+      const name = this.normalizeToken(c.name);
+      return normalized.includes(slug) || slug.includes(normalized) || normalized.includes(name);
+    });
+
+    const matched = exact || tokenFallback;
+    if (!matched) return null;
+
+    try {
+      const result = await this.classificationService.assignTenantClassification(
+        tenantId,
+        matched.id,
+        undefined,
+        undefined,
+        true,
+      );
+      return {
+        matchedClassification: {
+          id: matched.id,
+          name: matched.name,
+          slug: matched.slug,
+        },
+        defaultsProvisioning: (result as any).defaultsProvisioning,
+      };
+    } catch (error: any) {
+      this.logger.warn(
+        `Failed to auto-assign classification for tenant ${tenantId}: ${error?.message || error}`,
+      );
+      return null;
+    }
+  }
 
   async createTenant(data: any): Promise<any> {
     // Only allow valid Tenant fields
@@ -77,6 +140,8 @@ export class TenantService {
       'backupRestore',
       'stripeCustomerId',
       'pdfTemplate',
+      'classificationId',
+      'secondaryClassificationId',
     ];
     const filtered: any = {};
     for (const key of allowedFields) {
@@ -223,6 +288,8 @@ export class TenantService {
       'rateLimit',
       'stripeCustomerId',
       'pdfTemplate',
+      'classificationId',
+      'secondaryClassificationId',
     ];
 
     for (const key of validTenantFields) {
@@ -287,6 +354,11 @@ export class TenantService {
       // 1. Create the tenant
       const tenant = await this.createTenant(tenantData);
 
+      const classificationSetup = await this.tryAutoAssignClassification(
+        tenant.id,
+        tenantData.businessType,
+      );
+
       // 2. Create a trial subscription for the tenant
       const trialPlan = await this.prisma.plan.findFirst({
         where: {
@@ -350,6 +422,7 @@ export class TenantService {
           name: ownerUser.name,
           email: ownerUser.email,
         },
+        classificationSetup,
       };
     });
   }
