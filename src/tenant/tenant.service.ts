@@ -140,6 +140,7 @@ export class TenantService {
       'backupRestore',
       'stripeCustomerId',
       'pdfTemplate',
+      'restaurantFeaturesEnabled',
       'classificationId',
       'secondaryClassificationId',
     ];
@@ -228,6 +229,7 @@ export class TenantService {
       rateLimit: number | null;
       stripeCustomerId: string | null;
       pdfTemplate: any;
+      restaurantFeaturesEnabled: boolean | null;
     }>,
   ) {
     // Get existing tenant
@@ -288,6 +290,7 @@ export class TenantService {
       'rateLimit',
       'stripeCustomerId',
       'pdfTemplate',
+      'restaurantFeaturesEnabled',
       'classificationId',
       'secondaryClassificationId',
     ];

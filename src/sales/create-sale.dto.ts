@@ -54,6 +54,10 @@ export class CreateSaleDto {
   @IsString()
   idempotencyKey: string;
 
+  @IsOptional()
+  @IsString()
+  restaurantOrderId?: string;
+
   // Add missing properties
   @IsNumber()
   @IsOptional()

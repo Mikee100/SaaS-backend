@@ -8,12 +8,12 @@ datasource db {
 }
 
 model User {
-  id                      String             @id @default(uuid())
-  email                   String             @unique
+  id                      String                  @id @default(uuid())
+  email                   String                  @unique
   password                String
   name                    String
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
   deletedAt               DateTime?
   resetPasswordExpires    DateTime?
   resetPasswordToken      String?
@@ -21,21 +21,21 @@ model User {
   notificationPreferences Json?
   preferences             Json?
   region                  String?
-  isSuperadmin            Boolean            @default(false)
-  isDisabled              Boolean            @default(false)
+  isSuperadmin            Boolean                 @default(false)
+  isDisabled              Boolean                 @default(false)
   tenantId                String?
   branchId                String?
   AuditLog                AuditLog[]
   MpesaTransaction        MpesaTransaction[]
   Notification            Notification[]
-  Sale                Sale[]
-  Subscription        Subscription[]
-  Branch                  Branch?            @relation("UserBranch", fields: [branchId], references: [id])
-  tenant                  Tenant?            @relation(fields: [tenantId], references: [id])
-  UserBranchRole          UserBranchRole[]   @relation("UserUserBranchRoles")
-  grantedPermissions      UserPermission[]   @relation("UserPermissions")
-  userPermissions         UserPermission[]   @relation("UserUserPermissions")
-  userRoles               UserRole[]         @relation("UserUserRoles")
+  Sale                    Sale[]
+  Subscription            Subscription[]
+  Branch                  Branch?                 @relation("UserBranch", fields: [branchId], references: [id])
+  tenant                  Tenant?                 @relation(fields: [tenantId], references: [id])
+  UserBranchRole          UserBranchRole[]        @relation("UserUserBranchRoles")
+  grantedPermissions      UserPermission[]        @relation("UserPermissions")
+  userPermissions         UserPermission[]        @relation("UserUserPermissions")
+  userRoles               UserRole[]              @relation("UserUserRoles")
   productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
   expenses                Expense[]
   salarySchemes           SalaryScheme[]
@@ -47,6 +47,7 @@ model User {
   supportTickets          SupportTicket[]
   supportTicketResponses  SupportTicketResponse[]
   JournalEntry            JournalEntry[]
+  RestaurantOrder         RestaurantOrder[]
 
   @@index([email])
   @@index([branchId])
@@ -103,18 +104,18 @@ model UserRole {
 }
 
 model Tenant {
-  id                        String                     @id @default(uuid())
+  id                        String    @id @default(uuid())
   name                      String
   businessType              String
   contactEmail              String
   contactPhone              String?
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
   deletedAt                 DateTime?
   address                   String?
-  currency                  String?                    @default("KES")
+  currency                  String?   @default("KES")
   logoUrl                   String?
-  timezone                  String?                    @default("Africa/Nairobi")
+  timezone                  String?   @default("Africa/Nairobi")
   vatNumber                 String?
   city                      String?
   country                   String?
@@ -122,20 +123,20 @@ model Tenant {
   website                   String?
   annualRevenue             String?
   apiKey                    String?
-  backupRestore             Boolean                    @default(false)
+  backupRestore             Boolean   @default(false)
   businessCategory          String?
   businessDescription       String?
   businessHours             Json?
   businessLicense           String?
   businessSubcategory       String?
   customDomain              String?
-  customIntegrations        Boolean                    @default(false)
+  customIntegrations        Boolean   @default(false)
   employeeCount             String?
   etimsQrUrl                String?
   favicon                   String?
   foundedYear               Int?
   invoiceFooter             String?
-  kraEnabled                Boolean                    @default(false)
+  kraEnabled                Boolean   @default(false)
   kraPin                    String?
   latitude                  Float?
   longitude                 Float?
@@ -147,37 +148,38 @@ model Tenant {
   secondaryColor            String?
   secondaryProducts         Json?
   socialMedia               Json?
-  ssoEnabled                Boolean                    @default(false)
+  ssoEnabled                Boolean   @default(false)
   state                     String?
-  stripeCustomerId          String?                    @unique
+  stripeCustomerId          String?   @unique
   watermark                 String?
   webhookUrl                String?
-  whiteLabel                Boolean                    @default(false)
+  whiteLabel                Boolean   @default(false)
   dashboardLogoUrl          String?
   emailLogoUrl              String?
   loginLogoUrl              String?
   logoSettings              Json?
   pdfTemplate               Json?
   mobileLogoUrl             String?
-  auditLogsEnabled          Boolean                    @default(false)
-  credits                   Float?                     @default(0)
+  auditLogsEnabled          Boolean   @default(false)
+  credits                   Float?    @default(0)
   mpesaConsumerKey          String?
   mpesaConsumerSecret       String?
   mpesaShortCode            String?
   mpesaPasskey              String?
   mpesaCallbackUrl          String?
-  mpesaIsActive             Boolean                    @default(false)
-  mpesaEnvironment          String?                    @default("sandbox")
-  isSuspended               Boolean                    @default(false)
+  mpesaIsActive             Boolean   @default(false)
+  mpesaEnvironment          String?   @default("sandbox")
+  isSuspended               Boolean   @default(false)
+  restaurantFeaturesEnabled Boolean   @default(false)
 
   // Business Classification (one primary, one optional secondary)
   classificationId          String?
   secondaryClassificationId String?
-  measurementPreferences    Json?    // { "defaultUnit": "kg", "allowedUnits": ["g","kg"] }
-  classificationAssigned    Boolean  @default(false) // false = admin must assign on next login
+  measurementPreferences    Json? // { "defaultUnit": "kg", "allowedUnits": ["g","kg"] }
+  classificationAssigned    Boolean @default(false) // false = admin must assign on next login
 
-  classification            BusinessClassification?    @relation("TenantPrimaryClassification", fields: [classificationId], references: [id])
-  secondaryClassification   BusinessClassification?    @relation("TenantSecondaryClassification", fields: [secondaryClassificationId], references: [id])
+  classification          BusinessClassification? @relation("TenantPrimaryClassification", fields: [classificationId], references: [id])
+  secondaryClassification BusinessClassification? @relation("TenantSecondaryClassification", fields: [secondaryClassificationId], references: [id])
 
   Branch              Branch[]
   Inventory           Inventory[]
@@ -189,7 +191,7 @@ model Tenant {
   Notification        Notification[]
   Payment             Payment[]
   PaymentMethod       PaymentMethod[]
-  products            Product[]             @relation("TenantProducts")
+  products            Product[]               @relation("TenantProducts")
   roles               Role[]
   Sale                Sale[]
   Credit              Credit[]
@@ -198,20 +200,23 @@ model Tenant {
   TenantConfiguration TenantConfiguration[]
   TenantModule        TenantModule[]
   users               User[]
-  UserBranchRole      UserBranchRole[]      @relation("TenantUserBranchRoles")
-  userPermissions     UserPermission[]      @relation("TenantUserPermissions")
-  userRoles           UserRole[]            @relation("TenantUserRoles")
+  UserBranchRole      UserBranchRole[]        @relation("TenantUserBranchRoles")
+  userPermissions     UserPermission[]        @relation("TenantUserPermissions")
+  userRoles           UserRole[]              @relation("TenantUserRoles")
   productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
-  productVariations   ProductVariation[]    @relation("TenantProductVariations")
-  productAttributes   ProductAttribute[]    @relation("TenantProductAttributes")
+  productVariations   ProductVariation[]      @relation("TenantProductVariations")
+  productAttributes   ProductAttribute[]      @relation("TenantProductAttributes")
   supportTickets      SupportTicket[]
-  expenses            Expense[]             // New
-  expenseCategories   ExpenseCategory[]     // New
-  salesTargets        SalesTarget[]         // New
-  salarySchemes       SalaryScheme[]        // New
+  expenses            Expense[] // New
+  expenseCategories   ExpenseCategory[] // New
+  salesTargets        SalesTarget[] // New
+  salarySchemes       SalaryScheme[] // New
   loginHistory        LoginHistory[]
   accounts            Account[]
   journalEntries      JournalEntry[]
+  DiningTable         DiningTable[]
+  RestaurantOrder     RestaurantOrder[]
+  ModifierGroup       ModifierGroup[]
 
   @@index([name])
   @@index([deletedAt])
@@ -229,39 +234,41 @@ model AuditLog {
 }
 
 model Branch {
-  id             String           @id @default(uuid())
-  name           String
-  address        String?
-  tenantId       String
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  deletedAt      DateTime?
-  city           String?
-  country        String?
-  customField    String?
-  email          String?
-  isMainBranch   Boolean          @default(false)
-  logo           String?
-  manager        String?
-  openingHours   String?
-  phone          String?
-  postalCode     String?
-  state          String?
-  status         String?
-  street         String?
-  tenant              Tenant              @relation(fields: [tenantId], references: [id])
-  inventories         Inventory[]
-  inventoryMovements  InventoryMovement[]
-  inventoryAlerts     InventoryAlert[]
-  inventoryLocations  InventoryLocation[]
-  products            Product[]           @relation("BranchProducts")
-  sales               Sale[]
-  users               User[]              @relation("UserBranch")
-  UserBranchRole      UserBranchRole[]    @relation("BranchUserBranchRoles")
-  productAdditions    ProductAdditionRecord[] @relation("BranchProductAdditions")
-  productVariations   ProductVariation[]  @relation("BranchProductVariations") // New
-  expenses            Expense[]           // New
-  salarySchemes       SalaryScheme[]      // New
+  id                 String                  @id @default(uuid())
+  name               String
+  address            String?
+  tenantId           String
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  deletedAt          DateTime?
+  city               String?
+  country            String?
+  customField        String?
+  email              String?
+  isMainBranch       Boolean                 @default(false)
+  logo               String?
+  manager            String?
+  openingHours       String?
+  phone              String?
+  postalCode         String?
+  state              String?
+  status             String?
+  street             String?
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id])
+  inventories        Inventory[]
+  inventoryMovements InventoryMovement[]
+  inventoryAlerts    InventoryAlert[]
+  inventoryLocations InventoryLocation[]
+  products           Product[]               @relation("BranchProducts")
+  sales              Sale[]
+  users              User[]                  @relation("UserBranch")
+  UserBranchRole     UserBranchRole[]        @relation("BranchUserBranchRoles")
+  productAdditions   ProductAdditionRecord[] @relation("BranchProductAdditions")
+  productVariations  ProductVariation[]      @relation("BranchProductVariations") // New
+  expenses           Expense[] // New
+  salarySchemes      SalaryScheme[] // New
+  DiningTable        DiningTable[]
+  RestaurantOrder    RestaurantOrder[]
 
   @@index([tenantId])
   @@index([deletedAt])
@@ -270,7 +277,7 @@ model Branch {
 model Inventory {
   id               String   @id
   productId        String
-  quantity         Float    // Float to support fractional units (e.g. 0.5 kg)
+  quantity         Float // Float to support fractional units (e.g. 0.5 kg)
   tenantId         String
   createdAt        DateTime @default(now())
   updatedAt        DateTime
@@ -279,7 +286,7 @@ model Inventory {
   maxStock         Float    @default(1000)
   reorderPoint     Float    @default(10)
   location         String   @default("Main Warehouse")
-  unitAbbreviation String?  // e.g. "kg", "L", "S"
+  unitAbbreviation String? // e.g. "kg", "L", "S"
   branch           Branch?  @relation(fields: [branchId], references: [id])
   product          Product  @relation("ProductInventory", fields: [productId], references: [id])
   tenant           Tenant   @relation(fields: [tenantId], references: [id])
@@ -290,21 +297,21 @@ model Inventory {
 }
 
 model InventoryMovement {
-  id           String   @id @default(uuid())
-  productId    String
-  type         String   // 'in', 'out', 'adjustment', 'transfer'
-  quantity     Int
+  id               String   @id @default(uuid())
+  productId        String
+  type             String // 'in', 'out', 'adjustment', 'transfer'
+  quantity         Int
   previousQuantity Int
-  newQuantity  Int
-  reason       String?
-  location     String
-  createdAt    DateTime @default(now())
-  createdBy    String
-  branchId     String?
-  tenantId     String
-  branch       Branch?  @relation(fields: [branchId], references: [id])
-  product      Product  @relation(fields: [productId], references: [id])
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  newQuantity      Int
+  reason           String?
+  location         String
+  createdAt        DateTime @default(now())
+  createdBy        String
+  branchId         String?
+  tenantId         String
+  branch           Branch?  @relation(fields: [branchId], references: [id])
+  product          Product  @relation(fields: [productId], references: [id])
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([branchId])
   @@index([productId])
@@ -315,9 +322,9 @@ model InventoryMovement {
 model InventoryAlert {
   id        String   @id @default(uuid())
   productId String
-  type      String   // 'low_stock', 'out_of_stock', 'over_stock', 'reorder'
+  type      String // 'low_stock', 'out_of_stock', 'over_stock', 'reorder'
   message   String
-  severity  String   // 'low', 'medium', 'high', 'critical'
+  severity  String // 'low', 'medium', 'high', 'critical'
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   branchId  String?
@@ -333,16 +340,16 @@ model InventoryAlert {
 }
 
 model InventoryLocation {
-  id       String   @id @default(uuid())
-  name     String
-  type     String   // 'warehouse', 'store', 'showroom'
-  address  String?
-  branchId String?
-  tenantId String
+  id        String   @id @default(uuid())
+  name      String
+  type      String // 'warehouse', 'store', 'showroom'
+  address   String?
+  branchId  String?
+  tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  branch   Branch?  @relation(fields: [branchId], references: [id])
-  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([branchId])
   @@index([tenantId])
@@ -435,7 +442,7 @@ model Payment {
   description           String?
   metadata              Json?
   completedAt           DateTime?
-  refundedAt           DateTime?
+  refundedAt            DateTime?
   refundAmount          Float?
   refundReason          String?
   createdAt             DateTime  @default(now())
@@ -465,35 +472,35 @@ model PaymentMethod {
 }
 
 model Plan {
-  id                 String              @id @default(uuid())
-  name               String
-  description        String
-  price              Float
-  interval           String
-  maxUsers           Int?
-  maxProducts        Int?
-  maxSalesPerMonth   Int?
-  maxBranches        Int?
-  analyticsEnabled   Boolean             @default(false)
-  advancedReports    Boolean             @default(false)
-  prioritySupport    Boolean             @default(false)
-  customBranding     Boolean             @default(false)
-  apiAccess          Boolean             @default(false)
-  isActive           Boolean             @default(true)
-  advancedSecurity   Boolean             @default(false)
-  auditLogs          Boolean             @default(false)
-  backupRestore      Boolean             @default(false)
-  bulkOperations     Boolean             @default(false)
-  customFields       Boolean             @default(false)
-  customIntegrations Boolean             @default(false)
-  dataExport         Boolean             @default(false)
-  dedicatedSupport   Boolean             @default(false)
-  ssoEnabled         Boolean             @default(false)
-  whiteLabel         Boolean             @default(false)
-  stripePriceId      String?             @unique
-  PlanFeatureOnPlan  PlanFeatureOnPlan[]
-  Subscription       Subscription[]
-  ScheduledSubscriptions Subscription[] @relation("ScheduledPlan")
+  id                     String              @id @default(uuid())
+  name                   String
+  description            String
+  price                  Float
+  interval               String
+  maxUsers               Int?
+  maxProducts            Int?
+  maxSalesPerMonth       Int?
+  maxBranches            Int?
+  analyticsEnabled       Boolean             @default(false)
+  advancedReports        Boolean             @default(false)
+  prioritySupport        Boolean             @default(false)
+  customBranding         Boolean             @default(false)
+  apiAccess              Boolean             @default(false)
+  isActive               Boolean             @default(true)
+  advancedSecurity       Boolean             @default(false)
+  auditLogs              Boolean             @default(false)
+  backupRestore          Boolean             @default(false)
+  bulkOperations         Boolean             @default(false)
+  customFields           Boolean             @default(false)
+  customIntegrations     Boolean             @default(false)
+  dataExport             Boolean             @default(false)
+  dedicatedSupport       Boolean             @default(false)
+  ssoEnabled             Boolean             @default(false)
+  whiteLabel             Boolean             @default(false)
+  stripePriceId          String?             @unique
+  PlanFeatureOnPlan      PlanFeatureOnPlan[]
+  Subscription           Subscription[]
+  ScheduledSubscriptions Subscription[]      @relation("ScheduledPlan")
 
   @@index([isActive])
   @@index([name])
@@ -506,7 +513,7 @@ model PlanFeature {
   featureDescription String?
   isEnabled          Boolean             @default(true)
   createdAt          DateTime            @default(now())
-  updatedAt           DateTime
+  updatedAt          DateTime
   PlanFeatureOnPlan  PlanFeatureOnPlan[]
 }
 
@@ -523,24 +530,24 @@ model PlanFeatureOnPlan {
 }
 
 model Supplier {
-  id          String    @id @default(uuid())
-  name        String
-  contactName String?
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  country     String?
-  postalCode  String?
-  website     String?
-  notes       String?
-  tenantId    String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  isActive    Boolean   @default(true)
-  products    Product[] @relation("SupplierProducts")
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  id               String                  @id @default(uuid())
+  name             String
+  contactName      String?
+  email            String?
+  phone            String?
+  address          String?
+  city             String?
+  country          String?
+  postalCode       String?
+  website          String?
+  notes            String?
+  tenantId         String
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
+  isActive         Boolean                 @default(true)
+  products         Product[]               @relation("SupplierProducts")
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id])
   productAdditions ProductAdditionRecord[] @relation("SupplierProductAdditions")
 
   @@index([tenantId])
@@ -548,21 +555,19 @@ model Supplier {
   @@index([deletedAt])
 }
 
-
-
 // Product Attribute Definitions (e.g., "Color", "Size", "Storage")
 model ProductAttribute {
-  id          String   @id @default(uuid())
-  name        String   // e.g., "Color", "Size", "Storage"
-  displayName String?  // e.g., "Color", "Size", "Storage Capacity"
-  type        String   @default("text") // "text", "number", "color", "image"
+  id          String                  @id @default(uuid())
+  name        String // e.g., "Color", "Size", "Storage"
+  displayName String? // e.g., "Color", "Size", "Storage Capacity"
+  type        String                  @default("text") // "text", "number", "color", "image"
   tenantId    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
   deletedAt   DateTime?
   values      ProductAttributeValue[]
-  tenant      Tenant   @relation("TenantProductAttributes", fields: [tenantId], references: [id])
+  tenant      Tenant                  @relation("TenantProductAttributes", fields: [tenantId], references: [id])
 
   @@unique([name, tenantId])
   @@index([tenantId])
@@ -571,16 +576,16 @@ model ProductAttribute {
 
 // Product Attribute Values (e.g., "Black", "Grey", "38", "256GB")
 model ProductAttributeValue {
-  id          String   @id @default(uuid())
+  id          String           @id @default(uuid())
   attributeId String
-  value       String   // e.g., "Black", "38", "256GB"
-  displayName String?  // Optional display name
-  color       String?  // Hex color for color attributes
-  image       String?  // Image URL for image-based attributes
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  value       String // e.g., "Black", "38", "256GB"
+  displayName String? // Optional display name
+  color       String? // Hex color for color attributes
+  image       String? // Image URL for image-based attributes
+  sortOrder   Int              @default(0)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
   attribute   ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
@@ -591,25 +596,25 @@ model ProductAttributeValue {
 }
 
 model ProductVariation {
-  id           String   @id @default(uuid())
-  productId    String
-  sku          String   // Unique SKU for this variation
-  price        Float?   // Override price, null means use base price
-  cost         Float?   // Override cost, null means use base cost
-  stock        Int      @default(0)
-  attributes   Json     // {"Color": "Black", "Size": "38"} - using attribute names and values
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
-  tenantId     String
-  branchId     String?
-  barcode      String?  // Optional barcode for this variation
-  weight       Float?   // Optional weight override
-  product      Product  @relation("ProductVariations", fields: [productId], references: [id])
-  tenant       Tenant   @relation("TenantProductVariations", fields: [tenantId], references: [id])
-  branch       Branch?  @relation("BranchProductVariations", fields: [branchId], references: [id])
-  saleItems    SaleItem[] @relation("VariationSaleItems")
+  id         String     @id @default(uuid())
+  productId  String
+  sku        String // Unique SKU for this variation
+  price      Float? // Override price, null means use base price
+  cost       Float? // Override cost, null means use base cost
+  stock      Int        @default(0)
+  attributes Json // {"Color": "Black", "Size": "38"} - using attribute names and values
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deletedAt  DateTime?
+  tenantId   String
+  branchId   String?
+  barcode    String? // Optional barcode for this variation
+  weight     Float? // Optional weight override
+  product    Product    @relation("ProductVariations", fields: [productId], references: [id])
+  tenant     Tenant     @relation("TenantProductVariations", fields: [tenantId], references: [id])
+  branch     Branch?    @relation("BranchProductVariations", fields: [branchId], references: [id])
+  saleItems  SaleItem[] @relation("VariationSaleItems")
 
   @@unique([productId, sku])
   @@index([productId])
@@ -620,37 +625,39 @@ model ProductVariation {
 }
 
 model Product {
-  id               String      @id
-  name             String
-  sku              String      // Base SKU, variations will have their own
-  price            Float       // Base price
-  description      String?
-  tenantId         String
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  deletedAt        DateTime?
-  stock            Int         @default(0) // Total stock across all variations
-  customFields     Json?
-  branchId         String?
-  cost             Float       @default(0) // Base cost
-  images           String[]    // Array of image URLs
-  supplierId       String?
-  hasVariations    Boolean     @default(false)
+  id                  String                  @id
+  name                String
+  sku                 String // Base SKU, variations will have their own
+  price               Float // Base price
+  description         String?
+  tenantId            String
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  deletedAt           DateTime?
+  stock               Int                     @default(0) // Total stock across all variations
+  customFields        Json?
+  branchId            String?
+  cost                Float                   @default(0) // Base cost
+  images              String[] // Array of image URLs
+  supplierId          String?
+  hasVariations       Boolean                 @default(false)
+  inventoryPolicy     String                  @default("TRACKED") // TRACKED, NON_TRACKED, RECIPE_DRIVEN
   // Measurement unit fields
-  unitId           String?     // FK to MeasurementUnit
-  unitAbbreviation String?     // Denormalized for performance: "kg", "g", "L", "38"
-  unitName         String?     // e.g. "Kilogram", "Small"
-  pricePerUnit     Boolean     @default(false) // true = price is per unit (e.g. KES 800/kg)
-  supplier         Supplier?   @relation("SupplierProducts", fields: [supplierId], references: [id])
-  unit             MeasurementUnit? @relation("ProductUnit", fields: [unitId], references: [id])
-  inventory           Inventory[]          @relation("ProductInventory")
+  unitId              String? // FK to MeasurementUnit
+  unitAbbreviation    String? // Denormalized for performance: "kg", "g", "L", "38"
+  unitName            String? // e.g. "Kilogram", "Small"
+  pricePerUnit        Boolean                 @default(false) // true = price is per unit (e.g. KES 800/kg)
+  supplier            Supplier?               @relation("SupplierProducts", fields: [supplierId], references: [id])
+  unit                MeasurementUnit?        @relation("ProductUnit", fields: [unitId], references: [id])
+  inventory           Inventory[]             @relation("ProductInventory")
   inventoryMovements  InventoryMovement[]
   inventoryAlerts     InventoryAlert[]
-  branch              Branch?              @relation("BranchProducts", fields: [branchId], references: [id])
-  tenant              Tenant               @relation("TenantProducts", fields: [tenantId], references: [id])
-  saleItems           SaleItem[]           @relation("ProductSaleItems")
+  branch              Branch?                 @relation("BranchProducts", fields: [branchId], references: [id])
+  tenant              Tenant                  @relation("TenantProducts", fields: [tenantId], references: [id])
+  saleItems           SaleItem[]              @relation("ProductSaleItems")
   productAdditions    ProductAdditionRecord[]
-  variations          ProductVariation[]   @relation("ProductVariations")
+  variations          ProductVariation[]      @relation("ProductVariations")
+  RestaurantOrderItem RestaurantOrderItem[]
 
   @@index([branchId])
   @@index([tenantId])
@@ -684,6 +691,8 @@ model Sale {
   User                                           User               @relation(fields: [userId], references: [id])
   SaleItem                                       SaleItem[]
   credit                                         Credit?            @relation("SaleCredit")
+  restaurantOrderId                              String?            @unique
+  restaurantOrder                                RestaurantOrder?   @relation(fields: [restaurantOrderId], references: [id])
 
   @@unique([idempotencyKey, userId])
   @@index([branchId])
@@ -695,16 +704,16 @@ model Sale {
 }
 
 model SaleItem {
-  id               String  @id
+  id               String            @id
   saleId           String
   productId        String
-  variationId      String?  // Optional variation ID for product variations
-  quantity         Float    // Float to support fractional units (e.g. 0.5 kg)
+  variationId      String? // Optional variation ID for product variations
+  quantity         Float // Float to support fractional units (e.g. 0.5 kg)
   price            Float
-  unitAbbreviation String?  // Snapshot of unit at sale time (e.g. "kg", "S", "38")
-  unitName         String?  // Snapshot of unit name (e.g. "Kilogram", "Small")
-  product          Product  @relation("ProductSaleItems", fields: [productId], references: [id])
-  sale             Sale     @relation(fields: [saleId], references: [id])
+  unitAbbreviation String? // Snapshot of unit at sale time (e.g. "kg", "S", "38")
+  unitName         String? // Snapshot of unit name (e.g. "Kilogram", "Small")
+  product          Product           @relation("ProductSaleItems", fields: [productId], references: [id])
+  sale             Sale              @relation(fields: [saleId], references: [id])
   variation        ProductVariation? @relation("VariationSaleItems", fields: [variationId], references: [id])
 
   @@index([productId])
@@ -715,7 +724,7 @@ model Subscription {
   id                     String    @id
   tenantId               String
   planId                 String
-  scheduledPlanId        String?   // For scheduled downgrade/upgrade
+  scheduledPlanId        String? // For scheduled downgrade/upgrade
   scheduledEffectiveDate DateTime? // When the scheduled plan change takes effect
   status                 String
   currentPeriodStart     DateTime
@@ -760,18 +769,19 @@ model SystemConfiguration {
   @@index([category])
   @@index([key])
 }
-model Conversation {
-  id         String   @id @default(uuid())
-  userId     String
-  tenantId   String
-  branchId   String?
-  title      String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
-  interactions  AIChatInteraction[]
-  user          User     @relation(fields: [userId], references: [id])
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String
+  tenantId  String
+  branchId  String?
+  title     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions AIChatInteraction[]
+  user         User                @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([tenantId])
@@ -780,20 +790,20 @@ model Conversation {
 }
 
 model AIChatInteraction {
-  id            String   @id @default(uuid())
-  userId        String
-  tenantId      String
-  branchId      String?
+  id             String   @id @default(uuid())
+  userId         String
+  tenantId       String
+  branchId       String?
   conversationId String?
-  userMessage   String
-  aiResponse    String
-  metadata      Json?
-  category      String?
-  feedback      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  userMessage    String
+  aiResponse     String
+  metadata       Json?
+  category       String?
+  feedback       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  conversation  Conversation? @relation(fields: [conversationId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
 
   @@index([userId])
   @@index([tenantId])
@@ -803,15 +813,15 @@ model AIChatInteraction {
 }
 
 model UserPreference {
-  id            String   @id @default(uuid())
-  userId        String
-  tenantId      String
-  preferenceKey String
+  id              String   @id @default(uuid())
+  userId          String
+  tenantId        String
+  preferenceKey   String
   preferenceValue Json
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user          User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, tenantId, preferenceKey])
   @@index([userId])
@@ -877,23 +887,23 @@ model UserPermission {
 }
 
 model ProductAdditionRecord {
-  id            String   @id @default(uuid())
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  tenantId      String
-  tenant        Tenant   @relation("TenantProductAdditions", fields: [tenantId], references: [id])
-  branchId      String?
-  branch        Branch?  @relation("BranchProductAdditions", fields: [branchId], references: [id])
-  userId        String
-  user          User     @relation("UserProductAdditions", fields: [userId], references: [id])
-  supplierId    String?
-  supplier      Supplier? @relation("SupplierProductAdditions", fields: [supplierId], references: [id])
-  quantity      Int      @default(1)
-  cost          Float?
-  price         Float?
-  addedAt       DateTime @default(now())
-  notes         String?
-  additionType  String   @default("individual") // "individual" or "bulk"
+  id           String    @id @default(uuid())
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId     String
+  tenant       Tenant    @relation("TenantProductAdditions", fields: [tenantId], references: [id])
+  branchId     String?
+  branch       Branch?   @relation("BranchProductAdditions", fields: [branchId], references: [id])
+  userId       String
+  user         User      @relation("UserProductAdditions", fields: [userId], references: [id])
+  supplierId   String?
+  supplier     Supplier? @relation("SupplierProductAdditions", fields: [supplierId], references: [id])
+  quantity     Int       @default(1)
+  cost         Float?
+  price        Float?
+  addedAt      DateTime  @default(now())
+  notes        String?
+  additionType String    @default("individual") // "individual" or "bulk"
 
   @@index([productId])
   @@index([tenantId])
@@ -904,26 +914,26 @@ model ProductAdditionRecord {
 }
 
 model Credit {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   tenantId      String
   customerName  String
   customerPhone String?
   customerEmail String?
-  totalAmount   Float    // Total credit amount
-  paidAmount    Float    @default(0) // Amount paid so far
-  balance       Float    // Remaining balance (totalAmount - paidAmount)
-  status        String   @default("active") // "active", "paid", "overdue"
+  totalAmount   Float // Total credit amount
+  paidAmount    Float     @default(0) // Amount paid so far
+  balance       Float // Remaining balance (totalAmount - paidAmount)
+  status        String    @default("active") // "active", "paid", "overdue"
   dueDate       DateTime?
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  sale          Sale     @relation("SaleCredit", fields: [saleId], references: [id])
-  payments      CreditPayment[]
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  sale     Sale            @relation("SaleCredit", fields: [saleId], references: [id])
+  payments CreditPayment[]
 
-  saleId        String   @unique
+  saleId String @unique
 
   @@index([tenantId])
   @@index([customerPhone])
@@ -936,12 +946,12 @@ model CreditPayment {
   id            String   @id @default(uuid())
   creditId      String
   amount        Float
-  paymentMethod String   // "cash", "mpesa", "bank_transfer", etc.
-  transactionId String?  // For M-Pesa or other payment references
+  paymentMethod String // "cash", "mpesa", "bank_transfer", etc.
+  transactionId String? // For M-Pesa or other payment references
   notes         String?
   createdAt     DateTime @default(now())
 
-  credit        Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  credit Credit @relation(fields: [creditId], references: [id], onDelete: Cascade)
 
   @@index([creditId])
   @@index([createdAt])
@@ -952,14 +962,14 @@ model ExpenseCategory {
   tenantId    String
   name        String
   description String?
-  color       String?   // Hex color code for UI display
+  color       String? // Hex color code for UI display
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
-  expenses    Expense[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  expenses Expense[]
 
   @@unique([name, tenantId])
   @@index([tenantId])
@@ -968,27 +978,27 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id            String           @id @default(uuid())
-  tenantId      String
-  userId        String
-  branchId      String?
-  amount        Float
-  description   String
-  categoryId    String?          // Reference to ExpenseCategory
-  expenseType   String           // "one_time", "recurring"
-  frequency     String?          // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
-  nextDueDate   DateTime?        // For recurring expenses
-  isActive      Boolean          @default(true) // For recurring expenses
-  receiptUrl    String?          // URL to uploaded receipt
-  notes         String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
+  id          String    @id @default(uuid())
+  tenantId    String
+  userId      String
+  branchId    String?
+  amount      Float
+  description String
+  categoryId  String? // Reference to ExpenseCategory
+  expenseType String // "one_time", "recurring"
+  frequency   String? // "daily", "weekly", "monthly", "yearly" (for recurring expenses)
+  nextDueDate DateTime? // For recurring expenses
+  isActive    Boolean   @default(true) // For recurring expenses
+  receiptUrl  String? // URL to uploaded receipt
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
-  tenant        Tenant           @relation(fields: [tenantId], references: [id])
-  user          User             @relation(fields: [userId], references: [id])
-  branch        Branch?          @relation(fields: [branchId], references: [id])
-  category      ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  user     User             @relation(fields: [userId], references: [id])
+  branch   Branch?          @relation(fields: [branchId], references: [id])
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([tenantId])
   @@index([userId])
@@ -1001,16 +1011,16 @@ model Expense {
 }
 
 model SalesTarget {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
   name      String
   target    Float
   daily     Float
   weekly    Float
   monthly   Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([tenantId])
@@ -1018,25 +1028,25 @@ model SalesTarget {
 }
 
 model SalaryScheme {
-  id            String   @id @default(uuid())
-  tenantId      String
-  userId        String
-  employeeName  String
-  salaryAmount  Float
-  frequency     String   // 'monthly' or 'yearly'
-  startDate     DateTime
-  nextDueDate   DateTime? // Next date when salary should be paid
-  lastPaidDate  DateTime? // Last date when salary was processed as expense
-  branchId      String?
-  notes         String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
+  id           String    @id @default(uuid())
+  tenantId     String
+  userId       String
+  employeeName String
+  salaryAmount Float
+  frequency    String // 'monthly' or 'yearly'
+  startDate    DateTime
+  nextDueDate  DateTime? // Next date when salary should be paid
+  lastPaidDate DateTime? // Last date when salary was processed as expense
+  branchId     String?
+  notes        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  user          User     @relation(fields: [userId], references: [id])
-  branch        Branch?  @relation(fields: [branchId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  user   User    @relation(fields: [userId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
 
   @@index([tenantId])
   @@index([userId])
@@ -1047,15 +1057,15 @@ model SalaryScheme {
 }
 
 model LoginHistory {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  tenantId    String?
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
-  loginTime   DateTime @default(now())
-  ipAddress   String?
-  userAgent   String?
-  success     Boolean  @default(true)
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  loginTime     DateTime @default(now())
+  ipAddress     String?
+  userAgent     String?
+  success       Boolean  @default(true)
   failureReason String?
 
   @@index([userId])
@@ -1074,8 +1084,8 @@ model AuthSession {
   userAgent        String?
   createdAt        DateTime  @default(now())
   lastActiveAt     DateTime  @default(now())
-  expiresAt       DateTime
-  revokedAt       DateTime?
+  expiresAt        DateTime
+  revokedAt        DateTime?
   isValid          Boolean   @default(true)
 
   user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1103,23 +1113,23 @@ model AuthDevice {
 }
 
 model SupportTicket {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   tenantId    String
   userId      String
   subject     String
   description String
-  priority    String   @default("medium") // low, medium, high, critical
-  status      String   @default("open")   // open, in_progress, resolved, closed
-  category    String   @default("general") // technical, billing, feature_request, bug_report, general
+  priority    String    @default("medium") // low, medium, high, critical
+  status      String    @default("open") // open, in_progress, resolved, closed
+  category    String    @default("general") // technical, billing, feature_request, bug_report, general
   assignedTo  String?
   resolution  String?
-  attachments Json?    // array of URLs
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  attachments Json? // array of URLs
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   responses SupportTicketResponse[]
 
   @@index([tenantId])
@@ -1145,7 +1155,6 @@ model SupportTicketResponse {
   @@index([userId])
 }
 
-
 // ---------------------------------------------------------
 // Business Classification & Measurement Units
 // ---------------------------------------------------------
@@ -1163,8 +1172,8 @@ model BusinessClassification {
   updatedAt   DateTime @updatedAt
 
   units            MeasurementUnit[]
-  primaryTenants   Tenant[] @relation("TenantPrimaryClassification")
-  secondaryTenants Tenant[] @relation("TenantSecondaryClassification")
+  primaryTenants   Tenant[]          @relation("TenantPrimaryClassification")
+  secondaryTenants Tenant[]          @relation("TenantSecondaryClassification")
 
   @@index([slug])
   @@index([isActive])
@@ -1185,7 +1194,7 @@ model MeasurementUnit {
   updatedAt        DateTime @updatedAt
 
   classification BusinessClassification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
-  products       Product[] @relation("ProductUnit")
+  products       Product[]              @relation("ProductUnit")
 
   @@unique([classificationId, abbreviation])
   @@index([classificationId])
@@ -1201,16 +1210,16 @@ model Account {
   id          String   @id @default(uuid())
   tenantId    String
   name        String
-  code        String   // e.g., "1000", "5000"
-  type        String   // "asset", "liability", "equity", "revenue", "expense"
-  subtype     String?  // "cash", "bank", "inventory", "accounts_receivable", etc.
+  code        String // e.g., "1000", "5000"
+  type        String // "asset", "liability", "equity", "revenue", "expense"
+  subtype     String? // "cash", "bank", "inventory", "accounts_receivable", etc.
   description String?
   isSystem    Boolean  @default(false)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
   ledgerEntries LedgerEntry[]
 
   @@unique([tenantId, code])
@@ -1222,14 +1231,14 @@ model JournalEntry {
   tenantId    String
   date        DateTime @default(now())
   description String
-  reference   String?  // Link to Sale ID, Expense ID, etc.
-  type        String   // "manual", "sale", "expense", "capital_injection", "adjustment"
+  reference   String? // Link to Sale ID, Expense ID, etc.
+  type        String // "manual", "sale", "expense", "capital_injection", "adjustment"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String?
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  user        User?    @relation(fields: [userId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
   ledgerEntries LedgerEntry[]
 
   @@index([tenantId])
@@ -1237,18 +1246,112 @@ model JournalEntry {
 }
 
 model LedgerEntry {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   journalEntryId String
   accountId      String
-  debit          Float        @default(0)
-  credit         Float        @default(0)
+  debit          Float    @default(0)
+  credit         Float    @default(0)
   description    String?
-  tag            String?      @default("general") // Tag or category for the entry
-  createdAt      DateTime     @default(now())
+  tag            String?  @default("general") // Tag or category for the entry
+  createdAt      DateTime @default(now())
 
-  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account        Account      @relation(fields: [accountId], references: [id])
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
 
   @@index([journalEntryId])
   @@index([accountId])
+}
+
+// ---------------------------------------------------------
+// Restaurant POS Models
+// ---------------------------------------------------------
+
+model DiningTable {
+  id        String   @id @default(uuid())
+  tenantId  String
+  branchId  String
+  number    String // Table number or name e.g. "Table 5" or "Patio 1"
+  status    String   @default("open") // open, occupied, reserved
+  capacity  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id])
+  branch Branch            @relation(fields: [branchId], references: [id])
+  orders RestaurantOrder[]
+
+  @@index([tenantId])
+  @@index([branchId])
+}
+
+model RestaurantOrder {
+  id            String   @id @default(uuid())
+  tenantId      String
+  branchId      String
+  tableId       String?
+  waiterId      String?
+  status        String   @default("Open") // Open, SentToKitchen, Served, Closed, Voided
+  ticketVersion Int      @default(0)
+  customerName  String?
+  customerPhone String?
+  total         Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant                @relation(fields: [tenantId], references: [id])
+  branch Branch                @relation(fields: [branchId], references: [id])
+  table  DiningTable?          @relation(fields: [tableId], references: [id])
+  waiter User?                 @relation(fields: [waiterId], references: [id])
+  items  RestaurantOrderItem[]
+  sale   Sale? // Relation to Sale is defined on Sale model
+
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([tableId])
+}
+
+model RestaurantOrderItem {
+  id                 String  @id @default(uuid())
+  orderId            String
+  productId          String
+  quantity           Float
+  price              Float
+  notes              String?
+  modifierSelections Json? // Stores selected modifiers for this item
+  prepStatus         String  @default("pending") // pending, preparing, ready, served
+
+  order   RestaurantOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ModifierGroup {
+  id            String   @id @default(uuid())
+  tenantId      String
+  name          String // e.g. "Meat Temp", "Add-ons"
+  isRequired    Boolean  @default(false)
+  minSelections Int      @default(0)
+  maxSelections Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  modifiers Modifier[]
+
+  @@index([tenantId])
+}
+
+model Modifier {
+  id        String   @id @default(uuid())
+  groupId   String
+  name      String // e.g. "Rare", "Extra Cheese"
+  price     Float    @default(0) // Extra cost
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
 }

@@ -139,6 +139,12 @@ export class ClassificationService {
     return this.normalize(a) === this.normalize(b);
   }
 
+  private isRestaurantClassification(classification?: { slug?: string; name?: string } | null) {
+    if (!classification) return false;
+    const token = `${this.normalize(classification.slug)} ${this.normalize(classification.name)}`;
+    return token.includes('restaurant') || token.includes('hospitality');
+  }
+
   private mergeUnitsByAbbreviation<T extends { abbreviation: string }>(
     primary: T[],
     secondary: T[],
@@ -551,6 +557,9 @@ export class ClassificationService {
         secondaryClassificationId: secondaryClassificationId ?? null,
         measurementPreferences: defaultPrefs,
         classificationAssigned: true,
+        restaurantFeaturesEnabled:
+          this.isRestaurantClassification(classification) ||
+          this.isRestaurantClassification(secondaryClassification),
       },
     });
 

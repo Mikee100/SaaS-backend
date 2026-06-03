@@ -66,7 +66,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   private isAllowedRestrictedRoute(req: Request): boolean {
     const path = (req.path || req.originalUrl || '').split('?')[0];
-    const allowedPrefixes = ['/billing', '/auth'];
+    const allowedPrefixes = ['/billing', '/subscription', '/auth'];
     const allowedExact = ['/user/me'];
 
     return (

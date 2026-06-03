@@ -121,6 +121,23 @@ const CLASSIFICATIONS = [
     ],
   },
   {
+    name: 'Restaurant & Hospitality',
+    slug: 'restaurant-hospitality',
+    description: 'Restaurants, cafes, bars, hotels and hospitality operations',
+    icon: '🍽️',
+    color: '#f97316',
+    units: [
+      { name: 'Item', abbreviation: 'item', type: 'count', isBaseUnit: true, sortOrder: 0 },
+      { name: 'Plate', abbreviation: 'plate', type: 'count', isBaseUnit: false, sortOrder: 1 },
+      { name: 'Portion', abbreviation: 'portion', type: 'count', isBaseUnit: false, sortOrder: 2 },
+      { name: 'Glass', abbreviation: 'glass', type: 'count', isBaseUnit: false, sortOrder: 3 },
+      { name: 'Bottle', abbreviation: 'bottle', type: 'count', isBaseUnit: false, sortOrder: 4 },
+      { name: 'Cup', abbreviation: 'cup', type: 'count', isBaseUnit: false, sortOrder: 5 },
+      { name: 'Bowl', abbreviation: 'bowl', type: 'count', isBaseUnit: false, sortOrder: 6 },
+      { name: 'Piece', abbreviation: 'pc', type: 'count', isBaseUnit: false, sortOrder: 7 },
+    ],
+  },
+  {
     name: 'Hardware & Tools',
     slug: 'hardware',
     description: 'Building materials, tools, pipes, wires and hardware products',

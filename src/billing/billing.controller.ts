@@ -573,7 +573,7 @@ export class BillingController {
     @Req() req,
   ) {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId ?? req.user?.id ?? req.user?.sub;
       if (!userId) {
         throw new BadRequestException('User ID is required');
       }

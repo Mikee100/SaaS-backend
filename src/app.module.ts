@@ -35,6 +35,7 @@ import { LedgerModule } from './ledger/ledger.module';
 import { ImpersonationInterceptor } from './admin/impersonation.interceptor';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
+import { RestaurantModule } from './restaurant/restaurant.module';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { RawBodyMiddleware } from './middleware/raw-body.middleware';
     SalesTargetModule,
     ClassificationModule,
     LedgerModule,
+    RestaurantModule,
   ],
   controllers: [AppController],
   providers: [

@@ -42,7 +42,7 @@ export class BranchService {
       // If no subscription found (during tenant creation), allow branch creation
       if (
         error instanceof NotFoundException &&
-        error.message.includes('No active subscription found')
+        /No active( or trial)? subscription found/i.test(error.message)
       ) {
         // Allow branch creation for new tenants
       } else {

@@ -476,6 +476,7 @@ export class SalesService {
         customerName: dto.customerName,
         customerPhone: dto.customerPhone,
         idempotencyKey: dto.idempotencyKey,
+        restaurantOrderId: dto.restaurantOrderId,
         branchId: validBranchId,
         ...(creditCreateData
           ? {

@@ -260,6 +260,7 @@ export class AdminService {
       businessType: tenant.businessType,
       contactEmail: tenant.contactEmail,
       contactPhone: tenant.contactPhone,
+      restaurantFeaturesEnabled: tenant.restaurantFeaturesEnabled,
       createdAt: tenant.createdAt,
       userCount: tenant._count.users,
       productCount: productCountMap.get(tenant.id) || 0,
@@ -411,6 +412,7 @@ export class AdminService {
       kraPin: tenant.kraPin ?? undefined,
       vatNumber: tenant.vatNumber ?? undefined,
       etimsQrUrl: tenant.etimsQrUrl ?? undefined,
+      restaurantFeaturesEnabled: tenant.restaurantFeaturesEnabled ?? false,
       createdAt: tenant.createdAt,
       userCount,
       productCount,
@@ -435,6 +437,7 @@ export class AdminService {
       kraPin: string | null;
       vatNumber: string | null;
       etimsQrUrl: string | null;
+      restaurantFeaturesEnabled: boolean;
     }>,
   ) {
     const existing = await this.prisma.tenant.findUnique({

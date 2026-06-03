@@ -127,7 +127,7 @@ export class UserService {
       // If no subscription found (during tenant creation), allow user creation
       if (
         error instanceof NotFoundException &&
-        error.message.includes('No active subscription found')
+        /No active( or trial)? subscription found/i.test(error.message)
       ) {
         // Allow user creation for new tenants
       } else {
