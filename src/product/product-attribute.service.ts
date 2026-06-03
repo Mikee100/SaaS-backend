@@ -7,6 +7,7 @@ import {
   AddAttributeValueDto,
   CreateAttributeValueDto,
 } from './dto/product-attribute.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductAttributeService {
@@ -49,46 +50,145 @@ export class ProductAttributeService {
 
   // Create a new attribute
   async create(tenantId: string, dto: CreateProductAttributeDto) {
-    // Check if attribute with same name already exists
-    const existing = await this.prisma.productAttribute.findFirst({
-      where: {
-        name: dto.name,
-        tenantId,
-      },
-    });
-
-    if (existing) {
-      throw new BadRequestException(
-        `Attribute with name "${dto.name}" already exists`,
-      );
+    const normalizedName = String(dto.name || '').trim();
+    if (!normalizedName) {
+      throw new BadRequestException('Attribute name is required');
     }
 
-    const attribute = await this.prisma.productAttribute.create({
-      data: {
-        id: uuidv4(),
-        name: dto.name,
-        displayName: dto.displayName || dto.name,
-        type: dto.type || 'text',
+    // Check if attribute with same name already exists (case-insensitive)
+    const existing = await this.prisma.productAttribute.findFirst({
+      where: {
+        name: {
+          equals: normalizedName,
+          mode: 'insensitive',
+        },
         tenantId,
-        values: dto.values
-          ? {
-              create: dto.values.map((val) => ({
-                id: uuidv4(),
-                value: val.value,
-                displayName: val.displayName || val.value,
-                color: val.color,
-                image: val.image,
-                sortOrder: val.sortOrder || 0,
-              })),
-            }
-          : undefined,
       },
       include: {
         values: true,
       },
     });
 
-    return attribute;
+    if (existing) {
+      // Idempotent behavior: return existing attribute and merge any new values.
+      if (existing.deletedAt || !existing.isActive) {
+        await this.prisma.productAttribute.update({
+          where: { id: existing.id },
+          data: {
+            isActive: true,
+            deletedAt: null,
+            displayName: dto.displayName || existing.displayName || existing.name,
+            type: dto.type || existing.type,
+          },
+        });
+      }
+
+      if (Array.isArray(dto.values) && dto.values.length > 0) {
+        const existingValues = await this.prisma.productAttributeValue.findMany({
+          where: { attributeId: existing.id },
+        });
+
+        for (const val of dto.values) {
+          const normalizedValue = String(val?.value || '').trim();
+          if (!normalizedValue) continue;
+
+          const matched = existingValues.find(
+            (v) => String(v.value || '').toLowerCase() === normalizedValue.toLowerCase(),
+          );
+
+          if (matched) {
+            if (!matched.isActive || matched.deletedAt) {
+              await this.prisma.productAttributeValue.update({
+                where: { id: matched.id },
+                data: {
+                  isActive: true,
+                  deletedAt: null,
+                  displayName: val.displayName || matched.displayName || matched.value,
+                  color: val.color ?? matched.color,
+                  image: val.image ?? matched.image,
+                },
+              });
+            }
+            continue;
+          }
+
+          await this.prisma.productAttributeValue.create({
+            data: {
+              id: uuidv4(),
+              attributeId: existing.id,
+              value: normalizedValue,
+              displayName: val.displayName || normalizedValue,
+              color: val.color,
+              image: val.image,
+              sortOrder: val.sortOrder || 0,
+            },
+          });
+        }
+      }
+
+      return this.prisma.productAttribute.findFirst({
+        where: { id: existing.id },
+        include: {
+          values: {
+            where: { isActive: true, deletedAt: null },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      });
+    }
+
+    try {
+      const attribute = await this.prisma.productAttribute.create({
+        data: {
+          id: uuidv4(),
+          name: normalizedName,
+          displayName: dto.displayName || normalizedName,
+          type: dto.type || 'text',
+          tenantId,
+          values: dto.values
+            ? {
+                create: dto.values.map((val) => ({
+                  id: uuidv4(),
+                  value: val.value,
+                  displayName: val.displayName || val.value,
+                  color: val.color,
+                  image: val.image,
+                  sortOrder: val.sortOrder || 0,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          values: true,
+        },
+      });
+
+      return attribute;
+    } catch (error: any) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        // A concurrent request created it first. Return existing instead of error.
+        const concurrent = await this.prisma.productAttribute.findFirst({
+          where: {
+            tenantId,
+            name: {
+              equals: normalizedName,
+              mode: 'insensitive',
+            },
+          },
+          include: {
+            values: {
+              where: { isActive: true, deletedAt: null },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        });
+        if (concurrent) return concurrent;
+      }
+      throw error;
+    }
   }
 
   // Update an attribute
@@ -143,17 +243,29 @@ export class ProductAttributeService {
       );
     }
 
-    return this.prisma.productAttributeValue.create({
-      data: {
-        id: uuidv4(),
-        attributeId: attribute.id,
-        value: dto.value,
-        displayName: dto.displayName || dto.value,
-        color: dto.color,
-        image: dto.image,
-        sortOrder: dto.sortOrder || 0,
-      },
-    });
+    try {
+      return await this.prisma.productAttributeValue.create({
+        data: {
+          id: uuidv4(),
+          attributeId: attribute.id,
+          value: dto.value,
+          displayName: dto.displayName || dto.value,
+          color: dto.color,
+          image: dto.image,
+          sortOrder: dto.sortOrder || 0,
+        },
+      });
+    } catch (error: any) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException(
+          `Value "${dto.value}" already exists for this attribute`,
+        );
+      }
+      throw error;
+    }
   }
 
   // Update an attribute value

@@ -78,6 +78,54 @@ export class ProductController {
     return this.productService.getDeletedProducts(req.user.tenantId, branchId);
   }
 
+  @Get('categories')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
+  async listCategories(@Req() req) {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    return this.productService.listProductCategories(req.user.tenantId);
+  }
+
+  @Post('categories')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  async createCategory(@Req() req, @Body() body: { name?: string }) {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    return this.productService.createProductCategory(req.user.tenantId, String(body?.name || ''));
+  }
+
+  @Put('categories/:id')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  async updateCategory(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: { name?: string },
+  ) {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    return this.productService.updateProductCategory(
+      req.user.tenantId,
+      id,
+      String(body?.name || ''),
+    );
+  }
+
+  @Delete('categories/:id')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  async deleteCategory(@Req() req, @Param('id') id: string) {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+    return this.productService.deleteProductCategory(req.user.tenantId, id);
+  }
+
   @Post()
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Permissions('create_products')

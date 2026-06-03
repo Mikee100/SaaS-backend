@@ -20,6 +20,7 @@ import sharp from 'sharp';
 
 @Injectable()
 export class ProductService {
+  private readonly PRODUCT_CATEGORIES_KEY = 'PRODUCT_CATEGORIES';
 
   constructor(
     private prisma: PrismaService,
@@ -29,6 +30,188 @@ export class ProductService {
     private subscriptionService: SubscriptionService,
     private ledgerService: LedgerService,
   ) {}
+
+  private normalizeCategoryName(input: unknown): string {
+    return String(input || '').trim().replace(/\s+/g, ' ');
+  }
+
+  private normalizeCategorySlug(input: string): string {
+    return input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  }
+
+  private async readProductCategories(tenantId: string): Promise<Array<{ id: string; name: string; slug: string; isActive: boolean }>> {
+    const config = await this.prisma.tenantConfiguration.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId,
+          key: this.PRODUCT_CATEGORIES_KEY,
+        },
+      },
+      select: { value: true },
+    });
+
+    if (!config?.value) return [];
+
+    try {
+      const parsed = JSON.parse(config.value);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((item) => ({
+          id: String(item?.id || ''),
+          name: this.normalizeCategoryName(item?.name),
+          slug: this.normalizeCategorySlug(String(item?.slug || item?.name || '')),
+          isActive: item?.isActive !== false,
+        }))
+        .filter((item) => item.id && item.name);
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeProductCategories(
+    tenantId: string,
+    categories: Array<{ id: string; name: string; slug: string; isActive: boolean }>,
+  ): Promise<void> {
+    await this.prisma.tenantConfiguration.upsert({
+      where: {
+        tenantId_key: {
+          tenantId,
+          key: this.PRODUCT_CATEGORIES_KEY,
+        },
+      },
+      update: {
+        value: JSON.stringify(categories),
+        description: 'Admin-managed product/menu categories',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: true,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: `tenant_config_${tenantId}_${this.PRODUCT_CATEGORIES_KEY}_${Date.now()}`,
+        tenantId,
+        key: this.PRODUCT_CATEGORIES_KEY,
+        value: JSON.stringify(categories),
+        description: 'Admin-managed product/menu categories',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: true,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  private extractProductCategory(product: any): string | undefined {
+    const cf = product?.customFields;
+    if (!cf || typeof cf !== 'object' || Array.isArray(cf)) return undefined;
+    const raw = (cf as Record<string, unknown>).category;
+    const normalized = this.normalizeCategoryName(raw);
+    return normalized || undefined;
+  }
+
+  private mapProductCategory<T extends Record<string, any>>(product: T): T {
+    if (!product) return product;
+    const category = this.extractProductCategory(product);
+    return {
+      ...product,
+      category,
+    };
+  }
+
+  async listProductCategories(tenantId: string) {
+    const categories = await this.readProductCategories(tenantId);
+    return categories.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async createProductCategory(tenantId: string, name: string) {
+    const normalizedName = this.normalizeCategoryName(name);
+    if (!normalizedName) {
+      throw new BadRequestException('Category name is required');
+    }
+
+    const categories = await this.readProductCategories(tenantId);
+    const exists = categories.some((c) => c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase());
+    if (exists) {
+      throw new BadRequestException('Category already exists');
+    }
+
+    const next = [
+      ...categories,
+      {
+        id: uuidv4(),
+        name: normalizedName,
+        slug: this.normalizeCategorySlug(normalizedName),
+        isActive: true,
+      },
+    ];
+
+    await this.writeProductCategories(tenantId, next);
+    return next.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async updateProductCategory(tenantId: string, categoryId: string, name: string) {
+    const normalizedName = this.normalizeCategoryName(name);
+    if (!normalizedName) {
+      throw new BadRequestException('Category name is required');
+    }
+
+    const categories = await this.readProductCategories(tenantId);
+    const idx = categories.findIndex((c) => c.id === categoryId && c.isActive !== false);
+    if (idx < 0) {
+      throw new NotFoundException('Category not found');
+    }
+
+    const duplicate = categories.some(
+      (c) => c.id !== categoryId && c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
+    if (duplicate) {
+      throw new BadRequestException('Category already exists');
+    }
+
+    categories[idx] = {
+      ...categories[idx],
+      name: normalizedName,
+      slug: this.normalizeCategorySlug(normalizedName),
+    };
+
+    await this.writeProductCategories(tenantId, categories);
+    return categories.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async deleteProductCategory(tenantId: string, categoryId: string) {
+    const categories = await this.readProductCategories(tenantId);
+    const next = categories.map((c) => (c.id === categoryId ? { ...c, isActive: false } : c));
+    const changed = next.some((c, idx) => c.isActive !== categories[idx]?.isActive);
+
+    if (!changed) {
+      throw new NotFoundException('Category not found');
+    }
+
+    await this.writeProductCategories(tenantId, next);
+    return next.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private async ensureCategoryRegistered(tenantId: string, categoryName?: string) {
+    const normalizedName = this.normalizeCategoryName(categoryName);
+    if (!normalizedName) return;
+
+    const categories = await this.readProductCategories(tenantId);
+    const exists = categories.some((c) => c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase());
+    if (exists) return;
+
+    categories.push({
+      id: uuidv4(),
+      name: normalizedName,
+      slug: this.normalizeCategorySlug(normalizedName),
+      isActive: true,
+    });
+    await this.writeProductCategories(tenantId, categories);
+  }
 
   async findAllByTenantAndBranch(
     tenantId: string,
@@ -139,7 +322,7 @@ export class ProductService {
     console.log('Backend: Returning', products.length, 'products for search:', search);
 
     const result = {
-      products,
+      products: products.map((product) => this.mapProductCategory(product)),
       pagination: {
         page,
         limit,
@@ -190,10 +373,22 @@ export class ProductService {
       productData.cost = parseFloat(String(productData.cost));
     }
 
+    const normalizedCategory = this.normalizeCategoryName(data.category);
+
     // Handle customFieldValues - map to customFields
-    if (data.customFieldValues) {
-      productData.customFields = data.customFieldValues;
-    }
+    const existingCustomFields =
+      productData.customFields && typeof productData.customFields === 'object' && !Array.isArray(productData.customFields)
+        ? productData.customFields
+        : {};
+    const fromCustomFieldValues =
+      data.customFieldValues && typeof data.customFieldValues === 'object' && !Array.isArray(data.customFieldValues)
+        ? data.customFieldValues
+        : {};
+    productData.customFields = {
+      ...existingCustomFields,
+      ...fromCustomFieldValues,
+      ...(normalizedCategory ? { category: normalizedCategory } : {}),
+    };
 
     // Remove fields that don't exist in Prisma schema
     delete productData.manage_stock;
@@ -260,6 +455,8 @@ export class ProductService {
       data: createData,
     });
 
+    await this.ensureCategoryRegistered(data.tenantId, normalizedCategory);
+
     // Invalidate cache for this tenant
     this.cacheService.invalidateProductCache(data.tenantId);
 
@@ -292,7 +489,7 @@ export class ProductService {
       }
     }
 
-    return product;
+    return this.mapProductCategory(product as any);
   }
 
   async updateProduct(
@@ -321,6 +518,10 @@ export class ProductService {
       stock,
       cost,
       supplier,
+      category,
+      customFields: incomingCustomFields,
+      branchId: _ignoredBranchId,
+      tenantId: _ignoredTenantId,
       ...customFields
     } = data;
     const updateData: any = {};
@@ -350,8 +551,25 @@ export class ProductService {
     if (description !== undefined) updateData.description = description;
     if (stock !== undefined) updateData.stock = parseInt(stock);
     if (cost !== undefined) updateData.cost = parseFloat(cost);
-    if (Object.keys(customFields).length > 0) {
-      updateData.customFields = customFields;
+    const mergedCustomFields = {
+      ...(incomingCustomFields && typeof incomingCustomFields === 'object' && !Array.isArray(incomingCustomFields)
+        ? incomingCustomFields
+        : {}),
+      ...(customFields && typeof customFields === 'object' ? customFields : {}),
+    } as Record<string, unknown>;
+
+    if (category !== undefined) {
+      const normalizedCategory = this.normalizeCategoryName(category);
+      if (normalizedCategory) {
+        mergedCustomFields.category = normalizedCategory;
+      } else {
+        delete mergedCustomFields.category;
+      }
+      await this.ensureCategoryRegistered(tenantId, normalizedCategory);
+    }
+
+    if (Object.keys(mergedCustomFields).length > 0 || category !== undefined) {
+      updateData.customFields = mergedCustomFields;
     }
 
     const result = await this.prisma.product.updateMany({
@@ -679,7 +897,7 @@ export class ProductService {
       }
     }
 
-    return product;
+    return this.mapProductCategory(product as any);
   }
 
   // Variation CRUD methods
