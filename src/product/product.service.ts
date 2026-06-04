@@ -304,6 +304,7 @@ export class ProductService {
           price: true,
           stock: true,
           attributes: true,
+          images: true,
         },
       };
     }
@@ -517,6 +518,7 @@ export class ProductService {
       description,
       stock,
       cost,
+      images,
       supplier,
       category,
       customFields: incomingCustomFields,
@@ -551,6 +553,12 @@ export class ProductService {
     if (description !== undefined) updateData.description = description;
     if (stock !== undefined) updateData.stock = parseInt(stock);
     if (cost !== undefined) updateData.cost = parseFloat(cost);
+    if (images !== undefined) {
+      if (!Array.isArray(images) || !images.every((image) => typeof image === 'string')) {
+        throw new BadRequestException('images must be an array of image URL strings');
+      }
+      updateData.images = images;
+    }
     const mergedCustomFields = {
       ...(incomingCustomFields && typeof incomingCustomFields === 'object' && !Array.isArray(incomingCustomFields)
         ? incomingCustomFields
@@ -957,6 +965,7 @@ export class ProductService {
       stock: number;
       attributes: any;
       isActive: boolean;
+      images: string[];
     }>,
     tenantId: string,
   ) {
@@ -971,6 +980,122 @@ export class ProductService {
       where: { id, tenantId },
       data: { isActive: false },
     });
+  }
+
+  async uploadVariationImages(
+    variationId: string,
+    files: Express.Multer.File[],
+    tenantId: string,
+    userId: string,
+  ) {
+    const variation = await this.prisma.productVariation.findFirst({
+      where: { id: variationId, tenantId, isActive: true },
+      select: { id: true, productId: true, images: true },
+    });
+
+    if (!variation) {
+      throw new NotFoundException('Variation not found');
+    }
+
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'products', tenantId, 'variations');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const imageUrls: string[] = [];
+
+    for (const file of files) {
+      if (!file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('Only image files are allowed');
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        throw new BadRequestException('Image size must be less than 5MB');
+      }
+
+      const fileExtension = path.extname(file.originalname) || '.jpg';
+      const fileName = `${variation.productId}_${variationId}_${Date.now()}_${Math.random().toString(36).substring(7)}${fileExtension}`;
+      const filePath = path.join(uploadsDir, fileName);
+
+      try {
+        const optimizedBuffer = await sharp(file.buffer)
+          .resize(1200, 1200, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: 85, progressive: true })
+          .toBuffer();
+
+        fs.writeFileSync(filePath, optimizedBuffer);
+        imageUrls.push(`/uploads/products/${tenantId}/variations/${fileName}`);
+      } catch {
+        throw new BadRequestException('Failed to process image');
+      }
+    }
+
+    const updatedVariation = await this.prisma.productVariation.update({
+      where: { id: variationId },
+      data: {
+        images: {
+          push: imageUrls,
+        },
+      },
+    });
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'variation_images_uploaded',
+        { variationId, imageCount: imageUrls.length },
+        undefined,
+      );
+    }
+
+    return updatedVariation;
+  }
+
+  async deleteVariationImage(
+    variationId: string,
+    imageUrl: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    const variation = await this.prisma.productVariation.findFirst({
+      where: { id: variationId, tenantId, isActive: true },
+      select: { id: true, images: true },
+    });
+
+    if (!variation) {
+      throw new NotFoundException('Variation not found');
+    }
+
+    const updatedImages = variation.images.filter((img) => img !== imageUrl);
+
+    try {
+      const fileName = path.basename(imageUrl);
+      const filePath = path.join(process.cwd(), 'uploads', 'products', tenantId, 'variations', fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {
+      // Best-effort file cleanup only
+    }
+
+    const updatedVariation = await this.prisma.productVariation.update({
+      where: { id: variationId },
+      data: { images: updatedImages },
+    });
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        userId,
+        'variation_image_deleted',
+        { variationId, imageUrl },
+        undefined,
+      );
+    }
+
+    return updatedVariation;
   }
 
   // Helper method to generate variations from attributes (legacy - for backward compatibility)

@@ -594,6 +594,7 @@ model ProductVariation {
   price      Float? // Override price, null means use base price
   cost       Float? // Override cost, null means use base cost
   stock      Int        @default(0)
+  images     String[]   @default([]) // Variation-specific image URLs
   attributes Json // {"Color": "Black", "Size": "38"} - using attribute names and values
   isActive   Boolean    @default(true)
   createdAt  DateTime   @default(now())

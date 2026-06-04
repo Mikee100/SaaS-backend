@@ -445,6 +445,7 @@ export class ProductController {
       stock: number;
       attributes: any;
       isActive: boolean;
+      images: string[];
     }>,
     @Req() req,
   ) {
@@ -452,6 +453,47 @@ export class ProductController {
       throw new BadRequestException('User context is missing or invalid. Authentication required.');
     }
     return this.productService.updateVariation(id, body, req.user.tenantId);
+  }
+
+  @Post('variations/:id/upload-images')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  @UseInterceptors(FilesInterceptor('images'))
+  async uploadVariationImages(
+    @Param('id') id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req,
+  ) {
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+
+    return this.productService.uploadVariationImages(
+      id,
+      files,
+      req.user.tenantId,
+      req.user.userId,
+    );
+  }
+
+  @Delete('variations/:id/delete-image')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('edit_products')
+  async deleteVariationImage(
+    @Param('id') id: string,
+    @Body() body: { imageUrl: string },
+    @Req() req,
+  ) {
+    if (!req.user || !req.user.tenantId || !req.user.userId) {
+      throw new BadRequestException('User context is missing or invalid. Authentication required.');
+    }
+
+    return this.productService.deleteVariationImage(
+      id,
+      body.imageUrl,
+      req.user.tenantId,
+      req.user.userId,
+    );
   }
 
   @Delete('variations/:id')

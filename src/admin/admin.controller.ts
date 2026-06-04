@@ -20,6 +20,7 @@ import { TrialGuard } from '../auth/trial.guard';
 import { AuditLogService } from '../audit-log.service';
 import { AuthService } from '../auth/auth.services';
 import { TenantConfigurationService } from '../config/tenant-configuration.service';
+import { PrismaService } from '../prisma.service';
 import {
   AVAILABLE_MODULES,
   DEFAULT_ENABLED_MODULES,
@@ -65,10 +66,30 @@ interface CreateTenantDto {
   ownerName?: string;
   ownerEmail?: string;
   ownerPassword?: string;
+  modulePresetKey?: string;
   crmEntitlements?: Partial<UpdateCrmEntitlementsDto>;
   crmPackageKey?: string;
   [key: string]: any;
 }
+
+const MODULE_PERMISSION_REQUIREMENTS: Array<{
+  module: (typeof AVAILABLE_MODULES)[number];
+  requiredPermissions: string[];
+}> = [
+  { module: 'dashboard', requiredPermissions: [] },
+  { module: 'payroll', requiredPermissions: ['view_sales'] },
+  { module: 'sales', requiredPermissions: ['view_sales'] },
+  { module: 'credits', requiredPermissions: ['view_users'] },
+  { module: 'inventory', requiredPermissions: ['view_products', 'view_inventory'] },
+  { module: 'accounts', requiredPermissions: [] },
+  { module: 'analytics', requiredPermissions: ['view_analytics'] },
+  { module: 'reports', requiredPermissions: ['view_reports'] },
+  { module: 'expenses', requiredPermissions: ['view_users'] },
+  { module: 'crm', requiredPermissions: ['view_sales'] },
+  { module: 'ai', requiredPermissions: [] },
+  { module: 'settings', requiredPermissions: [] },
+  { module: 'billing', requiredPermissions: [] },
+];
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
@@ -81,6 +102,7 @@ export class AdminController {
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
     private readonly tenantConfigurationService: TenantConfigurationService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get('stats')
@@ -329,6 +351,94 @@ export class AdminController {
     };
   }
 
+  @Get('tenants/:id/module-permission-matrix')
+  async getTenantModulePermissionMatrix(@Param('id') tenantId: string) {
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    const enabledModules = normalizeEnabledModules(parsed);
+
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { tenantId },
+      include: {
+        role: {
+          select: {
+            name: true,
+            permissions: {
+              select: {
+                permission: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const rolePermissions = new Map<string, Set<string>>();
+    for (const userRole of userRoles) {
+      const roleName = String(userRole.role?.name || '').toLowerCase().trim();
+      if (!roleName) continue;
+
+      if (!rolePermissions.has(roleName)) {
+        rolePermissions.set(roleName, new Set<string>());
+      }
+
+      const permissions = userRole.role?.permissions || [];
+      for (const entry of permissions) {
+        const permissionName = String(entry.permission?.name || '').trim();
+        if (permissionName) {
+          rolePermissions.get(roleName)?.add(permissionName);
+        }
+      }
+    }
+
+    const roles = Array.from(rolePermissions.keys()).sort((a, b) =>
+      a.localeCompare(b),
+    );
+
+    const matrix = MODULE_PERMISSION_REQUIREMENTS.map((entry) => {
+      const roleChecks = roles.map((roleName) => {
+        const required = entry.requiredPermissions;
+        const roleHasBypass = roleName === 'owner' || roleName === 'admin';
+        const granted = rolePermissions.get(roleName) || new Set<string>();
+        const missing = roleHasBypass
+          ? []
+          : required.filter((permission) => !granted.has(permission));
+
+        return {
+          roleName,
+          allowed: missing.length === 0,
+          missing,
+        };
+      });
+
+      return {
+        module: entry.module,
+        enabled: enabledModules.includes(entry.module),
+        requiredPermissions: entry.requiredPermissions,
+        roleChecks,
+      };
+    });
+
+    return {
+      tenantId,
+      enabledModules,
+      roles,
+      matrix,
+    };
+  }
+
   @Get('tenants/:id/crm-entitlements')
   async getTenantCrmEntitlements(@Param('id') tenantId: string) {
     const configured = await this.tenantConfigurationService.getTenantConfiguration(
@@ -556,6 +666,24 @@ export class AdminController {
       },
     );
 
+    const selectedPreset =
+      getModulePreset(tenantData?.modulePresetKey) || getModulePreset('full_suite');
+    const enabledModules = normalizeEnabledModules(
+      selectedPreset?.enabledModules || DEFAULT_ENABLED_MODULES,
+    );
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      created.tenant.id,
+      MODULES_CONFIG_KEY,
+      JSON.stringify(enabledModules),
+      {
+        description: 'Tenant module entitlements (platform admin onboarding)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
     const actorUserId = req.user?.userId || req.user?.sub || null;
     await this.auditLogService.log(
       actorUserId,
@@ -569,6 +697,20 @@ export class AdminController {
         effectiveTo: null,
         previous: null,
         next,
+      },
+      req.ip,
+    );
+
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_modules_updated',
+      {
+        actorUserId,
+        tenantId: created.tenant.id,
+        source: 'tenant_create_preset',
+        presetKey: selectedPreset?.key || 'full_suite',
+        previousModules: [],
+        enabledModules,
       },
       req.ip,
     );
