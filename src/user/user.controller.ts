@@ -40,24 +40,38 @@ export class UserController {
   @Get('me')
   async getMe(@Req() req) {
     const user = req.user;
+    const tenantId = user?.tenantId ? String(user.tenantId) : null;
     // Get effective permissions and full user record for preferences
     const [permissions, dbUser] = await Promise.all([
       this.userService.getEffectivePermissions(
         user.userId || user.sub,
-        user.tenantId,
+        tenantId,
       ),
       this.userService.findById(user.userId || user.sub, { include: undefined }),
     ]);
 
-    const moduleConfig = await this.prisma.tenantConfiguration.findUnique({
-      where: {
-        tenantId_key: {
-          tenantId: user.tenantId,
-          key: MODULES_CONFIG_KEY,
-        },
-      },
-      select: { value: true },
-    });
+    const [moduleConfig, crmConfig] = tenantId
+      ? await Promise.all([
+          this.prisma.tenantConfiguration.findUnique({
+            where: {
+              tenantId_key: {
+                tenantId,
+                key: MODULES_CONFIG_KEY,
+              },
+            },
+            select: { value: true },
+          }),
+          this.prisma.tenantConfiguration.findUnique({
+            where: {
+              tenantId_key: {
+                tenantId,
+                key: CRM_ENTITLEMENTS_CONFIG_KEY,
+              },
+            },
+            select: { value: true },
+          }),
+        ])
+      : [null, null];
 
     let parsedModules: unknown;
     try {
@@ -66,16 +80,6 @@ export class UserController {
       parsedModules = undefined;
     }
     const enabledModules = normalizeEnabledModules(parsedModules);
-
-    const crmConfig = await this.prisma.tenantConfiguration.findUnique({
-      where: {
-        tenantId_key: {
-          tenantId: user.tenantId,
-          key: CRM_ENTITLEMENTS_CONFIG_KEY,
-        },
-      },
-      select: { value: true },
-    });
 
     let parsedCrm: unknown;
     try {
