@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
@@ -17,6 +18,22 @@ import {
   TenantConfigurationService,
   TenantConfigurationItem,
 } from '../config/tenant-configuration.service';
+import {
+  AVAILABLE_MODULES,
+  DEFAULT_ENABLED_MODULES,
+  MODULES_CONFIG_KEY,
+  normalizeEnabledModules,
+} from '../auth/module-access.constants';
+import { AuditLogService } from '../audit-log.service';
+import {
+  CRM_ENTITLEMENTS_CONFIG_KEY,
+  CRM_USAGE_CONFIG_KEY,
+  CrmLimitKey,
+  evaluateCrmLimit,
+  getDefaultCrmEntitlements,
+  normalizeCrmEntitlements,
+  normalizeCrmUsage,
+} from '../auth/crm-entitlements.constants';
 
 interface CreateConfigurationDto {
   key: string;
@@ -52,7 +69,149 @@ interface StripeConfigurationDto {
 export class TenantConfigurationController {
   constructor(
     private readonly tenantConfigurationService: TenantConfigurationService,
+    private readonly auditLogService: AuditLogService,
   ) {}
+
+  @Get('modules')
+  @Permissions('view_settings')
+  async getEnabledModules(@Req() req) {
+    const tenantId = req.user.tenantId;
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    const enabledModules = normalizeEnabledModules(parsed);
+    return {
+      key: MODULES_CONFIG_KEY,
+      enabledModules,
+      availableModules: AVAILABLE_MODULES,
+      defaultEnabledModules: DEFAULT_ENABLED_MODULES,
+    };
+  }
+
+  @Get('crm/runtime')
+  @Permissions('view_settings')
+  async getCrmRuntimeStatus(@Req() req) {
+    const tenantId = req.user.tenantId;
+
+    const [crmEntitlementConfig, crmUsageConfig] = await Promise.all([
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_ENTITLEMENTS_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_USAGE_CONFIG_KEY,
+      ),
+    ]);
+
+    let parsedEntitlements: unknown;
+    try {
+      parsedEntitlements = crmEntitlementConfig
+        ? JSON.parse(crmEntitlementConfig)
+        : undefined;
+    } catch {
+      parsedEntitlements = undefined;
+    }
+
+    let parsedUsage: unknown;
+    try {
+      parsedUsage = crmUsageConfig ? JSON.parse(crmUsageConfig) : undefined;
+    } catch {
+      parsedUsage = undefined;
+    }
+
+    const entitlements = normalizeCrmEntitlements(
+      parsedEntitlements || getDefaultCrmEntitlements(),
+    );
+    const usage = normalizeCrmUsage(parsedUsage);
+
+    const limitKeys: CrmLimitKey[] = [
+      'pipelines',
+      'automationRules',
+      'documentStorageGb',
+      'integrationConnections',
+      'telephonyMinutesMonthly',
+      'proposalsMonthly',
+      'contractsMonthly',
+    ];
+
+    const limits = limitKeys.map((key) =>
+      evaluateCrmLimit(entitlements.limits, usage, key),
+    );
+
+    return {
+      key: CRM_USAGE_CONFIG_KEY,
+      usage,
+      limits,
+      hasWarnings: limits.some((entry) => entry.warning),
+      hasBlockingLimits: limits.some((entry) => entry.blocked),
+    };
+  }
+
+  @Put('modules')
+  @Permissions('edit_settings')
+  async updateEnabledModules(@Req() req, @Body() body: { enabledModules?: string[] }) {
+    if (!req?.user?.isSuperadmin) {
+      throw new ForbiddenException(
+        'Module entitlements are managed by the platform administrator only',
+      );
+    }
+
+    const tenantId = req.user.tenantId;
+    const actorUserId = req.user.userId || req.user.sub || null;
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+    let previousParsed: unknown;
+    try {
+      previousParsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      previousParsed = undefined;
+    }
+    const previousModules = normalizeEnabledModules(previousParsed);
+    const enabledModules = normalizeEnabledModules(body?.enabledModules || []);
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+      JSON.stringify(enabledModules),
+      {
+        description: 'Tenant module entitlements',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    await this.auditLogService.log(
+      actorUserId,
+      'tenant_modules_updated',
+      {
+        tenantId,
+        key: MODULES_CONFIG_KEY,
+        previousModules,
+        enabledModules,
+      },
+      req.ip,
+    );
+
+    return {
+      message: 'Module entitlements updated successfully',
+      key: MODULES_CONFIG_KEY,
+      enabledModules,
+      availableModules: AVAILABLE_MODULES,
+    };
+  }
 
   @Get()
   @Permissions('view_settings')

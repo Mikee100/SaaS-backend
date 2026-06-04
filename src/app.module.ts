@@ -22,6 +22,7 @@ import { AdminTenantStatsModule } from './adminTenantStats/admin-tenant-stats.mo
 import { AdminModule } from './admin/admin.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ModuleAccessGuard } from './auth/module-access.guard';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
@@ -37,6 +38,7 @@ import { ImpersonationInterceptor } from './admin/impersonation.interceptor';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
 import { RestaurantModule } from './restaurant/restaurant.module';
+import { CrmModule } from './crm/crm.module';
 
 @Module({
   imports: [
@@ -88,6 +90,7 @@ import { RestaurantModule } from './restaurant/restaurant.module';
     ClassificationModule,
     LedgerModule,
     RestaurantModule,
+    CrmModule,
   ],
   controllers: [AppController],
   providers: [
@@ -95,6 +98,10 @@ import { RestaurantModule } from './restaurant/restaurant.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ModuleAccessGuard,
     },
     {
       provide: APP_INTERCEPTOR,

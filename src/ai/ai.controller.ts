@@ -18,8 +18,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { TrialGuard } from '../auth/trial.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
+@RequireModules('ai')
 @Controller('ai')
 export class AiController {
   constructor(

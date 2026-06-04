@@ -16,12 +16,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 import { RawBodyRequest } from '@nestjs/common';
 import { Response } from 'express';
 import { PrismaService } from '../prisma.service';
 import { Param } from '@nestjs/common';
 
 @Controller('billing')
+@RequireModules('billing')
 export class BillingController {
   private readonly logger = new Logger(BillingController.name);
 

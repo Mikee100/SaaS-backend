@@ -18,11 +18,24 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { PrismaService } from '../prisma.service';
+import {
+  MODULES_CONFIG_KEY,
+  normalizeEnabledModules,
+} from '../auth/module-access.constants';
+import {
+  CRM_ENTITLEMENTS_CONFIG_KEY,
+  getDefaultCrmEntitlements,
+  normalizeCrmEntitlements,
+} from '../auth/crm-entitlements.constants';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('me')
   async getMe(@Req() req) {
@@ -35,6 +48,42 @@ export class UserController {
       ),
       this.userService.findById(user.userId || user.sub, { include: undefined }),
     ]);
+
+    const moduleConfig = await this.prisma.tenantConfiguration.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId: user.tenantId,
+          key: MODULES_CONFIG_KEY,
+        },
+      },
+      select: { value: true },
+    });
+
+    let parsedModules: unknown;
+    try {
+      parsedModules = moduleConfig?.value ? JSON.parse(moduleConfig.value) : undefined;
+    } catch {
+      parsedModules = undefined;
+    }
+    const enabledModules = normalizeEnabledModules(parsedModules);
+
+    const crmConfig = await this.prisma.tenantConfiguration.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId: user.tenantId,
+          key: CRM_ENTITLEMENTS_CONFIG_KEY,
+        },
+      },
+      select: { value: true },
+    });
+
+    let parsedCrm: unknown;
+    try {
+      parsedCrm = crmConfig?.value ? JSON.parse(crmConfig.value) : undefined;
+    } catch {
+      parsedCrm = undefined;
+    }
+    const crmEntitlements = normalizeCrmEntitlements(parsedCrm || getDefaultCrmEntitlements());
 
     const prefs = (dbUser?.preferences as Record<string, unknown>) || {};
     return {
@@ -54,6 +103,8 @@ export class UserController {
       preferences: dbUser?.preferences ?? undefined,
       themePreferences: prefs.themePreferences ?? undefined,
       dashboardPreferences: prefs.dashboardPreferences ?? undefined,
+      enabledModules,
+      crmEntitlements,
     };
   }
 

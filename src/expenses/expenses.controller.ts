@@ -14,6 +14,7 @@ import { ExpensesService } from './expenses.service';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
+import { RequireModules } from '../auth/module-access.decorator';
 import {
   BadRequestException,
   NotFoundException,
@@ -22,6 +23,7 @@ import {
 } from '@nestjs/common';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@RequireModules('expenses')
 @Controller('expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}

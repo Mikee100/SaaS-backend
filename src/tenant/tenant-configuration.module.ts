@@ -6,6 +6,7 @@ import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
 import { CacheModule } from '../cache/cache.module';
+import { AuditLogService } from '../audit-log.service';
 
 @Module({
   imports: [UserModule, CacheModule],
@@ -14,6 +15,7 @@ import { CacheModule } from '../cache/cache.module';
     TrialGuard,
     SubscriptionService,
     BillingService,
+    AuditLogService,
   ],
   controllers: [TenantConfigurationController],
   exports: [TenantConfigurationService],

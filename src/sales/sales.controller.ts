@@ -15,6 +15,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 import {
   BadRequestException,
   UnauthorizedException,
@@ -23,6 +24,7 @@ import {
 } from '@nestjs/common';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
+@RequireModules('sales')
 @Controller('sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
@@ -309,6 +311,7 @@ export class SalesController {
 
   // Credit management endpoints
   @Get('credits/all')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCredits(@Req() req) {
     const effectiveBranchId = this.resolveSalesBranchScope(req);
@@ -316,6 +319,7 @@ export class SalesController {
   }
 
   @Get('credits/:id')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCreditById(@Param('id') id: string, @Req() req) {
     const effectiveBranchId = this.resolveSalesBranchScope(req);
@@ -323,6 +327,7 @@ export class SalesController {
   }
 
   @Post('credits/:id/payment')
+  @RequireModules('credits')
   @Permissions('create_sales')
   async makeCreditPayment(
     @Param('id') creditId: string,
@@ -341,6 +346,7 @@ export class SalesController {
   }
 
   @Get('credits/score')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCreditScore(@Req() req) {
     const { customerName, customerPhone } = req.query;
@@ -366,6 +372,7 @@ export class SalesController {
   }
 
   @Post('credits/eligibility')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async checkCreditEligibility(
     @Body()
@@ -398,6 +405,7 @@ export class SalesController {
   }
 
   @Get('credits/analytics')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCreditAnalytics(@Req() req) {
     const { startDate, endDate } = req.query;
@@ -423,6 +431,7 @@ export class SalesController {
   }
 
   @Get('credits/customer-history')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCustomerCreditHistory(@Req() req) {
     const { customerName, customerPhone } = req.query;
@@ -448,6 +457,7 @@ export class SalesController {
   }
 
   @Get('credits/aging')
+  @RequireModules('credits')
   @Permissions('view_sales')
   async getCreditAgingAnalysis(@Req() req) {
     console.log('getCreditAgingAnalysis called with:', {

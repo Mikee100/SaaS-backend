@@ -22,6 +22,7 @@ import { Request, Response } from 'express';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 
 
 declare global {
@@ -32,6 +33,7 @@ declare global {
   }
 }
 
+@RequireModules('inventory')
 @Controller('products')
 export class ProductController {
   // Use console.log for maximum visibility

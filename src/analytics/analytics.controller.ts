@@ -3,7 +3,9 @@ import { ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
 import { TrialGuard } from '../auth/trial.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 
+@RequireModules('analytics')
 @Controller()
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
@@ -274,6 +276,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/sales')
+  @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchSales(@Req() req: any) {
     const { tenantId } = req.params;
@@ -298,6 +301,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/comparison/timeseries')
+  @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchComparisonTimeSeries(@Req() req: any) {
     const { tenantId } = req.params;
@@ -322,6 +326,7 @@ export class AnalyticsController {
   }
 
   @Get('/api/reports/branches/:tenantId/comparison/products')
+  @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   async getBranchProductComparison(@Req() req: any) {
     const { tenantId } = req.params;

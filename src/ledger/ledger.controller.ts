@@ -16,9 +16,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { JournalEntryDto } from './accounting.types';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
+import { RequireModules } from '../auth/module-access.decorator';
 
 @Controller('ledger')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@RequireModules('accounts')
 export class LedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
 

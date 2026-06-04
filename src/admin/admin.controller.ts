@@ -1,5 +1,6 @@
 import {
   Controller,
+  BadRequestException,
   Get,
   Post,
   Put,
@@ -9,6 +10,7 @@ import {
   Logger,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminService } from './admin.service';
@@ -17,6 +19,56 @@ import { SubscriptionService } from '../billing/subscription.service';
 import { TrialGuard } from '../auth/trial.guard';
 import { AuditLogService } from '../audit-log.service';
 import { AuthService } from '../auth/auth.services';
+import { TenantConfigurationService } from '../config/tenant-configuration.service';
+import {
+  AVAILABLE_MODULES,
+  DEFAULT_ENABLED_MODULES,
+  getModulePreset,
+  MODULES_CONFIG_KEY,
+  MODULE_PRESETS,
+  normalizeEnabledModules,
+} from '../auth/module-access.constants';
+import {
+  CRM_CAPABILITIES,
+  CRM_ENTITLEMENTS_CONFIG_KEY,
+  CRM_PACKAGES,
+  CrmAllowedProviders,
+  CrmCapabilityKey,
+  CrmEntitlements,
+  CrmLimits,
+  getDefaultCrmEntitlements,
+  getCrmPackageTemplate,
+  normalizeCrmAllowedProviders,
+  normalizeCrmCapabilities,
+  normalizeCrmEntitlements,
+  normalizeCrmLimits,
+  normalizeCrmPackageKey,
+  validateCrmCapabilityDependencies,
+} from '../auth/crm-entitlements.constants';
+
+interface UpdateCrmEntitlementsDto {
+  packageKey?: string;
+  enabledCapabilities?: string[];
+  limits?: Partial<CrmLimits>;
+  allowedProviders?: Partial<CrmAllowedProviders>;
+  source?: string;
+  reason?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string | null;
+}
+
+interface CreateTenantDto {
+  name: string;
+  businessType: string;
+  contactEmail: string;
+  contactPhone?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerPassword?: string;
+  crmEntitlements?: Partial<UpdateCrmEntitlementsDto>;
+  crmPackageKey?: string;
+  [key: string]: any;
+}
 
 @Controller('admin')
 @UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
@@ -28,6 +80,7 @@ export class AdminController {
     private readonly subscriptionService: SubscriptionService,
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
+    private readonly tenantConfigurationService: TenantConfigurationService,
   ) {}
 
   @Get('stats')
@@ -138,6 +191,253 @@ export class AdminController {
     return this.adminService.getTenantBranches(tenantId);
   }
 
+  @Get('tenants/:id/modules')
+  async getTenantModules(@Param('id') tenantId: string) {
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    const enabledModules = normalizeEnabledModules(parsed);
+    return {
+      tenantId,
+      key: MODULES_CONFIG_KEY,
+      enabledModules,
+      availableModules: AVAILABLE_MODULES,
+      defaultEnabledModules: DEFAULT_ENABLED_MODULES,
+    };
+  }
+
+  @Get('module-presets')
+  getModulePresets() {
+    return {
+      presets: MODULE_PRESETS,
+    };
+  }
+
+  @Put('tenants/:id/modules')
+  async updateTenantModules(
+    @Param('id') tenantId: string,
+    @Body() body: { enabledModules?: string[] },
+    @Req() req: any,
+  ) {
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+    let previousParsed: unknown;
+    try {
+      previousParsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      previousParsed = undefined;
+    }
+    const previousModules = normalizeEnabledModules(previousParsed);
+    const enabledModules = normalizeEnabledModules(body?.enabledModules || []);
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+      JSON.stringify(enabledModules),
+      {
+        description: 'Tenant module entitlements (platform admin)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    await this.auditLogService.log(
+      req.user?.userId || req.user?.sub || null,
+      'platform_tenant_modules_updated',
+      {
+        tenantId,
+        previousModules,
+        enabledModules,
+      },
+      req.ip,
+    );
+
+    return {
+      message: 'Tenant module entitlements updated successfully',
+      tenantId,
+      enabledModules,
+      availableModules: AVAILABLE_MODULES,
+    };
+  }
+
+  @Put('tenants/:id/modules/preset')
+  async applyTenantModulePreset(
+    @Param('id') tenantId: string,
+    @Body() body: { presetKey?: string },
+    @Req() req: any,
+  ) {
+    const preset = getModulePreset(body?.presetKey);
+    if (!preset) {
+      throw new BadRequestException('Invalid module preset key');
+    }
+
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+    );
+    let previousParsed: unknown;
+    try {
+      previousParsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      previousParsed = undefined;
+    }
+    const previousModules = normalizeEnabledModules(previousParsed);
+    const enabledModules = normalizeEnabledModules(preset.enabledModules);
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      MODULES_CONFIG_KEY,
+      JSON.stringify(enabledModules),
+      {
+        description: 'Tenant module entitlements (platform admin preset)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    await this.auditLogService.log(
+      req.user?.userId || req.user?.sub || null,
+      'platform_tenant_module_preset_applied',
+      {
+        tenantId,
+        presetKey: preset.key,
+        previousModules,
+        enabledModules,
+      },
+      req.ip,
+    );
+
+    return {
+      message: 'Tenant module preset applied successfully',
+      tenantId,
+      preset,
+      enabledModules,
+      availableModules: AVAILABLE_MODULES,
+    };
+  }
+
+  @Get('tenants/:id/crm-entitlements')
+  async getTenantCrmEntitlements(@Param('id') tenantId: string) {
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      CRM_ENTITLEMENTS_CONFIG_KEY,
+    );
+
+    let parsed: unknown;
+    try {
+      parsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    const entitlements = normalizeCrmEntitlements(parsed || getDefaultCrmEntitlements());
+
+    return {
+      tenantId,
+      key: CRM_ENTITLEMENTS_CONFIG_KEY,
+      entitlements,
+      availablePackages: CRM_PACKAGES,
+      availableCapabilities: CRM_CAPABILITIES,
+    };
+  }
+
+  @Put('tenants/:id/crm-entitlements')
+  async updateTenantCrmEntitlements(
+    @Param('id') tenantId: string,
+    @Body() body: UpdateCrmEntitlementsDto,
+    @Req() req: any,
+  ) {
+    const configured = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      CRM_ENTITLEMENTS_CONFIG_KEY,
+    );
+
+    let previousParsed: unknown;
+    try {
+      previousParsed = configured ? JSON.parse(configured) : undefined;
+    } catch {
+      previousParsed = undefined;
+    }
+
+    const previous = normalizeCrmEntitlements(previousParsed || getDefaultCrmEntitlements());
+    const base = body?.packageKey
+      ? getCrmPackageTemplate(normalizeCrmPackageKey(body.packageKey))
+      : previous;
+
+    const nextCapabilitiesRaw = body?.enabledCapabilities
+      ? normalizeCrmCapabilities(body.enabledCapabilities)
+      : base.enabledCapabilities;
+    const nextCapabilities = (nextCapabilitiesRaw.length > 0
+      ? nextCapabilitiesRaw
+      : base.enabledCapabilities) as CrmCapabilityKey[];
+
+    const dependencyErrors = validateCrmCapabilityDependencies(nextCapabilities);
+    if (dependencyErrors.length > 0) {
+      throw new BadRequestException({
+        message: 'Invalid CRM capability combination',
+        errors: dependencyErrors,
+      });
+    }
+
+    const next: CrmEntitlements = {
+      packageKey: base.packageKey,
+      enabledCapabilities: nextCapabilities,
+      limits: normalizeCrmLimits(body?.limits, base.limits),
+      allowedProviders: normalizeCrmAllowedProviders(body?.allowedProviders, base.allowedProviders),
+    };
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      CRM_ENTITLEMENTS_CONFIG_KEY,
+      JSON.stringify(next),
+      {
+        description: 'Tenant CRM entitlements (platform admin)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    const actorUserId = req.user?.userId || req.user?.sub || null;
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_crm_entitlements_updated',
+      {
+        actorUserId,
+        tenantId,
+        source: body?.source || 'manual_override',
+        reason: body?.reason || 'superadmin update',
+        effectiveFrom: body?.effectiveFrom || new Date().toISOString(),
+        effectiveTo: body?.effectiveTo ?? null,
+        previous,
+        next,
+      },
+      req.ip,
+    );
+
+    return {
+      message: 'Tenant CRM entitlements updated successfully',
+      tenantId,
+      key: CRM_ENTITLEMENTS_CONFIG_KEY,
+      entitlements: next,
+      availablePackages: CRM_PACKAGES,
+      availableCapabilities: CRM_CAPABILITIES,
+    };
+  }
+
   @Post('tenants/:id/switch')
   async switchToTenant(@Param('id') tenantId: string) {
     this.logger.log(
@@ -212,9 +512,113 @@ export class AdminController {
   }
 
   @Post('tenants')
-  async createTenant(@Body() tenantData: any) {
+  async createTenant(@Body() tenantData: CreateTenantDto, @Req() req: any) {
     this.logger.log('AdminController: createTenant called');
-    return this.adminService.createTenant(tenantData);
+    const packageFromRequest = tenantData?.crmEntitlements?.packageKey || tenantData?.crmPackageKey;
+    const defaultTemplate = getCrmPackageTemplate(normalizeCrmPackageKey(packageFromRequest));
+
+    const requestedCapabilities = tenantData?.crmEntitlements?.enabledCapabilities
+      ? normalizeCrmCapabilities(tenantData.crmEntitlements.enabledCapabilities)
+      : defaultTemplate.enabledCapabilities;
+    const enabledCapabilities = requestedCapabilities.length > 0
+      ? requestedCapabilities
+      : defaultTemplate.enabledCapabilities;
+
+    const dependencyErrors = validateCrmCapabilityDependencies(enabledCapabilities);
+    if (dependencyErrors.length > 0) {
+      throw new BadRequestException({
+        message: 'Invalid CRM capability combination for tenant creation',
+        errors: dependencyErrors,
+      });
+    }
+
+    const created = await this.adminService.createTenant(tenantData);
+
+    const next: CrmEntitlements = {
+      packageKey: defaultTemplate.packageKey,
+      enabledCapabilities,
+      limits: normalizeCrmLimits(tenantData?.crmEntitlements?.limits, defaultTemplate.limits),
+      allowedProviders: normalizeCrmAllowedProviders(
+        tenantData?.crmEntitlements?.allowedProviders,
+        defaultTemplate.allowedProviders,
+      ),
+    };
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      created.tenant.id,
+      CRM_ENTITLEMENTS_CONFIG_KEY,
+      JSON.stringify(next),
+      {
+        description: 'Tenant CRM entitlements (platform admin onboarding)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    const actorUserId = req.user?.userId || req.user?.sub || null;
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_crm_entitlements_updated',
+      {
+        actorUserId,
+        tenantId: created.tenant.id,
+        source: 'tenant_create',
+        reason: 'initial package assignment',
+        effectiveFrom: new Date().toISOString(),
+        effectiveTo: null,
+        previous: null,
+        next,
+      },
+      req.ip,
+    );
+
+    return created;
+  }
+
+  @Get('tenants/:id/crm-entitlements/timeline')
+  async getTenantCrmEntitlementsTimeline(
+    @Param('id') tenantId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const limitNum = Number.isFinite(Number(limit)) ? Math.min(Math.max(Number(limit), 1), 200) : 50;
+    const logs = await this.auditLogService.getLogs(500);
+
+    const filtered = logs
+      .filter((log) => log.action === 'platform_tenant_crm_entitlements_updated')
+      .filter((log) => {
+        const details = (log.details || {}) as any;
+        return details?.tenantId === tenantId;
+      })
+      .slice(0, limitNum)
+      .map((log) => {
+        const details = (log.details || {}) as any;
+        return {
+          id: log.id,
+          action: log.action,
+          createdAt: log.createdAt,
+          ip: log.ip,
+          actor: log.User
+            ? {
+                id: log.User.id,
+                name: log.User.name,
+                email: log.User.email,
+              }
+            : null,
+          source: details?.source || null,
+          reason: details?.reason || null,
+          effectiveFrom: details?.effectiveFrom || null,
+          effectiveTo: details?.effectiveTo ?? null,
+          previous: details?.previous || null,
+          next: details?.next || null,
+        };
+      });
+
+    return {
+      tenantId,
+      total: filtered.length,
+      items: filtered,
+    };
   }
 
   @Post('tenants/:id/restore')

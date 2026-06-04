@@ -14,9 +14,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequireModules } from '../auth/module-access.decorator';
 import { HrService } from './hr.service';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
+@RequireModules('payroll')
 @Controller('hr')
 export class HrController {
   constructor(private readonly hrService: HrService) {}
