@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { ExpensesService } from '../expenses/expenses.service';
 import { v4 as uuidv4 } from 'uuid';
+import { HrService } from '../hr/hr.service';
 
 @Injectable()
 export class SalaryService {
@@ -14,6 +15,7 @@ export class SalaryService {
     private prisma: PrismaService,
     private auditLogService: AuditLogService,
     private expensesService: ExpensesService,
+    private hrService: HrService,
   ) {}
 
   private async getOrCreateSalaryCategory(tenantId: string): Promise<string> {
@@ -42,6 +44,520 @@ export class SalaryService {
     }
 
     return salaryCategory.id;
+  }
+
+  private getSalaryAmountForMonth(
+    scheme: { frequency: string; salaryAmount: number; startDate: Date },
+    month: number,
+    year: number,
+  ): number {
+    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const startDate = new Date(scheme.startDate);
+
+    if (scheme.frequency === 'monthly') {
+      return startDate <= endOfMonth ? scheme.salaryAmount : 0;
+    }
+
+    if (scheme.frequency === 'yearly') {
+      if (startDate > endOfMonth) {
+        return 0;
+      }
+
+      if (startDate.getMonth() === month - 1 && startDate.getFullYear() === year) {
+        return scheme.salaryAmount;
+      }
+
+      return scheme.salaryAmount / 12;
+    }
+
+    return 0;
+  }
+
+  private normalizeAmount(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : Number(value ?? 0);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return 0;
+    }
+
+    return parsed;
+  }
+
+  private computeLiabilityTotals(items: any[]) {
+    return {
+      paye: items.reduce((sum, item) => sum + (item?.statutory?.paye || 0), 0),
+      nssfEmployee: items.reduce((sum, item) => sum + (item?.statutory?.nssfEmployee || 0), 0),
+      nssfEmployer: items.reduce((sum, item) => sum + (item?.statutory?.nssfEmployer || 0), 0),
+      healthInsuranceEmployee: items.reduce(
+        (sum, item) => sum + (item?.statutory?.healthInsuranceEmployee || 0),
+        0,
+      ),
+      housingLevyEmployee: items.reduce(
+        (sum, item) => sum + (item?.statutory?.housingLevyEmployee || 0),
+        0,
+      ),
+      housingLevyEmployer: items.reduce(
+        (sum, item) => sum + (item?.statutory?.housingLevyEmployer || 0),
+        0,
+      ),
+      totalEmployeeStatutory: items.reduce(
+        (sum, item) => sum + (item?.statutory?.totalEmployeeStatutory || 0),
+        0,
+      ),
+      totalEmployerStatutory: items.reduce(
+        (sum, item) => sum + (item?.statutory?.totalEmployerStatutory || 0),
+        0,
+      ),
+    };
+  }
+
+  async buildPayrollPreview(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+    applyTemplates = true,
+    adjustments: Array<{
+      salarySchemeId: string;
+      bonus?: number;
+      commission?: number;
+      deduction?: number;
+      paidAmount?: number;
+      note?: string;
+    }> = [],
+  ) {
+    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
+      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+    }
+
+    const schemes = await this.prisma.salaryScheme.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        isActive: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        employeeName: 'asc',
+      },
+    });
+
+    const adjustmentMap = new Map(
+      adjustments
+        .filter((item) => !!item?.salarySchemeId)
+        .map((item) => [item.salarySchemeId, item]),
+    );
+
+    const templateAdjustments = applyTemplates
+      ? await this.hrService.buildTemplateAdjustments(
+          tenantId,
+          schemes.map((scheme) => ({
+            salarySchemeId: scheme.id,
+            employeeName: scheme.employeeName,
+            baseSalary: this.getSalaryAmountForMonth(scheme, month, year),
+            branchId: scheme.branchId,
+          })),
+        )
+      : new Map();
+
+    const payrollSettings = await this.hrService.getPayrollSettings(tenantId);
+
+    const payrollItems = schemes
+      .map((scheme) => {
+        const adjustment = adjustmentMap.get(scheme.id);
+        const templateAdjustment = templateAdjustments.get(scheme.id);
+        const baseSalary = this.getSalaryAmountForMonth(scheme, month, year);
+        const manualBonus = this.normalizeAmount(adjustment?.bonus);
+        const manualCommission = this.normalizeAmount(adjustment?.commission);
+        const manualDeduction = this.normalizeAmount(adjustment?.deduction);
+        const templateBonus = this.normalizeAmount(templateAdjustment?.bonus);
+        const templateCommission = this.normalizeAmount(templateAdjustment?.commission);
+        const templateDeduction = this.normalizeAmount(templateAdjustment?.deduction);
+        const bonus = templateBonus + manualBonus;
+        const commission = templateCommission + manualCommission;
+        const deduction = templateDeduction + manualDeduction;
+        const grossPay = baseSalary + bonus + commission;
+        const statutory = this.hrService.calculateKenyaStatutoryDeductions(grossPay, payrollSettings);
+        const nonTaxDeduction = deduction;
+        const netPay = Math.max(0, grossPay - nonTaxDeduction - statutory.totalEmployeeStatutory);
+
+        const paidAmountRaw = adjustment?.paidAmount;
+        const hasPaidAmount =
+          paidAmountRaw !== undefined && paidAmountRaw !== null && String(paidAmountRaw).trim() !== '';
+        const paidAmount = hasPaidAmount
+          ? this.normalizeAmount(paidAmountRaw)
+          : netPay;
+        const variance = Number((paidAmount - netPay).toFixed(2));
+
+        return {
+          salarySchemeId: scheme.id,
+          employeeName: scheme.employeeName,
+          userId: scheme.userId,
+          branchId: scheme.branchId,
+          baseSalary,
+          bonus,
+          commission,
+          deduction,
+          nonTaxDeduction,
+          statutory,
+          templateBonus,
+          templateCommission,
+          templateDeduction,
+          manualBonus,
+          manualCommission,
+          manualDeduction,
+          grossPay,
+          netPay,
+          paidAmount,
+          variance,
+          templateBreakdown: templateAdjustment?.breakdown || [],
+          note: adjustment?.note || null,
+          frequency: scheme.frequency,
+          startDate: scheme.startDate,
+          user: scheme.user,
+          branch: scheme.branch,
+        };
+      })
+      .filter((item) => item.baseSalary > 0 || item.bonus > 0 || item.deduction > 0);
+
+    const totals = payrollItems.reduce(
+      (acc, item) => {
+        acc.baseSalary += item.baseSalary;
+        acc.bonus += item.bonus;
+        acc.commission += item.commission;
+        acc.deduction += item.deduction;
+        acc.nonTaxDeduction += item.nonTaxDeduction;
+        acc.statutoryDeductions += item.statutory.totalEmployeeStatutory;
+        acc.employerStatutoryContributions += item.statutory.totalEmployerStatutory;
+        acc.grossPay += item.grossPay;
+        acc.netPay += item.netPay;
+        acc.paidAmount += item.paidAmount;
+        acc.variance += item.variance;
+        return acc;
+      },
+      {
+        baseSalary: 0,
+        bonus: 0,
+        commission: 0,
+        deduction: 0,
+        nonTaxDeduction: 0,
+        statutoryDeductions: 0,
+        employerStatutoryContributions: 0,
+        grossPay: 0,
+        netPay: 0,
+        paidAmount: 0,
+        variance: 0,
+      },
+    );
+
+    const monthName = new Date(year, month - 1, 1).toLocaleString('default', {
+      month: 'long',
+      year: 'numeric',
+    });
+
+    return {
+      month,
+      year,
+      monthName,
+      applyTemplates,
+      payrollSettings,
+      payrollItems,
+      reconciliation: {
+        status: Math.abs(totals.variance) < 0.01 ? 'balanced' : 'variance_detected',
+        totals,
+      },
+    };
+  }
+
+  async processPayroll(
+    tenantId: string,
+    actorUserId: string,
+    payload: {
+      month: number;
+      year: number;
+      branchId?: string;
+      applyTemplates?: boolean;
+      adjustments?: Array<{
+        salarySchemeId: string;
+        bonus?: number;
+        commission?: number;
+        deduction?: number;
+        paidAmount?: number;
+        note?: string;
+      }>;
+    },
+  ) {
+    const locked = await this.hrService.isPayrollPeriodLocked(
+      tenantId,
+      payload.month,
+      payload.year,
+      payload.branchId,
+    );
+    if (locked) {
+      throw new BadRequestException('Payroll period is locked. Unlock period before processing');
+    }
+
+    const existingActiveRun = await this.hrService.findActiveRunForPeriod(
+      tenantId,
+      payload.month,
+      payload.year,
+      payload.branchId,
+    );
+    if (existingActiveRun) {
+      throw new BadRequestException('Payroll run already exists for this period');
+    }
+
+    const preview = await this.buildPayrollPreview(
+      tenantId,
+      payload.month,
+      payload.year,
+      payload.branchId,
+      payload.applyTemplates !== false,
+      payload.adjustments || [],
+    );
+
+    const payableItems = preview.payrollItems.filter((item) => item.netPay > 0);
+
+    if (payableItems.length === 0) {
+      return {
+        ...preview,
+        processedCount: 0,
+        status: 'draft',
+        message: 'No payable payroll items found for selected period',
+      };
+    }
+
+    await this.auditLogService.log(
+      actorUserId,
+      'payroll_draft_created',
+      {
+        month: payload.month,
+        year: payload.year,
+        processedCount: payableItems.length,
+        totals: preview.reconciliation.totals,
+      },
+      undefined,
+    );
+
+    await this.hrService.recordPayrollRun(tenantId, {
+      id: uuidv4(),
+      month: payload.month,
+      year: payload.year,
+      monthName: preview.monthName,
+      branchId: payload.branchId,
+      processedBy: actorUserId,
+      processedAt: new Date().toISOString(),
+      status: 'draft',
+      processedCount: payableItems.length,
+      reconciliationStatus: preview.reconciliation.status,
+      liabilityTotals: this.computeLiabilityTotals(preview.payrollItems),
+      processedItems: [],
+      totals: preview.reconciliation.totals,
+      items: preview.payrollItems,
+    });
+
+    return {
+      ...preview,
+      status: 'draft',
+      processedCount: payableItems.length,
+      processedItems: [],
+      message: `Draft payroll created for ${payableItems.length} employee(s). Approve then post to book expenses.`,
+    };
+  }
+
+  async postPayrollRun(tenantId: string, actorUserId: string, runId: string) {
+    const run = await this.hrService.getPayrollRunById(tenantId, runId);
+    const status = run.status || 'posted';
+    if (status === 'reversed') {
+      throw new BadRequestException('Cannot post a reversed payroll run');
+    }
+
+    if (status === 'posted') {
+      return {
+        run,
+        processedCount: run.processedItems?.length || 0,
+        message: 'Payroll run is already posted',
+      };
+    }
+
+    if (status !== 'approved') {
+      throw new BadRequestException('Approve payroll run before posting');
+    }
+
+    const salaryCategoryId = await this.getOrCreateSalaryCategory(tenantId);
+    const periodDate = new Date(run.year, run.month - 1, 1);
+    const runItems = Array.isArray(run.items) ? run.items : [];
+    const processedItems = [] as Array<{
+      salarySchemeId: string;
+      employeeName: string;
+      expenseId: string;
+      amount: number;
+    }>;
+
+    for (const item of runItems) {
+      if (!item || Number(item.netPay || 0) <= 0) {
+        continue;
+      }
+
+      const notes = [
+        `Payroll ${run.monthName}`,
+        `Base: ${Number(item.baseSalary || 0).toFixed(2)}`,
+        `Template Bonus: ${Number(item.templateBonus || 0).toFixed(2)}`,
+        `Template Commission: ${Number(item.templateCommission || 0).toFixed(2)}`,
+        `Template Deduction: ${Number(item.templateDeduction || 0).toFixed(2)}`,
+        `Manual Bonus: ${Number(item.manualBonus || 0).toFixed(2)}`,
+        `Manual Commission: ${Number(item.manualCommission || 0).toFixed(2)}`,
+        `Manual Deduction: ${Number(item.manualDeduction || 0).toFixed(2)}`,
+        `Bonus: ${Number(item.bonus || 0).toFixed(2)}`,
+        `Commission: ${Number(item.commission || 0).toFixed(2)}`,
+        `Deduction: ${Number(item.deduction || 0).toFixed(2)}`,
+        `NSSF: ${Number(item?.statutory?.nssfEmployee || 0).toFixed(2)}`,
+        `Health: ${Number(item?.statutory?.healthInsuranceEmployee || 0).toFixed(2)}`,
+        `Housing Levy: ${Number(item?.statutory?.housingLevyEmployee || 0).toFixed(2)}`,
+        `PAYE: ${Number(item?.statutory?.paye || 0).toFixed(2)}`,
+        `Net: ${Number(item.netPay || 0).toFixed(2)}`,
+      ];
+
+      if (item.note) {
+        notes.push(`Note: ${String(item.note)}`);
+      }
+
+      const expense = await this.expensesService.createExpense(
+        {
+          amount: Number(item.netPay || 0),
+          description: `Payroll for ${String(item.employeeName || 'Employee')} - ${run.monthName}`,
+          categoryId: salaryCategoryId,
+          expenseType: 'one_time',
+          branchId: item.branchId || run.branchId,
+          notes: notes.join(' | '),
+        },
+        tenantId,
+        String(item.userId || actorUserId),
+      );
+
+      const salarySchemeId = String(item.salarySchemeId || '');
+      if (salarySchemeId) {
+        const existingScheme = await this.prisma.salaryScheme.findUnique({
+          where: { id: salarySchemeId },
+          select: {
+            id: true,
+            frequency: true,
+            nextDueDate: true,
+          },
+        });
+
+        if (existingScheme) {
+          const nextDueDate = existingScheme.nextDueDate
+            ? new Date(existingScheme.nextDueDate)
+            : new Date(periodDate);
+
+          if (existingScheme.frequency === 'monthly') {
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+          } else if (existingScheme.frequency === 'yearly') {
+            nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
+          }
+
+          await this.prisma.salaryScheme.update({
+            where: { id: existingScheme.id },
+            data: {
+              lastPaidDate: periodDate,
+              nextDueDate,
+              updatedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      processedItems.push({
+        salarySchemeId,
+        employeeName: String(item.employeeName || 'Employee'),
+        expenseId: expense.id,
+        amount: Number(item.netPay || 0),
+      });
+    }
+
+    const postedRun = await this.hrService.markPayrollRunPosted(tenantId, runId, actorUserId, {
+      processedItems,
+      liabilityTotals: this.computeLiabilityTotals(runItems),
+    });
+
+    await this.auditLogService.log(
+      actorUserId,
+      'payroll_posted',
+      {
+        runId,
+        month: run.month,
+        year: run.year,
+        processedCount: processedItems.length,
+        totals: run.totals,
+      },
+      undefined,
+    );
+
+    return {
+      run: postedRun,
+      processedCount: processedItems.length,
+      processedItems,
+      message: `Posted payroll for ${processedItems.length} employee(s)`,
+    };
+  }
+
+  async reversePayrollRun(tenantId: string, actorUserId: string, runId: string, reason?: string) {
+    const run = await this.hrService.getPayrollRunById(tenantId, runId);
+    const status = run.status || 'posted';
+    if (status === 'reversed') {
+      throw new BadRequestException('Payroll run already reversed');
+    }
+
+    if (status !== 'posted') {
+      throw new BadRequestException('Only posted payroll runs can be financially reversed');
+    }
+
+    const processedItems = Array.isArray(run.processedItems) ? run.processedItems : [];
+    let reversedExpenseCount = 0;
+    for (const item of processedItems) {
+      if (!item?.expenseId) {
+        continue;
+      }
+
+      await this.expensesService.deleteExpense(item.expenseId, tenantId, run.branchId);
+      reversedExpenseCount += 1;
+    }
+
+    const reversedRun = await this.hrService.reversePayrollRun(tenantId, runId, actorUserId, reason);
+
+    await this.auditLogService.log(
+      actorUserId,
+      'payroll_reversed',
+      {
+        runId,
+        month: run.month,
+        year: run.year,
+        reversedExpenseCount,
+        reason: reason || 'Manual reversal',
+      },
+      undefined,
+    );
+
+    return {
+      run: reversedRun,
+      reversedExpenseCount,
+      message: `Reversed payroll run and voided ${reversedExpenseCount} expense entr${
+        reversedExpenseCount === 1 ? 'y' : 'ies'
+      }`,
+    };
   }
 
   async createSalaryScheme(dto: any, tenantId: string, userId: string) {

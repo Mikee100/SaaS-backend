@@ -32,22 +32,20 @@ model User {
   Subscription            Subscription[]
   Branch                  Branch?                 @relation("UserBranch", fields: [branchId], references: [id])
   tenant                  Tenant?                 @relation(fields: [tenantId], references: [id])
-  UserBranchRole          UserBranchRole[]        @relation("UserUserBranchRoles")
   grantedPermissions      UserPermission[]        @relation("UserPermissions")
   userPermissions         UserPermission[]        @relation("UserUserPermissions")
   userRoles               UserRole[]              @relation("UserUserRoles")
-  productAdditions        ProductAdditionRecord[] @relation("UserProductAdditions")
   expenses                Expense[]
   salarySchemes           SalaryScheme[]
   loginHistory            LoginHistory[]
   conversations           Conversation[]
-  userPreferences         UserPreference[]
   authSessions            AuthSession[]
   authDevices             AuthDevice[]
   supportTickets          SupportTicket[]
   supportTicketResponses  SupportTicketResponse[]
   JournalEntry            JournalEntry[]
   RestaurantOrder         RestaurantOrder[]
+  bomRecipesCreated       BomRecipe[]              @relation("BomRecipeCreatedBy")
 
   @@index([email])
   @@index([branchId])
@@ -65,7 +63,6 @@ model Role {
   deletedAt      DateTime?
   tenant         Tenant?          @relation(fields: [tenantId], references: [id])
   permissions    RolePermission[]
-  UserBranchRole UserBranchRole[] @relation("RoleUserBranchRoles")
   userRoles      UserRole[]       @relation("RoleUserRoles")
 
   @@unique([name, tenantId])
@@ -198,12 +195,9 @@ model Tenant {
   Subscription        Subscription[]
   suppliers           Supplier[]
   TenantConfiguration TenantConfiguration[]
-  TenantModule        TenantModule[]
   users               User[]
-  UserBranchRole      UserBranchRole[]        @relation("TenantUserBranchRoles")
   userPermissions     UserPermission[]        @relation("TenantUserPermissions")
   userRoles           UserRole[]              @relation("TenantUserRoles")
-  productAdditions    ProductAdditionRecord[] @relation("TenantProductAdditions")
   productVariations   ProductVariation[]      @relation("TenantProductVariations")
   productAttributes   ProductAttribute[]      @relation("TenantProductAttributes")
   supportTickets      SupportTicket[]
@@ -217,6 +211,7 @@ model Tenant {
   DiningTable         DiningTable[]
   RestaurantOrder     RestaurantOrder[]
   ModifierGroup       ModifierGroup[]
+  bomRecipes          BomRecipe[]
 
   @@index([name])
   @@index([deletedAt])
@@ -262,13 +257,12 @@ model Branch {
   products           Product[]               @relation("BranchProducts")
   sales              Sale[]
   users              User[]                  @relation("UserBranch")
-  UserBranchRole     UserBranchRole[]        @relation("BranchUserBranchRoles")
-  productAdditions   ProductAdditionRecord[] @relation("BranchProductAdditions")
   productVariations  ProductVariation[]      @relation("BranchProductVariations") // New
   expenses           Expense[] // New
   salarySchemes      SalaryScheme[] // New
   DiningTable        DiningTable[]
   RestaurantOrder    RestaurantOrder[]
+  bomRecipes         BomRecipe[]
 
   @@index([tenantId])
   @@index([deletedAt])
@@ -377,7 +371,6 @@ model Module {
   id           String         @id
   name         String         @unique
   description  String?
-  TenantModule TenantModule[]
 }
 
 model MpesaTransaction {
@@ -548,7 +541,6 @@ model Supplier {
   isActive         Boolean                 @default(true)
   products         Product[]               @relation("SupplierProducts")
   tenant           Tenant                  @relation(fields: [tenantId], references: [id])
-  productAdditions ProductAdditionRecord[] @relation("SupplierProductAdditions")
 
   @@index([tenantId])
   @@index([email])
@@ -655,9 +647,10 @@ model Product {
   branch              Branch?                 @relation("BranchProducts", fields: [branchId], references: [id])
   tenant              Tenant                  @relation("TenantProducts", fields: [tenantId], references: [id])
   saleItems           SaleItem[]              @relation("ProductSaleItems")
-  productAdditions    ProductAdditionRecord[]
   variations          ProductVariation[]      @relation("ProductVariations")
   RestaurantOrderItem RestaurantOrderItem[]
+  bomRecipes          BomRecipe[]             @relation("BomRecipeProduct")
+  bomIngredientLines  BomRecipeLine[]         @relation("BomRecipeIngredientProduct")
 
   @@index([branchId])
   @@index([tenantId])
@@ -812,23 +805,6 @@ model AIChatInteraction {
   @@index([category])
 }
 
-model UserPreference {
-  id              String   @id @default(uuid())
-  userId          String
-  tenantId        String
-  preferenceKey   String
-  preferenceValue Json
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([userId, tenantId, preferenceKey])
-  @@index([userId])
-  @@index([tenantId])
-  @@index([preferenceKey])
-}
-
 model TenantConfiguration {
   id          String   @id
   tenantId    String
@@ -848,29 +824,6 @@ model TenantConfiguration {
   @@index([tenantId])
 }
 
-model TenantModule {
-  id       String  @id
-  tenantId String
-  moduleId String
-  enabled  Boolean @default(true)
-  Module   Module  @relation(fields: [moduleId], references: [id])
-  Tenant   Tenant  @relation(fields: [tenantId], references: [id])
-}
-
-model UserBranchRole {
-  id       String @id
-  userId   String
-  branchId String
-  roleId   String
-  tenantId String
-  Branch   Branch @relation("BranchUserBranchRoles", fields: [branchId], references: [id])
-  Role     Role   @relation("RoleUserBranchRoles", fields: [roleId], references: [id])
-  Tenant   Tenant @relation("TenantUserBranchRoles", fields: [tenantId], references: [id])
-  User     User   @relation("UserUserBranchRoles", fields: [userId], references: [id])
-
-  @@unique([userId, branchId, roleId])
-}
-
 model UserPermission {
   id            String     @id @default(uuid())
   userId        String
@@ -884,33 +837,6 @@ model UserPermission {
   grantedByUser User?      @relation("UserPermissions", fields: [grantedBy], references: [id])
 
   @@unique([userId, permission, tenantId])
-}
-
-model ProductAdditionRecord {
-  id           String    @id @default(uuid())
-  productId    String
-  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-  tenantId     String
-  tenant       Tenant    @relation("TenantProductAdditions", fields: [tenantId], references: [id])
-  branchId     String?
-  branch       Branch?   @relation("BranchProductAdditions", fields: [branchId], references: [id])
-  userId       String
-  user         User      @relation("UserProductAdditions", fields: [userId], references: [id])
-  supplierId   String?
-  supplier     Supplier? @relation("SupplierProductAdditions", fields: [supplierId], references: [id])
-  quantity     Int       @default(1)
-  cost         Float?
-  price        Float?
-  addedAt      DateTime  @default(now())
-  notes        String?
-  additionType String    @default("individual") // "individual" or "bulk"
-
-  @@index([productId])
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([userId])
-  @@index([supplierId])
-  @@index([addedAt])
 }
 
 model Credit {
@@ -1354,4 +1280,46 @@ model Modifier {
   group ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
+}
+
+model BomRecipe {
+  id         String   @id @default(uuid())
+  tenantId   String
+  branchId   String?
+  productId  String
+  yieldQty   Float    @default(1)
+  yieldUnit  String   @default("portion")
+  version    Int      @default(1)
+  isActive   Boolean  @default(true)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  branch       Branch?         @relation(fields: [branchId], references: [id])
+  product      Product         @relation("BomRecipeProduct", fields: [productId], references: [id])
+  createdByUser User?          @relation("BomRecipeCreatedBy", fields: [createdBy], references: [id])
+  lines        BomRecipeLine[]
+
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([productId])
+  @@index([isActive])
+}
+
+model BomRecipeLine {
+  id                  String   @id @default(uuid())
+  recipeId            String
+  ingredientProductId String
+  quantity            Float
+  unit                String
+  wastePercent        Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  recipe            BomRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientProduct Product   @relation("BomRecipeIngredientProduct", fields: [ingredientProductId], references: [id])
+
+  @@index([recipeId])
+  @@index([ingredientProductId])
 }

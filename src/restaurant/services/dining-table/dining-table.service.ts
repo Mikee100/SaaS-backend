@@ -58,4 +58,26 @@ export class DiningTableService {
       data: { status },
     });
   }
+
+  async updateDetails(
+    id: string,
+    tenantId: string,
+    data: { number?: string; capacity?: number },
+  ) {
+    const table = await this.findOne(id, tenantId);
+
+    const nextNumber = typeof data.number === 'string' ? data.number.trim() : undefined;
+    const nextCapacity =
+      typeof data.capacity === 'number' && Number.isFinite(data.capacity)
+        ? Math.max(1, Math.trunc(data.capacity))
+        : undefined;
+
+    return this.prisma.diningTable.update({
+      where: { id: table.id },
+      data: {
+        ...(nextNumber ? { number: nextNumber } : {}),
+        ...(nextCapacity !== undefined ? { capacity: nextCapacity } : {}),
+      },
+    });
+  }
 }

@@ -145,8 +145,19 @@ export class UserController {
             (perm) => !directPermissions.includes(perm),
           );
 
+          const rawPreferences =
+            u?.preferences && typeof u.preferences === 'object' && !Array.isArray(u.preferences)
+              ? { ...(u.preferences as Record<string, unknown>) }
+              : undefined;
+          const hasPosPin = Boolean(rawPreferences && typeof rawPreferences.posPinHash === 'string' && rawPreferences.posPinHash.length > 0);
+          if (rawPreferences && 'posPinHash' in rawPreferences) {
+            delete rawPreferences.posPinHash;
+          }
+
           return {
             ...u,
+            preferences: rawPreferences,
+            hasPosPin,
             permissions: directPermissions,
             effectivePermissions,
             inheritedPermissions,
@@ -246,6 +257,32 @@ export class UserController {
   async deleteUser(@Req() req, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
+  }
+
+  @Put(':id/pos-pin')
+  @Permissions('edit_users')
+  async setUserPosPin(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: { pin: string },
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.userService.setUserPosPin(
+      id,
+      tenantId,
+      body.pin,
+      req.user.userId,
+      req.ip,
+    );
+  }
+
+  @Post('verify-pos-pin')
+  async verifyUserPosPin(
+    @Req() req,
+    @Body() body: { userId: string; pin: string },
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.userService.verifyUserPosPin(body.userId, tenantId, body.pin);
   }
 
   @Get('me/plan-limits')

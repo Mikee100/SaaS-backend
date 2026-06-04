@@ -527,6 +527,117 @@ export class UserService {
     });
   }
 
+  async setUserPosPin(
+    targetUserId: string,
+    tenantId: string,
+    pin: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
+    const trimmedPin = String(pin || '').trim();
+    if (!/^\d{4,8}$/.test(trimmedPin)) {
+      throw new BadRequestException('PIN must be 4 to 8 digits');
+    }
+
+    const targetUser = await this.prisma.user.findFirst({
+      where: {
+        id: targetUserId,
+        userRoles: {
+          some: { tenantId },
+        },
+      },
+      select: {
+        id: true,
+        preferences: true,
+      },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found in your tenant');
+    }
+
+    const rawPrefs = targetUser.preferences;
+    const currentPrefs: Record<string, unknown> =
+      rawPrefs != null && typeof rawPrefs === 'object' && !Array.isArray(rawPrefs)
+        ? (rawPrefs as Record<string, unknown>)
+        : {};
+
+    const pinHash = await bcrypt.hash(trimmedPin, 10);
+    const mergedPrefs: Record<string, unknown> = {
+      ...currentPrefs,
+      posPinHash: pinHash,
+      posPinSetAt: new Date().toISOString(),
+    };
+
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        preferences: mergedPrefs as Prisma.InputJsonValue,
+        updatedAt: new Date(),
+      },
+    });
+
+    if (this.auditLogService) {
+      await this.auditLogService.log(
+        actorUserId || null,
+        'user_pos_pin_set',
+        { targetUserId },
+        ip,
+      );
+    }
+
+    return { success: true };
+  }
+
+  async verifyUserPosPin(userId: string, tenantId: string, pin: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        userRoles: {
+          some: { tenantId },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        branchId: true,
+        preferences: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found in your tenant');
+    }
+
+    const prefs =
+      user.preferences != null &&
+      typeof user.preferences === 'object' &&
+      !Array.isArray(user.preferences)
+        ? (user.preferences as Record<string, unknown>)
+        : {};
+
+    const hash = typeof prefs.posPinHash === 'string' ? prefs.posPinHash : '';
+    if (!hash) {
+      return { success: false, reason: 'PIN not set' };
+    }
+
+    const matches = await bcrypt.compare(String(pin || ''), hash);
+    if (!matches) {
+      return { success: false, reason: 'Invalid PIN' };
+    }
+
+    return {
+      success: true,
+      waiter: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        branchId: user.branchId,
+      },
+    };
+  }
+
   async resetPassword(token: string, newPassword: string) {
     const user = await this.prisma.user.findFirst({
       where: {

@@ -17,6 +17,267 @@ export class RestaurantOrderService {
     private readonly salesService: SalesService,
   ) {}
 
+  private createAuditId() {
+    return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private async applyBomConsumptionIfNeeded(tx: any, order: any, actorUserId?: string) {
+    const consumedLog = await tx.auditLog.findFirst({
+      where: {
+        action: 'restaurant_order_bom_consumed',
+        details: { path: ['orderId'], equals: order.id },
+      } as any,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (consumedLog) {
+      return;
+    }
+
+    const productIds = Array.from(new Set((order.items || []).map((item: any) => item.productId)));
+    if (productIds.length === 0) {
+      return;
+    }
+
+    const recipes = await tx.bomRecipe.findMany({
+      where: {
+        tenantId: order.tenantId,
+        isActive: true,
+        productId: { in: productIds },
+        OR: [{ branchId: order.branchId }, { branchId: null }],
+      },
+      include: { lines: true },
+      orderBy: [{ branchId: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    if (recipes.length === 0) {
+      return;
+    }
+
+    const recipeByProductId = new Map<string, any>();
+    for (const recipe of recipes) {
+      if (!recipeByProductId.has(recipe.productId)) {
+        recipeByProductId.set(recipe.productId, recipe);
+      }
+    }
+
+    const ingredientRequired = new Map<string, number>();
+    for (const item of order.items || []) {
+      const recipe = recipeByProductId.get(item.productId);
+      if (!recipe) continue;
+
+      const itemQty = Number(item.quantity || 0);
+      const recipeYield = Math.max(0.0001, Number(recipe.yieldQty || 1));
+      for (const line of recipe.lines || []) {
+        const baseQty = (itemQty / recipeYield) * Number(line.quantity || 0);
+        const wasteMultiplier = 1 + Math.max(0, Number(line.wastePercent || 0)) / 100;
+        const needed = Math.max(0, baseQty * wasteMultiplier);
+        ingredientRequired.set(
+          line.ingredientProductId,
+          (ingredientRequired.get(line.ingredientProductId) || 0) + needed,
+        );
+      }
+    }
+
+    if (ingredientRequired.size === 0) {
+      return;
+    }
+
+    const ingredientDeductions: Array<{
+      ingredientProductId: string;
+      requestedQuantity: number;
+      appliedQuantity: number;
+      previousStock: number | null;
+      newStock: number | null;
+      skippedReason?: string;
+    }> = [];
+
+    for (const [ingredientProductId, requested] of ingredientRequired.entries()) {
+      const movementQty = requested > 0 ? Math.max(1, Math.round(requested)) : 0;
+      if (movementQty <= 0) continue;
+
+      const inventory = await tx.inventory.findFirst({
+        where: {
+          tenantId: order.tenantId,
+          branchId: order.branchId,
+          productId: ingredientProductId,
+        },
+      });
+
+      if (!inventory) {
+        ingredientDeductions.push({
+          ingredientProductId,
+          requestedQuantity: movementQty,
+          appliedQuantity: 0,
+          previousStock: null,
+          newStock: null,
+          skippedReason: 'inventory_record_missing',
+        });
+        continue;
+      }
+
+      const previousQuantity = Number(inventory.quantity || 0);
+      const newQuantity = Math.max(0, previousQuantity - movementQty);
+      const appliedQuantity = Math.max(0, previousQuantity - newQuantity);
+
+      await tx.inventory.update({
+        where: { id: inventory.id },
+        data: {
+          quantity: newQuantity,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          productId: ingredientProductId,
+          type: 'out',
+          quantity: Math.round(appliedQuantity),
+          previousQuantity: Math.round(previousQuantity),
+          newQuantity: Math.round(newQuantity),
+          reason: `BOM consumption for restaurant order ${order.id}`,
+          location: 'Restaurant BOM',
+          createdBy: actorUserId || '',
+          branchId: order.branchId,
+          tenantId: order.tenantId,
+        },
+      });
+
+      ingredientDeductions.push({
+        ingredientProductId,
+        requestedQuantity: movementQty,
+        appliedQuantity,
+        previousStock: previousQuantity,
+        newStock: newQuantity,
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        id: this.createAuditId(),
+        userId: actorUserId,
+        action: 'restaurant_order_bom_consumed',
+        details: {
+          orderId: order.id,
+          tenantId: order.tenantId,
+          branchId: order.branchId,
+          ingredientDeductions,
+        },
+      },
+    });
+  }
+
+  private async applyBomReversalIfNeeded(tx: any, order: any, actorUserId?: string) {
+    const reversalLog = await tx.auditLog.findFirst({
+      where: {
+        action: 'restaurant_order_bom_reversed',
+        details: { path: ['orderId'], equals: order.id },
+      } as any,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (reversalLog) {
+      return;
+    }
+
+    const consumedLog = await tx.auditLog.findFirst({
+      where: {
+        action: 'restaurant_order_bom_consumed',
+        details: { path: ['orderId'], equals: order.id },
+      } as any,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const consumedDetails = (consumedLog?.details || {}) as any;
+    const consumedLines = Array.isArray(consumedDetails.ingredientDeductions)
+      ? consumedDetails.ingredientDeductions
+      : [];
+
+    if (consumedLines.length === 0) {
+      return;
+    }
+
+    const restoredIngredients: Array<{
+      ingredientProductId: string;
+      restoredQuantity: number;
+      previousStock: number | null;
+      newStock: number | null;
+      skippedReason?: string;
+    }> = [];
+
+    for (const line of consumedLines) {
+      const ingredientProductId = String(line.ingredientProductId || '');
+      const toRestore = Math.max(0, Math.round(Number(line.appliedQuantity || 0)));
+      if (!ingredientProductId || toRestore <= 0) continue;
+
+      const inventory = await tx.inventory.findFirst({
+        where: {
+          tenantId: order.tenantId,
+          branchId: order.branchId,
+          productId: ingredientProductId,
+        },
+      });
+
+      if (!inventory) {
+        restoredIngredients.push({
+          ingredientProductId,
+          restoredQuantity: 0,
+          previousStock: null,
+          newStock: null,
+          skippedReason: 'inventory_record_missing',
+        });
+        continue;
+      }
+
+      const previousQuantity = Number(inventory.quantity || 0);
+      const newQuantity = previousQuantity + toRestore;
+
+      await tx.inventory.update({
+        where: { id: inventory.id },
+        data: {
+          quantity: newQuantity,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          productId: ingredientProductId,
+          type: 'in',
+          quantity: toRestore,
+          previousQuantity: Math.round(previousQuantity),
+          newQuantity: Math.round(newQuantity),
+          reason: `BOM reversal for voided restaurant order ${order.id}`,
+          location: 'Restaurant BOM',
+          createdBy: actorUserId || '',
+          branchId: order.branchId,
+          tenantId: order.tenantId,
+        },
+      });
+
+      restoredIngredients.push({
+        ingredientProductId,
+        restoredQuantity: toRestore,
+        previousStock: previousQuantity,
+        newStock: newQuantity,
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        id: this.createAuditId(),
+        userId: actorUserId,
+        action: 'restaurant_order_bom_reversed',
+        details: {
+          orderId: order.id,
+          tenantId: order.tenantId,
+          branchId: order.branchId,
+          restoredIngredients,
+        },
+      },
+    });
+  }
+
   async findAllActive(tenantId: string, branchId?: string) {
     return this.prisma.restaurantOrder.findMany({
       where: {
@@ -24,6 +285,46 @@ export class RestaurantOrderService {
         ...(branchId ? { branchId } : {}),
         status: { notIn: ['Closed', 'Voided'] },
       },
+      include: {
+        table: true,
+        items: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAll(
+    tenantId: string,
+    branchId?: string,
+    filters?: {
+      from?: Date;
+      to?: Date;
+      waiterId?: string;
+      status?: string;
+    },
+  ) {
+    const where: any = {
+      tenantId,
+      ...(branchId ? { branchId } : {}),
+    };
+
+    if (filters?.status) {
+      where.status = filters.status;
+    }
+
+    if (filters?.waiterId) {
+      where.waiterId = filters.waiterId;
+    }
+
+    if (filters?.from || filters?.to) {
+      where.createdAt = {
+        ...(filters.from ? { gte: filters.from } : {}),
+        ...(filters.to ? { lte: filters.to } : {}),
+      };
+    }
+
+    return this.prisma.restaurantOrder.findMany({
+      where,
       include: {
         table: true,
         items: true,
@@ -53,6 +354,20 @@ export class RestaurantOrderService {
   async create(tenantId: string, branchId: string, data: { tableId?: string; waiterId?: string; customerName?: string; customerPhone?: string; total: number; items: any[] }) {
     // Basic idempotency: handled by the controller/client passing idempotency key if needed,
     // but for order creation it's simpler.
+
+    if (data.waiterId) {
+      const waiterInTenant = await this.prisma.userRole.findFirst({
+        where: {
+          userId: data.waiterId,
+          tenantId,
+        },
+        select: { id: true },
+      });
+
+      if (!waiterInTenant) {
+        throw new BadRequestException('Invalid waiter selected for this tenant');
+      }
+    }
     
     return this.prisma.$transaction(async (prisma) => {
       const order = await prisma.restaurantOrder.create({
@@ -90,7 +405,14 @@ export class RestaurantOrderService {
     });
   }
 
-  async updateStatus(id: string, tenantId: string, newStatus: string, isManagerOverride: boolean = false) {
+  async updateStatus(
+    id: string,
+    tenantId: string,
+    newStatus: string,
+    isManagerOverride: boolean = false,
+    actorUserId?: string,
+    voidReason?: string,
+  ) {
     const order = await this.findOne(id, tenantId);
 
     if (!isManagerOverride) {
@@ -108,6 +430,33 @@ export class RestaurantOrderService {
           ticketVersion: newStatus === 'SentToKitchen' ? { increment: 1 } : undefined,
         },
       });
+
+      if (newStatus === 'Served' || newStatus === 'Closed') {
+        await this.applyBomConsumptionIfNeeded(prisma, order, actorUserId);
+      }
+
+      if (newStatus === 'Voided') {
+        await this.applyBomReversalIfNeeded(prisma, order, actorUserId);
+      }
+
+      if (newStatus === 'Voided' && voidReason?.trim()) {
+        await prisma.auditLog.create({
+          data: {
+            id: this.createAuditId(),
+            userId: actorUserId,
+            action: 'restaurant_order_voided',
+            details: {
+              tenantId,
+              orderId: id,
+              previousStatus: order.status,
+              newStatus,
+              voidReason: voidReason.trim(),
+              tableId: order.tableId || null,
+              total: order.total,
+            },
+          },
+        });
+      }
 
       // Free table if closed or voided
       if ((newStatus === 'Closed' || newStatus === 'Voided') && updatedOrder.tableId) {
@@ -250,6 +599,8 @@ export class RestaurantOrderService {
     );
 
     await this.prisma.$transaction(async (tx) => {
+      await this.applyBomConsumptionIfNeeded(tx, order, userId);
+
       await tx.restaurantOrder.update({
         where: { id: orderId },
         data: { status: 'Closed' },

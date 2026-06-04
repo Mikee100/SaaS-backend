@@ -27,6 +27,7 @@ import { SupplierModule } from './supplier/supplier.module';
 import { AiModule } from './ai/ai.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { SalaryModule } from './salary/salary.module';
+import { HrModule } from './hr/hr.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { BackupModule } from './backup/backup.module';
 import { SalesTargetModule } from './sales-target/sales-target.module';
@@ -80,6 +81,7 @@ import { RestaurantModule } from './restaurant/restaurant.module';
     AiModule,
     ExpensesModule,
     SalaryModule,
+    HrModule,
     MonitoringModule,
     BackupModule,
     SalesTargetModule,

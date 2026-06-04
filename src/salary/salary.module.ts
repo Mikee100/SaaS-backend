@@ -6,9 +6,10 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { UserModule } from '../user/user.module';
 import { ExpensesModule } from '../expenses/expenses.module';
 import { RecurringSalariesScheduler } from './recurring-salaries.scheduler';
+import { HrModule } from '../hr/hr.module';
 
 @Module({
-  imports: [PrismaModule, AuditLogModule, UserModule, ExpensesModule],
+  imports: [PrismaModule, AuditLogModule, UserModule, ExpensesModule, HrModule],
   controllers: [SalaryController],
   providers: [SalaryService, RecurringSalariesScheduler],
   exports: [SalaryService],

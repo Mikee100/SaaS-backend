@@ -366,6 +366,16 @@ export class ExpensesService {
       data: { deletedAt: now, isActive: false },
     });
 
+    try {
+      await this.ledgerService.reverseExpenseAutomation(tenantId, existingExpense.userId, {
+        expenseId: existingExpense.id,
+        reason: 'Expense deleted',
+        date: now,
+      });
+    } catch (error) {
+      console.error('Failed to create reversal journal for deleted expense:', error);
+    }
+
     return { success: true, message: 'Expense deleted successfully' };
   }
 

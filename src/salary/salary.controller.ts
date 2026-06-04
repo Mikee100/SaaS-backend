@@ -213,6 +213,81 @@ export class SalaryController {
     };
   }
 
+  @Post('payroll-preview')
+  @Permissions('view_sales')
+  async payrollPreview(@Req() req, @Body() body: any) {
+    const { month, year, adjustments, applyTemplates } = body || {};
+    if (!month || !year) {
+      throw new BadRequestException('Month and year are required');
+    }
+
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const preview = await this.salaryService.buildPayrollPreview(
+      req.user.tenantId,
+      Number(month),
+      Number(year),
+      effectiveBranchId,
+      applyTemplates !== false,
+      Array.isArray(adjustments) ? adjustments : [],
+    );
+
+    return {
+      success: true,
+      data: preview,
+    };
+  }
+
+  @Post('process-payroll')
+  @Permissions('create_sales')
+  async processPayroll(@Req() req, @Body() body: any) {
+    const { month, year, adjustments, applyTemplates } = body || {};
+    if (!month || !year) {
+      throw new BadRequestException('Month and year are required');
+    }
+
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const result = await this.salaryService.processPayroll(req.user.tenantId, req.user.userId, {
+      month: Number(month),
+      year: Number(year),
+      branchId: effectiveBranchId,
+      applyTemplates: applyTemplates !== false,
+      adjustments: Array.isArray(adjustments) ? adjustments : [],
+    });
+
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
+  @Post('payroll-runs/:id/post')
+  @Permissions('create_sales')
+  async postPayrollRun(@Req() req, @Param('id') id: string) {
+    const result = await this.salaryService.postPayrollRun(req.user.tenantId, req.user.userId, id);
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
+  @Post('payroll-runs/:id/reverse')
+  @Permissions('create_sales')
+  async reversePayrollRun(@Req() req, @Param('id') id: string, @Body() body: any) {
+    const result = await this.salaryService.reversePayrollRun(
+      req.user.tenantId,
+      req.user.userId,
+      id,
+      body?.reason,
+    );
+    return {
+      success: true,
+      data: result,
+      message: result.message,
+    };
+  }
+
   @Get(':id')
   @Permissions('view_sales')
   async getSalarySchemeById(@Param('id') id: string, @Req() req) {

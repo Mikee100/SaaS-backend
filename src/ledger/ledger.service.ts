@@ -864,6 +864,72 @@ export class LedgerService {
     }
   }
 
+  async reverseExpenseAutomation(
+    tenantId: string,
+    userId: string | null,
+    data: {
+      expenseId: string;
+      reason?: string;
+      date?: Date;
+    },
+  ) {
+    try {
+      const expenseId = String(data.expenseId || '').trim();
+      if (!expenseId) return;
+
+      const originalEntry = await this.prisma.journalEntry.findFirst({
+        where: {
+          tenantId,
+          type: 'expense',
+          OR: [{ reference: `EXPENSE-${expenseId}` }, { reference: { endsWith: `:EXPENSE-${expenseId}` } }],
+        },
+        include: {
+          ledgerEntries: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!originalEntry || !Array.isArray(originalEntry.ledgerEntries) || originalEntry.ledgerEntries.length === 0) {
+        return;
+      }
+
+      const branchScope = this.extractBranchScope(originalEntry.reference);
+      const reversalReferenceCore = `EXPENSE-REVERSAL-${expenseId}`;
+      const reversalReference = branchScope
+        ? `BRANCH:${branchScope}:${reversalReferenceCore}`
+        : reversalReferenceCore;
+
+      const existingReversal = await this.prisma.journalEntry.findFirst({
+        where: {
+          tenantId,
+          reference: reversalReference,
+        },
+        select: { id: true },
+      });
+
+      if (existingReversal) {
+        return;
+      }
+
+      const lines = originalEntry.ledgerEntries.map((line) => ({
+        accountId: line.accountId,
+        debit: line.credit,
+        credit: line.debit,
+        description: `Reversal of ${originalEntry.reference}`,
+      }));
+
+      return this.createJournalEntry(tenantId, userId, {
+        date: data.date || new Date(),
+        description: `Automated Expense Reversal Entry${data.reason ? `: ${data.reason}` : ''}`,
+        type: 'adjustment',
+        reference: reversalReference,
+        lines,
+      });
+    } catch (error) {
+      console.error('Failed to record automated expense reversal entry:', error);
+    }
+  }
+
   async recordCustomerPaymentAutomation(
     tenantId: string,
     userId: string | null,
@@ -1058,7 +1124,7 @@ export class LedgerService {
         include: { SaleItem: { include: { product: true } }, User: true },
       }),
       this.prisma.expense.findMany({
-        where: { tenantId, ...(branchId ? { branchId } : {}) },
+        where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
         include: { user: true, branch: true, category: true },
       }),
       this.prisma.inventoryMovement.findMany({
