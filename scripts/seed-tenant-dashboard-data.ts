@@ -143,43 +143,62 @@ async function ensureInventoryRows(
   branchIds: string[],
   products: Array<{ id: string; branchId: string | null }>,
 ) {
+  let attempted = 0;
+  let updated = 0;
+  let created = 0;
+  let failed = 0;
+
   for (const branchId of branchIds) {
     for (const p of products) {
       if (p.branchId && p.branchId !== branchId) continue;
 
-      const existing = await prisma.inventory.findFirst({
-        where: { tenantId, branchId, productId: p.id },
-        select: { id: true, quantity: true },
-      });
+      attempted += 1;
 
-      if (existing) {
-        await prisma.inventory.update({
-          where: { id: existing.id },
-          data: {
-            quantity: Math.max(existing.quantity, randomInt(30, 180)),
-            updatedAt: new Date(),
-          },
-          select: { id: true },
+      try {
+        const existing = await prisma.inventory.findFirst({
+          where: { tenantId, branchId, productId: p.id },
+          select: { id: true, quantity: true },
         });
-      } else {
-        await prisma.inventory.create({
-          data: {
-            id: randomUUID(),
-            tenantId,
-            branchId,
-            productId: p.id,
-            quantity: randomInt(40, 200),
-            minStock: 5,
-            maxStock: 1000,
-            reorderPoint: 15,
-            location: 'Main Warehouse',
-            updatedAt: new Date(),
-          },
-          select: { id: true },
-        });
+
+        if (existing) {
+          await prisma.inventory.update({
+            where: { id: existing.id },
+            data: {
+              quantity: Math.max(existing.quantity, randomInt(30, 180)),
+              updatedAt: new Date(),
+            },
+            select: { id: true },
+          });
+          updated += 1;
+        } else {
+          await prisma.inventory.create({
+            data: {
+              id: randomUUID(),
+              tenantId,
+              branchId,
+              productId: p.id,
+              quantity: randomInt(40, 200),
+              minStock: 5,
+              maxStock: 1000,
+              reorderPoint: 15,
+              location: 'Main Warehouse',
+              updatedAt: new Date(),
+            },
+            select: { id: true },
+          });
+          created += 1;
+        }
+      } catch (error) {
+        failed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[seed] Skipping inventory row for product ${p.id} branch ${branchId}: ${message}`,
+        );
       }
     }
   }
+
+  return { attempted, updated, created, failed };
 }
 
 async function main() {
@@ -191,6 +210,7 @@ async function main() {
   const salesPerDay = numberArg('salesPerDay', 8);
   const expensesPerWeek = numberArg('expensesPerWeek', 4);
   const dryRun = process.argv.includes('--dryRun');
+  const skipInventory = process.argv.includes('--skipInventory');
 
   if (!tenantId) {
     throw new Error('Missing --tenantId=<uuid>');
@@ -239,8 +259,15 @@ async function main() {
     const expenseCategories = await ensureExpenseCategories(prisma, tenantId);
     const accountsBySubtype = await ensureAccounts(prisma, tenantId);
 
-    if (!dryRun) {
-      await ensureInventoryRows(prisma, tenantId, branchIds, products);
+    let inventoryResult = {
+      attempted: 0,
+      updated: 0,
+      created: 0,
+      failed: 0,
+    };
+
+    if (!dryRun && !skipInventory) {
+      inventoryResult = await ensureInventoryRows(prisma, tenantId, branchIds, products);
     }
 
     let createdSales = 0;
@@ -456,10 +483,12 @@ async function main() {
       branches: branches.map((b) => ({ id: b.id, name: b.name })),
       productsUsed: products.length,
       dryRun,
+      skipInventory,
       createdSales,
       createdSaleItems,
       createdExpenses,
       createdJournalEntries,
+      inventory: inventoryResult,
       tag,
     }, null, 2));
   } finally {
