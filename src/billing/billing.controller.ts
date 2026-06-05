@@ -584,6 +584,7 @@ export class BillingController {
         tenantId: body.tenantId,
         planId: body.planId,
         userId,
+        allowManualPaidPlans: true,
       });
 
       return {

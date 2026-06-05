@@ -11,6 +11,7 @@ interface CreateSubscriptionDto {
   userId: string;
   planId: string;
   paymentMethodId?: string;
+  allowManualPaidPlans?: boolean;
 }
 
 interface UpdateSubscriptionDto {
@@ -109,7 +110,7 @@ export class SubscriptionService {
         throw new NotFoundException('Plan not found');
       }
 
-      if (plan.price > 0) {
+      if (plan.price > 0 && !data.allowManualPaidPlans) {
         throw new BadRequestException(
           'Paid plans must be created through Stripe checkout session',
         );
@@ -131,6 +132,7 @@ export class SubscriptionService {
           details: JSON.stringify({
             tenantId: data.tenantId,
             planId: data.planId,
+            manualPaidOverride: !!data.allowManualPaidPlans,
           }),
           createdAt: new Date(),
         },
@@ -141,6 +143,9 @@ export class SubscriptionService {
         where: {
           tenantId: data.tenantId,
         },
+        orderBy: {
+          currentPeriodStart: 'desc',
+        },
         include: {
           Plan: true,
           Tenant: true,
@@ -148,6 +153,10 @@ export class SubscriptionService {
       });
 
       if (existingSubscription) {
+        if (data.allowManualPaidPlans) {
+          return await this.handleManualAssignment(existingSubscription, plan);
+        }
+
         // Removed console.log for subscription creation dates
         // Handle upgrade by updating the existing subscription
         return await this.handleUpgrade(existingSubscription, plan);
@@ -211,6 +220,44 @@ export class SubscriptionService {
       console.error('Error in createSubscription:', error);
       throw error;
     }
+  }
+
+  private async handleManualAssignment(currentSubscription: any, newPlan: any) {
+    const now = new Date();
+    const endDate = this.calculateEndDate(newPlan.interval);
+
+    const updatedSubscription = await this.prisma.subscription.update({
+      where: { id: currentSubscription.id },
+      data: {
+        planId: newPlan.id,
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: endDate,
+        stripeCurrentPeriodEnd: endDate,
+        stripePriceId: newPlan.stripePriceId ?? currentSubscription.stripePriceId,
+        cancelAtPeriodEnd: false,
+        canceledAt: null,
+        trialStart: null,
+        trialEnd: null,
+        isTrial: false,
+      },
+      include: {
+        Plan: true,
+      },
+    });
+
+    await this.prisma.tenant.update({
+      where: { id: currentSubscription.tenantId },
+      data: {
+        isSuspended: false,
+      },
+    });
+
+    return {
+      message: 'Subscription assigned manually and tenant reactivated',
+      subscription: updatedSubscription,
+      mode: 'manual_override',
+    };
   }
 
   async updateSubscription(tenantId: string, data: UpdateSubscriptionDto) {
