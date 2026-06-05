@@ -631,8 +631,28 @@ export class AnalyticsService {
   private async getInventoryAnalytics(tenantId: string) {
     const products = await this.prisma.product.findMany({
       where: { tenantId },
-      include: { inventory: true },
+      select: {
+        id: true,
+        stock: true,
+        price: true,
+        cost: true,
+      },
     });
+
+    // Compatibility path for older databases that may miss newer Inventory columns.
+    // We only need quantity totals here, so avoid Prisma relation include on Inventory.
+    const inventoryRows = await this.prisma.$queryRaw<
+      { productId: string; totalQuantity: number }[]
+    >(Prisma.sql`
+      SELECT "productId", COALESCE(SUM(quantity), 0)::float AS "totalQuantity"
+      FROM "Inventory"
+      WHERE "tenantId" = ${tenantId}
+      GROUP BY "productId"
+    `);
+
+    const inventoryByProduct = new Map<string, number>(
+      inventoryRows.map((row) => [row.productId, Number(row.totalQuantity) || 0]),
+    );
 
     const lowStockThreshold = 10; // Items below this are considered low stock
     const overstockThreshold = 100; // Items above this are considered overstocked
@@ -645,13 +665,10 @@ export class AnalyticsService {
 
     // Calculate inventory metrics
     products.forEach((product) => {
-      // Prefer branch-level inventory totals. Fall back to product.stock only if no inventory rows exist.
-      const inventoryStock = product.inventory.reduce(
-        (sum, inv) => sum + inv.quantity,
-        0,
-      );
+      // Prefer Inventory totals. Fall back to product.stock if no Inventory rows exist.
+      const inventoryStock = inventoryByProduct.get(product.id);
       const stock =
-        product.inventory.length > 0
+        typeof inventoryStock === 'number'
           ? inventoryStock
           : typeof product.stock === 'number'
             ? product.stock

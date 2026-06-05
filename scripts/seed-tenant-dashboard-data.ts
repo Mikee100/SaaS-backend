@@ -149,6 +149,7 @@ async function ensureInventoryRows(
 
       const existing = await prisma.inventory.findFirst({
         where: { tenantId, branchId, productId: p.id },
+        select: { id: true, quantity: true },
       });
 
       if (existing) {
@@ -158,6 +159,7 @@ async function ensureInventoryRows(
             quantity: Math.max(existing.quantity, randomInt(30, 180)),
             updatedAt: new Date(),
           },
+          select: { id: true },
         });
       } else {
         await prisma.inventory.create({
@@ -173,6 +175,7 @@ async function ensureInventoryRows(
             location: 'Main Warehouse',
             updatedAt: new Date(),
           },
+          select: { id: true },
         });
       }
     }
