@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
-import { SubscriptionService } from '../billing/subscription.service';
+import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma.service';
 import { SessionService } from './session.service';
 import { DeviceService } from './device.service';
@@ -25,7 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
     private auditLogService: AuditLogService,
     private emailService: EmailService,
-    private subscriptionService: SubscriptionService,
+    private billingService: BillingService,
     private prisma: PrismaService,
     private sessionService: SessionService,
     private deviceService: DeviceService,
@@ -137,13 +137,17 @@ export class AuthService {
           'No tenant assigned to this user. Please contact support.',
         );
       }
-      // 4. Check if trial has expired before allowing login (skip for superadmin)
+      // 4. Check tenant billing access status before allowing login (skip for superadmin)
       if (tenantId) {
-        const trialStatus =
-          await this.subscriptionService.checkTrialStatus(tenantId);
-        if (trialStatus.isTrial && trialStatus.trialExpired) {
+        const accessStatus = await this.billingService.getAccessStatus(
+          tenantId,
+          false,
+        );
+
+        if (accessStatus.restricted) {
           throw new ForbiddenException(
-            'Trial period has expired. Please upgrade your subscription.',
+            accessStatus.reason ||
+              'Subscription has expired. Please upgrade your subscription.',
           );
         }
       }
