@@ -9,7 +9,8 @@ ON "Sale"("restaurantOrderId");
 -- Add FK only when missing to keep migration idempotent in drifted environments
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF to_regclass('"RestaurantOrder"') IS NOT NULL
+     AND NOT EXISTS (
     SELECT 1
     FROM pg_constraint
     WHERE conname = 'Sale_restaurantOrderId_fkey'
