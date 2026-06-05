@@ -703,10 +703,6 @@ export class SubscriptionService {
     const subscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
-        isTrial: true,
-        status: {
-          in: ['trialing', 'expired'],
-        },
       },
       include: {
         Plan: true,
@@ -717,6 +713,14 @@ export class SubscriptionService {
     });
 
     if (!subscription) {
+      return { isTrial: false, trialExpired: false };
+    }
+
+    // Only treat the tenant as trial-based if the latest subscription is trialing/expired trial.
+    if (
+      !subscription.isTrial ||
+      !['trialing', 'expired'].includes(subscription.status)
+    ) {
       return { isTrial: false, trialExpired: false };
     }
 
