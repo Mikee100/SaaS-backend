@@ -168,7 +168,11 @@ export class AnalyticsService {
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
       take: 10,
-      include: {
+      select: {
+        id: true,
+        total: true,
+        customerName: true,
+        createdAt: true,
         User: {
           select: { name: true },
         },

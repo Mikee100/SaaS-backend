@@ -344,7 +344,9 @@ export class StripeService {
   ): Promise<Stripe.Checkout.Session> {
     const stripe = await this.getStripeForTenant(tenantId);
     if (!stripe) {
-      throw new Error('Stripe is not configured for this tenant');
+      throw new BadRequestException(
+        'Stripe is not configured for this tenant',
+      );
     }
 
     // Get the tenant's subscription to determine if this is an upgrade/downgrade
