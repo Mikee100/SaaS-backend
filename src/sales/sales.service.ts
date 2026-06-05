@@ -587,7 +587,10 @@ export class SalesService {
             id: uuidv4(),
             saleId,
             productId: item.productId,
-            variationId: item.variationId ?? null,
+            variationId:
+              item.variationId && item.variationId.trim().length > 0
+                ? item.variationId
+                : null,
             quantity: item.quantity,
             price: receiptItem?.price ?? 0,
           },
