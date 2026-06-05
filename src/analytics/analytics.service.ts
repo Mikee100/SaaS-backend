@@ -662,8 +662,13 @@ export class AnalyticsService {
           createdAt: { gte: date },
         },
       },
-      include: {
-        product: true,
+      select: {
+        quantity: true,
+        product: {
+          select: {
+            cost: true,
+          },
+        },
       },
     });
 
