@@ -16,6 +16,7 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedRequest } from '../auth/request.types';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('roles')
@@ -38,7 +39,7 @@ export class RoleController {
 
   @Get()
   @Permissions('edit_roles')
-  async getRoles(@Req() req) {
+  async getRoles(@Req() req: AuthenticatedRequest) {
     const currentUserRole = req.user?.roles?.includes('owner')
       ? 'owner'
       : undefined;
@@ -49,18 +50,23 @@ export class RoleController {
   @Put(':id')
   @Permissions('edit_roles')
   async updateRole(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { name?: string; description?: string },
   ) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new ForbiddenException('Tenant context required');
-    return this.permissionService.updateRole(id, tenantId, body.name, body.description);
+    return this.permissionService.updateRole(
+      id,
+      tenantId,
+      body.name,
+      body.description,
+    );
   }
 
   @Delete(':id')
   @Permissions('edit_roles')
-  async deleteRole(@Req() req, @Param('id') id: string) {
+  async deleteRole(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) throw new ForbiddenException('Tenant context required');
     return this.permissionService.deleteRole(id, tenantId);

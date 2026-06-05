@@ -30,22 +30,10 @@ export class AdminHealthController {
     const dbStatus =
       healthCheck.database.status === 'down'
         ? 'critical'
-        : toHealthStatus(
-            healthCheck.database.responseTime,
-            500,
-            2000,
-          );
+        : toHealthStatus(healthCheck.database.responseTime, 500, 2000);
 
-    const storageStatus = toHealthStatus(
-      healthCheck.system.disk,
-      85,
-      95,
-    );
-    const memoryStatus = toHealthStatus(
-      healthCheck.system.memory,
-      80,
-      90,
-    );
+    const storageStatus = toHealthStatus(healthCheck.system.disk, 85, 95);
+    const memoryStatus = toHealthStatus(healthCheck.system.memory, 80, 90);
 
     let usedSpace = 0;
     let totalSpace = 0;
@@ -69,7 +57,7 @@ export class AdminHealthController {
       totalMemory = 1;
     }
 
-    const notifications = await this.monitoringService.getNotificationHistory(10);
+    const notifications = this.monitoringService.getNotificationHistory(10);
     const recentAlerts = notifications.map((n) => ({
       id: n.id,
       type: n.alertName,
@@ -109,8 +97,8 @@ export class AdminHealthController {
   }
 
   @Get('metrics')
-  async getMetrics() {
-    const history = await this.monitoringService.getHealthHistory(50);
+  getMetrics() {
+    const history = this.monitoringService.getHealthHistory(50);
 
     const responseTimes = history.map((h) => ({
       timestamp: new Date(h.timestamp).toISOString(),

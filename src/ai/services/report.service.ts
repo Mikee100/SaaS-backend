@@ -13,6 +13,30 @@ export class ReportService {
     private readonly dataService: DataService,
   ) {}
 
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asNumber(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return 0;
+  }
+
+  private asString(value: unknown, fallback: string = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
   async generateSalesReport(
     tenantId: string,
     branchId: string,
@@ -20,18 +44,36 @@ export class ReportService {
     period: '7days' | '30days' | '90days' | '1year' | 'all' = '30days',
     specificMonth?: { year: number; month: number }, // Optional: for specific month reports
   ): Promise<{ filePath: string; filename: string }> {
-    const salesData = await this.dataService.getSalesData(tenantId, branchId);
-    const tenantInfo = await this.dataService.getTenantInfo(tenantId);
-    const branchInfo = await this.dataService.getBranchInfo(tenantId, branchId);
+    const salesDataRaw: unknown = await this.dataService.getSalesData(
+      tenantId,
+      branchId,
+    );
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const branchInfoRaw: unknown = await this.dataService.getBranchInfo(
+      tenantId,
+      branchId,
+    );
+    const salesData = this.asObject(salesDataRaw) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
+    const branchInfo = this.asObject(branchInfoRaw) ?? {};
 
     // Calculate date range
     let endDate = new Date();
     let startDate = new Date();
-    
+
     if (specificMonth) {
       // For specific month reports
       startDate = new Date(specificMonth.year, specificMonth.month, 1);
-      endDate = new Date(specificMonth.year, specificMonth.month + 1, 0, 23, 59, 59, 999);
+      endDate = new Date(
+        specificMonth.year,
+        specificMonth.month + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
     } else {
       // For period-based reports
       switch (period) {
@@ -75,7 +117,20 @@ export class ReportService {
     });
 
     // Prepare month name for title
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     let periodLabel: string = period;
     if (specificMonth) {
       periodLabel = `${monthNames[specificMonth.month]} ${specificMonth.year}`;
@@ -84,16 +139,16 @@ export class ReportService {
     // Prepare data for export
     const reportData = [
       ['Sales Report'],
-      [`Business: ${tenantInfo.name || 'N/A'}`],
-      [`Branch: ${branchInfo.name || 'N/A'}`],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
+      [`Branch: ${this.asString(branchInfo.name, 'N/A')}`],
       [`Period: ${periodLabel}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ['Summary'],
-      ['Total Revenue', salesData.totalRevenue || 0],
-      ['Total Sales', salesData.totalSales || 0],
-      ['Average Sale', salesData.averageSale || 0],
-      ['Highest Sale', salesData.highestSale || 0],
+      ['Total Revenue', this.asNumber(salesData.totalRevenue)],
+      ['Total Sales', this.asNumber(salesData.totalSales)],
+      ['Average Sale', this.asNumber(salesData.averageSale)],
+      ['Highest Sale', this.asNumber(salesData.highestSale)],
       [],
       ['Detailed Sales'],
       ['Date', 'Sale ID', 'Customer', 'Total', 'Items Count', 'Payment Method'],
@@ -158,9 +213,19 @@ export class ReportService {
     branchId: string,
     format: 'xlsx' | 'csv' = 'xlsx',
   ): Promise<{ filePath: string; filename: string }> {
-    const inventoryData = await this.dataService.getInventoryData(tenantId, branchId);
-    const tenantInfo = await this.dataService.getTenantInfo(tenantId);
-    const branchInfo = await this.dataService.getBranchInfo(tenantId, branchId);
+    const inventoryDataRaw: unknown = await this.dataService.getInventoryData(
+      tenantId,
+      branchId,
+    );
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const branchInfoRaw: unknown = await this.dataService.getBranchInfo(
+      tenantId,
+      branchId,
+    );
+    const inventoryData = this.asObject(inventoryDataRaw) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
+    const branchInfo = this.asObject(branchInfoRaw) ?? {};
 
     // Get detailed inventory
     const inventory = await this.prisma.inventory.findMany({
@@ -180,22 +245,36 @@ export class ReportService {
     // Prepare data for export
     const reportData = [
       ['Inventory Report'],
-      [`Business: ${tenantInfo.name || 'N/A'}`],
-      [`Branch: ${branchInfo.name || 'N/A'}`],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
+      [`Branch: ${this.asString(branchInfo.name, 'N/A')}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ['Summary'],
-      ['Total Items', inventoryData.totalItems],
-      ['Low Stock Items', inventoryData.lowStockCount],
-      ['Out of Stock Items', inventoryData.outOfStockCount],
-      ['Total Inventory Value', inventoryData.totalValue],
+      ['Total Items', this.asNumber(inventoryData.totalItems)],
+      ['Low Stock Items', this.asNumber(inventoryData.lowStockCount)],
+      ['Out of Stock Items', this.asNumber(inventoryData.outOfStockCount)],
+      ['Total Inventory Value', this.asNumber(inventoryData.totalValue)],
       [],
       ['Detailed Inventory'],
-      ['Product Name', 'SKU', 'Quantity', 'Min Stock', 'Max Stock', 'Status', 'Unit Price', 'Total Value'],
+      [
+        'Product Name',
+        'SKU',
+        'Quantity',
+        'Min Stock',
+        'Max Stock',
+        'Status',
+        'Unit Price',
+        'Total Value',
+      ],
     ];
 
     inventory.forEach((item) => {
-      const status = item.quantity === 0 ? 'Out of Stock' : item.quantity <= item.minStock ? 'Low Stock' : 'In Stock';
+      const status =
+        item.quantity === 0
+          ? 'Out of Stock'
+          : item.quantity <= item.minStock
+            ? 'Low Stock'
+            : 'In Stock';
       const totalValue = item.quantity * (item.product.price || 0);
       reportData.push([
         item.product.name,
@@ -255,31 +334,48 @@ export class ReportService {
     branchId: string,
     format: 'xlsx' | 'csv' = 'xlsx',
   ): Promise<{ filePath: string; filename: string }> {
-    const productData = await this.dataService.getProductData(tenantId, branchId);
-    const tenantInfo = await this.dataService.getTenantInfo(tenantId);
+    const productDataRaw: unknown = await this.dataService.getProductData(
+      tenantId,
+      branchId,
+    );
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const productData = this.asObject(productDataRaw) ?? {};
+    const productMetrics = this.asObject(productData.metrics) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
 
     // Prepare data for export
     const reportData = [
       ['Product Performance Report'],
-      [`Business: ${tenantInfo.name || 'N/A'}`],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
       [`Generated: ${new Date().toLocaleString()}`],
       [],
       ['Summary'],
-      ['Total Products', productData.totalProducts],
-      ['Total Product Revenue', productData.metrics?.totalProductRevenue || 0],
-      ['Average Product Revenue', productData.metrics?.averageProductRevenue || 0],
+      ['Total Products', this.asNumber(productData.totalProducts)],
+      [
+        'Total Product Revenue',
+        this.asNumber(productMetrics.totalProductRevenue),
+      ],
+      [
+        'Average Product Revenue',
+        this.asNumber(productMetrics.averageProductRevenue),
+      ],
       [],
       ['Top Products'],
       ['Product Name', 'Revenue', 'Units Sold', 'Sales Count', 'Average Price'],
     ];
 
-    productData.topProducts.forEach((product: any) => {
+    const topProducts = Array.isArray(productData.topProducts)
+      ? productData.topProducts
+      : [];
+    topProducts.forEach((product) => {
+      const row = this.asObject(product) ?? {};
       reportData.push([
-        product.name,
-        product.revenue || 0,
-        product.quantity || 0,
-        product.salesCount || 0,
-        product.averagePrice || product.price || 0,
+        this.asString(row.name, 'Unknown Product'),
+        this.asNumber(row.revenue),
+        this.asNumber(row.quantity),
+        this.asNumber(row.salesCount),
+        this.asNumber(row.averagePrice) || this.asNumber(row.price),
       ]);
     });
 
@@ -321,4 +417,3 @@ export class ReportService {
     return { filePath, filename };
   }
 }
-

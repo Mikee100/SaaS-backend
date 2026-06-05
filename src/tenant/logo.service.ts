@@ -17,7 +17,7 @@ export interface LogoRequirements {
   watermark: boolean;
 }
 
-export interface MulterFile extends Express.Multer.File {}
+export type MulterFile = Express.Multer.File;
 
 @Injectable()
 export class LogoService {
@@ -115,11 +115,6 @@ export class LogoService {
       recommendations.push('Upload required logos to ensure compliance');
     }
 
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { country: true },
-    });
-
     const tenantForRec = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { country: true, kraEnabled: true },
@@ -141,10 +136,7 @@ export class LogoService {
     };
   }
 
-  async validateLogoFile(
-    file: MulterFile,
-    logoType: string,
-  ): Promise<LogoValidation> {
+  validateLogoFile(file: MulterFile, logoType: string): LogoValidation {
     const result: LogoValidation = {
       isValid: true,
       errors: [],
@@ -267,7 +259,7 @@ export class LogoService {
 
   async updateLogo(tenantId: string, file: MulterFile) {
     // Upload the file to storage (e.g., S3, local storage, etc.)
-    const logoUrl = await this.uploadFile(file);
+    const logoUrl = this.uploadFile(file);
 
     // Update the tenant with the new logo URL
     const updatedTenant = await this.prisma.tenant.update({
@@ -283,7 +275,7 @@ export class LogoService {
 
   async updateEtimsQrCode(tenantId: string, file: MulterFile) {
     // Upload the file to storage
-    const etimsQrUrl = await this.uploadFile(file);
+    const etimsQrUrl = this.uploadFile(file);
 
     // Update the tenant with the new ETIMS QR code URL
     const updatedTenant = await this.prisma.tenant.update({
@@ -297,7 +289,7 @@ export class LogoService {
     };
   }
 
-  private async uploadFile(file: MulterFile): Promise<string> {
+  private uploadFile(file: MulterFile): string {
     // Implement your file upload logic here
     // This is a placeholder - replace with your actual file storage implementation
     const fileName = `${Date.now()}-${file.originalname}`;

@@ -36,6 +36,38 @@ export interface SectionLogo {
   height?: number;
 }
 
+type SectionSettingsValue = SectionLogoSettings['sections'][string];
+
+interface TenantLogoLookup {
+  logoUrl?: string | null;
+  favicon?: string | null;
+  receiptLogo?: string | null;
+  watermark?: string | null;
+  loginLogoUrl?: string | null;
+  dashboardLogoUrl?: string | null;
+  emailLogoUrl?: string | null;
+  mobileLogoUrl?: string | null;
+  [key: string]: string | null | undefined;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+const isSectionSettingsValue = (
+  value: unknown,
+): value is SectionSettingsValue => {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (typeof value.logoType !== 'string') {
+    return false;
+  }
+  if (typeof value.enabled !== 'boolean') {
+    return false;
+  }
+  return true;
+};
+
 @Injectable()
 export class SectionLogoService {
   private readonly logger = new Logger(SectionLogoService.name);
@@ -82,22 +114,39 @@ export class SectionLogoService {
     };
   }
 
-  private parseLogoSettings(settings: any): SectionLogoSettings {
+  private parseLogoSettings(settings: unknown): SectionLogoSettings {
     if (!settings) return this.getDefaultSettings();
 
     if (typeof settings === 'string') {
       try {
-        return JSON.parse(settings);
+        const parsed: unknown = JSON.parse(settings);
+        return this.parseLogoSettings(parsed);
       } catch (e) {
         this.logger.error('Error parsing logo settings', e);
         return this.getDefaultSettings();
       }
     }
 
+    if (!isRecord(settings)) {
+      return this.getDefaultSettings();
+    }
+
     const defaultSettings = this.getDefaultSettings();
+    const providedSections = isRecord(settings.sections)
+      ? settings.sections
+      : undefined;
+
     const result: SectionLogoSettings = {
-      sections: { ...defaultSettings.sections, ...settings.sections },
+      sections: { ...defaultSettings.sections },
     };
+
+    if (providedSections) {
+      for (const [section, config] of Object.entries(providedSections)) {
+        if (isSectionSettingsValue(config)) {
+          result.sections[section] = config;
+        }
+      }
+    }
 
     for (const [section, config] of Object.entries(result.sections)) {
       result.sections[section] = {
@@ -212,7 +261,7 @@ export class SectionLogoService {
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
-      data: { logoSettings: currentSettings as any },
+      data: { logoSettings: currentSettings },
     });
 
     return this.getSectionLogoConfig(
@@ -316,7 +365,7 @@ export class SectionLogoService {
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        logoSettings: currentSettings as any,
+        logoSettings: currentSettings,
       },
     });
 
@@ -353,7 +402,7 @@ export class SectionLogoService {
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        logoSettings: currentSettings as any,
+        logoSettings: currentSettings,
       },
     });
 
@@ -361,7 +410,7 @@ export class SectionLogoService {
   }
 
   private getDefaultLogoForSection(
-    tenant: any,
+    tenant: TenantLogoLookup,
     section: string,
   ): SectionLogoConfig {
     const logoMap: Record<string, string> = {
@@ -378,17 +427,20 @@ export class SectionLogoService {
     };
 
     const logoType = logoMap[section] || 'logoUrl';
-    const logoUrl = tenant[logoType as keyof typeof tenant] as string;
+    const logoUrl = tenant[logoType];
 
     return {
       section,
       logoType,
-      logoUrl: logoUrl || tenant.logoUrl,
+      logoUrl: logoUrl || tenant.logoUrl || undefined,
       enabled: true,
     };
   }
 
-  private getLogoUrlByType(tenant: any, logoType: string): string | undefined {
+  private getLogoUrlByType(
+    tenant: TenantLogoLookup,
+    logoType: string,
+  ): string | undefined {
     const logoMap: Record<string, string> = {
       main: 'logoUrl',
       favicon: 'faviconUrl',
@@ -399,8 +451,8 @@ export class SectionLogoService {
       email: 'emailLogoUrl',
       mobile: 'mobileLogoUrl',
     };
-
-    return tenant[logoMap[logoType] as keyof typeof tenant] as string;
+    const key = logoMap[logoType];
+    return key ? tenant[key] || undefined : undefined;
   }
 
   async getLogoUsageBySection(

@@ -7,6 +7,12 @@ import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { v4 as uuidv4 } from 'uuid';
 
+interface ExpenseCategoryInput {
+  name?: string;
+  description?: string;
+  color?: string;
+}
+
 @Injectable()
 export class ExpenseCategoriesService {
   constructor(
@@ -14,9 +20,15 @@ export class ExpenseCategoriesService {
     private auditLogService: AuditLogService,
   ) {}
 
-  async createCategory(dto: any, tenantId: string, userId: string) {
+  async createCategory(
+    dto: ExpenseCategoryInput,
+    tenantId: string,
+    userId: string,
+  ) {
+    const categoryName = dto.name?.trim();
+
     // Validate required fields
-    if (!dto.name?.trim()) {
+    if (!categoryName) {
       throw new BadRequestException('Category name is required');
     }
 
@@ -24,7 +36,7 @@ export class ExpenseCategoriesService {
     const existingCategory = await this.prisma.expenseCategory.findFirst({
       where: {
         tenantId,
-        name: dto.name.trim(),
+        name: categoryName,
         isActive: true,
       },
     });
@@ -40,7 +52,7 @@ export class ExpenseCategoriesService {
       data: {
         id: categoryId,
         tenantId,
-        name: dto.name.trim(),
+        name: categoryName,
         description: dto.description?.trim(),
         color: dto.color || '#6366f1', // Default indigo color
         isActive: true,
@@ -56,7 +68,7 @@ export class ExpenseCategoriesService {
         'expense_category_created',
         {
           categoryId,
-          name: dto.name,
+          name: categoryName,
         },
         undefined,
       );
@@ -93,7 +105,12 @@ export class ExpenseCategoriesService {
     return category;
   }
 
-  async updateCategory(id: string, dto: any, tenantId: string, userId: string) {
+  async updateCategory(
+    id: string,
+    dto: ExpenseCategoryInput,
+    tenantId: string,
+    userId: string,
+  ) {
     // Check if category exists and belongs to tenant
     const existingCategory = await this.prisma.expenseCategory.findFirst({
       where: {
@@ -108,11 +125,13 @@ export class ExpenseCategoriesService {
     }
 
     // Check if new name conflicts with existing categories
-    if (dto.name && dto.name.trim() !== existingCategory.name) {
+    const categoryName = dto.name?.trim();
+
+    if (categoryName && categoryName !== existingCategory.name) {
       const nameConflict = await this.prisma.expenseCategory.findFirst({
         where: {
           tenantId,
-          name: dto.name.trim(),
+          name: categoryName,
           isActive: true,
           id: { not: id },
         },
@@ -126,7 +145,7 @@ export class ExpenseCategoriesService {
     const updatedCategory = await this.prisma.expenseCategory.update({
       where: { id },
       data: {
-        name: dto.name?.trim(),
+        name: categoryName,
         description: dto.description?.trim(),
         color: dto.color,
         updatedAt: new Date(),
@@ -140,7 +159,7 @@ export class ExpenseCategoriesService {
         'expense_category_updated',
         {
           categoryId: id,
-          name: dto.name,
+          name: categoryName,
         },
         undefined,
       );

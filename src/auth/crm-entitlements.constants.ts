@@ -185,16 +185,26 @@ const CRM_PACKAGE_TEMPLATES: Record<CrmPackageKey, CrmEntitlements> = {
 export const DEFAULT_CRM_PACKAGE: CrmPackageKey = 'starter';
 
 export function normalizeCrmPackageKey(input: unknown): CrmPackageKey {
-  const candidate = String(input || '').trim().toLowerCase();
+  const normalizedInput =
+    typeof input === 'string' ||
+    typeof input === 'number' ||
+    typeof input === 'boolean' ||
+    typeof input === 'bigint'
+      ? String(input)
+      : '';
+
+  const candidate = normalizedInput.trim().toLowerCase();
   if ((CRM_PACKAGES as readonly string[]).includes(candidate)) {
     return candidate as CrmPackageKey;
   }
   return DEFAULT_CRM_PACKAGE;
 }
 
-export function getCrmPackageTemplate(packageKey: CrmPackageKey): CrmEntitlements {
+export function getCrmPackageTemplate(
+  packageKey: CrmPackageKey,
+): CrmEntitlements {
   const template = CRM_PACKAGE_TEMPLATES[packageKey];
-  return JSON.parse(JSON.stringify(template));
+  return structuredClone(template);
 }
 
 export function getDefaultCrmEntitlements(): CrmEntitlements {
@@ -207,7 +217,11 @@ export function normalizeCrmCapabilities(input: unknown): CrmCapabilityKey[] {
   }
 
   const normalized = input
-    .map((entry) => String(entry || '').trim().toLowerCase())
+    .map((entry) =>
+      String(entry || '')
+        .trim()
+        .toLowerCase(),
+    )
     .filter((entry): entry is CrmCapabilityKey =>
       (CRM_CAPABILITIES as readonly string[]).includes(entry),
     );
@@ -215,10 +229,19 @@ export function normalizeCrmCapabilities(input: unknown): CrmCapabilityKey[] {
   return Array.from(new Set(normalized));
 }
 
-export function normalizeCrmLimits(input: unknown, fallback: CrmLimits): CrmLimits {
-  const source = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+export function normalizeCrmLimits(
+  input: unknown,
+  fallback: CrmLimits,
+): CrmLimits {
+  const source =
+    typeof input === 'object' && input !== null
+      ? (input as Record<string, unknown>)
+      : {};
 
-  const normalizeValue = (value: unknown, defaultValue: number | null): number | null => {
+  const normalizeValue = (
+    value: unknown,
+    defaultValue: number | null,
+  ): number | null => {
     if (value === null) return null;
     if (value === undefined) return defaultValue;
     const num = Number(value);
@@ -228,12 +251,30 @@ export function normalizeCrmLimits(input: unknown, fallback: CrmLimits): CrmLimi
 
   return {
     pipelines: normalizeValue(source.pipelines, fallback.pipelines),
-    automationRules: normalizeValue(source.automationRules, fallback.automationRules),
-    documentStorageGb: normalizeValue(source.documentStorageGb, fallback.documentStorageGb),
-    integrationConnections: normalizeValue(source.integrationConnections, fallback.integrationConnections),
-    telephonyMinutesMonthly: normalizeValue(source.telephonyMinutesMonthly, fallback.telephonyMinutesMonthly),
-    proposalsMonthly: normalizeValue(source.proposalsMonthly, fallback.proposalsMonthly),
-    contractsMonthly: normalizeValue(source.contractsMonthly, fallback.contractsMonthly),
+    automationRules: normalizeValue(
+      source.automationRules,
+      fallback.automationRules,
+    ),
+    documentStorageGb: normalizeValue(
+      source.documentStorageGb,
+      fallback.documentStorageGb,
+    ),
+    integrationConnections: normalizeValue(
+      source.integrationConnections,
+      fallback.integrationConnections,
+    ),
+    telephonyMinutesMonthly: normalizeValue(
+      source.telephonyMinutesMonthly,
+      fallback.telephonyMinutesMonthly,
+    ),
+    proposalsMonthly: normalizeValue(
+      source.proposalsMonthly,
+      fallback.proposalsMonthly,
+    ),
+    contractsMonthly: normalizeValue(
+      source.contractsMonthly,
+      fallback.contractsMonthly,
+    ),
   };
 }
 
@@ -241,7 +282,10 @@ export function normalizeCrmAllowedProviders(
   input: unknown,
   fallback: CrmAllowedProviders,
 ): CrmAllowedProviders {
-  const source = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+  const source =
+    typeof input === 'object' && input !== null
+      ? (input as Record<string, unknown>)
+      : {};
 
   const normalizeGroup = (
     value: unknown,
@@ -251,43 +295,77 @@ export function normalizeCrmAllowedProviders(
     if (!Array.isArray(value)) return [...fallbackGroup];
 
     const normalized = value
-      .map((entry) => String(entry || '').trim().toLowerCase())
+      .map((entry) =>
+        String(entry || '')
+          .trim()
+          .toLowerCase(),
+      )
       .filter((entry) => allowed.includes(entry));
 
     return Array.from(new Set(normalized));
   };
 
   return {
-    calendar: normalizeGroup(source.calendar, CRM_PROVIDER_ALLOWLIST.calendar, fallback.calendar),
-    email: normalizeGroup(source.email, CRM_PROVIDER_ALLOWLIST.email, fallback.email),
-    telephony: normalizeGroup(source.telephony, CRM_PROVIDER_ALLOWLIST.telephony, fallback.telephony),
-    integrations: normalizeGroup(source.integrations, CRM_PROVIDER_ALLOWLIST.integrations, fallback.integrations),
+    calendar: normalizeGroup(
+      source.calendar,
+      CRM_PROVIDER_ALLOWLIST.calendar,
+      fallback.calendar,
+    ),
+    email: normalizeGroup(
+      source.email,
+      CRM_PROVIDER_ALLOWLIST.email,
+      fallback.email,
+    ),
+    telephony: normalizeGroup(
+      source.telephony,
+      CRM_PROVIDER_ALLOWLIST.telephony,
+      fallback.telephony,
+    ),
+    integrations: normalizeGroup(
+      source.integrations,
+      CRM_PROVIDER_ALLOWLIST.integrations,
+      fallback.integrations,
+    ),
   };
 }
 
 export function normalizeCrmEntitlements(input: unknown): CrmEntitlements {
-  const source = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+  const source =
+    typeof input === 'object' && input !== null
+      ? (input as Record<string, unknown>)
+      : {};
   const packageKey = normalizeCrmPackageKey(source.packageKey);
   const template = getCrmPackageTemplate(packageKey);
 
-  const requestedCapabilities = normalizeCrmCapabilities(source.enabledCapabilities);
-  const enabledCapabilities = requestedCapabilities.length > 0
-    ? requestedCapabilities
-    : template.enabledCapabilities;
+  const requestedCapabilities = normalizeCrmCapabilities(
+    source.enabledCapabilities,
+  );
+  const enabledCapabilities =
+    requestedCapabilities.length > 0
+      ? requestedCapabilities
+      : template.enabledCapabilities;
 
   return {
     packageKey,
     enabledCapabilities,
     limits: normalizeCrmLimits(source.limits, template.limits),
-    allowedProviders: normalizeCrmAllowedProviders(source.allowedProviders, template.allowedProviders),
+    allowedProviders: normalizeCrmAllowedProviders(
+      source.allowedProviders,
+      template.allowedProviders,
+    ),
   };
 }
 
-export function validateCrmCapabilityDependencies(capabilities: CrmCapabilityKey[]): string[] {
+export function validateCrmCapabilityDependencies(
+  capabilities: CrmCapabilityKey[],
+): string[] {
   const set = new Set(capabilities);
   const errors: string[] = [];
 
-  if (set.has('crm.meeting_scheduler') && !set.has('crm.calendar_integration')) {
+  if (
+    set.has('crm.meeting_scheduler') &&
+    !set.has('crm.calendar_integration')
+  ) {
     errors.push('crm.meeting_scheduler requires crm.calendar_integration');
   }
 
@@ -311,7 +389,10 @@ export function validateCrmCapabilityDependencies(capabilities: CrmCapabilityKey
 }
 
 export function normalizeCrmUsage(input: unknown): CrmUsage {
-  const source = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+  const source =
+    typeof input === 'object' && input !== null
+      ? (input as Record<string, unknown>)
+      : {};
 
   const normalize = (key: CrmLimitKey) => {
     const value = source[key];

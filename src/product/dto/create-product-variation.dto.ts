@@ -1,5 +1,5 @@
-import { IsString, IsNumber, IsObject, IsOptional, IsBoolean, IsArray, ValidateNested } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { IsString, IsNumber, IsObject, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class AttributeValueDto {
   @IsString()
@@ -18,16 +18,16 @@ export class CreateProductVariationDto {
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => Number(value))
   price?: number;
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => Number(value))
   cost?: number;
 
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => Number.parseInt(String(value), 10))
   stock: number;
 
   @IsObject()
@@ -39,7 +39,7 @@ export class CreateProductVariationDto {
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseFloat(value))
+  @Transform(({ value }) => Number(value))
   weight?: number;
 
   @IsOptional()

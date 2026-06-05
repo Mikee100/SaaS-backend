@@ -18,6 +18,44 @@ import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
 
+type ProductCategoryItem = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+};
+
+type ProductWithCustomFields = {
+  customFields?: unknown;
+};
+
+type CreateProductInput = Record<string, unknown> & {
+  tenantId: string;
+  branchId: string;
+  category?: unknown;
+  customFields?: unknown;
+  customFieldValues?: unknown;
+  supplierId?: unknown;
+};
+
+type UpdateProductInput = Record<string, unknown> & {
+  category?: unknown;
+  customFields?: unknown;
+  supplier?: unknown;
+};
+
+type ProductListResult = {
+  products: Array<Record<string, unknown>>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+};
+
 @Injectable()
 export class ProductService {
   private readonly PRODUCT_CATEGORIES_KEY = 'PRODUCT_CATEGORIES';
@@ -31,8 +69,33 @@ export class ProductService {
     private ledgerService: LedgerService,
   ) {}
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private toStringValue(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    return '';
+  }
+
+  private toNumberValue(value: unknown, defaultValue = 0): number {
+    const parsed =
+      typeof value === 'number' ? value : Number(this.toStringValue(value));
+    return Number.isFinite(parsed) ? parsed : defaultValue;
+  }
+
+  private toIntegerValue(value: unknown, defaultValue = 0): number {
+    const parsed = parseInt(this.toStringValue(value), 10);
+    return Number.isFinite(parsed) ? parsed : defaultValue;
+  }
+
   private normalizeCategoryName(input: unknown): string {
-    return String(input || '').trim().replace(/\s+/g, ' ');
+    return this.toStringValue(input).trim().replace(/\s+/g, ' ');
   }
 
   private normalizeCategorySlug(input: string): string {
@@ -44,7 +107,9 @@ export class ProductService {
       .replace(/-+/g, '-');
   }
 
-  private async readProductCategories(tenantId: string): Promise<Array<{ id: string; name: string; slug: string; isActive: boolean }>> {
+  private async readProductCategories(
+    tenantId: string,
+  ): Promise<ProductCategoryItem[]> {
     const config = await this.prisma.tenantConfiguration.findUnique({
       where: {
         tenantId_key: {
@@ -58,15 +123,28 @@ export class ProductService {
     if (!config?.value) return [];
 
     try {
-      const parsed = JSON.parse(config.value);
+      const parsed: unknown = JSON.parse(config.value);
       if (!Array.isArray(parsed)) return [];
       return parsed
-        .map((item) => ({
-          id: String(item?.id || ''),
-          name: this.normalizeCategoryName(item?.name),
-          slug: this.normalizeCategorySlug(String(item?.slug || item?.name || '')),
-          isActive: item?.isActive !== false,
-        }))
+        .map((item): ProductCategoryItem | null => {
+          if (!this.isRecord(item)) {
+            return null;
+          }
+
+          const id = this.toStringValue(item.id);
+          const name = this.normalizeCategoryName(item.name);
+          const slug = this.normalizeCategorySlug(
+            this.toStringValue(item.slug || item.name),
+          );
+
+          return {
+            id,
+            name,
+            slug,
+            isActive: item.isActive !== false,
+          };
+        })
+        .filter((item): item is ProductCategoryItem => item !== null)
         .filter((item) => item.id && item.name);
     } catch {
       return [];
@@ -75,7 +153,7 @@ export class ProductService {
 
   private async writeProductCategories(
     tenantId: string,
-    categories: Array<{ id: string; name: string; slug: string; isActive: boolean }>,
+    categories: ProductCategoryItem[],
   ): Promise<void> {
     await this.prisma.tenantConfiguration.upsert({
       where: {
@@ -106,7 +184,9 @@ export class ProductService {
     });
   }
 
-  private extractProductCategory(product: any): string | undefined {
+  private extractProductCategory(
+    product: ProductWithCustomFields,
+  ): string | undefined {
     const cf = product?.customFields;
     if (!cf || typeof cf !== 'object' || Array.isArray(cf)) return undefined;
     const raw = (cf as Record<string, unknown>).category;
@@ -114,7 +194,9 @@ export class ProductService {
     return normalized || undefined;
   }
 
-  private mapProductCategory<T extends Record<string, any>>(product: T): T {
+  private mapProductCategory<T extends Record<string, unknown> | null>(
+    product: T,
+  ): T {
     if (!product) return product;
     const category = this.extractProductCategory(product);
     return {
@@ -125,7 +207,9 @@ export class ProductService {
 
   async listProductCategories(tenantId: string) {
     const categories = await this.readProductCategories(tenantId);
-    return categories.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+    return categories
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async createProductCategory(tenantId: string, name: string) {
@@ -135,7 +219,11 @@ export class ProductService {
     }
 
     const categories = await this.readProductCategories(tenantId);
-    const exists = categories.some((c) => c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase());
+    const exists = categories.some(
+      (c) =>
+        c.isActive !== false &&
+        c.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
     if (exists) {
       throw new BadRequestException('Category already exists');
     }
@@ -151,23 +239,34 @@ export class ProductService {
     ];
 
     await this.writeProductCategories(tenantId, next);
-    return next.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+    return next
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async updateProductCategory(tenantId: string, categoryId: string, name: string) {
+  async updateProductCategory(
+    tenantId: string,
+    categoryId: string,
+    name: string,
+  ) {
     const normalizedName = this.normalizeCategoryName(name);
     if (!normalizedName) {
       throw new BadRequestException('Category name is required');
     }
 
     const categories = await this.readProductCategories(tenantId);
-    const idx = categories.findIndex((c) => c.id === categoryId && c.isActive !== false);
+    const idx = categories.findIndex(
+      (c) => c.id === categoryId && c.isActive !== false,
+    );
     if (idx < 0) {
       throw new NotFoundException('Category not found');
     }
 
     const duplicate = categories.some(
-      (c) => c.id !== categoryId && c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase(),
+      (c) =>
+        c.id !== categoryId &&
+        c.isActive !== false &&
+        c.name.toLowerCase() === normalizedName.toLowerCase(),
     );
     if (duplicate) {
       throw new BadRequestException('Category already exists');
@@ -180,28 +279,43 @@ export class ProductService {
     };
 
     await this.writeProductCategories(tenantId, categories);
-    return categories.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+    return categories
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async deleteProductCategory(tenantId: string, categoryId: string) {
     const categories = await this.readProductCategories(tenantId);
-    const next = categories.map((c) => (c.id === categoryId ? { ...c, isActive: false } : c));
-    const changed = next.some((c, idx) => c.isActive !== categories[idx]?.isActive);
+    const next = categories.map((c) =>
+      c.id === categoryId ? { ...c, isActive: false } : c,
+    );
+    const changed = next.some(
+      (c, idx) => c.isActive !== categories[idx]?.isActive,
+    );
 
     if (!changed) {
       throw new NotFoundException('Category not found');
     }
 
     await this.writeProductCategories(tenantId, next);
-    return next.filter((c) => c.isActive !== false).sort((a, b) => a.name.localeCompare(b.name));
+    return next
+      .filter((c) => c.isActive !== false)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  private async ensureCategoryRegistered(tenantId: string, categoryName?: string) {
+  private async ensureCategoryRegistered(
+    tenantId: string,
+    categoryName?: string,
+  ) {
     const normalizedName = this.normalizeCategoryName(categoryName);
     if (!normalizedName) return;
 
     const categories = await this.readProductCategories(tenantId);
-    const exists = categories.some((c) => c.isActive !== false && c.name.toLowerCase() === normalizedName.toLowerCase());
+    const exists = categories.some(
+      (c) =>
+        c.isActive !== false &&
+        c.name.toLowerCase() === normalizedName.toLowerCase(),
+    );
     if (exists) return;
 
     categories.push({
@@ -222,32 +336,41 @@ export class ProductService {
     search: string = '',
     includeVariations: boolean = false,
   ) {
-    console.log('Backend: findAllByTenantAndBranch called with:', { tenantId, branchId, page, limit, includeVariations });
+    console.log('Backend: findAllByTenantAndBranch called with:', {
+      tenantId,
+      branchId,
+      page,
+      limit,
+      includeVariations,
+    });
 
     // Check cache first
     const branchSuffix = branchId ? `_${branchId}` : '_all';
     const includeSuffix = includeSupplier ? '_with_supplier' : '';
     const variationsSuffix = includeVariations ? '_with_variations' : '';
-    const searchSuffix = search ? `_${search.replace(/\s+/g, '_').toLowerCase()}` : '';
+    const searchSuffix = search
+      ? `_${search.replace(/\s+/g, '_').toLowerCase()}`
+      : '';
     const cacheKey = `products_list_${tenantId}_${branchSuffix}_${page}_${limit}${includeSuffix}${variationsSuffix}${searchSuffix}`;
-    let cachedResult = this.cacheService.get(cacheKey);
+    const cachedResult = this.cacheService.get(cacheKey) as
+      | ProductListResult
+      | undefined;
 
     if (cachedResult) {
-     
       return cachedResult;
     }
 
-    const where: any = { tenantId };
+    const where: Prisma.ProductWhereInput = { tenantId };
 
-    const conditions: any[] = [];
+    const conditions: Prisma.ProductWhereInput[] = [];
 
     if (search) {
       conditions.push({
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
           { sku: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } }
-        ]
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
       });
     }
 
@@ -267,9 +390,9 @@ export class ProductService {
 
     // Get total count for pagination metadata (with search filter)
     const total = await this.prisma.product.count({ where });
-   
+
     // Select only necessary fields for list views (lazy loading)
-    const select: any = {
+    const select: Prisma.ProductSelect = {
       id: true,
       name: true,
       sku: true,
@@ -312,15 +435,17 @@ export class ProductService {
     const products = await this.prisma.product.findMany({
       where,
       select,
-      orderBy: [
-        { stock: 'desc' },
-        { createdAt: 'desc' }
-      ],
+      orderBy: [{ stock: 'desc' }, { createdAt: 'desc' }],
       skip,
       take: limit,
     });
 
-    console.log('Backend: Returning', products.length, 'products for search:', search);
+    console.log(
+      'Backend: Returning',
+      products.length,
+      'products for search:',
+      search,
+    );
 
     const result = {
       products: products.map((product) => this.mapProductCategory(product)),
@@ -341,20 +466,23 @@ export class ProductService {
     return result;
   }
 
+  async createProduct(
+    data: CreateProductInput,
+    actorUserId?: string,
+    ip?: string,
+  ) {
+    if (!data.tenantId || !data.branchId) {
+      throw new BadRequestException('tenantId and branchId are required');
+    }
 
-
-  async createProduct(data: any, actorUserId?: string, ip?: string) {
-    const productData = {
+    const productData: Record<string, unknown> = {
       ...data,
       id: uuidv4(), // Generate a new UUID for the product
     };
 
     // Ensure stock is an integer
     if (productData.stock !== undefined) {
-      productData.stock = parseInt(String(productData.stock), 10);
-      if (isNaN(productData.stock)) {
-        productData.stock = 0; // Default to 0 if parsing fails
-      }
+      productData.stock = this.toIntegerValue(productData.stock, 0);
     }
 
     // Ensure price is a float, default to 0 if not provided or invalid
@@ -363,26 +491,29 @@ export class ProductService {
       productData.price !== null &&
       productData.price !== ''
     ) {
-      const parsedPrice = parseFloat(String(productData.price));
-      productData.price = isNaN(parsedPrice) ? 0 : parsedPrice;
+      productData.price = this.toNumberValue(productData.price, 0);
     } else {
       productData.price = 0; // Default price for simplified product creation
     }
 
     // Ensure cost is a float
     if (productData.cost !== undefined) {
-      productData.cost = parseFloat(String(productData.cost));
+      productData.cost = this.toNumberValue(productData.cost, 0);
     }
 
     const normalizedCategory = this.normalizeCategoryName(data.category);
 
     // Handle customFieldValues - map to customFields
     const existingCustomFields =
-      productData.customFields && typeof productData.customFields === 'object' && !Array.isArray(productData.customFields)
+      productData.customFields &&
+      typeof productData.customFields === 'object' &&
+      !Array.isArray(productData.customFields)
         ? productData.customFields
         : {};
     const fromCustomFieldValues =
-      data.customFieldValues && typeof data.customFieldValues === 'object' && !Array.isArray(data.customFieldValues)
+      data.customFieldValues &&
+      typeof data.customFieldValues === 'object' &&
+      !Array.isArray(data.customFieldValues)
         ? data.customFieldValues
         : {};
     productData.customFields = {
@@ -405,7 +536,7 @@ export class ProductService {
     // Remove branchId and tenantId from productData, as they should be set via relation connect
     delete productData.branchId;
     delete productData.tenantId;
-    
+
     // Handle supplierId and supplier - remove them from productData, we'll handle supplier separately
     const supplierId = productData.supplierId;
     delete productData.supplierId;
@@ -417,13 +548,17 @@ export class ProductService {
       select: { id: true, tenantId: true },
     });
     if (!branch) {
-      throw new BadRequestException(`Branch with id ${data.branchId} does not exist`);
+      throw new BadRequestException(
+        `Branch with id ${data.branchId} does not exist`,
+      );
     }
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: data.tenantId },
     });
     if (!tenant) {
-      throw new BadRequestException(`Tenant with id ${data.tenantId} does not exist`);
+      throw new BadRequestException(
+        `Tenant with id ${data.tenantId} does not exist`,
+      );
     }
 
     if (branch.tenantId !== data.tenantId) {
@@ -433,10 +568,11 @@ export class ProductService {
     }
 
     // Build create data - use spread but ensure supplier is not included
-    const { supplier, ...cleanProductData } = productData;
-    
-    const createData: any = {
-      ...cleanProductData,
+    delete productData.supplier;
+    const cleanProductData = productData;
+
+    const createData: Prisma.ProductCreateInput = {
+      ...(cleanProductData as Prisma.ProductCreateInput),
       tenant: {
         connect: { id: data.tenantId },
       },
@@ -447,8 +583,8 @@ export class ProductService {
 
     // Only set supplierId directly (not as relation) if provided
     // This avoids Prisma trying to set the supplier relation when it's null
-    if (supplierId && supplierId.trim() !== '') {
-      createData.supplierId = supplierId;
+    if (typeof supplierId === 'string' && supplierId.trim() !== '') {
+      createData.supplier = { connect: { id: supplierId } };
     }
     // If supplierId is not provided, don't include it (Prisma will use null by default)
 
@@ -478,24 +614,31 @@ export class ProductService {
     // --- Automated Accounting Entry ---
     if (product.stock > 0 && product.cost > 0) {
       try {
-        await this.ledgerService.recordInitialCapital(data.tenantId, actorUserId || 'system', {
-          productId: product.id,
-          sku: product.sku,
-          name: product.name,
-          quantity: product.stock,
-          cost: product.cost
-        });
+        await this.ledgerService.recordInitialCapital(
+          data.tenantId,
+          actorUserId || 'system',
+          {
+            productId: product.id,
+            sku: product.sku,
+            name: product.name,
+            quantity: product.stock,
+            cost: product.cost,
+          },
+        );
       } catch (accError) {
-        console.error('Failed to create automated accounting entry for product capital:', accError);
+        console.error(
+          'Failed to create automated accounting entry for product capital:',
+          accError,
+        );
       }
     }
 
-    return this.mapProductCategory(product as any);
+    return this.mapProductCategory(product);
   }
 
   async updateProduct(
     id: string,
-    data: any,
+    data: UpdateProductInput,
     tenantId: string,
     branchId: string,
     actorUserId?: string,
@@ -522,45 +665,51 @@ export class ProductService {
       supplier,
       category,
       customFields: incomingCustomFields,
-      branchId: _ignoredBranchId,
-      tenantId: _ignoredTenantId,
       ...customFields
     } = data;
-    const updateData: any = {};
+    const updateData: Prisma.ProductUpdateInput = {};
 
     // Handle supplier field - if supplier name is provided, find the supplier and set supplierId
     if (supplier !== undefined) {
       if (supplier && typeof supplier === 'string') {
-        const supplierRecord = await (this.prisma as any).supplier.findFirst({
+        const supplierRecord = await this.prisma.supplier.findFirst({
           where: {
             name: supplier,
             tenantId: tenantId,
           },
         });
         if (supplierRecord) {
-          updateData.supplierId = supplierRecord.id;
+          updateData.supplier = { connect: { id: supplierRecord.id } };
         } else {
-          updateData.supplierId = null; // Clear supplier if not found
+          updateData.supplier = { disconnect: true }; // Clear supplier if not found
         }
       } else {
-        updateData.supplierId = null; // Clear supplier if empty
+        updateData.supplier = { disconnect: true }; // Clear supplier if empty
       }
     }
 
-    if (name !== undefined) updateData.name = name;
-    if (sku !== undefined) updateData.sku = String(sku);
-    if (price !== undefined) updateData.price = parseFloat(price);
-    if (description !== undefined) updateData.description = description;
-    if (stock !== undefined) updateData.stock = parseInt(stock);
-    if (cost !== undefined) updateData.cost = parseFloat(cost);
+    if (name !== undefined) updateData.name = this.toStringValue(name);
+    if (sku !== undefined) updateData.sku = this.toStringValue(sku);
+    if (price !== undefined) updateData.price = this.toNumberValue(price);
+    if (description !== undefined)
+      updateData.description = this.toStringValue(description);
+    if (stock !== undefined) updateData.stock = this.toIntegerValue(stock);
+    if (cost !== undefined) updateData.cost = this.toNumberValue(cost);
     if (images !== undefined) {
-      if (!Array.isArray(images) || !images.every((image) => typeof image === 'string')) {
-        throw new BadRequestException('images must be an array of image URL strings');
+      if (
+        !Array.isArray(images) ||
+        !images.every((image) => typeof image === 'string')
+      ) {
+        throw new BadRequestException(
+          'images must be an array of image URL strings',
+        );
       }
       updateData.images = images;
     }
     const mergedCustomFields = {
-      ...(incomingCustomFields && typeof incomingCustomFields === 'object' && !Array.isArray(incomingCustomFields)
+      ...(incomingCustomFields &&
+      typeof incomingCustomFields === 'object' &&
+      !Array.isArray(incomingCustomFields)
         ? incomingCustomFields
         : {}),
       ...(customFields && typeof customFields === 'object' ? customFields : {}),
@@ -577,7 +726,8 @@ export class ProductService {
     }
 
     if (Object.keys(mergedCustomFields).length > 0 || category !== undefined) {
-      updateData.customFields = mergedCustomFields;
+      updateData.customFields =
+        mergedCustomFields as unknown as Prisma.InputJsonValue;
     }
 
     const result = await this.prisma.product.updateMany({
@@ -592,7 +742,7 @@ export class ProductService {
       await this.auditLogService.log(
         actorUserId || null,
         'product_updated',
-        { productId: id, updatedFields: data },
+        { productId: id, updatedFields: data } as Prisma.InputJsonValue,
         ip,
       );
     }
@@ -651,24 +801,50 @@ export class ProductService {
         WHERE p."tenantId" = ${tenantId} AND p."branchId" = ${branchId} AND p."deletedAt" IS NOT NULL
         ORDER BY p."deletedAt" DESC
         LIMIT 100
-      ` as Promise<Array<{ id: string; name: string; sku: string; price: number; deletedAt: Date }>>;
+      ` as Promise<
+        Array<{
+          id: string;
+          name: string;
+          sku: string;
+          price: number;
+          deletedAt: Date;
+        }>
+      >;
     }
     return this.prisma.$queryRaw`
       SELECT p.id, p.name, p.sku, p.price, p."deletedAt" FROM "Product" p
       WHERE p."tenantId" = ${tenantId} AND p."deletedAt" IS NOT NULL
       ORDER BY p."deletedAt" DESC
       LIMIT 100
-    ` as Promise<Array<{ id: string; name: string; sku: string; price: number; deletedAt: Date }>>;
+    ` as Promise<
+      Array<{
+        id: string;
+        name: string;
+        sku: string;
+        price: number;
+        deletedAt: Date;
+      }>
+    >;
   }
 
-  async restoreProduct(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+  async restoreProduct(
+    id: string,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const result = await restoreProduct(this.prisma, id, tenantId);
     if (result.count === 0) {
       throw new NotFoundException('Product not found or not deleted');
     }
     this.cacheService.invalidateProductCache(tenantId, id);
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'product_restored', { productId: id }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'product_restored',
+        { productId: id },
+        ip,
+      );
     }
     return { success: true, message: 'Product restored successfully' };
   }
@@ -887,10 +1063,12 @@ export class ProductService {
 
   async findOne(id: string, tenantId: string) {
     // Try cache first
-    let product = await this.cacheService.getProductById(id, tenantId);
+    let product = (await this.cacheService.getProductById(id, tenantId)) as
+      | (Record<string, unknown> & ProductWithCustomFields)
+      | null;
 
     if (!product) {
-      product = await (this.prisma as any).product.findFirst({
+      product = await this.prisma.product.findFirst({
         where: { id, tenantId },
         include: {
           supplier: true,
@@ -905,7 +1083,7 @@ export class ProductService {
       }
     }
 
-    return this.mapProductCategory(product as any);
+    return this.mapProductCategory(product);
   }
 
   // Variation CRUD methods
@@ -915,15 +1093,24 @@ export class ProductService {
     price?: number;
     cost?: number;
     stock: number;
-    attributes: any;
+    attributes: unknown;
     tenantId: string;
     branchId?: string;
   }) {
+    const variationData: Prisma.ProductVariationUncheckedCreateInput = {
+      id: uuidv4(),
+      productId: data.productId,
+      sku: data.sku,
+      price: data.price ?? 0,
+      cost: data.cost ?? 0,
+      stock: data.stock,
+      attributes: (data.attributes ?? {}) as Prisma.InputJsonValue,
+      tenantId: data.tenantId,
+      branchId: data.branchId ?? null,
+    };
+
     const variation = await this.prisma.productVariation.create({
-      data: {
-        ...data,
-        id: uuidv4(),
-      },
+      data: variationData,
     });
 
     // --- Automated Accounting Entry ---
@@ -939,10 +1126,13 @@ export class ProductService {
           sku: variation.sku,
           name: `${product?.name || 'Product'} (Variation: ${variation.sku})`,
           quantity: variation.stock,
-          cost: variation.cost
+          cost: variation.cost,
         });
       } catch (accError) {
-        console.error('Failed to create automated accounting entry for variation capital:', accError);
+        console.error(
+          'Failed to create automated accounting entry for variation capital:',
+          accError,
+        );
       }
     }
 
@@ -963,15 +1153,26 @@ export class ProductService {
       price: number;
       cost: number;
       stock: number;
-      attributes: any;
+      attributes: unknown;
       isActive: boolean;
       images: string[];
     }>,
     tenantId: string,
   ) {
+    const updateData: Prisma.ProductVariationUpdateManyMutationInput = {};
+    if (data.sku !== undefined) updateData.sku = data.sku;
+    if (data.price !== undefined) updateData.price = data.price;
+    if (data.cost !== undefined) updateData.cost = data.cost;
+    if (data.stock !== undefined) updateData.stock = data.stock;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+    if (data.images !== undefined) updateData.images = data.images;
+    if (data.attributes !== undefined) {
+      updateData.attributes = data.attributes as Prisma.InputJsonValue;
+    }
+
     return this.prisma.productVariation.updateMany({
       where: { id, tenantId },
-      data,
+      data: updateData,
     });
   }
 
@@ -997,7 +1198,13 @@ export class ProductService {
       throw new NotFoundException('Variation not found');
     }
 
-    const uploadsDir = path.join(process.cwd(), 'uploads', 'products', tenantId, 'variations');
+    const uploadsDir = path.join(
+      process.cwd(),
+      'uploads',
+      'products',
+      tenantId,
+      'variations',
+    );
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
@@ -1073,7 +1280,14 @@ export class ProductService {
 
     try {
       const fileName = path.basename(imageUrl);
-      const filePath = path.join(process.cwd(), 'uploads', 'products', tenantId, 'variations', fileName);
+      const filePath = path.join(
+        process.cwd(),
+        'uploads',
+        'products',
+        tenantId,
+        'variations',
+        fileName,
+      );
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
@@ -1099,7 +1313,16 @@ export class ProductService {
   }
 
   // Helper method to generate variations from attributes (legacy - for backward compatibility)
-  private generateVariationsFromAttributesLegacy(attributes: any[], baseProduct: any) {
+  private generateVariationsFromAttributesLegacy(
+    attributes: Array<{ name: string; values: string[] }>,
+    baseProduct: {
+      sku: string;
+      price: number;
+      cost: number;
+      tenantId: string;
+      branchId: string | null;
+    },
+  ) {
     if (!attributes || attributes.length === 0) return [];
 
     // Create all possible combinations of attribute values
@@ -1136,7 +1359,9 @@ export class ProductService {
   }
 
   // Helper method to check for circular references in category hierarchy
-  private async isCircularReference(parentId: string, tenantId: string): Promise<boolean> {
+  private isCircularReference(parentId: string, tenantId: string): boolean {
+    void parentId;
+    void tenantId;
     // This is a simple check; in a real-world scenario, you might need a more sophisticated algorithm
     // to traverse the entire hierarchy and detect cycles
     // For now, we'll just check if the parent is trying to set itself as a parent
@@ -1251,6 +1476,7 @@ export class ProductService {
     tenantId: string,
     userId: string,
   ) {
+    void userId;
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
     });
@@ -1282,7 +1508,7 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    const results: any[] = [];
+    const results: Prisma.BatchPayload[] = [];
 
     for (const update of updates) {
       const variation = await this.prisma.productVariation.updateMany({
@@ -1338,6 +1564,4 @@ export class ProductService {
 
     return null;
   }
-
-  
 }

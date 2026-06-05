@@ -1,14 +1,41 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma.service';
 import { SalesService } from '../../../sales/sales.service';
 
-const VALID_TRANSITIONS = {
-  'Open': ['SentToKitchen', 'Voided'],
-  'SentToKitchen': ['Served', 'Voided'],
-  'Served': ['Closed', 'Voided'],
-  'Closed': [],
-  'Voided': [],
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  Open: ['SentToKitchen', 'Voided'],
+  SentToKitchen: ['Served', 'Voided'],
+  Served: ['Closed', 'Voided'],
+  Closed: [],
+  Voided: [],
 };
+
+type TxClient = Prisma.TransactionClient;
+
+interface RestaurantOrderItemInput {
+  productId: string;
+  quantity: number;
+  price: number;
+  notes?: string | null;
+  modifierSelections?: unknown;
+}
+
+interface BomOrderContext {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  items: RestaurantOrderItemInput[];
+}
+
+interface BomDeductionLine {
+  ingredientProductId?: unknown;
+  appliedQuantity?: unknown;
+}
 
 @Injectable()
 export class RestaurantOrderService {
@@ -21,12 +48,16 @@ export class RestaurantOrderService {
     return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  private async applyBomConsumptionIfNeeded(tx: any, order: any, actorUserId?: string) {
+  private async applyBomConsumptionIfNeeded(
+    tx: TxClient,
+    order: BomOrderContext,
+    actorUserId?: string,
+  ) {
     const consumedLog = await tx.auditLog.findFirst({
       where: {
         action: 'restaurant_order_bom_consumed',
         details: { path: ['orderId'], equals: order.id },
-      } as any,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -34,7 +65,9 @@ export class RestaurantOrderService {
       return;
     }
 
-    const productIds = Array.from(new Set((order.items || []).map((item: any) => item.productId)));
+    const productIds = Array.from(
+      new Set((order.items || []).map((item) => item.productId)),
+    );
     if (productIds.length === 0) {
       return;
     }
@@ -54,7 +87,7 @@ export class RestaurantOrderService {
       return;
     }
 
-    const recipeByProductId = new Map<string, any>();
+    const recipeByProductId = new Map<string, (typeof recipes)[number]>();
     for (const recipe of recipes) {
       if (!recipeByProductId.has(recipe.productId)) {
         recipeByProductId.set(recipe.productId, recipe);
@@ -70,7 +103,8 @@ export class RestaurantOrderService {
       const recipeYield = Math.max(0.0001, Number(recipe.yieldQty || 1));
       for (const line of recipe.lines || []) {
         const baseQty = (itemQty / recipeYield) * Number(line.quantity || 0);
-        const wasteMultiplier = 1 + Math.max(0, Number(line.wastePercent || 0)) / 100;
+        const wasteMultiplier =
+          1 + Math.max(0, Number(line.wastePercent || 0)) / 100;
         const needed = Math.max(0, baseQty * wasteMultiplier);
         ingredientRequired.set(
           line.ingredientProductId,
@@ -92,8 +126,12 @@ export class RestaurantOrderService {
       skippedReason?: string;
     }> = [];
 
-    for (const [ingredientProductId, requested] of ingredientRequired.entries()) {
-      const movementQty = requested > 0 ? Math.max(1, Math.round(requested)) : 0;
+    for (const [
+      ingredientProductId,
+      requested,
+    ] of ingredientRequired.entries()) {
+      const movementQty =
+        requested > 0 ? Math.max(1, Math.round(requested)) : 0;
       if (movementQty <= 0) continue;
 
       const inventory = await tx.inventory.findFirst({
@@ -167,12 +205,16 @@ export class RestaurantOrderService {
     });
   }
 
-  private async applyBomReversalIfNeeded(tx: any, order: any, actorUserId?: string) {
+  private async applyBomReversalIfNeeded(
+    tx: TxClient,
+    order: BomOrderContext,
+    actorUserId?: string,
+  ) {
     const reversalLog = await tx.auditLog.findFirst({
       where: {
         action: 'restaurant_order_bom_reversed',
         details: { path: ['orderId'], equals: order.id },
-      } as any,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -184,12 +226,14 @@ export class RestaurantOrderService {
       where: {
         action: 'restaurant_order_bom_consumed',
         details: { path: ['orderId'], equals: order.id },
-      } as any,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
-    const consumedDetails = (consumedLog?.details || {}) as any;
-    const consumedLines = Array.isArray(consumedDetails.ingredientDeductions)
+    const consumedDetails = consumedLog?.details as {
+      ingredientDeductions?: BomDeductionLine[];
+    } | null;
+    const consumedLines = Array.isArray(consumedDetails?.ingredientDeductions)
       ? consumedDetails.ingredientDeductions
       : [];
 
@@ -206,8 +250,13 @@ export class RestaurantOrderService {
     }> = [];
 
     for (const line of consumedLines) {
-      const ingredientProductId = String(line.ingredientProductId || '');
-      const toRestore = Math.max(0, Math.round(Number(line.appliedQuantity || 0)));
+      const ingredientProductId =
+        typeof line.ingredientProductId === 'string'
+          ? line.ingredientProductId
+          : '';
+      const appliedQuantity =
+        typeof line.appliedQuantity === 'number' ? line.appliedQuantity : 0;
+      const toRestore = Math.max(0, Math.round(Number(appliedQuantity)));
       if (!ingredientProductId || toRestore <= 0) continue;
 
       const inventory = await tx.inventory.findFirst({
@@ -303,7 +352,7 @@ export class RestaurantOrderService {
       status?: string;
     },
   ) {
-    const where: any = {
+    const where: Prisma.RestaurantOrderWhereInput = {
       tenantId,
       ...(branchId ? { branchId } : {}),
     };
@@ -351,7 +400,18 @@ export class RestaurantOrderService {
     return order;
   }
 
-  async create(tenantId: string, branchId: string, data: { tableId?: string; waiterId?: string; customerName?: string; customerPhone?: string; total: number; items: any[] }) {
+  async create(
+    tenantId: string,
+    branchId: string,
+    data: {
+      tableId?: string;
+      waiterId?: string;
+      customerName?: string;
+      customerPhone?: string;
+      total: number;
+      items: RestaurantOrderItemInput[];
+    },
+  ) {
     // Basic idempotency: handled by the controller/client passing idempotency key if needed,
     // but for order creation it's simpler.
 
@@ -365,10 +425,12 @@ export class RestaurantOrderService {
       });
 
       if (!waiterInTenant) {
-        throw new BadRequestException('Invalid waiter selected for this tenant');
+        throw new BadRequestException(
+          'Invalid waiter selected for this tenant',
+        );
       }
     }
-    
+
     return this.prisma.$transaction(async (prisma) => {
       const order = await prisma.restaurantOrder.create({
         data: {
@@ -381,13 +443,13 @@ export class RestaurantOrderService {
           total: data.total,
           status: 'Open',
           items: {
-            create: data.items.map(item => ({
+            create: data.items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
               price: item.price,
               notes: item.notes,
               modifierSelections: item.modifierSelections || [],
-              prepStatus: 'pending'
+              prepStatus: 'pending',
             })),
           },
         },
@@ -418,7 +480,9 @@ export class RestaurantOrderService {
     if (!isManagerOverride) {
       const allowedNextStates = VALID_TRANSITIONS[order.status] || [];
       if (!allowedNextStates.includes(newStatus)) {
-        throw new BadRequestException(`Invalid state transition from ${order.status} to ${newStatus}`);
+        throw new BadRequestException(
+          `Invalid state transition from ${order.status} to ${newStatus}`,
+        );
       }
     }
 
@@ -427,7 +491,8 @@ export class RestaurantOrderService {
         where: { id },
         data: {
           status: newStatus,
-          ticketVersion: newStatus === 'SentToKitchen' ? { increment: 1 } : undefined,
+          ticketVersion:
+            newStatus === 'SentToKitchen' ? { increment: 1 } : undefined,
         },
       });
 
@@ -459,7 +524,10 @@ export class RestaurantOrderService {
       }
 
       // Free table if closed or voided
-      if ((newStatus === 'Closed' || newStatus === 'Voided') && updatedOrder.tableId) {
+      if (
+        (newStatus === 'Closed' || newStatus === 'Voided') &&
+        updatedOrder.tableId
+      ) {
         await prisma.diningTable.update({
           where: { id: updatedOrder.tableId },
           data: { status: 'open' },
@@ -478,13 +546,15 @@ export class RestaurantOrderService {
       quantity: number;
       price: number;
       notes?: string;
-      modifierSelections?: any;
+      modifierSelections?: unknown;
     }>,
   ) {
     const order = await this.findOne(id, tenantId);
 
     if (order.status !== 'Open') {
-      throw new BadRequestException('Items can only be added when order is in Open state');
+      throw new BadRequestException(
+        'Items can only be added when order is in Open state',
+      );
     }
 
     if (!items || items.length === 0) {
@@ -509,7 +579,8 @@ export class RestaurantOrderService {
       );
 
       const addedTotal = items.reduce(
-        (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+        (sum, item) =>
+          sum + Number(item.price || 0) * Number(item.quantity || 0),
         0,
       );
 
@@ -568,14 +639,22 @@ export class RestaurantOrderService {
     });
 
     if (existingSale) {
-      return this.salesService.getReceipt(existingSale.id, tenantId, order.branchId, 'customer');
+      return this.salesService.getReceipt(
+        existingSale.id,
+        tenantId,
+        order.branchId,
+        'customer',
+      );
     }
 
     if (!order.items?.length) {
-      throw new BadRequestException('Cannot checkout an empty restaurant order');
+      throw new BadRequestException(
+        'Cannot checkout an empty restaurant order',
+      );
     }
 
-    const idempotencyKey = payload.idempotencyKey || `restaurant-checkout:${orderId}`;
+    const idempotencyKey =
+      payload.idempotencyKey || `restaurant-checkout:${orderId}`;
 
     const receipt = await this.salesService.createSale(
       {
@@ -587,12 +666,14 @@ export class RestaurantOrderService {
         paymentMethod: payload.paymentMethod,
         amountReceived: payload.amountReceived,
         customerName: payload.customerName || order.customerName || undefined,
-        customerPhone: payload.customerPhone || order.customerPhone || undefined,
+        customerPhone:
+          payload.customerPhone || order.customerPhone || undefined,
         branchId: order.branchId,
         restaurantOrderId: orderId,
         idempotencyKey,
         isSplitPayment: payload.paymentMethod === 'split',
-        splitPayments: payload.paymentMethod === 'split' ? payload.splitPayments : undefined,
+        splitPayments:
+          payload.paymentMethod === 'split' ? payload.splitPayments : undefined,
       },
       tenantId,
       userId,

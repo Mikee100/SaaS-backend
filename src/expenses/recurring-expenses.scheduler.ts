@@ -39,7 +39,9 @@ export class RecurringExpensesScheduler {
         },
       });
 
-      this.logger.log(`Found ${recurringExpenses.length} recurring expenses to process`);
+      this.logger.log(
+        `Found ${recurringExpenses.length} recurring expenses to process`,
+      );
 
       for (const expense of recurringExpenses) {
         try {
@@ -61,7 +63,7 @@ export class RecurringExpensesScheduler {
           );
 
           // Update the nextDueDate based on frequency
-          let nextDueDate = new Date(expense.nextDueDate!);
+          const nextDueDate = new Date(expense.nextDueDate!);
 
           switch (expense.frequency) {
             case 'daily':
@@ -77,7 +79,9 @@ export class RecurringExpensesScheduler {
               nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
               break;
             default:
-              this.logger.warn(`Unknown frequency: ${expense.frequency} for expense ${expense.id}`);
+              this.logger.warn(
+                `Unknown frequency: ${expense.frequency} for expense ${expense.id}`,
+              );
               // Skip updating nextDueDate for unknown frequency
               continue;
           }
@@ -91,9 +95,14 @@ export class RecurringExpensesScheduler {
             },
           });
 
-          this.logger.log(`Processed recurring expense ${expense.id}, next due: ${nextDueDate.toISOString()}`);
+          this.logger.log(
+            `Processed recurring expense ${expense.id}, next due: ${nextDueDate.toISOString()}`,
+          );
         } catch (error) {
-          this.logger.error(`Failed to process recurring expense ${expense.id}:`, error);
+          this.logger.error(
+            `Failed to process recurring expense ${expense.id}:`,
+            error,
+          );
         }
       }
 

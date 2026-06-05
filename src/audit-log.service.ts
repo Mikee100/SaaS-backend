@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuditLogService {
@@ -9,9 +10,9 @@ export class AuditLogService {
   async log(
     userId: string | null,
     action: string,
-    details: any,
+    details: Prisma.InputJsonValue,
     ip?: string,
-    prismaClient?: any,
+    prismaClient?: Prisma.TransactionClient | PrismaService,
   ) {
     const prisma = prismaClient || this.prisma;
 
@@ -39,7 +40,7 @@ export class AuditLogService {
   }
 
   async getLogs(limit = 100, tenantId?: string) {
-    const where: any = {};
+    const where: Prisma.AuditLogWhereInput = {};
     if (tenantId) {
       where.User = { tenantId };
     }

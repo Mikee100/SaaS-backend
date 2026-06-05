@@ -1,11 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
-interface PermissionData {
-  name: string;
-  description: string;
-}
-
 @Injectable()
 export class PermissionService {
   constructor(private prisma: PrismaService) {}
@@ -74,8 +69,7 @@ export class PermissionService {
     const role = await this.prisma.role.findFirst({
       where: { id: roleId, tenantId },
     });
-    if (!role)
-      throw new BadRequestException('Role not found or access denied');
+    if (!role) throw new BadRequestException('Role not found or access denied');
     const data: { name?: string; description?: string } = {};
     if (name !== undefined && name.trim() !== '') data.name = name.trim();
     if (description !== undefined) data.description = description;
@@ -99,8 +93,7 @@ export class PermissionService {
       where: { id: roleId, tenantId },
       include: { userRoles: true },
     });
-    if (!role)
-      throw new BadRequestException('Role not found or access denied');
+    if (!role) throw new BadRequestException('Role not found or access denied');
     if (role.userRoles && role.userRoles.length > 0)
       throw new BadRequestException(
         'Cannot delete role while it is assigned to users. Unassign the role from all users first.',

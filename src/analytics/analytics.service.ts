@@ -12,6 +12,33 @@ export class AnalyticsService {
     private cache: CacheService,
   ) {}
 
+  private toNumber(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return 0;
+  }
+
+  private toText(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+  }
+
+  private toDateKey(value: unknown): string {
+    if (value instanceof Date) {
+      return value.toISOString().split('T')[0];
+    }
+    if (typeof value === 'string') {
+      return value.split('T')[0];
+    }
+    return '';
+  }
 
   async getDashboardAnalytics(tenantId: string, branchId?: string) {
     const cacheKey = `analytics:dashboard:${tenantId}:${branchId || 'all'}`;
@@ -21,7 +48,6 @@ export class AnalyticsService {
     }
 
     // Get current date and calculate date ranges
-    const now = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -244,11 +270,7 @@ export class AnalyticsService {
     }
 
     const format =
-      period === 'day'
-        ? 'YYYY-MM-DD'
-        : period === 'month'
-          ? 'YYYY-MM'
-          : 'YYYY';
+      period === 'day' ? 'YYYY-MM-DD' : period === 'month' ? 'YYYY-MM' : 'YYYY';
 
     const sales = await this.prisma.$queryRaw(
       Prisma.sql`
@@ -262,7 +284,7 @@ export class AnalyticsService {
           ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
         GROUP BY period
         ORDER BY period ASC
-      `
+      `,
     );
 
     type SalesData = { period: string; total: string };
@@ -451,11 +473,7 @@ export class AnalyticsService {
     }
 
     const format =
-      period === 'day'
-        ? 'YYYY-MM-DD'
-        : period === 'month'
-          ? 'YYYY-MM'
-          : 'YYYY';
+      period === 'day' ? 'YYYY-MM-DD' : period === 'month' ? 'YYYY-MM' : 'YYYY';
 
     const sales = await this.prisma.$queryRaw`
       SELECT
@@ -486,7 +504,11 @@ export class AnalyticsService {
     return branchSales;
   }
 
-  private async getTopProducts(tenantId: string, limit: number, branchId?: string) {
+  private async getTopProducts(
+    tenantId: string,
+    limit: number,
+    branchId?: string,
+  ) {
     const topProducts = await this.prisma.saleItem.groupBy({
       by: ['productId'],
       where: {
@@ -542,7 +564,16 @@ export class AnalyticsService {
       select: { id: true, name: true },
     });
 
-    const branchTopProducts: Record<string, Array<{ name: string; sales: number; revenue: number; margin?: number; cost?: number }>> = {};
+    const branchTopProducts: Record<
+      string,
+      Array<{
+        name: string;
+        sales: number;
+        revenue: number;
+        margin?: number;
+        cost?: number;
+      }>
+    > = {};
 
     // For each branch, get top 3 products
     for (const branch of branches) {
@@ -623,8 +654,8 @@ export class AnalyticsService {
         product.inventory.length > 0
           ? inventoryStock
           : typeof product.stock === 'number'
-          ? product.stock
-          : 0;
+            ? product.stock
+            : 0;
       const value = stock * (product.price || 0);
       const cost = stock * (product.cost || 0);
 
@@ -726,7 +757,6 @@ export class AnalyticsService {
     });
 
     const totalRevenue = salesData._sum.total || 0;
-    const totalSales = salesData._count;
     const totalCustomers = customerCount.length;
 
     // Simplified metrics - in a real app, these would be more accurate
@@ -902,17 +932,17 @@ export class AnalyticsService {
     };
   }
 
-  private async getAnomaliesData(tenantId: string) {
+  private getAnomaliesData() {
     // AI service removed - returning empty array
     return [];
   }
 
-  private async getCustomerSegmentsData(tenantId: string) {
+  private getCustomerSegmentsData() {
     // AI service removed - returning empty array
     return [];
   }
 
-  private async getChurnPredictionData(tenantId: string) {
+  private getChurnPredictionData() {
     // AI service removed - returning empty array
     return [];
   }
@@ -943,7 +973,7 @@ export class AnalyticsService {
       }
 
       // Build where clause for branch filtering
-      const whereClause: any = {
+      const whereClause: Prisma.SaleWhereInput = {
         tenantId,
         createdAt: {
           gte: startDate,
@@ -1018,23 +1048,42 @@ export class AnalyticsService {
       `;
 
       // Format the response
-      const topProducts = (topProductsData as any[]).map((p) => ({
+      type TopProductsRow = {
+        productId: string;
+        productName: string;
+        quantitySold: number | string | bigint;
+        totalRevenue: number | string | bigint;
+      };
+      type PaymentMethodsRow = {
+        method: string;
+        count: number | string | bigint;
+        amount: number | string | bigint;
+      };
+      type SalesTrendRow = {
+        date: Date | string;
+        sales: number | string | bigint;
+        orders: number | string | bigint;
+      };
+
+      const topProducts = (topProductsData as TopProductsRow[]).map((p) => ({
         productId: p.productId,
         productName: p.productName,
-        quantitySold: Number(p.quantitySold) || 0,
-        totalRevenue: Number(p.totalRevenue) || 0,
+        quantitySold: this.toNumber(p.quantitySold),
+        totalRevenue: this.toNumber(p.totalRevenue),
       }));
 
-      const paymentMethods = (paymentMethodsData as any[]).map((pm) => ({
-        method: pm.method,
-        count: Number(pm.count) || 0,
-        amount: Number(pm.amount) || 0,
-      }));
+      const paymentMethods = (paymentMethodsData as PaymentMethodsRow[]).map(
+        (pm) => ({
+          method: pm.method,
+          count: this.toNumber(pm.count),
+          amount: this.toNumber(pm.amount),
+        }),
+      );
 
-      const salesTrend = (salesTrendData as any[]).map((st) => ({
-        date: st.date.toISOString().split('T')[0],
-        sales: Number(st.sales) || 0,
-        orders: Number(st.orders) || 0,
+      const salesTrend = (salesTrendData as SalesTrendRow[]).map((st) => ({
+        date: this.toDateKey(st.date),
+        sales: this.toNumber(st.sales),
+        orders: this.toNumber(st.orders),
       }));
 
       return {
@@ -1100,15 +1149,6 @@ export class AnalyticsService {
         format = 'YYYY-MM-DD';
       }
 
-      // Get all branches for this tenant
-      const branches = await this.prisma.branch.findMany({
-        where: {
-          tenantId,
-          ...(branchId ? { id: branchId } : {}),
-        },
-        select: { id: true, name: true },
-      });
-
       // Get time-series data for all branches
       const timeSeriesData = await this.prisma.$queryRaw`
         SELECT
@@ -1147,47 +1187,62 @@ export class AnalyticsService {
       `;
 
       // Process time series data
-      const processedData = (timeSeriesData as any[]).reduce(
-        (acc, item) => {
-          const branchId = item.branchId;
-          if (!acc[branchId]) {
-            acc[branchId] = {
-              branchId,
-              branchName: item.branchName,
-              data: [],
-            };
-          }
-          acc[branchId].data.push({
-            period: item.period,
-            orders: Number(item.orders) || 0,
-            sales: Number(item.sales) || 0,
-          });
-          return acc;
-        },
-        {} as Record<string, any>,
-      );
+      type BranchTimeSeriesRow = {
+        branchId: string;
+        branchName: string;
+        period: string;
+        orders: number | string | bigint;
+        sales: number | string | bigint;
+      };
+
+      type BranchSeries = {
+        branchId: string;
+        branchName: string;
+        data: Array<{ period: string; orders: number; sales: number }>;
+      };
+
+      const processedData: Record<string, BranchSeries> = {};
+      for (const item of timeSeriesData as BranchTimeSeriesRow[]) {
+        const rowBranchId = this.toText(item.branchId);
+        const rowPeriod = this.toText(item.period);
+        if (!rowBranchId || !rowPeriod) {
+          continue;
+        }
+
+        if (!processedData[rowBranchId]) {
+          processedData[rowBranchId] = {
+            branchId: rowBranchId,
+            branchName: this.toText(item.branchName),
+            data: [],
+          };
+        }
+
+        processedData[rowBranchId].data.push({
+          period: rowPeriod,
+          orders: this.toNumber(item.orders),
+          sales: this.toNumber(item.sales),
+        });
+      }
 
       // Convert to array and sort by total sales
-      const branchComparison = Object.values(processedData).sort(
-        (a: any, b: any) => {
-          const aTotal = a.data.reduce(
-            (sum: number, item: any) => sum + item.sales,
-            0,
-          );
-          const bTotal = b.data.reduce(
-            (sum: number, item: any) => sum + item.sales,
-            0,
-          );
-          return bTotal - aTotal;
-        },
-      );
+      const branchComparison = Object.values(processedData).sort((a, b) => {
+        const aTotal = a.data.reduce((sum, item) => sum + item.sales, 0);
+        const bTotal = b.data.reduce((sum, item) => sum + item.sales, 0);
+        return bTotal - aTotal;
+      });
 
       // Process branch totals
-      const totals = (branchTotals as any[]).map((item) => ({
+      type BranchTotalsRow = {
+        branchId: string;
+        branchName: string;
+        total_orders: number | string | bigint;
+        total_sales: number | string | bigint;
+      };
+      const totals = (branchTotals as BranchTotalsRow[]).map((item) => ({
         branchId: item.branchId,
         branchName: item.branchName,
-        totalOrders: Number(item.total_orders) || 0,
-        totalSales: Number(item.total_sales) || 0,
+        totalOrders: this.toNumber(item.total_orders),
+        totalSales: this.toNumber(item.total_sales),
       }));
 
       return {
@@ -1295,35 +1350,66 @@ export class AnalyticsService {
       `;
 
       // Process product comparison data
-      const products = (overallProductTotals as any[]).map((product) => {
-        const branchData = (productComparisonData as any[])
+      type ProductComparisonRow = {
+        productId: string;
+        productName: string;
+        branchId: string;
+        branchName: string;
+        quantitySold: number | string | bigint;
+        totalRevenue: number | string | bigint;
+        orderCount: number | string | bigint;
+      };
+      type OverallProductTotalsRow = {
+        productId: string;
+        productName: string;
+        totalQuantitySold: number | string | bigint;
+        totalRevenue: number | string | bigint;
+        totalOrders: number | string | bigint;
+        branchCount: number | string | bigint;
+      };
+
+      const productComparisonRows =
+        productComparisonData as ProductComparisonRow[];
+      const overallProductRows =
+        overallProductTotals as OverallProductTotalsRow[];
+
+      const products = overallProductRows.map((product) => {
+        const branchData = productComparisonRows
           .filter((item) => item.productId === product.productId)
           .map((item) => ({
             branchId: item.branchId,
             branchName: item.branchName,
-            quantitySold: Number(item.quantitySold) || 0,
-            totalRevenue: Number(item.totalRevenue) || 0,
-            orderCount: Number(item.orderCount) || 0,
+            quantitySold: this.toNumber(item.quantitySold),
+            totalRevenue: this.toNumber(item.totalRevenue),
+            orderCount: this.toNumber(item.orderCount),
           }));
 
         return {
           productId: product.productId,
           productName: product.productName,
-          totalQuantitySold: Number(product.totalQuantitySold) || 0,
-          totalRevenue: Number(product.totalRevenue) || 0,
-          totalOrders: Number(product.totalOrders) || 0,
-          branchCount: Number(product.branchCount) || 0,
+          totalQuantitySold: this.toNumber(product.totalQuantitySold),
+          totalRevenue: this.toNumber(product.totalRevenue),
+          totalOrders: this.toNumber(product.totalOrders),
+          branchCount: this.toNumber(product.branchCount),
           branchBreakdown: branchData,
         };
       });
 
       // Process branch totals
-      const branches = (branchTotals as any[]).map((branch) => ({
-        branchId: branch.branchId,
-        branchName: branch.branchName,
-        totalOrders: Number(branch.totalOrders) || 0,
-        totalSales: Number(branch.totalSales) || 0,
-      }));
+      type ProductBranchTotalsRow = {
+        branchId: string;
+        branchName: string;
+        totalOrders: number | string | bigint;
+        totalSales: number | string | bigint;
+      };
+      const branches = (branchTotals as ProductBranchTotalsRow[]).map(
+        (branch) => ({
+          branchId: branch.branchId,
+          branchName: branch.branchName,
+          totalOrders: this.toNumber(branch.totalOrders),
+          totalSales: this.toNumber(branch.totalSales),
+        }),
+      );
 
       return {
         timeRange,
@@ -1359,7 +1445,11 @@ export class AnalyticsService {
   ) {
     // Calculate date range
     const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1);
+    const startDate = new Date(
+      now.getFullYear(),
+      now.getMonth() - months + 1,
+      1,
+    );
 
     // Get all branches for this tenant
     const branches = await this.prisma.branch.findMany({
@@ -1408,7 +1498,10 @@ export class AnalyticsService {
     }
 
     // Prepare branch sales per month
-    const branchMap: Record<string, { branchId: string; branchName: string; sales: Record<string, number> }> = {};
+    const branchMap: Record<
+      string,
+      { branchId: string; branchName: string; sales: Record<string, number> }
+    > = {};
     for (const branch of branches) {
       branchMap[branch.id] = {
         branchId: branch.id,
@@ -1419,17 +1512,27 @@ export class AnalyticsService {
         branchMap[branch.id].sales[m] = 0;
       }
     }
-    for (const row of salesData as any[]) {
-      if (row.branchId && row.month) {
-        branchMap[row.branchId].sales[row.month] = parseFloat(row.sales) || 0;
+    type BranchMonthlySalesRow = {
+      branchId: string;
+      branchName: string;
+      month: string;
+      sales: number | string | bigint;
+    };
+    for (const row of salesData as BranchMonthlySalesRow[]) {
+      if (row.branchId && row.month && branchMap[row.branchId]) {
+        branchMap[row.branchId].sales[row.month] = this.toNumber(row.sales);
       }
     }
 
     // Prepare total sales per month
     const totalSalesMap: Record<string, number> = {};
     for (const m of monthsArr) totalSalesMap[m] = 0;
-    for (const row of totalSalesData as any[]) {
-      if (row.month) totalSalesMap[row.month] = parseFloat(row.sales) || 0;
+    type TotalMonthlySalesRow = {
+      month: string;
+      sales: number | string | bigint;
+    };
+    for (const row of totalSalesData as TotalMonthlySalesRow[]) {
+      if (row.month) totalSalesMap[row.month] = this.toNumber(row.sales);
     }
 
     // Format for chart: { months: [...], branches: [{branchName, data: [...]}, ...], total: [...] }

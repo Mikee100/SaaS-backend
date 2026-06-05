@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class AuditLogService {
   constructor(private prisma: PrismaService) {}
 
-  async log(userId: string | null, action: string, details: any, ip?: string) {
+  async log(
+    userId: string | null,
+    action: string,
+    details: Prisma.InputJsonValue,
+    ip?: string,
+  ) {
     return this.prisma.auditLog.create({
       data: {
         id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

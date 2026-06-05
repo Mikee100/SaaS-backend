@@ -2,154 +2,245 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class FormatterService {
-  formatSalesData(sales: any, name: string): string {
-    if (!sales) return '';
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
+  }
+
+  private asString(value: unknown, fallback: string = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private asNumber(value: unknown, fallback: number = 0): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return fallback;
+  }
+
+  private asDateInput(value: unknown): string | number | Date | null {
+    if (
+      value instanceof Date ||
+      typeof value === 'string' ||
+      typeof value === 'number'
+    ) {
+      return value;
+    }
+    return null;
+  }
+
+  formatSalesData(sales: unknown, name: string): string {
+    const salesObj = this.asObject(sales);
+    if (!salesObj) return '';
+
     let p = `\nSALES PERFORMANCE DATA (${name}):\n`;
-    p += `- Total Revenue: ${sales.totalRevenue || 0}\n`;
-    p += `- Transactions: ${sales.totalSales || 0}\n`;
-    p += `- Recent (30d): ${sales.recentRevenue || 0}\n`;
-    p += `- Today: ${sales.todayRevenue || 0} (${sales.todaySalesCount || 0} sales)\n`;
-    p += `- Sales Trend: ${sales.trend || 'stable'} (${sales.trendPercentage || 0}%)\n`;
-    
-    if (sales.monthlySales?.length > 0) {
+    p += `- Total Revenue: ${this.asNumber(salesObj.totalRevenue)}\n`;
+    p += `- Transactions: ${this.asNumber(salesObj.totalSales)}\n`;
+    p += `- Recent (30d): ${this.asNumber(salesObj.recentRevenue)}\n`;
+    p += `- Today: ${this.asNumber(salesObj.todayRevenue)} (${this.asNumber(salesObj.todaySalesCount)} sales)\n`;
+    p += `- Sales Trend: ${this.asString(salesObj.trend, 'stable')} (${this.asNumber(salesObj.trendPercentage)}%)\n`;
+
+    const monthlySales = this.asArray(salesObj.monthlySales);
+    if (monthlySales.length > 0) {
       p += `\nMONTHLY BREAKDOWN:\n`;
-      sales.monthlySales.slice(0, 6).forEach((m: any) => {
-        p += `- ${m.month}: ${m.revenue} (${m.count} sales)\n`;
+      monthlySales.slice(0, 6).forEach((monthEntry) => {
+        const m = this.asObject(monthEntry) ?? {};
+        p += `- ${this.asString(m.month, 'N/A')}: ${this.asNumber(m.revenue)} (${this.asNumber(m.count)} sales)\n`;
       });
     }
     return p;
   }
 
-  formatInventoryData(inventory: any, name: string): string {
-    if (!inventory) return '';
+  formatInventoryData(inventory: unknown, name: string): string {
+    const inventoryObj = this.asObject(inventory);
+    if (!inventoryObj) return '';
+
     let p = `\nINVENTORY STATUS (${name}):\n`;
-    p += `- Total Items: ${inventory.totalItems || 0}\n`;
-    p += `- Low Stock: ${inventory.lowStockCount || 0}\n`;
-    p += `- Out of Stock: ${inventory.outOfStockCount || 0}\n`;
-    
-    if (inventory.items?.length > 0) {
+    p += `- Total Items: ${this.asNumber(inventoryObj.totalItems)}\n`;
+    p += `- Low Stock: ${this.asNumber(inventoryObj.lowStockCount)}\n`;
+    p += `- Out of Stock: ${this.asNumber(inventoryObj.outOfStockCount)}\n`;
+
+    const items = this.asArray(inventoryObj.items);
+    if (items.length > 0) {
       p += `\nStock Levels:\n`;
-      inventory.items.slice(0, 10).forEach((item: any) => {
-        const emoji = item.status === 'out' ? '🔴' : item.status === 'low' ? '🟡' : '🟢';
-        p += `${emoji} ${item.name}: ${item.quantity} units (Status: ${item.status})\n`;
+      items.slice(0, 10).forEach((item) => {
+        const row = this.asObject(item) ?? {};
+        const status = this.asString(row.status, 'ok');
+        const emoji = status === 'out' ? '🔴' : status === 'low' ? '🟡' : '🟢';
+        p += `${emoji} ${this.asString(row.name, 'Unknown')}: ${this.asNumber(row.quantity)} units (Status: ${status})\n`;
       });
     }
     return p;
   }
 
-  formatProductData(products: any, name: string): string {
-    if (!products || !products.allProducts) return '';
+  formatProductData(products: unknown, name: string): string {
+    const productsObj = this.asObject(products);
+    if (!productsObj) return '';
+
+    const allProducts = this.asArray(productsObj.allProducts);
+    if (allProducts.length === 0) return '';
+
     let p = `\nPRODUCT CATALOG (${name}):\n`;
-    p += `Total Products: ${products.totalProducts || 0}\n`;
-    
-    products.allProducts.forEach((prod: any) => {
-      p += `- ${prod.name} (SKU: ${prod.sku}, Price: ${prod.price})\n`;
-      if (prod.hasVariations && prod.variations?.length > 0) {
+    p += `Total Products: ${this.asNumber(productsObj.totalProducts)}\n`;
+
+    allProducts.forEach((product) => {
+      const prod = this.asObject(product) ?? {};
+      p += `- ${this.asString(prod.name, 'Unknown')} (SKU: ${this.asString(prod.sku, 'N/A')}, Price: ${this.asNumber(prod.price)})\n`;
+
+      const variations = this.asArray(prod.variations);
+      if (Boolean(prod.hasVariations) && variations.length > 0) {
         p += `  Variants:\n`;
-        prod.variations.forEach((v: any) => {
-          const attrs = typeof v.attributes === 'string' ? v.attributes : JSON.stringify(v.attributes);
-          p += `    * SKU: ${v.sku}, Stock: ${v.stock}, Price: ${v.price || prod.price}, Attrs: ${attrs}\n`;
+        variations.forEach((variation) => {
+          const v = this.asObject(variation) ?? {};
+          const attrs =
+            this.asString(v.attributes) ||
+            JSON.stringify(v.attributes ?? {}, null, 0);
+          p += `    * SKU: ${this.asString(v.sku, 'N/A')}, Stock: ${this.asNumber(v.stock)}, Price: ${this.asNumber(v.price) || this.asNumber(prod.price)}, Attrs: ${attrs}\n`;
         });
       }
     });
 
-    if (products.topProducts?.length > 0) {
+    const topProducts = this.asArray(productsObj.topProducts);
+    if (topProducts.length > 0) {
       p += `\nTOP PERFORMERS:\n`;
-      products.topProducts.slice(0, 5).forEach((prod: any, i: number) => {
-        p += `${i + 1}. ${prod.name} (Revenue: ${prod.revenue}, Sold: ${prod.quantity})\n`;
+      topProducts.slice(0, 5).forEach((product, i) => {
+        const prod = this.asObject(product) ?? {};
+        p += `${i + 1}. ${this.asString(prod.name, 'Unknown')} (Revenue: ${this.asNumber(prod.revenue)}, Sold: ${this.asNumber(prod.quantity)})\n`;
       });
     }
     return p;
   }
 
-  formatCustomerData(customers: any, name: string): string {
-    if (!customers) return '';
-    let p = `\nCUSTOMER INSIGHTS:\n`;
-    p += `- Unique Customers: ${customers.totalCustomers || 0}\n`;
-    p += `- Retention: ${customers.retentionRate || 0}%\n`;
-    
-    if (customers.topCustomers?.length > 0) {
+  formatCustomerData(customers: unknown, name: string): string {
+    const customersObj = this.asObject(customers);
+    if (!customersObj) return '';
+
+    let p = `\nCUSTOMER INSIGHTS (${name}):\n`;
+    p += `- Unique Customers: ${this.asNumber(customersObj.totalCustomers)}\n`;
+    p += `- Retention: ${this.asNumber(customersObj.retentionRate)}%\n`;
+
+    const topCustomers = this.asArray(customersObj.topCustomers);
+    if (topCustomers.length > 0) {
       p += `\nTop Buyers:\n`;
-      customers.topCustomers.slice(0, 5).forEach((c: any, i: number) => {
-        p += `${i + 1}. ${c.name} (Revenue: ${c.revenue})\n`;
+      topCustomers.slice(0, 5).forEach((customer, i) => {
+        const c = this.asObject(customer) ?? {};
+        p += `${i + 1}. ${this.asString(c.name, 'Unknown')} (Revenue: ${this.asNumber(c.revenue)})\n`;
       });
     }
     return p;
   }
 
-  formatCreditorData(creditors: any, name: string): string {
-    if (!creditors) return '';
-    let p = `\nCREDITORS & SUPPLIERS (${name}):\n`;
-    p += `- Active Suppliers: ${creditors.totalSuppliers || 0}\n`;
-    p += `- Customers with Outstanding Credit: ${creditors.totalCreditCount || 0}\n`;
-    p += `- Total Outstanding Balance Owed by Customers: ${creditors.totalOutstandingBalance || 0}\n`;
-    p += `- Overdue Credits: ${creditors.overdueCount || 0}\n`;
+  formatCreditorData(creditors: unknown, name: string): string {
+    const creditorsObj = this.asObject(creditors);
+    if (!creditorsObj) return '';
 
-    if (creditors.suppliers?.length > 0) {
+    let p = `\nCREDITORS & SUPPLIERS (${name}):\n`;
+    p += `- Active Suppliers: ${this.asNumber(creditorsObj.totalSuppliers)}\n`;
+    p += `- Customers with Outstanding Credit: ${this.asNumber(creditorsObj.totalCreditCount)}\n`;
+    p += `- Total Outstanding Balance Owed by Customers: ${this.asNumber(creditorsObj.totalOutstandingBalance)}\n`;
+    p += `- Overdue Credits: ${this.asNumber(creditorsObj.overdueCount)}\n`;
+
+    const suppliers = this.asArray(creditorsObj.suppliers);
+    if (suppliers.length > 0) {
       p += `\nSupplier List:\n`;
-      creditors.suppliers.slice(0, 15).forEach((s: any) => {
-        p += `- ${s.name}`;
-        if (s.contactName) p += ` (Contact: ${s.contactName})`;
-        if (s.city || s.country) p += ` | Location: ${[s.city, s.country].filter(Boolean).join(', ')}`;
-        if (s.phone) p += ` | Phone: ${s.phone}`;
-        if (s.email) p += ` | Email: ${s.email}`;
+      suppliers.slice(0, 15).forEach((supplier) => {
+        const s = this.asObject(supplier) ?? {};
+        const city = this.asString(s.city);
+        const country = this.asString(s.country);
+        p += `- ${this.asString(s.name, 'Unknown Supplier')}`;
+        if (this.asString(s.contactName))
+          p += ` (Contact: ${this.asString(s.contactName)})`;
+        if (city || country)
+          p += ` | Location: ${[city, country].filter(Boolean).join(', ')}`;
+        if (this.asString(s.phone)) p += ` | Phone: ${this.asString(s.phone)}`;
+        if (this.asString(s.email)) p += ` | Email: ${this.asString(s.email)}`;
         p += `\n`;
       });
     } else {
       p += `No active suppliers recorded.\n`;
     }
 
-    if (creditors.customerCredits?.length > 0) {
+    const customerCredits = this.asArray(creditorsObj.customerCredits);
+    if (customerCredits.length > 0) {
       p += `\nTop Outstanding Customer Credits:\n`;
-      creditors.customerCredits.slice(0, 10).forEach((c: any) => {
-        const status = c.status === 'overdue' ? '⚠️ OVERDUE' : '🔵 Active';
-        p += `- ${c.customerName || 'Unknown'}: Balance ${c.balance} / ${c.totalAmount} total [${status}]`;
-        if (c.dueDate) p += ` | Due: ${new Date(c.dueDate).toLocaleDateString()}`;
+      customerCredits.slice(0, 10).forEach((credit) => {
+        const c = this.asObject(credit) ?? {};
+        const status =
+          this.asString(c.status) === 'overdue' ? '⚠️ OVERDUE' : '🔵 Active';
+        p += `- ${this.asString(c.customerName, 'Unknown')}: Balance ${this.asNumber(c.balance)} / ${this.asNumber(c.totalAmount)} total [${status}]`;
+        const dueDate = this.asDateInput(c.dueDate);
+        if (dueDate) {
+          p += ` | Due: ${new Date(dueDate).toLocaleDateString()}`;
+        }
         p += `\n`;
       });
     }
     return p;
   }
 
-  formatExpenseData(expenses: any, name: string): string {
-    if (!expenses) return '';
+  formatExpenseData(expenses: unknown, name: string): string {
+    const expensesObj = this.asObject(expenses);
+    if (!expensesObj) return '';
+
     let p = `\nBUSINESS EXPENSES (${name}):\n`;
-    p += `- Total Expenses (Last 30 days): ${expenses.totalLast30Days || 0}\n`;
-    p += `- Total Expenses (Last 90 days): ${expenses.totalLast90Days || 0}\n`;
-    p += `- Expense Transactions: ${expenses.expenseCount || 0}\n`;
-    p += `- Average Expense: ${expenses.averageExpense?.toFixed(2) || 0}\n`;
-    p += `- Largest Single Expense: ${expenses.largestExpense || 0}\n`;
-    if (expenses.recurringMonthlyTotal > 0) {
-      p += `- Monthly Recurring Commitments: ${expenses.recurringMonthlyTotal}\n`;
+    p += `- Total Expenses (Last 30 days): ${this.asNumber(expensesObj.totalLast30Days)}\n`;
+    p += `- Total Expenses (Last 90 days): ${this.asNumber(expensesObj.totalLast90Days)}\n`;
+    p += `- Expense Transactions: ${this.asNumber(expensesObj.expenseCount)}\n`;
+    p += `- Average Expense: ${this.asNumber(expensesObj.averageExpense).toFixed(2)}\n`;
+    p += `- Largest Single Expense: ${this.asNumber(expensesObj.largestExpense)}\n`;
+    if (this.asNumber(expensesObj.recurringMonthlyTotal) > 0) {
+      p += `- Monthly Recurring Commitments: ${this.asNumber(expensesObj.recurringMonthlyTotal)}\n`;
     }
 
-    if (expenses.categoryBreakdown?.length > 0) {
+    const categoryBreakdown = this.asArray(expensesObj.categoryBreakdown);
+    if (categoryBreakdown.length > 0) {
       p += `\nExpense Breakdown by Category (last 90 days):\n`;
-      expenses.categoryBreakdown.forEach((c: any, i: number) => {
-        p += `${i + 1}. ${c.category}: ${c.total} (${c.count} transactions)\n`;
+      categoryBreakdown.forEach((categoryEntry, i) => {
+        const c = this.asObject(categoryEntry) ?? {};
+        p += `${i + 1}. ${this.asString(c.category, 'Other')}: ${this.asNumber(c.total)} (${this.asNumber(c.count)} transactions)\n`;
       });
     }
 
-    if (expenses.recurringExpenses?.length > 0) {
+    const recurringExpenses = this.asArray(expensesObj.recurringExpenses);
+    if (recurringExpenses.length > 0) {
       p += `\nRecurring Expenses:\n`;
-      expenses.recurringExpenses.slice(0, 5).forEach((e: any) => {
-        p += `- ${e.description} (${e.category}): ${e.amount} / ${e.frequency}`;
-        if (e.nextDueDate) p += ` | Next due: ${new Date(e.nextDueDate).toLocaleDateString()}`;
+      recurringExpenses.slice(0, 5).forEach((expense) => {
+        const e = this.asObject(expense) ?? {};
+        p += `- ${this.asString(e.description, 'Recurring Expense')} (${this.asString(e.category, 'General')}): ${this.asNumber(e.amount)} / ${this.asString(e.frequency, 'monthly')}`;
+        const nextDueDate = this.asDateInput(e.nextDueDate);
+        if (nextDueDate) {
+          p += ` | Next due: ${new Date(nextDueDate).toLocaleDateString()}`;
+        }
         p += `\n`;
       });
     }
     return p;
   }
 
-  formatGeneralInfo(context: any): string {
+  formatGeneralInfo(context: unknown): string {
+    const contextObj = this.asObject(context) ?? {};
     let p = '';
-    if (context.tenantInfo) {
+    const tenantInfo = this.asObject(contextObj.tenantInfo);
+    if (tenantInfo) {
       p += `\n=== BUSINESS INFORMATION ===\n`;
-      p += `Name: ${context.tenantInfo.name || 'Not specified'}\n`;
-      p += `Type: ${context.tenantInfo.businessType || 'Not specified'}\n`;
+      p += `Name: ${this.asString(tenantInfo.name, 'Not specified')}\n`;
+      p += `Type: ${this.asString(tenantInfo.businessType, 'Not specified')}\n`;
     }
-    if (context.branchInfo) {
-      p += `\nBranch: ${context.branchInfo.name || 'Not specified'}\n`;
+    const branchInfo = this.asObject(contextObj.branchInfo);
+    if (branchInfo) {
+      p += `\nBranch: ${this.asString(branchInfo.name, 'Not specified')}\n`;
     }
     return p;
   }

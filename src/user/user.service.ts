@@ -558,7 +558,9 @@ export class UserService {
 
     const rawPrefs = targetUser.preferences;
     const currentPrefs: Record<string, unknown> =
-      rawPrefs != null && typeof rawPrefs === 'object' && !Array.isArray(rawPrefs)
+      rawPrefs != null &&
+      typeof rawPrefs === 'object' &&
+      !Array.isArray(rawPrefs)
         ? (rawPrefs as Record<string, unknown>)
         : {};
 
@@ -727,10 +729,14 @@ export class UserService {
       });
       if (tenant?.name) tenantName = tenant.name;
     }
-    const subjectLabel =
-      { general: 'General Support', technical: 'Technical Issue', feature: 'Feature Request', billing: 'Billing Question', other: 'Other' }[
-        subject as keyof typeof subject
-      ] || subject;
+    const subjectMap: Record<string, string> = {
+      general: 'General Support',
+      technical: 'Technical Issue',
+      feature: 'Feature Request',
+      billing: 'Billing Question',
+      other: 'Other',
+    };
+    const subjectLabel = subjectMap[subject] || subject;
     const prefix = isUrgent ? '[URGENT] ' : '';
     const emailSubject = `${prefix}[Contact Admin] ${subjectLabel} - ${tenantName}`;
     const html = `
@@ -756,7 +762,11 @@ export class UserService {
       this.logger.log(
         `Contact admin email sent to ${adminEmail} from user ${user.email}`,
       );
-      return { success: true, message: 'Your message has been sent. We will respond as soon as possible.' };
+      return {
+        success: true,
+        message:
+          'Your message has been sent. We will respond as soon as possible.',
+      };
     } catch (err) {
       this.logger.error('Failed to send contact admin email', err);
       throw new BadRequestException(
@@ -937,7 +947,7 @@ export class UserService {
     });
 
     // If no remaining roles, soft-delete the user
-    let result;
+    let result: { id: string; deletedAt: Date | null } | { id: string };
     if (remainingRoles === 0) {
       result = await this.prisma.user.update({
         where: { id, deletedAt: null },
@@ -1014,7 +1024,8 @@ export class UserService {
   }
 
   private generateRandomPassword(length: number = 12): string {
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    const charset =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let password = '';
     for (let i = 0; i < length; i++) {
       password += charset.charAt(Math.floor(Math.random() * charset.length));

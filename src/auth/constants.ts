@@ -18,7 +18,8 @@ export const REFRESH_TOKEN_TTL_SEC =
 
 /** Cookie Secure flag: true in production, false for localhost. */
 export const COOKIE_SECURE =
-  process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false';
+  process.env.NODE_ENV === 'production' &&
+  process.env.COOKIE_SECURE !== 'false';
 
 /** Cookie domain. Empty = current host only. */
 export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;

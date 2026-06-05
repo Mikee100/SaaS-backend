@@ -5,6 +5,10 @@ import { OpenAIConfig } from '../config/openai.config';
 export class EmbeddingService {
   constructor(private readonly openaiConfig: OpenAIConfig) {}
 
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
   async generateEmbedding(text: string): Promise<number[]> {
     if (!this.openaiConfig.isConfigured()) {
       throw new Error('OpenAI API key not configured');
@@ -22,9 +26,11 @@ export class EmbeddingService {
       });
 
       return response.data[0].embedding;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating embedding:', error);
-      throw new Error(`Failed to generate embedding: ${error.message}`);
+      throw new Error(
+        `Failed to generate embedding: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 
@@ -45,9 +51,11 @@ export class EmbeddingService {
       });
 
       return response.data.map((item) => item.embedding);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating embeddings:', error);
-      throw new Error(`Failed to generate embeddings: ${error.message}`);
+      throw new Error(
+        `Failed to generate embeddings: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 
@@ -74,4 +82,3 @@ export class EmbeddingService {
     return dotProduct / denominator;
   }
 }
-

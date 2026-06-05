@@ -15,12 +15,31 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.services';
 import { CookieService } from './cookie.service';
 import { Public } from './decorators/public.decorator';
 import { AUTH_COOKIE_NAMES } from './constants';
 import { AuthGuard } from '@nestjs/passport';
+
+type JwtRequestUser = {
+  userId?: string;
+  sub?: string;
+  email?: string;
+  name?: string;
+  tenantId?: string | null;
+  branchId?: string | null;
+  roles?: string[];
+  permissions?: string[];
+  isSuperadmin?: boolean;
+  impersonating?: boolean;
+  impersonatingTenantName?: string | null;
+  sessionId?: string;
+};
+
+type AuthRequest = Request & {
+  user?: JwtRequestUser;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -30,6 +49,29 @@ export class AuthController {
   ) {}
 
   private readonly logger = new Logger(AuthController.name);
+
+  private getRefreshToken(
+    req: AuthRequest,
+    body?: { refreshToken?: string },
+  ): string | undefined {
+    const cookies = (req as { cookies?: unknown }).cookies;
+    const cookieRefreshToken =
+      cookies && typeof cookies === 'object'
+        ? (cookies as Record<string, unknown>)[AUTH_COOKIE_NAMES.REFRESH_TOKEN]
+        : undefined;
+
+    return typeof cookieRefreshToken === 'string'
+      ? cookieRefreshToken
+      : body?.refreshToken;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  private getErrorStack(error: unknown): string | undefined {
+    return error instanceof Error ? error.stack : undefined;
+  }
 
   @Public()
   @Post('login')
@@ -41,7 +83,7 @@ export class AuthController {
       deviceFingerprint?: string;
       deviceName?: string;
     },
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
     this.logger.log(`Login attempt for: ${body.email} from IP: ${req.ip}`);
@@ -53,12 +95,22 @@ export class AuthController {
 
     const emailLower = body.email.trim().toLowerCase();
 
+    const userAgentHeader = (req.headers as Record<string, unknown>)[
+      'user-agent'
+    ];
+    const userAgent =
+      typeof userAgentHeader === 'string'
+        ? userAgentHeader
+        : Array.isArray(userAgentHeader)
+          ? userAgentHeader.join(' ')
+          : '';
+
     try {
       const result = await this.authService.login(
         emailLower,
         body.password,
         req.ip,
-        req.headers['user-agent'] || '',
+        userAgent,
         body.deviceFingerprint,
         body.deviceName,
       );
@@ -82,10 +134,10 @@ export class AuthController {
         access_token: result.access_token,
         refresh_token: result.refresh_token,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Login error for ${emailLower}: ${error.message}`,
-        error.stack,
+        `Login error for ${emailLower}: ${this.getErrorMessage(error)}`,
+        this.getErrorStack(error),
       );
       if (error instanceof HttpException) {
         throw error;
@@ -97,11 +149,11 @@ export class AuthController {
   @Public()
   @Post('refresh')
   async refresh(
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Res({ passthrough: true }) res: Response,
     @Body() body?: { refreshToken?: string },
   ) {
-    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN] || body?.refreshToken;
+    const refreshToken = this.getRefreshToken(req, body);
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token required');
     }
@@ -109,12 +161,12 @@ export class AuthController {
       const result = await this.authService.refresh(refreshToken);
       this.cookieService.setAccessToken(res, result.access_token);
       this.cookieService.setRefreshToken(res, result.refresh_token);
-      return { 
+      return {
         user: result.user,
         access_token: result.access_token,
         refresh_token: result.refresh_token,
       };
-    } catch (error: any) {
+    } catch {
       this.cookieService.clearAuthCookies(res);
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -123,11 +175,11 @@ export class AuthController {
   @Public()
   @Post('logout')
   async logout(
-    @Req() req: any, 
+    @Req() req: AuthRequest,
     @Res({ passthrough: true }) res: Response,
     @Body() body?: { refreshToken?: string },
   ) {
-    const refreshToken = req?.cookies?.[AUTH_COOKIE_NAMES.REFRESH_TOKEN] || body?.refreshToken;
+    const refreshToken = this.getRefreshToken(req, body);
     try {
       if (req.user?.sessionId) {
         await this.authService.revokeSession(req.user.sessionId);
@@ -143,7 +195,7 @@ export class AuthController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  async me(@Req() req: any) {
+  me(@Req() req: AuthRequest) {
     const user = req.user;
     if (!user) {
       throw new UnauthorizedException('Not authenticated');
@@ -176,7 +228,7 @@ export class AuthController {
   /** List active sessions for the current user. */
   @UseGuards(AuthGuard('jwt'))
   @Get('sessions')
-  async getSessions(@Req() req: any) {
+  async getSessions(@Req() req: AuthRequest) {
     const userId = req.user?.userId ?? req.user?.sub;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     const sessions = await this.authService.getActiveSessionsForUser(userId);
@@ -187,22 +239,26 @@ export class AuthController {
   /** Revoke a specific session (must belong to current user). */
   @UseGuards(AuthGuard('jwt'))
   @Delete('sessions/:id')
-  async revokeSession(@Req() req: any, @Param('id') id: string) {
+  async revokeSession(@Req() req: AuthRequest, @Param('id') id: string) {
     const userId = req.user?.userId ?? req.user?.sub;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     const revoked = await this.authService.revokeSessionForUser(id, userId);
-    if (!revoked) throw new NotFoundException('Session not found or access denied');
+    if (!revoked)
+      throw new NotFoundException('Session not found or access denied');
     return { success: true };
   }
 
   /** Revoke all other sessions (keep current). */
   @UseGuards(AuthGuard('jwt'))
   @Post('sessions/revoke-others')
-  async revokeOtherSessions(@Req() req: any) {
+  async revokeOtherSessions(@Req() req: AuthRequest) {
     const userId = req.user?.userId ?? req.user?.sub;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     const currentSessionId = req.user?.sessionId ?? undefined;
-    const count = await this.authService.revokeAllOtherSessions(userId, currentSessionId);
+    const count = await this.authService.revokeAllOtherSessions(
+      userId,
+      currentSessionId,
+    );
     return { success: true, revoked: count };
   }
 }

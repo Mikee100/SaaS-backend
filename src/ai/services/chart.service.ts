@@ -34,12 +34,88 @@ export interface ChartConfig {
   };
 }
 
+type ProductMetric = {
+  name: string;
+  revenue: number;
+};
+
+type InventoryMetric = {
+  name: string;
+  quantity: number;
+  status: string;
+};
+
 @Injectable()
 export class ChartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dataService: DataService,
-  ) { }
+  ) {}
+
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asNumber(value: unknown, fallback: number = 0): number {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : fallback;
+  }
+
+  private asString(value: unknown, fallback: string = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private getTopProducts(data: unknown): ProductMetric[] {
+    const obj = this.asObject(data);
+    const list = obj?.topProducts;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        name: this.asString(row?.name, 'Unnamed product'),
+        revenue: this.asNumber(row?.revenue, 0),
+      };
+    });
+  }
+
+  private getInventoryItems(data: unknown): InventoryMetric[] {
+    const obj = this.asObject(data);
+    const list = obj?.items;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        name: this.asString(row?.name, 'Unnamed item'),
+        quantity: this.asNumber(row?.quantity, 0),
+        status: this.asString(row?.status, 'ok'),
+      };
+    });
+  }
+
+  private getTopCustomers(data: unknown): ProductMetric[] {
+    const obj = this.asObject(data);
+    const list = obj?.topCustomers;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        name: this.asString(row?.name, 'Unnamed customer'),
+        revenue: this.asNumber(row?.revenue, 0),
+      };
+    });
+  }
 
   async generateSalesChart(
     tenantId: string,
@@ -47,8 +123,6 @@ export class ChartService {
     chartType: 'line' | 'bar' | 'area' = 'line',
     period: '7days' | '30days' | '90days' | '1year' = '30days',
   ): Promise<ChartConfig> {
-    const salesData = await this.dataService.getSalesData(tenantId, branchId);
-
     let labels: string[] = [];
     let data: number[] = [];
 
@@ -104,7 +178,9 @@ export class ChartService {
 
       sales.forEach((sale) => {
         const date = new Date(sale.createdAt);
-        const daysDiff = Math.floor((date.getTime() - thirtyDaysAgo.getTime()) / (1000 * 60 * 60 * 24));
+        const daysDiff = Math.floor(
+          (date.getTime() - thirtyDaysAgo.getTime()) / (1000 * 60 * 60 * 24),
+        );
         const weekNum = Math.floor(daysDiff / 7) + 1;
         const weekKey = `Week ${weekNum}`;
         if (weeklySales[weekKey] !== undefined) {
@@ -122,7 +198,9 @@ export class ChartService {
       for (let i = 0; i < 3; i++) {
         const monthStart = new Date(ninetyDaysAgo);
         monthStart.setMonth(monthStart.getMonth() + i);
-        const monthKey = monthStart.toLocaleDateString('en-US', { month: 'short' });
+        const monthKey = monthStart.toLocaleDateString('en-US', {
+          month: 'short',
+        });
         monthlySales[monthKey] = 0;
       }
 
@@ -149,7 +227,20 @@ export class ChartService {
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
       const monthlySales: Record<string, number> = {};
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
 
       monthNames.forEach((month) => {
         monthlySales[month] = 0;
@@ -184,7 +275,10 @@ export class ChartService {
           {
             label: 'Revenue',
             data,
-            backgroundColor: chartType === 'bar' ? 'rgba(59, 130, 246, 0.8)' : 'rgba(59, 130, 246, 0.15)',
+            backgroundColor:
+              chartType === 'bar'
+                ? 'rgba(59, 130, 246, 0.8)'
+                : 'rgba(59, 130, 246, 0.15)',
             borderColor: 'rgba(59, 130, 246, 1)',
             borderWidth: 2,
             tension: 0.4, // Smooth curved lines
@@ -209,21 +303,28 @@ export class ChartService {
             bodyFont: { size: 14, family: "'Inter', sans-serif" },
             cornerRadius: 8,
             displayColors: false,
-          }
+          },
         },
         scales: {
           y: {
             beginAtZero: true,
             grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false },
             border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, padding: 10, color: '#6B7280' }
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              padding: 10,
+              color: '#6B7280',
+            },
           },
           x: {
             grid: { display: false, drawBorder: false },
             border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
-          }
-        }
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              color: '#6B7280',
+            },
+          },
+        },
       },
     };
   }
@@ -234,11 +335,14 @@ export class ChartService {
     chartType: 'bar' | 'pie' | 'doughnut' = 'bar',
     limit: number = 10,
   ): Promise<ChartConfig> {
-    const productData = await this.dataService.getProductData(tenantId, branchId);
-    const topProducts = productData.topProducts.slice(0, limit);
+    const rawProductData: unknown = await this.dataService.getProductData(
+      tenantId,
+      branchId,
+    );
+    const topProducts = this.getTopProducts(rawProductData).slice(0, limit);
 
-    const labels = topProducts.map((p: any) => p.name);
-    const data = topProducts.map((p: any) => p.revenue || 0);
+    const labels = topProducts.map((p) => p.name);
+    const data = topProducts.map((p) => p.revenue);
 
     const colors = [
       'rgba(59, 130, 246, 0.8)',
@@ -262,8 +366,10 @@ export class ChartService {
           {
             label: 'Revenue',
             data,
-            backgroundColor: chartType === 'bar' ? colors[0] : colors.slice(0, limit),
-            borderColor: chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : '#ffffff',
+            backgroundColor:
+              chartType === 'bar' ? colors[0] : colors.slice(0, limit),
+            borderColor:
+              chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : '#ffffff',
             borderWidth: chartType === 'bar' ? 0 : 2,
             borderRadius: chartType === 'bar' ? 6 : 0,
             borderSkipped: false,
@@ -277,27 +383,42 @@ export class ChartService {
           legend: {
             display: chartType !== 'bar',
             position: 'right',
-            labels: { font: { family: "'Inter', sans-serif", size: 12 }, usePointStyle: true, padding: 20 }
+            labels: {
+              font: { family: "'Inter', sans-serif", size: 12 },
+              usePointStyle: true,
+              padding: 20,
+            },
           },
           tooltip: {
             backgroundColor: 'rgba(17, 24, 39, 0.9)',
             padding: 12,
             cornerRadius: 8,
-          }
-        },
-        scales: chartType === 'bar' ? {
-          y: {
-            beginAtZero: true,
-            grid: { color: 'rgba(0, 0, 0, 0.04)' },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
           },
-          x: {
-            grid: { display: false },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
-          }
-        } : undefined
+        },
+        scales:
+          chartType === 'bar'
+            ? {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                  },
+                },
+                x: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                    maxRotation: 45,
+                    minRotation: 45,
+                  },
+                },
+              }
+            : undefined,
       },
     };
   }
@@ -307,11 +428,14 @@ export class ChartService {
     branchId: string,
     chartType: 'bar' | 'pie' = 'bar',
   ): Promise<ChartConfig> {
-    const inventoryData = await this.dataService.getInventoryData(tenantId, branchId);
-    const items = inventoryData.items.slice(0, 15);
+    const rawInventoryData: unknown = await this.dataService.getInventoryData(
+      tenantId,
+      branchId,
+    );
+    const items = this.getInventoryItems(rawInventoryData).slice(0, 15);
 
-    const labels = items.map((item: any) => item.name);
-    const data = items.map((item: any) => item.quantity);
+    const labels = items.map((item) => item.name);
+    const data = items.map((item) => item.quantity);
 
     return {
       type: chartType,
@@ -322,7 +446,7 @@ export class ChartService {
           {
             label: 'Stock Quantity',
             data,
-            backgroundColor: items.map((item: any) => {
+            backgroundColor: items.map((item) => {
               if (item.status === 'out') return 'rgba(239, 68, 68, 0.85)';
               if (item.status === 'low') return 'rgba(245, 158, 11, 0.85)';
               return 'rgba(16, 185, 129, 0.85)';
@@ -342,21 +466,32 @@ export class ChartService {
             backgroundColor: 'rgba(17, 24, 39, 0.9)',
             padding: 12,
             cornerRadius: 8,
-          }
-        },
-        scales: chartType === 'bar' ? {
-          y: {
-            beginAtZero: true,
-            grid: { color: 'rgba(0, 0, 0, 0.04)' },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
           },
-          x: {
-            grid: { display: false },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
-          }
-        } : undefined
+        },
+        scales:
+          chartType === 'bar'
+            ? {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                  },
+                },
+                x: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                    maxRotation: 45,
+                    minRotation: 45,
+                  },
+                },
+              }
+            : undefined,
       },
     };
   }
@@ -367,11 +502,14 @@ export class ChartService {
     chartType: 'bar' | 'pie' | 'doughnut' = 'bar',
     limit: number = 10,
   ): Promise<ChartConfig> {
-    const customerData = await this.dataService.getCustomerData(tenantId, branchId);
-    const topCustomers = customerData.topCustomers.slice(0, limit);
+    const rawCustomerData: unknown = await this.dataService.getCustomerData(
+      tenantId,
+      branchId,
+    );
+    const topCustomers = this.getTopCustomers(rawCustomerData).slice(0, limit);
 
-    const labels = topCustomers.map((c: any) => c.name);
-    const data = topCustomers.map((c: any) => c.revenue || 0);
+    const labels = topCustomers.map((c) => c.name);
+    const data = topCustomers.map((c) => c.revenue);
 
     return {
       type: chartType,
@@ -398,23 +536,33 @@ export class ChartService {
             backgroundColor: 'rgba(17, 24, 39, 0.9)',
             padding: 12,
             cornerRadius: 8,
-          }
-        },
-        scales: chartType === 'bar' ? {
-          y: {
-            beginAtZero: true,
-            grid: { color: 'rgba(0, 0, 0, 0.04)' },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280' }
           },
-          x: {
-            grid: { display: false },
-            border: { display: false },
-            ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#6B7280', maxRotation: 45, minRotation: 45 }
-          }
-        } : undefined
+        },
+        scales:
+          chartType === 'bar'
+            ? {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                  },
+                },
+                x: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                    maxRotation: 45,
+                    minRotation: 45,
+                  },
+                },
+              }
+            : undefined,
       },
     };
   }
 }
-

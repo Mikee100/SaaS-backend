@@ -6,7 +6,6 @@ import {
   Param,
   HttpException,
   HttpStatus,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { BackupService } from './backup.service';
@@ -15,9 +14,12 @@ import { CreateBackupDto } from './dto/create-backup.dto';
 
 @ApiTags('Backup')
 @Controller('backup')
-
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
 
   @Post('trigger')
   @ApiOperation({ summary: 'Trigger manual backup' })
@@ -31,18 +33,21 @@ export class BackupController {
   })
   async triggerBackup(@Body() createBackupDto: CreateBackupDto) {
     try {
-      const result = await this.backupService.createBackup(createBackupDto.name);
+      const result = await this.backupService.createBackup(
+        createBackupDto.name,
+      );
       return {
         success: true,
         message: 'Backup triggered successfully',
         data: result,
       };
     } catch (error) {
-      if (error.message.includes('already in progress')) {
-        throw new HttpException(error.message, HttpStatus.CONFLICT);
+      const message = this.getErrorMessage(error);
+      if (message.includes('already in progress')) {
+        throw new HttpException(message, HttpStatus.CONFLICT);
       }
       throw new HttpException(
-        `Failed to trigger backup: ${error.message}`,
+        `Failed to trigger backup: ${message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -85,7 +90,7 @@ export class BackupController {
       };
     } catch (error) {
       throw new HttpException(
-        `Failed to restore backup: ${error.message}`,
+        `Failed to restore backup: ${this.getErrorMessage(error)}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -116,7 +121,10 @@ export class BackupController {
         },
       };
     } catch (error) {
-      throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        this.getErrorMessage(error),
+        HttpStatus.NOT_FOUND,
+      );
     }
   }
 }

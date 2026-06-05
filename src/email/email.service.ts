@@ -4,7 +4,7 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter<nodemailer.SentMessageInfo>;
 
   constructor() {
     // For development, use Ethereal test service by default
@@ -22,20 +22,25 @@ export class EmailService {
         },
       });
 
-      // Verify Gmail first, fallback to Ethereal if fails
-      this.transporter.verify((error, success) => {
-        if (error) {
-          this.logger.error(
-            'Gmail verification failed, falling back to Ethereal:',
-            error,
-          );
-          this.setupEthereal();
-        } else {
-          this.logger.log('Gmail transporter is ready');
+      // Verify Gmail first, fallback to Ethereal if verification fails.
+      void this.verifyTransporter('Gmail').then((isReady) => {
+        if (!isReady) {
+          void this.setupEthereal();
         }
       });
     } else {
-      this.setupEthereal();
+      void this.setupEthereal();
+    }
+  }
+
+  private async verifyTransporter(label: string): Promise<boolean> {
+    try {
+      await this.transporter.verify();
+      this.logger.log(`${label} transporter is ready`);
+      return true;
+    } catch (error) {
+      this.logger.error(`${label} transporter verification failed:`, error);
+      return false;
     }
   }
 
@@ -56,32 +61,27 @@ export class EmailService {
       this.logger.warn(
         `Using Ethereal test email service. Inbox: ${testAccount.user}. Set USE_GMAIL=true and valid GMAIL_USER/GMAIL_PASS for production.`,
       );
-
-      // Verify Ethereal
-      this.transporter.verify((error, success) => {
-        if (error) {
-          this.logger.error('Ethereal transporter verification failed:', error);
-        } else {
-          this.logger.log('Ethereal transporter is ready');
-        }
-      });
+      await this.verifyTransporter('Ethereal');
     } catch (error) {
       this.logger.error('Failed to create Ethereal test account:', error);
-      // Ultimate fallback: log emails instead of sending
-      this.transporter = {
-        sendMail: (options) => {
-          this.logger.log(
-            `[EMAIL LOG] To: ${options.to}, Subject: ${options.subject}, Body: ${options.html}`,
-          );
-          return Promise.resolve({ messageId: 'logged' });
-        },
-        verify: () => Promise.resolve(true),
-      };
+      // Ultimate fallback: use local stream transport so app remains functional.
+      this.transporter = nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'unix',
+        buffer: true,
+      });
       this.logger.warn('Email sending disabled - logging to console only.');
     }
   }
 
-  async sendResetPasswordEmail(to: string, token: string) {
+  private sendMail(mailOptions: nodemailer.SendMailOptions): Promise<void> {
+    const sendMailFn = this.transporter.sendMail.bind(this.transporter) as (
+      options: nodemailer.SendMailOptions,
+    ) => Promise<unknown>;
+    return sendMailFn(mailOptions).then(() => undefined);
+  }
+
+  async sendResetPasswordEmail(to: string, token: string): Promise<void> {
     const resetUrl = `http://localhost:5000/reset-password?token=${token}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -96,7 +96,7 @@ export class EmailService {
       </div>
     `;
 
-    const mailOptions = {
+    const mailOptions: nodemailer.SendMailOptions = {
       from:
         process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
       to,
@@ -105,17 +105,20 @@ export class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Reset password email sent to ${to}: ${info.messageId}`);
-      return info;
+      await this.sendMail(mailOptions);
+      this.logger.log(`Reset password email sent to ${to}`);
     } catch (error) {
       this.logger.error(`Failed to send reset email to ${to}:`, error);
       throw error;
     }
   }
 
-  async sendPaymentConfirmationEmail(to: string, subject: string, html: string) {
-    const mailOptions = {
+  async sendPaymentConfirmationEmail(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    const mailOptions: nodemailer.SendMailOptions = {
       from:
         process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
       to,
@@ -124,11 +127,13 @@ export class EmailService {
     };
 
     try {
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Payment confirmation email sent to ${to}: ${info.messageId}`);
-      return info;
+      await this.sendMail(mailOptions);
+      this.logger.log(`Payment confirmation email sent to ${to}`);
     } catch (error) {
-      this.logger.error(`Failed to send payment confirmation email to ${to}:`, error);
+      this.logger.error(
+        `Failed to send payment confirmation email to ${to}:`,
+        error,
+      );
       throw error;
     }
   }

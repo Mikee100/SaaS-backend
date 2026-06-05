@@ -4,11 +4,20 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { UserService } from '../user/user.service';
 import { BranchService } from '../branch/branch.service';
 import { TenantConfigurationService } from '../config/tenant-configuration.service';
 import { ClassificationService } from '../classification/classification.service';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+type CreatedTenant = {
+  id: string;
+  [key: string]: unknown;
+};
 
 @Injectable()
 export class TenantService {
@@ -38,52 +47,68 @@ export class TenantService {
     const normalized = this.normalizeToken(businessType);
     if (!normalized) return null;
 
-    const activeClassifications = await this.prisma.businessClassification.findMany({
-      where: { isActive: true },
-      select: { id: true, slug: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+    const activeClassifications =
+      await this.prisma.businessClassification.findMany({
+        where: { isActive: true },
+        select: { id: true, slug: true, name: true },
+        orderBy: { name: 'asc' },
+      });
 
     if (activeClassifications.length === 0) return null;
 
     const exact = activeClassifications.find(
-      (c) => this.normalizeToken(c.slug) === normalized || this.normalizeToken(c.name) === normalized,
+      (c) =>
+        this.normalizeToken(c.slug) === normalized ||
+        this.normalizeToken(c.name) === normalized,
     );
 
     const tokenFallback = activeClassifications.find((c) => {
       const slug = this.normalizeToken(c.slug);
       const name = this.normalizeToken(c.name);
-      return normalized.includes(slug) || slug.includes(normalized) || normalized.includes(name);
+      return (
+        normalized.includes(slug) ||
+        slug.includes(normalized) ||
+        normalized.includes(name)
+      );
     });
 
     const matched = exact || tokenFallback;
     if (!matched) return null;
 
     try {
-      const result = await this.classificationService.assignTenantClassification(
-        tenantId,
-        matched.id,
-        undefined,
-        undefined,
-        true,
-      );
+      const result =
+        await this.classificationService.assignTenantClassification(
+          tenantId,
+          matched.id,
+          undefined,
+          undefined,
+          true,
+        );
+      const provisioning =
+        isRecord(result) && 'defaultsProvisioning' in result
+          ? (result.defaultsProvisioning as unknown)
+          : undefined;
       return {
         matchedClassification: {
           id: matched.id,
           name: matched.name,
           slug: matched.slug,
         },
-        defaultsProvisioning: (result as any).defaultsProvisioning,
+        defaultsProvisioning: provisioning,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message =
+        isRecord(error) && typeof error.message === 'string'
+          ? error.message
+          : String(error);
       this.logger.warn(
-        `Failed to auto-assign classification for tenant ${tenantId}: ${error?.message || error}`,
+        `Failed to auto-assign classification for tenant ${tenantId}: ${message}`,
       );
       return null;
     }
   }
 
-  async createTenant(data: any): Promise<any> {
+  async createTenant(data: Record<string, unknown>): Promise<CreatedTenant> {
     // Only allow valid Tenant fields
     const allowedFields = [
       'name',
@@ -144,11 +169,30 @@ export class TenantService {
       'classificationId',
       'secondaryClassificationId',
     ];
-    const filtered: any = {};
+    const filtered: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (data[key] !== undefined) filtered[key] = data[key];
     }
-    const tenant = await this.prisma.tenant.create({ data: filtered });
+    const name = typeof filtered.name === 'string' ? filtered.name : '';
+    const businessType =
+      typeof filtered.businessType === 'string' ? filtered.businessType : '';
+    const contactEmail =
+      typeof filtered.contactEmail === 'string' ? filtered.contactEmail : '';
+
+    if (!name || !businessType || !contactEmail) {
+      throw new BadRequestException(
+        'name, businessType, and contactEmail are required',
+      );
+    }
+
+    const createData = {
+      ...filtered,
+      name,
+      businessType,
+      contactEmail,
+    } as Prisma.TenantCreateInput;
+
+    const tenant = await this.prisma.tenant.create({ data: createData });
 
     // Automatically create default stockThreshold configuration for new tenant
     await this.tenantConfigurationService.setTenantConfiguration(
@@ -163,10 +207,10 @@ export class TenantService {
       },
     );
 
-    return tenant;
+    return tenant as CreatedTenant;
   }
 
-  async getAllTenants(): Promise<any[]> {
+  async getAllTenants(): Promise<unknown[]> {
     return this.prisma.tenant.findMany();
   }
 
@@ -184,53 +228,54 @@ export class TenantService {
 
   async updateTenant(
     tenantId: string,
-    dto: Partial<{
-      name: string;
-      businessType: string;
-      contactEmail: string;
-      contactPhone: string | null;
-      businessCategory: string | null;
-      businessSubcategory: string | null;
-      primaryProducts: any;
-      secondaryProducts: any;
-      businessDescription: string | null;
-      address: string | null;
-      city: string | null;
-      state: string | null;
-      country: string | null;
-      postalCode: string | null;
-      latitude: number | null;
-      longitude: number | null;
-      foundedYear: number | null;
-      employeeCount: string | null;
-      annualRevenue: string | null;
-      businessHours: any;
-      website: string | null;
-      socialMedia: any;
-      kraEnabled: boolean | null;
-      kraPin: string | null;
-      vatNumber: string | null;
-      etimsQrUrl: string | null;
-      businessLicense: string | null;
-      taxId: string | null;
-      currency: string | null;
-      timezone: string | null;
-      invoiceFooter: string | null;
-      logoUrl: string | null;
-      favicon: string | null;
-      receiptLogo: string | null;
-      watermark: string | null;
-      primaryColor: string | null;
-      secondaryColor: string | null;
-      customDomain: string | null;
-      whiteLabel: boolean | null;
-      apiKey: string | null;
-      webhookUrl: string | null;
-      rateLimit: number | null;
-      stripeCustomerId: string | null;
-      pdfTemplate: any;
-      restaurantFeaturesEnabled: boolean | null;
-    }>,
+    dto: Record<string, unknown> &
+      Partial<{
+        name: string;
+        businessType: string;
+        contactEmail: string;
+        contactPhone: string | null;
+        businessCategory: string | null;
+        businessSubcategory: string | null;
+        primaryProducts: any;
+        secondaryProducts: any;
+        businessDescription: string | null;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        postalCode: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        foundedYear: number | null;
+        employeeCount: string | null;
+        annualRevenue: string | null;
+        businessHours: any;
+        website: string | null;
+        socialMedia: any;
+        kraEnabled: boolean | null;
+        kraPin: string | null;
+        vatNumber: string | null;
+        etimsQrUrl: string | null;
+        businessLicense: string | null;
+        taxId: string | null;
+        currency: string | null;
+        timezone: string | null;
+        invoiceFooter: string | null;
+        logoUrl: string | null;
+        favicon: string | null;
+        receiptLogo: string | null;
+        watermark: string | null;
+        primaryColor: string | null;
+        secondaryColor: string | null;
+        customDomain: string | null;
+        whiteLabel: boolean | null;
+        apiKey: string | null;
+        webhookUrl: string | null;
+        rateLimit: number | null;
+        stripeCustomerId: string | null;
+        pdfTemplate: any;
+        restaurantFeaturesEnabled: boolean | null;
+      }>,
   ) {
     // Get existing tenant
     const existingTenant = await this.prisma.tenant.findUnique({
@@ -242,7 +287,7 @@ export class TenantService {
     }
 
     // Update tenant
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     // Only include fields that are defined in the DTO and are valid tenant fields
     const validTenantFields = [
@@ -353,7 +398,7 @@ export class TenantService {
       );
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async () => {
       // 1. Create the tenant
       const tenant = await this.createTenant(tenantData);
 
@@ -432,7 +477,9 @@ export class TenantService {
 
   private readonly NOTIFICATION_PREFS_KEY = 'notificationPreferences';
 
-  async getNotificationPreferences(tenantId: string): Promise<Record<string, unknown> | null> {
+  async getNotificationPreferences(
+    tenantId: string,
+  ): Promise<Record<string, unknown> | null> {
     const raw = await this.tenantConfigurationService.getTenantConfiguration(
       tenantId,
       this.NOTIFICATION_PREFS_KEY,
@@ -465,7 +512,13 @@ export class TenantService {
   }
 
   async getIntegrationsList(tenantId: string): Promise<
-    { id: string; name: string; description: string; status: 'connected' | 'disconnected' | 'error'; lastSync?: string }[]
+    {
+      id: string;
+      name: string;
+      description: string;
+      status: 'connected' | 'disconnected' | 'error';
+      lastSync?: string;
+    }[]
   > {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -483,7 +536,8 @@ export class TenantService {
         id: 'stripe',
         name: 'Stripe',
         description: 'Payment processing and billing',
-        status: isStripeConfigured || stripeConfigured ? 'connected' : 'disconnected',
+        status:
+          isStripeConfigured || stripeConfigured ? 'connected' : 'disconnected',
       },
       {
         id: 'mpesa',

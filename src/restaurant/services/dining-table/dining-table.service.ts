@@ -38,7 +38,11 @@ export class DiningTableService {
     return table;
   }
 
-  async create(tenantId: string, branchId: string, data: { number: string; capacity?: number }) {
+  async create(
+    tenantId: string,
+    branchId: string,
+    data: { number: string; capacity?: number },
+  ) {
     return this.prisma.diningTable.create({
       data: {
         tenantId,
@@ -52,7 +56,7 @@ export class DiningTableService {
 
   async updateStatus(id: string, tenantId: string, status: string) {
     const table = await this.findOne(id, tenantId);
-    
+
     return this.prisma.diningTable.update({
       where: { id: table.id },
       data: { status },
@@ -66,7 +70,8 @@ export class DiningTableService {
   ) {
     const table = await this.findOne(id, tenantId);
 
-    const nextNumber = typeof data.number === 'string' ? data.number.trim() : undefined;
+    const nextNumber =
+      typeof data.number === 'string' ? data.number.trim() : undefined;
     const nextCapacity =
       typeof data.capacity === 'number' && Number.isFinite(data.capacity)
         ? Math.max(1, Math.trunc(data.capacity))

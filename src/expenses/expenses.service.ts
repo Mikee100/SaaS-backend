@@ -3,10 +3,51 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditLogService } from '../audit-log.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { v4 as uuidv4 } from 'uuid';
+
+type ExpenseMutationInput = {
+  amount?: number | string;
+  description?: string;
+  categoryId?: string;
+  category?: string;
+  expenseType?: string;
+  frequency?: string;
+  nextDueDate?: string | Date;
+  branchId?: string;
+  receiptUrl?: string;
+  notes?: string;
+  paymentMethod?: string;
+};
+
+type ExpenseListQuery = {
+  category?: string;
+  expenseType?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  page?: string;
+  limit?: string;
+};
+
+type ExpensePreview = {
+  id: string;
+  amount: number;
+  description: string;
+  category: string;
+  createdAt: Date;
+};
+
+type ExpenseSortableField =
+  | 'createdAt'
+  | 'amount'
+  | 'description'
+  | 'expenseType';
 
 @Injectable()
 export class ExpensesService {
@@ -16,18 +57,54 @@ export class ExpensesService {
     private ledgerService: LedgerService,
   ) {}
 
+  private getTrimmedString(value: unknown): string | undefined {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  private getPositiveNumber(value: unknown): number | undefined {
+    const numberValue = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numberValue) || numberValue <= 0) {
+      return undefined;
+    }
+    return numberValue;
+  }
+
+  private parseDate(value: unknown): Date | undefined {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+    if (typeof value !== 'string' || !value.trim()) {
+      return undefined;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  private parseSortField(value?: string): ExpenseSortableField | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const allowed: ExpenseSortableField[] = [
+      'createdAt',
+      'amount',
+      'description',
+      'expenseType',
+    ];
+    return allowed.includes(value as ExpenseSortableField)
+      ? (value as ExpenseSortableField)
+      : undefined;
+  }
+
   private async resolveCategoryId(
     tenantId: string,
-    dto: any,
+    dto: ExpenseMutationInput,
   ): Promise<string | null> {
-    const rawCategoryId =
-      typeof dto?.categoryId === 'string' && dto.categoryId.trim()
-        ? dto.categoryId.trim()
-        : null;
-    const rawCategory =
-      typeof dto?.category === 'string' && dto.category.trim()
-        ? dto.category.trim()
-        : null;
+    const rawCategoryId = this.getTrimmedString(dto.categoryId) || null;
+    const rawCategory = this.getTrimmedString(dto.category) || null;
 
     const candidate = rawCategoryId || rawCategory;
     if (!candidate) return null;
@@ -37,7 +114,10 @@ export class ExpensesService {
       where: {
         tenantId,
         isActive: true,
-        OR: [{ id: candidate }, { name: { equals: candidate, mode: 'insensitive' } }],
+        OR: [
+          { id: candidate },
+          { name: { equals: candidate, mode: 'insensitive' } },
+        ],
       },
       select: { id: true },
     });
@@ -45,25 +125,33 @@ export class ExpensesService {
     return category?.id || null;
   }
 
-  async createExpense(dto: any, tenantId: string, userId: string) {
+  async createExpense(
+    dto: ExpenseMutationInput,
+    tenantId: string,
+    userId: string,
+  ) {
+    const amount = this.getPositiveNumber(dto.amount);
+    const description = this.getTrimmedString(dto.description);
+
     // Validate required fields
-    if (!dto.amount || dto.amount <= 0) {
+    if (!amount) {
       throw new BadRequestException('Valid amount is required');
     }
-    if (!dto.description?.trim()) {
+    if (!description) {
       throw new BadRequestException('Description is required');
     }
 
     // Validate branch if provided
-    let validBranchId: string | null = dto.branchId || null;
-    if (dto.branchId) {
+    const dtoBranchId = this.getTrimmedString(dto.branchId);
+    let validBranchId: string | null = dtoBranchId || null;
+    if (dtoBranchId) {
       const branchExists = await this.prisma.branch.findUnique({
-        where: { id: dto.branchId },
+        where: { id: dtoBranchId },
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
         console.warn(
-          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, setting to null`,
+          `Invalid branchId ${dtoBranchId} for tenant ${tenantId}, setting to null`,
         );
         validBranchId = null;
       }
@@ -73,26 +161,31 @@ export class ExpensesService {
     const now = new Date();
     const categoryId = await this.resolveCategoryId(tenantId, dto);
 
+    const expenseType = this.getTrimmedString(dto.expenseType) || 'one_time';
+    const frequency =
+      expenseType === 'recurring'
+        ? (this.getTrimmedString(dto.frequency) ?? null)
+        : null;
+    const nextDueDate =
+      expenseType === 'recurring'
+        ? (this.parseDate(dto.nextDueDate) ?? null)
+        : null;
+
     // Create expense record
     const expense = await this.prisma.expense.create({
       data: {
         id: expenseId,
         tenantId,
         userId,
-        amount: dto.amount,
-        description: dto.description.trim(),
+        amount,
+        description,
         categoryId,
-        expenseType: dto.expenseType || 'one_time',
-        frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
-        nextDueDate:
-          dto.expenseType === 'recurring'
-            ? dto.nextDueDate
-              ? new Date(dto.nextDueDate)
-              : null
-            : null,
+        expenseType,
+        frequency,
+        nextDueDate,
         branchId: validBranchId,
-        receiptUrl: dto.receiptUrl,
-        notes: dto.notes?.trim(),
+        receiptUrl: this.getTrimmedString(dto.receiptUrl),
+        notes: this.getTrimmedString(dto.notes),
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -127,9 +220,9 @@ export class ExpensesService {
         'expense_created',
         {
           expenseId,
-          amount: dto.amount,
-          description: dto.description,
-          category: dto.category,
+          amount,
+          description,
+          category: this.getTrimmedString(dto.category),
         },
         undefined,
       );
@@ -140,8 +233,9 @@ export class ExpensesService {
         expenseId: expense.id,
         amount: expense.amount,
         description: expense.description,
-        categoryName: expense.category?.name || dto.category,
-        paymentMethod: dto.paymentMethod,
+        categoryName:
+          expense.category?.name || this.getTrimmedString(dto.category),
+        paymentMethod: this.getTrimmedString(dto.paymentMethod),
         date: expense.createdAt,
       });
     } catch (error) {
@@ -151,8 +245,12 @@ export class ExpensesService {
     return expense;
   }
 
-  async getExpenses(tenantId: string, branchId?: string, query?: any) {
-    const whereClause: any = { tenantId };
+  async getExpenses(
+    tenantId: string,
+    branchId?: string,
+    query?: ExpenseListQuery,
+  ) {
+    const whereClause: Prisma.ExpenseWhereInput = { tenantId };
 
     // Filter by branch if specified
     if (branchId && branchId !== 'all') {
@@ -160,37 +258,47 @@ export class ExpensesService {
     }
 
     // Filter by category if specified
-    if (query?.category) {
-      whereClause.categoryId = query.category;
+    const category = this.getTrimmedString(query?.category);
+    if (category) {
+      whereClause.categoryId = category;
     }
 
     // Filter by expense type if specified
-    if (query?.expenseType) {
-      whereClause.expenseType = query.expenseType;
+    const expenseType = this.getTrimmedString(query?.expenseType);
+    if (expenseType) {
+      whereClause.expenseType = expenseType;
     }
 
     // Search by description
-    if (query?.search) {
+    const search = this.getTrimmedString(query?.search);
+    if (search) {
       whereClause.description = {
-        contains: query.search,
+        contains: search,
         mode: 'insensitive',
       };
     }
 
     // Filter by date range if specified, otherwise default to current month
-    if (query?.startDate || query?.endDate) {
-      whereClause.createdAt = {};
-      if (query.startDate) {
-        whereClause.createdAt.gte = new Date(query.startDate);
-      }
-      if (query.endDate) {
-        whereClause.createdAt.lte = new Date(query.endDate);
-      }
+    const startDate = this.parseDate(query?.startDate);
+    const endDate = this.parseDate(query?.endDate);
+    if (startDate || endDate) {
+      whereClause.createdAt = {
+        ...(startDate ? { gte: startDate } : {}),
+        ...(endDate ? { lte: endDate } : {}),
+      };
     } else {
       // Default to current month if no date filters provided
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const endOfMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
       whereClause.createdAt = {
         gte: startOfMonth,
         lte: endOfMonth,
@@ -198,16 +306,18 @@ export class ExpensesService {
     }
 
     // Sorting
-    let orderBy: any = { createdAt: 'desc' };
-    if (query?.sortBy) {
-      const sortField = query.sortBy;
-      const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
-      orderBy = { [sortField]: sortOrder };
+    let orderBy: Prisma.ExpenseOrderByWithRelationInput = { createdAt: 'desc' };
+    const sortField = this.parseSortField(this.getTrimmedString(query?.sortBy));
+    if (sortField) {
+      const sortOrder = query?.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = {
+        [sortField]: sortOrder,
+      } as Prisma.ExpenseOrderByWithRelationInput;
     }
 
     // Pagination
-    const page = parseInt(query?.page) || 1;
-    const limit = parseInt(query?.limit) || 10;
+    const page = Number.parseInt(query?.page || '', 10) || 1;
+    const limit = Number.parseInt(query?.limit || '', 10) || 10;
     const skip = (page - 1) * limit;
 
     const [expenses, total] = await Promise.all([
@@ -273,7 +383,12 @@ export class ExpensesService {
     return expense;
   }
 
-  async updateExpense(id: string, dto: any, tenantId: string, branchId?: string) {
+  async updateExpense(
+    id: string,
+    dto: ExpenseMutationInput,
+    tenantId: string,
+    branchId?: string,
+  ) {
     // Check if expense exists and belongs to tenant
     const existingExpense = await this.prisma.expense.findFirst({
       where: {
@@ -288,15 +403,16 @@ export class ExpensesService {
     }
 
     // Validate branch if provided
-    let validBranchId: string | null = dto.branchId || existingExpense.branchId;
-    if (dto.branchId) {
+    const dtoBranchId = this.getTrimmedString(dto.branchId);
+    let validBranchId: string | null = dtoBranchId || existingExpense.branchId;
+    if (dtoBranchId) {
       const branchExists = await this.prisma.branch.findUnique({
-        where: { id: dto.branchId },
+        where: { id: dtoBranchId },
         select: { id: true, tenantId: true },
       });
       if (!branchExists || branchExists.tenantId !== tenantId) {
         console.warn(
-          `Invalid branchId ${dto.branchId} for tenant ${tenantId}, keeping existing`,
+          `Invalid branchId ${dtoBranchId} for tenant ${tenantId}, keeping existing`,
         );
         validBranchId = existingExpense.branchId;
       }
@@ -308,23 +424,31 @@ export class ExpensesService {
         ? resolvedCategoryId
         : existingExpense.categoryId;
 
+    const nextExpenseType = this.getTrimmedString(dto.expenseType);
+    const expenseType = nextExpenseType || existingExpense.expenseType;
+    const frequency =
+      expenseType === 'recurring'
+        ? (this.getTrimmedString(dto.frequency) ?? existingExpense.frequency)
+        : null;
+    const nextDueDate =
+      expenseType === 'recurring'
+        ? (this.parseDate(dto.nextDueDate) ?? existingExpense.nextDueDate)
+        : null;
+
     const updatedExpense = await this.prisma.expense.update({
       where: { id },
       data: {
-        amount: dto.amount,
-        description: dto.description?.trim(),
+        amount: this.getPositiveNumber(dto.amount) ?? existingExpense.amount,
+        description:
+          this.getTrimmedString(dto.description) ?? existingExpense.description,
         categoryId: nextCategoryId,
-        expenseType: dto.expenseType,
-        frequency: dto.expenseType === 'recurring' ? dto.frequency : null,
-        nextDueDate:
-          dto.expenseType === 'recurring'
-            ? dto.nextDueDate
-              ? new Date(dto.nextDueDate)
-              : null
-            : null,
+        expenseType,
+        frequency,
+        nextDueDate,
         branchId: validBranchId,
-        receiptUrl: dto.receiptUrl,
-        notes: dto.notes?.trim(),
+        receiptUrl:
+          this.getTrimmedString(dto.receiptUrl) ?? existingExpense.receiptUrl,
+        notes: this.getTrimmedString(dto.notes) ?? existingExpense.notes,
         updatedAt: new Date(),
       },
       include: {
@@ -362,18 +486,30 @@ export class ExpensesService {
 
     const now = new Date();
     await this.prisma.expense.update({
-      where: { id, tenantId, ...(branchId ? { branchId } : {}), deletedAt: null },
+      where: {
+        id,
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        deletedAt: null,
+      },
       data: { deletedAt: now, isActive: false },
     });
 
     try {
-      await this.ledgerService.reverseExpenseAutomation(tenantId, existingExpense.userId, {
-        expenseId: existingExpense.id,
-        reason: 'Expense deleted',
-        date: now,
-      });
+      await this.ledgerService.reverseExpenseAutomation(
+        tenantId,
+        existingExpense.userId,
+        {
+          expenseId: existingExpense.id,
+          reason: 'Expense deleted',
+          date: now,
+        },
+      );
     } catch (error) {
-      console.error('Failed to create reversal journal for deleted expense:', error);
+      console.error(
+        'Failed to create reversal journal for deleted expense:',
+        error,
+      );
     }
 
     return { success: true, message: 'Expense deleted successfully' };
@@ -514,13 +650,16 @@ export class ExpensesService {
     });
 
     // Group expenses by branch
-    const branchData: Record<string, {
-      branchName: string;
-      totalAmount: number;
-      expenseCount: number;
-      categories: Record<string, number>;
-      expenses: any[];
-    }> = {};
+    const branchData: Record<
+      string,
+      {
+        branchName: string;
+        totalAmount: number;
+        expenseCount: number;
+        categories: Record<string, number>;
+        expenses: ExpensePreview[];
+      }
+    > = {};
 
     expenses.forEach((expense) => {
       const branchId = expense.branchId || 'unassigned';
@@ -561,10 +700,22 @@ export class ExpensesService {
     };
   }
 
-  async resetMonthlyExpenses(tenantId: string, userId: string, branchId?: string) {
+  async resetMonthlyExpenses(
+    tenantId: string,
+    userId: string,
+    branchId?: string,
+  ) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     // Get all expenses for current month
     const monthlyExpenses = await this.prisma.expense.findMany({
@@ -580,11 +731,16 @@ export class ExpensesService {
     });
 
     if (monthlyExpenses.length === 0) {
-      throw new BadRequestException('No expenses found for current month to reset');
+      throw new BadRequestException(
+        'No expenses found for current month to reset',
+      );
     }
 
     // Calculate monthly summary
-    const totalAmount = monthlyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalAmount = monthlyExpenses.reduce(
+      (sum, exp) => sum + exp.amount,
+      0,
+    );
     const expenseCount = monthlyExpenses.length;
 
     // Create monthly archive record (assuming we have a MonthlyExpenseArchive table)
@@ -596,7 +752,7 @@ export class ExpensesService {
       totalAmount,
       expenseCount,
       archivedAt: now,
-      expenseIds: monthlyExpenses.map(exp => exp.id),
+      expenseIds: monthlyExpenses.map((exp) => exp.id),
     };
 
     // Note: This would require adding a MonthlyExpenseArchive table to the schema
@@ -638,7 +794,11 @@ export class ExpensesService {
     };
   }
 
-  async getPastMonthsRecords(tenantId: string, months: number = 12, branchId?: string) {
+  async getPastMonthsRecords(
+    tenantId: string,
+    months: number = 12,
+    branchId?: string,
+  ) {
     const now = new Date();
     const records: Array<{
       month: string;
@@ -647,13 +807,25 @@ export class ExpensesService {
       expenseCount: number;
       categories: Record<string, number>;
       branches: Record<string, number>;
-      expenses: any[];
+      expenses: ExpensePreview[];
     }> = [];
 
     for (let i = 0; i < months; i++) {
       const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-      const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      const startOfMonth = new Date(
+        targetDate.getFullYear(),
+        targetDate.getMonth(),
+        1,
+      );
+      const endOfMonth = new Date(
+        targetDate.getFullYear(),
+        targetDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
 
       const expenses = await this.prisma.expense.findMany({
         where: {
@@ -686,21 +858,24 @@ export class ExpensesService {
 
       // Group by category
       const categories: Record<string, number> = {};
-      expenses.forEach(exp => {
+      expenses.forEach((exp) => {
         const category = exp.category?.name || 'Uncategorized';
         categories[category] = (categories[category] || 0) + exp.amount;
       });
 
       // Group by branch
       const branches: Record<string, number> = {};
-      expenses.forEach(exp => {
+      expenses.forEach((exp) => {
         const branch = exp.branch?.name || 'Unassigned Branch';
         branches[branch] = (branches[branch] || 0) + exp.amount;
       });
 
       records.push({
         month: startOfMonth.toISOString().slice(0, 7), // YYYY-MM
-        monthName: startOfMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+        monthName: startOfMonth.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+        }),
         totalAmount,
         expenseCount,
         categories,
@@ -721,7 +896,9 @@ export class ExpensesService {
     year: number,
     branchId?: string,
   ) {
-    console.log(`getExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
+    console.log(
+      `getExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`,
+    );
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
@@ -740,9 +917,15 @@ export class ExpensesService {
     console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
 
     // Calculate total expense amount
-    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalAmount = expenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0,
+    );
 
-    const monthName = startOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const monthName = startOfMonth.toLocaleString('default', {
+      month: 'long',
+      year: 'numeric',
+    });
     console.log(`Final total for ${monthName}: ${totalAmount}`);
 
     return {
@@ -758,7 +941,9 @@ export class ExpensesService {
     year: number,
     branchId?: string,
   ) {
-    console.log(`fetchExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`);
+    console.log(
+      `fetchExpenseTotalForMonth called with tenantId: ${tenantId}, month: ${month}, year: ${year}`,
+    );
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
@@ -777,9 +962,15 @@ export class ExpensesService {
     console.log(`Found ${expenses.length} expenses for ${month}/${year}`);
 
     // Calculate total expense amount
-    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalAmount = expenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0,
+    );
 
-    const monthName = startOfMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const monthName = startOfMonth.toLocaleString('default', {
+      month: 'long',
+      year: 'numeric',
+    });
     console.log(`Final total for ${monthName}: ${totalAmount}`);
 
     return {
@@ -797,11 +988,17 @@ export class ExpensesService {
     return this.getExpenseTotalForMonth(tenantId, month, year, branchId);
   }
 
-  async getExpensesByMonth(tenantId: string, month: number, year: number, branchId?: string, query?: any) {
+  async getExpensesByMonth(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+    query?: ExpenseListQuery,
+  ) {
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-    const whereClause: any = {
+    const whereClause: Prisma.ExpenseWhereInput = {
       tenantId,
       createdAt: {
         gte: startOfMonth,
@@ -816,34 +1013,39 @@ export class ExpensesService {
     }
 
     // Filter by category if specified
-    if (query?.category) {
-      whereClause.categoryId = query.category;
+    const category = this.getTrimmedString(query?.category);
+    if (category) {
+      whereClause.categoryId = category;
     }
 
     // Filter by expense type if specified
-    if (query?.expenseType) {
-      whereClause.expenseType = query.expenseType;
+    const expenseType = this.getTrimmedString(query?.expenseType);
+    if (expenseType) {
+      whereClause.expenseType = expenseType;
     }
 
     // Search by description
-    if (query?.search) {
+    const search = this.getTrimmedString(query?.search);
+    if (search) {
       whereClause.description = {
-        contains: query.search,
+        contains: search,
         mode: 'insensitive',
       };
     }
 
     // Sorting
-    let orderBy: any = { createdAt: 'desc' };
-    if (query?.sortBy) {
-      const sortField = query.sortBy;
-      const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
-      orderBy = { [sortField]: sortOrder };
+    let orderBy: Prisma.ExpenseOrderByWithRelationInput = { createdAt: 'desc' };
+    const sortField = this.parseSortField(this.getTrimmedString(query?.sortBy));
+    if (sortField) {
+      const sortOrder = query?.sortOrder === 'asc' ? 'asc' : 'desc';
+      orderBy = {
+        [sortField]: sortOrder,
+      } as Prisma.ExpenseOrderByWithRelationInput;
     }
 
     // Pagination
-    const page = parseInt(query?.page) || 1;
-    const limit = parseInt(query?.limit) || 10;
+    const page = Number.parseInt(query?.page || '', 10) || 1;
+    const limit = Number.parseInt(query?.limit || '', 10) || 10;
     const skip = (page - 1) * limit;
 
     const [expenses, total] = await Promise.all([

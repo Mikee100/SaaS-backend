@@ -3,9 +3,14 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { SubscriptionService } from '../billing/subscription.service';
 import { restoreBranch as doRestoreBranch } from '../prisma/soft-delete-restore';
+
+type BranchCreateData = Prisma.BranchUncheckedCreateInput & {
+  tenant?: unknown;
+};
 
 @Injectable()
 export class BranchService {
@@ -14,25 +19,24 @@ export class BranchService {
     private subscriptionService: SubscriptionService,
   ) {}
 
-  async createBranch(data: any) {
+  async createBranch(data: BranchCreateData) {
     // Only use tenantId for linking branch to tenant
-    const branchData = { ...data };
+    const branchData: BranchCreateData = { ...data };
     // Remove any accidental tenant object
-    if ('tenant' in branchData) delete branchData.tenant;
-    if (!branchData.tenantId)
-      throw new Error('tenantId is required to create a branch');
+    if ('tenant' in branchData) {
+      delete branchData.tenant;
+    }
+    const tenantId = branchData.tenantId;
+    if (!tenantId) throw new Error('tenantId is required to create a branch');
 
     // Skip plan limits check for new tenant registration (trial setup)
     // Check plan limits for branches only if not during initial tenant creation
     try {
-      const canAddBranch = await this.subscriptionService.canAddBranch(
-        branchData.tenantId,
-      );
+      const canAddBranch =
+        await this.subscriptionService.canAddBranch(tenantId);
       if (!canAddBranch) {
         const subscription =
-          await this.subscriptionService.getCurrentSubscription(
-            branchData.tenantId,
-          );
+          await this.subscriptionService.getCurrentSubscription(tenantId);
         const maxBranches = subscription.plan?.maxBranches || 0;
         throw new ForbiddenException(
           `Branch limit exceeded. Your plan allows up to ${maxBranches} branches. Please upgrade your plan to add more branches.`,
@@ -56,15 +60,18 @@ export class BranchService {
     }
 
     // If this is the first branch for the tenant, make it the main branch
-    const existingBranches = await this.prisma.branch.findMany({
+    const existingBranches = (await this.prisma.branch.findMany({
       where: { tenantId: branchData.tenantId },
-    });
+      select: { id: true },
+    })) as Array<{ id: string }>;
 
     if (existingBranches.length === 0) {
       branchData.isMainBranch = true;
     }
 
-    return this.prisma.branch.create({ data: branchData });
+    return this.prisma.branch.create({
+      data: branchData as Prisma.BranchUncheckedCreateInput,
+    });
   }
 
   async getAllBranches() {
@@ -79,10 +86,13 @@ export class BranchService {
     return this.prisma.branch.findUnique({ where: { id } });
   }
 
-  async updateBranch(id: string, data: any) {
+  async updateBranch(id: string, data: Prisma.BranchUncheckedUpdateInput) {
     // If updating to make this branch the main branch, unset isMainBranch for others
     if (data.isMainBranch === true) {
-      const branch = await this.prisma.branch.findUnique({ where: { id } });
+      const branch = (await this.prisma.branch.findUnique({
+        where: { id },
+        select: { tenantId: true },
+      })) as { tenantId: string } | null;
       if (branch) {
         await this.prisma.branch.updateMany({
           where: {
@@ -98,19 +108,23 @@ export class BranchService {
   }
 
   async deleteBranch(id: string) {
-    const branch = await this.prisma.branch.findUnique({ where: { id } });
+    const branch = (await this.prisma.branch.findUnique({
+      where: { id },
+      select: { tenantId: true, isMainBranch: true },
+    })) as { tenantId: string; isMainBranch: boolean } | null;
     if (!branch) {
       throw new Error('Branch not found');
     }
 
     // If deleting the main branch, make another branch the main branch
     if (branch.isMainBranch) {
-      const otherBranches = await this.prisma.branch.findMany({
+      const otherBranches = (await this.prisma.branch.findMany({
         where: {
           tenantId: branch.tenantId,
           id: { not: id },
         },
-      });
+        select: { id: true },
+      })) as Array<{ id: string }>;
 
       if (otherBranches.length > 0) {
         // Make the first other branch the main branch
@@ -150,10 +164,10 @@ export class BranchService {
 
   async updateUserBranch(userId: string, branchId: string) {
     // Verify the user exists and get their tenant
-    const user = await this.prisma.user.findUnique({
+    const user = (await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { tenant: true },
-    });
+      select: { tenantId: true },
+    })) as { tenantId: string | null } | null;
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -164,12 +178,13 @@ export class BranchService {
     }
 
     // Verify the branch exists and belongs to the same tenant
-    const branch = await this.prisma.branch.findFirst({
+    const branch = (await this.prisma.branch.findFirst({
       where: {
         id: branchId,
         tenantId: user.tenantId,
       },
-    });
+      select: { id: true },
+    })) as { id: string } | null;
 
     if (!branch) {
       throw new NotFoundException('Branch not found or not accessible');

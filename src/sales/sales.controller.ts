@@ -22,6 +22,31 @@ import {
   InternalServerErrorException,
   ForbiddenException,
 } from '@nestjs/common';
+import { AuthenticatedRequest, AuthenticatedUser } from '../auth/request.types';
+
+type SalesRequest = AuthenticatedRequest;
+
+interface SalesQuery {
+  customerName?: string;
+  customerPhone?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+const getActorUserId = (user: AuthenticatedUser): string | undefined =>
+  user.userId ?? user.sub;
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'Unknown error';
+
+const getErrorStack = (error: unknown): string | undefined =>
+  error instanceof Error ? error.stack : undefined;
+
+const getErrorName = (error: unknown): string =>
+  error instanceof Error ? error.name : 'UnknownError';
+
+const queryString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @RequireModules('sales')
@@ -29,20 +54,25 @@ import {
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
-  private getNormalizedRoleNames(user: any): string[] {
-    if (!Array.isArray(user?.roles)) return [];
+  private getNormalizedRoleNames(user: AuthenticatedUser): string[] {
+    if (!Array.isArray(user.roles)) return [];
     return user.roles
-      .map((role: any) =>
-        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
+      .map((role) =>
+        typeof role === 'string'
+          ? role.toLowerCase()
+          : String(role).toLowerCase(),
       )
-      .filter(Boolean);
+      .filter((role): role is string => role.length > 0);
   }
 
-  private resolveSalesBranchScope(req: any): string | undefined {
-    const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
-    const requestedBranchId = req?.headers?.['x-branch-id'] as string | undefined;
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+  private resolveSalesBranchScope(req: SalesRequest): string | undefined {
+    const roles = this.getNormalizedRoleNames(req.user);
+    const assignedBranchId = req.user.branchId;
+    const headerBranchId = req.headers['x-branch-id'];
+    const requestedBranchId =
+      typeof headerBranchId === 'string' ? headerBranchId : undefined;
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -62,7 +92,7 @@ export class SalesController {
   }
 
   @Get('test')
-  async test() {
+  test() {
     console.log('Test endpoint called');
     return { message: 'Sales controller is working' };
   }
@@ -73,8 +103,8 @@ export class SalesController {
     try {
       const sale = await this.salesService.getSaleById(id, 'test-tenant-id');
       return { message: 'Sale found', sale };
-    } catch (error) {
-      return { message: 'Sale not found', error: error.message };
+    } catch (error: unknown) {
+      return { message: 'Sale not found', error: getErrorMessage(error) };
     }
   }
 
@@ -89,14 +119,17 @@ export class SalesController {
         salesCount: sales.length,
         sales: sales.slice(0, 5), // Return first 5 sales
       };
-    } catch (error) {
-      return { message: 'Database error', error: error.message };
+    } catch (error: unknown) {
+      return { message: 'Database error', error: getErrorMessage(error) };
     }
   }
 
   @Get('analytics')
   @Permissions('view_reports')
-  async getAnalytics(@Req() req) {
+  async getAnalytics(@Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     return this.salesService.getAnalytics(req.user.tenantId);
   }
 
@@ -106,13 +139,13 @@ export class SalesController {
   async getReceipt(
     @Param('id') id: string,
     @Query('type') type: string,
-    @Req() req,
+    @Req() req: SalesRequest,
   ) {
     const requestId = Math.random().toString(36).substring(2, 9);
     const logContext = {
       requestId,
       saleId: id,
-      userId: req.user?.id,
+      userId: getActorUserId(req.user),
       tenantId: req.user?.tenantId,
     };
 
@@ -126,13 +159,13 @@ export class SalesController {
 
       const effectiveBranchId = this.resolveSalesBranchScope(req);
       const receiptType = type === 'merchant' ? 'merchant' : 'customer';
-      return await this.salesService.getReceipt(
+      return (await this.salesService.getReceipt(
         id,
         req.user.tenantId,
         effectiveBranchId,
         receiptType,
-      );
-    } catch (error) {
+      )) as unknown;
+    } catch (error: unknown) {
       if (
         error instanceof BadRequestException ||
         error instanceof UnauthorizedException ||
@@ -140,7 +173,10 @@ export class SalesController {
       ) {
         throw error;
       }
-      console.error('Error generating receipt', { ...logContext, error: error.message });
+      console.error('Error generating receipt', {
+        ...logContext,
+        error: getErrorMessage(error),
+      });
       throw new InternalServerErrorException('Failed to generate receipt');
     }
   }
@@ -148,11 +184,11 @@ export class SalesController {
   @Get('recent')
   @UseGuards(AuthGuard('jwt'), PermissionsGuard)
   @Permissions('view_sales')
-  async getRecentSales(@Req() req) {
+  async getRecentSales(@Req() req: SalesRequest) {
     const requestId = Math.random().toString(36).substring(2, 9);
     const logContext = {
       requestId,
-      userId: req.user?.id,
+      userId: getActorUserId(req.user),
       tenantId: req.user?.tenantId,
     };
 
@@ -178,12 +214,12 @@ export class SalesController {
       });
 
       return recentSales;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching recent sales:', {
         ...logContext,
-        error: error.message,
-        stack: error.stack,
-        errorName: error.name,
+        error: getErrorMessage(error),
+        stack: getErrorStack(error),
+        errorName: getErrorName(error),
       });
 
       // Return an empty array instead of throwing to prevent frontend errors
@@ -196,7 +232,11 @@ export class SalesController {
   // NOTE: Using `any` for the body here to bypass strict DTO validation,
   // because the POS client may send fields that don't match `CreateSaleDto` exactly.
   // The `SalesService.createSale` method still performs its own business validation.
-  async create(@Body() createSaleDto: any, @Req() req) {
+  async create(
+    @Body()
+    createSaleDto: CreateSaleDto & { mpesaTransactionId?: string },
+    @Req() req: SalesRequest,
+  ) {
     if (!req.user) {
       throw new UnauthorizedException('User not authenticated');
     }
@@ -207,6 +247,11 @@ export class SalesController {
 
     // Add branch ID from the request body or from the user's default branch
     const branchId = createSaleDto.branchId || req.user.branchId;
+    const actorUserId = getActorUserId(req.user);
+
+    if (!actorUserId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
 
     const saleData = {
       ...createSaleDto,
@@ -217,7 +262,7 @@ export class SalesController {
       const sale = await this.salesService.createSale(
         saleData,
         req.user.tenantId,
-        req.user.userId,
+        actorUserId,
       );
 
       return {
@@ -225,7 +270,7 @@ export class SalesController {
         data: sale,
         message: 'Sale created successfully',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating sale:', error);
       // Log the full error details for debugging
       if (error instanceof Error) {
@@ -233,15 +278,15 @@ export class SalesController {
         console.error('Error stack:', error.stack);
       }
       // Re-throw known exceptions as-is
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ForbiddenException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       // For unknown errors, include the actual error message
-      throw new InternalServerErrorException(
-        error instanceof Error ? error.message : 'Failed to create sale'
-      );
+      throw new InternalServerErrorException(getErrorMessage(error));
     }
   }
 
@@ -251,15 +296,23 @@ export class SalesController {
     @Param('id') id: string,
     @Body()
     body: {
-      items: { productId: string; quantity: number; unitPrice: number; variationId?: string; isResalable?: boolean }[];
+      items: {
+        productId: string;
+        quantity: number;
+        unitPrice: number;
+        variationId?: string;
+        isResalable?: boolean;
+      }[];
       reason?: string;
       refundMethod?: string;
     },
-    @Req() req,
+    @Req() req: SalesRequest,
   ) {
-    if (!req.user) {
+    const actorUserId = getActorUserId(req.user);
+    if (!actorUserId) {
       throw new UnauthorizedException('User not authenticated');
     }
+
     if (!req.user.tenantId) {
       throw new BadRequestException('Tenant ID is required');
     }
@@ -272,7 +325,7 @@ export class SalesController {
       const result = await this.salesService.createReturn(
         id,
         req.user.tenantId,
-        req.user.userId,
+        actorUserId,
         body.items,
         body.reason,
         body.refundMethod,
@@ -282,7 +335,7 @@ export class SalesController {
         data: result,
         message: 'Return created successfully',
       };
-    } catch (error) {
+    } catch (error: unknown) {
       if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException ||
@@ -297,23 +350,36 @@ export class SalesController {
 
   @Get()
   @Permissions('view_sales')
-  async listSales(@Req() req) {
+  async listSales(@Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     const effectiveBranchId = this.resolveSalesBranchScope(req);
     return this.salesService.listSales(req.user.tenantId, effectiveBranchId);
   }
 
   @Get(':id')
   @Permissions('view_sales')
-  async getSaleById(@Param('id') id: string, @Req() req) {
+  async getSaleById(@Param('id') id: string, @Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     const effectiveBranchId = this.resolveSalesBranchScope(req);
-    return this.salesService.getSaleById(id, req.user?.tenantId, effectiveBranchId);
+    return this.salesService.getSaleById(
+      id,
+      req.user?.tenantId,
+      effectiveBranchId,
+    );
   }
 
   // Credit management endpoints
   @Get('credits/all')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCredits(@Req() req) {
+  async getCredits(@Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     const effectiveBranchId = this.resolveSalesBranchScope(req);
     return this.salesService.getCredits(req.user.tenantId, effectiveBranchId);
   }
@@ -321,9 +387,16 @@ export class SalesController {
   @Get('credits/:id')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCreditById(@Param('id') id: string, @Req() req) {
+  async getCreditById(@Param('id') id: string, @Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     const effectiveBranchId = this.resolveSalesBranchScope(req);
-    return this.salesService.getCreditById(id, req.user.tenantId, effectiveBranchId);
+    return this.salesService.getCreditById(
+      id,
+      req.user.tenantId,
+      effectiveBranchId,
+    );
   }
 
   @Post('credits/:id/payment')
@@ -332,9 +405,12 @@ export class SalesController {
   async makeCreditPayment(
     @Param('id') creditId: string,
     @Body() body: { amount: number; paymentMethod: string; notes?: string },
-    @Req() req,
+    @Req() req: SalesRequest,
   ) {
-    const userId = req.user?.userId || req.user?.sub;
+    const userId = getActorUserId(req.user);
+    if (!req.user.tenantId || !userId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     return this.salesService.makeCreditPayment(
       creditId,
       body.amount,
@@ -348,8 +424,12 @@ export class SalesController {
   @Get('credits/score')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCreditScore(@Req() req) {
-    const { customerName, customerPhone } = req.query;
+  async getCreditScore(@Req() req: SalesRequest & { query: SalesQuery }) {
+    const customerName = queryString(req.query.customerName);
+    const customerPhone = queryString(req.query.customerPhone);
+    if (!req.user.tenantId || !customerName) {
+      throw new BadRequestException('Tenant and customerName are required');
+    }
     console.log('getCreditScore called with:', {
       customerName,
       customerPhone,
@@ -359,13 +439,13 @@ export class SalesController {
       const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.calculateCustomerCreditScore(
         req.user.tenantId,
-        customerName as string,
-        customerPhone as string,
+        customerName,
+        customerPhone,
         effectiveBranchId,
       );
       console.log('getCreditScore result:', result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('getCreditScore error:', error);
       throw error;
     }
@@ -381,8 +461,11 @@ export class SalesController {
       customerPhone?: string;
       requestedAmount: number;
     },
-    @Req() req,
+    @Req() req: SalesRequest,
   ) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     console.log('checkCreditEligibility called with:', {
       body,
       tenantId: req.user.tenantId,
@@ -398,7 +481,7 @@ export class SalesController {
       );
       console.log('checkCreditEligibility result:', result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('checkCreditEligibility error:', error);
       throw error;
     }
@@ -407,8 +490,12 @@ export class SalesController {
   @Get('credits/analytics')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCreditAnalytics(@Req() req) {
-    const { startDate, endDate } = req.query;
+  async getCreditAnalytics(@Req() req: SalesRequest & { query: SalesQuery }) {
+    const startDate = queryString(req.query.startDate);
+    const endDate = queryString(req.query.endDate);
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     console.log('getCreditAnalytics called with:', {
       tenantId: req.user.tenantId,
       startDate,
@@ -418,13 +505,13 @@ export class SalesController {
       const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.getCreditAnalytics(
         req.user.tenantId,
-        startDate ? new Date(startDate as string) : undefined,
-        endDate ? new Date(endDate as string) : undefined,
+        startDate ? new Date(startDate) : undefined,
+        endDate ? new Date(endDate) : undefined,
         effectiveBranchId,
       );
       console.log('getCreditAnalytics result:', result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('getCreditAnalytics error:', error);
       throw error;
     }
@@ -433,8 +520,14 @@ export class SalesController {
   @Get('credits/customer-history')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCustomerCreditHistory(@Req() req) {
-    const { customerName, customerPhone } = req.query;
+  async getCustomerCreditHistory(
+    @Req() req: SalesRequest & { query: SalesQuery },
+  ) {
+    const customerName = queryString(req.query.customerName);
+    const customerPhone = queryString(req.query.customerPhone);
+    if (!req.user.tenantId || !customerName) {
+      throw new BadRequestException('Tenant and customerName are required');
+    }
     console.log('getCustomerCreditHistory called with:', {
       tenantId: req.user.tenantId,
       customerName,
@@ -444,13 +537,13 @@ export class SalesController {
       const effectiveBranchId = this.resolveSalesBranchScope(req);
       const result = await this.salesService.getCustomerCreditHistory(
         req.user.tenantId,
-        customerName as string,
-        customerPhone as string,
+        customerName,
+        customerPhone,
         effectiveBranchId,
       );
       console.log('getCustomerCreditHistory result:', result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('getCustomerCreditHistory error:', error);
       throw error;
     }
@@ -459,7 +552,10 @@ export class SalesController {
   @Get('credits/aging')
   @RequireModules('credits')
   @Permissions('view_sales')
-  async getCreditAgingAnalysis(@Req() req) {
+  async getCreditAgingAnalysis(@Req() req: SalesRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Invalid user context');
+    }
     console.log('getCreditAgingAnalysis called with:', {
       tenantId: req.user.tenantId,
     });
@@ -471,7 +567,7 @@ export class SalesController {
       );
       console.log('getCreditAgingAnalysis result:', result);
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('getCreditAgingAnalysis error:', error);
       throw error;
     }

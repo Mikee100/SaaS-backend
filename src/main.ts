@@ -1,23 +1,28 @@
-require('dotenv').config();
+import 'dotenv/config';
 
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { pathToFileURL } from 'url';
 import compression from 'compression';
 // Swagger documentation will be added when @nestjs/swagger is installed
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, type Request } from 'express';
 import cookieParser from 'cookie-parser';
 import { ApiLoggingMiddleware } from './middleware/api-logging.middleware';
 import { AuditLogService } from './audit-log.service';
 import { ValidationExceptionFilter } from './common/filters/validation-exception.filter';
 
 type SeedPermissionsFn = () => Promise<void>;
+type SeedPermissionsModule = { seedPermissions?: SeedPermissionsFn };
+type RawBodyRequest = Request & { rawBody?: Buffer };
 
-function loadSeedPermissions(logger: Logger): SeedPermissionsFn | null {
+async function loadSeedPermissions(
+  logger: Logger,
+): Promise<SeedPermissionsFn | null> {
   const candidates = [
     join(__dirname, 'scripts', 'seed-permissions.js'),
     join(__dirname, '..', 'scripts', 'seed-permissions.js'),
@@ -27,12 +32,17 @@ function loadSeedPermissions(logger: Logger): SeedPermissionsFn | null {
     if (!existsSync(candidate)) continue;
 
     try {
-      const mod = require(candidate) as { seedPermissions?: SeedPermissionsFn };
+      const mod = (await import(
+        pathToFileURL(candidate).href
+      )) as SeedPermissionsModule;
       if (typeof mod.seedPermissions === 'function') {
         return mod.seedPermissions;
       }
     } catch (error) {
-      logger.warn(`Failed to load permission seed script at ${candidate}`, error);
+      logger.warn(
+        `Failed to load permission seed script at ${candidate}`,
+        error,
+      );
     }
   }
 
@@ -168,7 +178,7 @@ async function bootstrap() {
 
     if (shouldSeedPermissionsOnStartup) {
       try {
-        const seedPermissions = loadSeedPermissions(logger);
+        const seedPermissions = await loadSeedPermissions(logger);
         if (!seedPermissions) {
           logger.warn(
             'SEED_PERMISSIONS_ON_STARTUP=true but seed-permissions script was not found in runtime paths.',
@@ -187,22 +197,23 @@ async function bootstrap() {
     }
 
     const port = configService.get<number>('PORT', 5100);
-    const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     // isProduction is already defined above
 
     // Enable gzip compression for all responses
-    app.use(compression({
-      level: 6, // Good balance between compression and speed
-      threshold: 1024, // Only compress responses larger than 1KB
-      filter: (req, res) => {
-        // Don't compress responses with this request header
-        if (req.headers['x-no-compression']) {
-          return false;
-        }
-        // Use compression filter function
-        return compression.filter(req, res);
-      },
-    }));
+    app.use(
+      compression({
+        level: 6, // Good balance between compression and speed
+        threshold: 1024, // Only compress responses larger than 1KB
+        filter: (req, res) => {
+          // Don't compress responses with this request header
+          if (req.headers['x-no-compression']) {
+            return false;
+          }
+          // Use compression filter function
+          return compression.filter(req, res);
+        },
+      }),
+    );
 
     // Cookie parser (required for enterprise auth: access_token / refresh_token cookies)
     app.use(cookieParser());
@@ -212,7 +223,7 @@ async function bootstrap() {
     app.use(
       json({
         limit: '10mb',
-        verify: (req: any, _res, buf) => {
+        verify: (req: RawBodyRequest, _res, buf) => {
           if (req.originalUrl?.includes('/billing/webhook')) {
             req.rawBody = buf;
           }
@@ -223,7 +234,7 @@ async function bootstrap() {
       urlencoded({
         extended: true,
         limit: '10mb',
-        verify: (req: any, _res, buf) => {
+        verify: (req: RawBodyRequest, _res, buf) => {
           if (req.originalUrl?.includes('/billing/webhook')) {
             req.rawBody = buf;
           }
@@ -294,10 +305,10 @@ async function bootstrap() {
       try {
         const dbName = new URL(dbUrl).pathname.replace(/^\/+/, '');
         logger.log(`📦 Connected to database: ${dbName}`);
-      } catch (error: any) {
-        logger.warn(
-          `⚠️ Could not parse DATABASE_URL: ${error?.message || 'Unknown error'}`,
-        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        logger.warn(`⚠️ Could not parse DATABASE_URL: ${errorMessage}`);
         logger.log(`📦 Database URL: ${dbUrl.substring(0, 20)}...`); // Log first 20 chars for debugging
       }
     }

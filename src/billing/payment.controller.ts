@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Get,
@@ -12,20 +13,35 @@ import { PaymentService } from './payment.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { AuthenticatedRequest } from '../auth/request.types';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @Controller('payments')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return req.user.tenantId;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return 'An unexpected error occurred';
+  }
+
   /**
    * Get payment methods
    */
   @Get('methods')
-  async getPaymentMethods(@Req() req) {
+  async getPaymentMethods(@Req() req: AuthenticatedRequest) {
     try {
       const methods = await this.paymentService.getPaymentMethods(
-        req.user.tenantId,
+        this.getTenantId(req),
       );
 
       return {
@@ -35,7 +51,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -51,13 +67,13 @@ export class PaymentController {
       amount: number;
       currency: string;
       description: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     },
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       const result = await this.paymentService.processOneTimePayment(
-        req.user.tenantId,
+        this.getTenantId(req),
         body.amount,
         body.currency,
         body.description,
@@ -74,7 +90,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -86,7 +102,6 @@ export class PaymentController {
   @Permissions('edit_billing')
   async confirmPayment(
     @Body() body: { paymentId: string; paymentIntentId: string },
-    @Req() req,
   ) {
     try {
       const result = await this.paymentService.confirmPayment(
@@ -101,7 +116,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -118,7 +133,6 @@ export class PaymentController {
       amount: number;
       currency?: string;
     },
-    @Req() req,
   ) {
     try {
       const invoice = await this.paymentService.generateInvoice(
@@ -134,7 +148,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -146,11 +160,11 @@ export class PaymentController {
   @Permissions('view_billing')
   async getPaymentAnalytics(
     @Query('period') period: 'month' | 'quarter' | 'year' = 'month',
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       const analytics = await this.paymentService.getPaymentAnalytics(
-        req.user.tenantId,
+        this.getTenantId(req),
         period,
       );
 
@@ -161,7 +175,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -174,11 +188,11 @@ export class PaymentController {
   async getPaymentHistory(
     @Query('limit') limit: number = 50,
     @Query('offset') offset: number = 0,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       const history = await this.paymentService.getPaymentHistory(
-        req.user.tenantId,
+        this.getTenantId(req),
         limit,
         offset,
       );
@@ -190,7 +204,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -207,7 +221,6 @@ export class PaymentController {
       amount?: number;
       reason?: string;
     },
-    @Req() req,
   ) {
     try {
       const result = await this.paymentService.refundPayment(
@@ -223,7 +236,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -235,11 +248,11 @@ export class PaymentController {
   @Permissions('edit_billing')
   async addPaymentMethod(
     @Body() body: { paymentMethodId: string },
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       await this.paymentService.addPaymentMethod(
-        req.user.tenantId,
+        this.getTenantId(req),
         body.paymentMethodId,
       );
 
@@ -249,7 +262,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -261,11 +274,11 @@ export class PaymentController {
   @Permissions('edit_billing')
   async removePaymentMethod(
     @Body() body: { paymentMethodId: string },
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       await this.paymentService.removePaymentMethod(
-        req.user.tenantId,
+        this.getTenantId(req),
         body.paymentMethodId,
       );
 
@@ -275,7 +288,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }
@@ -285,7 +298,7 @@ export class PaymentController {
    */
   @Get('status/:paymentId')
   @Permissions('view_billing')
-  async getPaymentStatus(@Param('paymentId') paymentId: string, @Req() req) {
+  getPaymentStatus(@Param('paymentId') paymentId: string) {
     try {
       // This would typically check the payment status in your database
       // For now, we'll return a basic structure
@@ -297,7 +310,7 @@ export class PaymentController {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: this.getErrorMessage(error),
       };
     }
   }

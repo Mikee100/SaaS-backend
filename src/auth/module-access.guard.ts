@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Response } from 'express';
 import { PrismaService } from '../prisma.service';
 import {
   AppModuleKey,
@@ -22,6 +23,7 @@ import {
   normalizeCrmUsage,
 } from './crm-entitlements.constants';
 import { CRM_CAPABILITY_ACCESS_KEY } from './crm-capability-access.decorator';
+import { AuthenticatedRequest } from './request.types';
 
 @Injectable()
 export class ModuleAccessGuard implements CanActivate {
@@ -37,20 +39,41 @@ export class ModuleAccessGuard implements CanActivate {
       return [];
     }
 
-    const routeModuleMap: Array<{ prefixes: string[]; module: AppModuleKey }> = [
-      { prefixes: ['/hr', '/salary-schemes', '/payroll'], module: 'payroll' },
-      { prefixes: ['/sales/credits', '/credit'], module: 'credits' },
-      { prefixes: ['/sales'], module: 'sales' },
-      { prefixes: ['/product', '/products', '/inventory', '/supplier', '/suppliers'], module: 'inventory' },
-      { prefixes: ['/crm', '/contacts', '/deals', '/pipeline', '/tasks', '/proposals', '/contracts'], module: 'crm' },
-      { prefixes: ['/expenses'], module: 'expenses' },
-      { prefixes: ['/analytics'], module: 'analytics' },
-      { prefixes: ['/reports', '/api/reports'], module: 'reports' },
-      { prefixes: ['/ledger', '/accounts'], module: 'accounts' },
-      { prefixes: ['/ai'], module: 'ai' },
-      { prefixes: ['/tenant/configurations'], module: 'settings' },
-      { prefixes: ['/billing', '/subscription'], module: 'billing' },
-    ];
+    const routeModuleMap: Array<{ prefixes: string[]; module: AppModuleKey }> =
+      [
+        { prefixes: ['/hr', '/salary-schemes', '/payroll'], module: 'payroll' },
+        { prefixes: ['/sales/credits', '/credit'], module: 'credits' },
+        { prefixes: ['/sales'], module: 'sales' },
+        {
+          prefixes: [
+            '/product',
+            '/products',
+            '/inventory',
+            '/supplier',
+            '/suppliers',
+          ],
+          module: 'inventory',
+        },
+        {
+          prefixes: [
+            '/crm',
+            '/contacts',
+            '/deals',
+            '/pipeline',
+            '/tasks',
+            '/proposals',
+            '/contracts',
+          ],
+          module: 'crm',
+        },
+        { prefixes: ['/expenses'], module: 'expenses' },
+        { prefixes: ['/analytics'], module: 'analytics' },
+        { prefixes: ['/reports', '/api/reports'], module: 'reports' },
+        { prefixes: ['/ledger', '/accounts'], module: 'accounts' },
+        { prefixes: ['/ai'], module: 'ai' },
+        { prefixes: ['/tenant/configurations'], module: 'settings' },
+        { prefixes: ['/billing', '/subscription'], module: 'billing' },
+      ];
 
     const matched = routeModuleMap.find((entry) =>
       entry.prefixes.some((prefix) => normalizedPath.startsWith(prefix)),
@@ -59,24 +82,63 @@ export class ModuleAccessGuard implements CanActivate {
     return matched ? [matched.module] : [];
   }
 
-  private inferRequiredCrmCapabilitiesFromPath(path: string): CrmCapabilityKey[] {
+  private inferRequiredCrmCapabilitiesFromPath(
+    path: string,
+  ): CrmCapabilityKey[] {
     const normalizedPath = String(path || '').toLowerCase();
 
-    const mapping: Array<{ prefixes: string[]; capability: CrmCapabilityKey }> = [
-      { prefixes: ['/crm/pipeline', '/pipeline', '/deals'], capability: 'crm.pipeline' },
-      { prefixes: ['/crm/tasks', '/tasks'], capability: 'crm.tasks' },
-      { prefixes: ['/crm/documents', '/documents'], capability: 'crm.documents' },
-      { prefixes: ['/crm/calendar', '/calendar'], capability: 'crm.calendar_integration' },
-      { prefixes: ['/crm/scheduler', '/scheduler', '/meetings'], capability: 'crm.meeting_scheduler' },
-      { prefixes: ['/crm/email', '/email'], capability: 'crm.email_integration' },
-      { prefixes: ['/crm/reports', '/crm/analytics'], capability: 'crm.reporting' },
-      { prefixes: ['/crm/automation', '/automation'], capability: 'crm.workflow_automation' },
-      { prefixes: ['/crm/lead-scoring', '/lead-scoring'], capability: 'crm.lead_scoring' },
-      { prefixes: ['/crm/telephony', '/telephony'], capability: 'crm.telephony' },
-      { prefixes: ['/crm/proposals', '/proposals'], capability: 'crm.proposal_management' },
-      { prefixes: ['/crm/contracts', '/contracts'], capability: 'crm.contract_management' },
-      { prefixes: ['/crm/integrations', '/integrations/crm'], capability: 'crm.third_party_integrations' },
-    ];
+    const mapping: Array<{ prefixes: string[]; capability: CrmCapabilityKey }> =
+      [
+        {
+          prefixes: ['/crm/pipeline', '/pipeline', '/deals'],
+          capability: 'crm.pipeline',
+        },
+        { prefixes: ['/crm/tasks', '/tasks'], capability: 'crm.tasks' },
+        {
+          prefixes: ['/crm/documents', '/documents'],
+          capability: 'crm.documents',
+        },
+        {
+          prefixes: ['/crm/calendar', '/calendar'],
+          capability: 'crm.calendar_integration',
+        },
+        {
+          prefixes: ['/crm/scheduler', '/scheduler', '/meetings'],
+          capability: 'crm.meeting_scheduler',
+        },
+        {
+          prefixes: ['/crm/email', '/email'],
+          capability: 'crm.email_integration',
+        },
+        {
+          prefixes: ['/crm/reports', '/crm/analytics'],
+          capability: 'crm.reporting',
+        },
+        {
+          prefixes: ['/crm/automation', '/automation'],
+          capability: 'crm.workflow_automation',
+        },
+        {
+          prefixes: ['/crm/lead-scoring', '/lead-scoring'],
+          capability: 'crm.lead_scoring',
+        },
+        {
+          prefixes: ['/crm/telephony', '/telephony'],
+          capability: 'crm.telephony',
+        },
+        {
+          prefixes: ['/crm/proposals', '/proposals'],
+          capability: 'crm.proposal_management',
+        },
+        {
+          prefixes: ['/crm/contracts', '/contracts'],
+          capability: 'crm.contract_management',
+        },
+        {
+          prefixes: ['/crm/integrations', '/integrations/crm'],
+          capability: 'crm.third_party_integrations',
+        },
+      ];
 
     const matched = mapping.find((entry) =>
       entry.prefixes.some((prefix) => normalizedPath.startsWith(prefix)),
@@ -85,12 +147,16 @@ export class ModuleAccessGuard implements CanActivate {
     return matched ? [matched.capability] : [];
   }
 
-  private inferCrmProviderFromPath(path: string): { group: 'integrations'; provider: string } | null {
+  private inferCrmProviderFromPath(
+    path: string,
+  ): { group: 'integrations'; provider: string } | null {
     const normalizedPath = String(path || '').toLowerCase();
 
     const integrationsPrefix = '/crm/integrations/';
     if (normalizedPath.startsWith(integrationsPrefix)) {
-      const provider = normalizedPath.slice(integrationsPrefix.length).split('/')[0];
+      const provider = normalizedPath
+        .slice(integrationsPrefix.length)
+        .split('/')[0];
       if (provider) {
         return { group: 'integrations', provider };
       }
@@ -99,7 +165,10 @@ export class ModuleAccessGuard implements CanActivate {
     return null;
   }
 
-  private inferCrmLimitFromRequest(path: string, method: string): CrmLimitKey | null {
+  private inferCrmLimitFromRequest(
+    path: string,
+    method: string,
+  ): CrmLimitKey | null {
     const normalizedPath = String(path || '').toLowerCase();
     const normalizedMethod = String(method || '').toUpperCase();
 
@@ -109,8 +178,10 @@ export class ModuleAccessGuard implements CanActivate {
 
     if (normalizedPath.startsWith('/crm/pipeline')) return 'pipelines';
     if (normalizedPath.startsWith('/crm/automation')) return 'automationRules';
-    if (normalizedPath.startsWith('/crm/integrations')) return 'integrationConnections';
-    if (normalizedPath.startsWith('/crm/telephony/calls')) return 'telephonyMinutesMonthly';
+    if (normalizedPath.startsWith('/crm/integrations'))
+      return 'integrationConnections';
+    if (normalizedPath.startsWith('/crm/telephony/calls'))
+      return 'telephonyMinutesMonthly';
     if (normalizedPath.startsWith('/crm/proposals')) return 'proposalsMonthly';
     if (normalizedPath.startsWith('/crm/contracts')) return 'contractsMonthly';
 
@@ -118,26 +189,29 @@ export class ModuleAccessGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const metadataModules = this.reflector.getAllAndOverride<string[]>(
+    const metadataModules = this.reflector.getAllAndOverride<AppModuleKey[]>(
       MODULE_ACCESS_KEY,
       [context.getHandler(), context.getClass()],
     );
-    const metadataCrmCapabilities = this.reflector.getAllAndOverride<string[]>(
-      CRM_CAPABILITY_ACCESS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const metadataCrmCapabilities = this.reflector.getAllAndOverride<
+      CrmCapabilityKey[]
+    >(CRM_CAPABILITY_ACCESS_KEY, [context.getHandler(), context.getClass()]);
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
     const requiredModules =
       metadataModules && metadataModules.length > 0
         ? metadataModules
-        : this.inferRequiredModulesFromPath(request?.path || request?.url || '');
+        : this.inferRequiredModulesFromPath(
+            request?.path || request?.url || '',
+          );
 
     const requiredCrmCapabilities =
       metadataCrmCapabilities && metadataCrmCapabilities.length > 0
         ? metadataCrmCapabilities
-        : this.inferRequiredCrmCapabilitiesFromPath(request?.path || request?.url || '');
+        : this.inferRequiredCrmCapabilitiesFromPath(
+            request?.path || request?.url || '',
+          );
     const inferredCrmProvider = this.inferCrmProviderFromPath(
       request?.path || request?.url || '',
     );
@@ -155,12 +229,7 @@ export class ModuleAccessGuard implements CanActivate {
       return true;
     }
 
-    const user = request?.user as
-      | {
-          tenantId?: string;
-          isSuperadmin?: boolean;
-        }
-      | undefined;
+    const user = request.user;
 
     if (!user?.tenantId) {
       return true;
@@ -189,7 +258,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     const enabled = normalizeEnabledModules(parsed);
     const missing = requiredModules.filter(
-      (module) => !enabled.includes(module as any),
+      (module) => !enabled.includes(module),
     );
 
     if (missing.length > 0) {
@@ -218,7 +287,8 @@ export class ModuleAccessGuard implements CanActivate {
 
       const crmEntitlements = normalizeCrmEntitlements(parsedCrm);
       const missingCrmCapabilities = requiredCrmCapabilities.filter(
-        (capability) => !crmEntitlements.enabledCapabilities.includes(capability as CrmCapabilityKey),
+        (capability) =>
+          !crmEntitlements.enabledCapabilities.includes(capability),
       );
 
       if (missingCrmCapabilities.length > 0) {
@@ -228,7 +298,8 @@ export class ModuleAccessGuard implements CanActivate {
       }
 
       if (inferredCrmProvider) {
-        const providers = crmEntitlements.allowedProviders[inferredCrmProvider.group] || [];
+        const providers =
+          crmEntitlements.allowedProviders[inferredCrmProvider.group] || [];
         if (!providers.includes(inferredCrmProvider.provider)) {
           throw new ForbiddenException(
             `CRM provider disabled for this tenant: ${inferredCrmProvider.provider}`,
@@ -249,17 +320,23 @@ export class ModuleAccessGuard implements CanActivate {
 
         let parsedUsage: unknown;
         try {
-          parsedUsage = usageConfig?.value ? JSON.parse(usageConfig.value) : undefined;
+          parsedUsage = usageConfig?.value
+            ? JSON.parse(usageConfig.value)
+            : undefined;
         } catch {
           parsedUsage = undefined;
         }
 
         const usage = normalizeCrmUsage(parsedUsage);
-        const limitState = evaluateCrmLimit(crmEntitlements.limits, usage, inferredCrmLimit);
+        const limitState = evaluateCrmLimit(
+          crmEntitlements.limits,
+          usage,
+          inferredCrmLimit,
+        );
 
         if (limitState.warning) {
-          const response = context.switchToHttp().getResponse();
-          response?.setHeader?.(
+          const response = context.switchToHttp().getResponse<Response>();
+          response.setHeader(
             'x-crm-limit-warning',
             `${limitState.key}:${limitState.usage}/${limitState.limit ?? 'unlimited'}`,
           );

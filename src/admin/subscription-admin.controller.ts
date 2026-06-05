@@ -43,7 +43,8 @@ export class SubscriptionAdminController {
   async getAllSubscriptions() {
     try {
       this.logger.log('Getting all subscriptions');
-      const subscriptions = await this.subscriptionAdminService.getAllSubscriptions();
+      const subscriptions =
+        await this.subscriptionAdminService.getAllSubscriptions();
       this.logger.log(`Returning ${subscriptions.length} subscriptions`);
       return subscriptions;
     } catch (error) {
@@ -67,7 +68,9 @@ export class SubscriptionAdminController {
 
   @Patch('operations/tenants/:tenantId/reactivate')
   async reactivateTenantBillingAccess(@Param('tenantId') tenantId: string) {
-    return this.subscriptionAdminService.reactivateTenantBillingAccess(tenantId);
+    return this.subscriptionAdminService.reactivateTenantBillingAccess(
+      tenantId,
+    );
   }
 
   @Patch('operations/tenants/:tenantId/suspend')
@@ -104,7 +107,11 @@ export class SubscriptionAdminController {
     @Body('planId') planId?: string,
   ) {
     const normalizedMonths = Number(months ?? 1);
-    if (!Number.isFinite(normalizedMonths) || normalizedMonths < 1 || normalizedMonths > 24) {
+    if (
+      !Number.isFinite(normalizedMonths) ||
+      normalizedMonths < 1 ||
+      normalizedMonths > 24
+    ) {
       throw new BadRequestException('months must be between 1 and 24');
     }
 
@@ -123,14 +130,23 @@ export class SubscriptionAdminController {
     @Query('days') days?: string,
     @Query('months') months?: string,
   ) {
-    if (!action || !['grace', 'renew', 'suspend', 'reactivate'].includes(action)) {
-      throw new BadRequestException('action is required and must be grace, renew, suspend, or reactivate');
+    if (
+      !action ||
+      !['grace', 'renew', 'suspend', 'reactivate'].includes(action)
+    ) {
+      throw new BadRequestException(
+        'action is required and must be grace, renew, suspend, or reactivate',
+      );
     }
 
-    return this.subscriptionAdminService.getBillingActionPreview(tenantId, action, {
-      days: days ? Number(days) : undefined,
-      months: months ? Number(months) : undefined,
-    });
+    return this.subscriptionAdminService.getBillingActionPreview(
+      tenantId,
+      action,
+      {
+        days: days ? Number(days) : undefined,
+        months: months ? Number(months) : undefined,
+      },
+    );
   }
 
   @Get('operations/tenants/:tenantId/manual-payments')
@@ -180,17 +196,31 @@ export class SubscriptionAdminController {
       'reference',
       'issue',
       'createdAt',
-    ];
+    ] as const;
+
+    type ReconciliationHeader = (typeof headers)[number];
 
     const escape = (value: unknown) => {
-      const raw = value == null ? '' : String(value);
+      const raw =
+        typeof value === 'string'
+          ? value
+          : typeof value === 'number' ||
+              typeof value === 'boolean' ||
+              typeof value === 'bigint'
+            ? `${value}`
+            : value instanceof Date
+              ? value.toISOString()
+              : '';
       const escaped = raw.replace(/"/g, '""');
       return `"${escaped}"`;
     };
 
     const body = [
       headers.join(','),
-      ...rows.map((row) => headers.map((h) => escape((row as any)[h])).join(',')),
+      ...rows.map((row) => {
+        const rowRecord = row as Partial<Record<ReconciliationHeader, unknown>>;
+        return headers.map((h) => escape(rowRecord[h])).join(',');
+      }),
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -295,9 +325,7 @@ export class SubscriptionAdminController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  async uploadManualPaymentReceipt(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  uploadManualPaymentReceipt(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
@@ -326,7 +354,9 @@ export class SubscriptionAdminController {
 
   @Get('operations/tenants/:tenantId/timeline')
   async getTenantSubscriptionTimeline(@Param('tenantId') tenantId: string) {
-    return this.subscriptionAdminService.getTenantSubscriptionTimeline(tenantId);
+    return this.subscriptionAdminService.getTenantSubscriptionTimeline(
+      tenantId,
+    );
   }
 
   @Get('tenant/:tenantId/usage')

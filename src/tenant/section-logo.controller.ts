@@ -21,20 +21,22 @@ import {
   SectionLogo,
   SectionLogoConfig,
 } from './section-logo.service';
-import { Request } from 'express';
 import { TrialGuard } from '../auth/trial.guard';
+import { AuthenticatedRequest } from '../auth/request.types';
 
-// Define the user type that will be attached to the request
-interface UserPayload {
-  id: string;
-  tenantId: string;
-  // Add other user properties as needed
+interface UploadLogoBody {
+  width?: string;
+  height?: string;
+  altText?: string;
 }
 
-// Extend the Express Request type to include our user
-interface RequestWithUser extends Request {
-  user: UserPayload;
-}
+const toOptionalInt = (value: unknown): number | undefined => {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 @Controller('api/tenant/section-logos')
 @UseGuards(AuthGuard('jwt'), TrialGuard)
@@ -42,17 +44,23 @@ export class SectionLogoController {
   constructor(private readonly sectionLogoService: SectionLogoService) {}
 
   @Get()
-  async getAllSectionLogos(@Req() req: RequestWithUser) {
+  async getAllSectionLogos(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
     return this.sectionLogoService.getAllSectionLogos(tenantId);
   }
 
   @Get(':section')
   async getSectionLogo(
-    @Req() req: RequestWithUser,
+    @Req() req: AuthenticatedRequest,
     @Param('section') section: string,
-  ): Promise<any> {
+  ): Promise<{ sectionLogos: Record<string, SectionLogo> }> {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
     let logo = await this.sectionLogoService.getSectionLogo(tenantId, section);
     if (!logo || !logo.url) {
       logo = {
@@ -70,9 +78,11 @@ export class SectionLogoController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads/section-logos',
-        filename: (req: RequestWithUser, file, cb) => {
+        filename: (req, file, cb) => {
           const ext = path.extname(file.originalname);
-          const name = `${req.user.tenantId}_${req.params.section}${ext}`;
+          const request = req as AuthenticatedRequest;
+          const tenantId = request.user.tenantId || 'unknown-tenant';
+          const name = `${tenantId}_${request.params.section}${ext}`;
           cb(null, name);
         },
       }),
@@ -98,10 +108,10 @@ export class SectionLogoController {
     }),
   )
   async uploadSectionLogo(
-    @Req() req: RequestWithUser,
+    @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
     @Param('section') section: string,
-    @Body() body: any,
+    @Body() body: UploadLogoBody,
   ) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
@@ -109,12 +119,15 @@ export class SectionLogoController {
 
     const logoUrl = `/uploads/section-logos/${file.filename}`;
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
 
     // Update the section logo configuration
     const config: Partial<SectionLogo> = {
       url: logoUrl,
-      width: body.width ? parseInt(body.width, 10) : undefined,
-      height: body.height ? parseInt(body.height, 10) : undefined,
+      width: toOptionalInt(body.width),
+      height: toOptionalInt(body.height),
       altText: body.altText,
     };
 
@@ -123,11 +136,14 @@ export class SectionLogoController {
 
   @Put(':section')
   async updateSectionLogoConfig(
-    @Req() req: RequestWithUser,
+    @Req() req: AuthenticatedRequest,
     @Param('section') section: string,
     @Body() config: Partial<SectionLogoConfig>,
   ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
     return this.sectionLogoService.updateSectionLogoConfig(
       tenantId,
       section,
@@ -137,10 +153,13 @@ export class SectionLogoController {
 
   @Delete(':section')
   async removeSectionLogo(
-    @Req() req: RequestWithUser,
+    @Req() req: AuthenticatedRequest,
     @Param('section') section: string,
   ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
     const success = await this.sectionLogoService.removeSectionLogo(
       tenantId,
       section,
@@ -149,8 +168,11 @@ export class SectionLogoController {
   }
 
   @Get('config/validation')
-  async validateSectionLogoConfig(@Req() req: RequestWithUser) {
+  async validateSectionLogoConfig(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant is required');
+    }
     return this.sectionLogoService.validateSectionLogoConfig(tenantId);
   }
 }

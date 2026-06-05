@@ -9,6 +9,11 @@ import { SalesModule } from '../sales/sales.module';
 @Module({
   imports: [SalesModule],
   controllers: [RestaurantController],
-  providers: [RestaurantService, DiningTableService, RestaurantOrderService, RestaurantBomService]
+  providers: [
+    RestaurantService,
+    DiningTableService,
+    RestaurantOrderService,
+    RestaurantBomService,
+  ],
 })
 export class RestaurantModule {}

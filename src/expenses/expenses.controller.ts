@@ -17,10 +17,10 @@ import { Permissions } from '../auth/permissions.decorator';
 import { RequireModules } from '../auth/module-access.decorator';
 import {
   BadRequestException,
-  NotFoundException,
   InternalServerErrorException,
   ForbiddenException,
 } from '@nestjs/common';
+import { AuthenticatedRequest, AuthenticatedUser } from '../auth/request.types';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @RequireModules('expenses')
@@ -28,29 +28,54 @@ import {
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
-  private getNormalizedRoleNames(user: any): string[] {
-    const roles: any[] = [];
-
-    if (Array.isArray(user?.roles)) {
-      roles.push(...user.roles);
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
     }
-
-    if (user?.role) {
-      roles.push(user.role);
-    }
-
-    return roles
-      .map((role: any) =>
-        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
-      )
-      .filter(Boolean);
+    return req.user.tenantId;
   }
 
-  private resolveBranchScope(req: any): string | undefined {
-    const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
-    const requestedBranchId = req?.headers?.['x-branch-id'] as string | undefined;
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+  private getUserId(req: AuthenticatedRequest): string {
+    if (!req.user?.userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    return req.user.userId;
+  }
+
+  private getNormalizedRoleNames(
+    user: AuthenticatedUser | undefined,
+  ): string[] {
+    const roles: string[] = [];
+
+    if (Array.isArray(user?.roles)) {
+      for (const role of user.roles) {
+        if (typeof role === 'string' && role.trim()) {
+          roles.push(role.toLowerCase());
+        }
+      }
+    }
+
+    if (typeof user?.role === 'string' && user.role.trim()) {
+      roles.push(user.role.toLowerCase());
+    }
+
+    return roles;
+  }
+
+  private getHeaderBranchId(req: AuthenticatedRequest): string | undefined {
+    const headerValue = req.headers['x-branch-id'];
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    return undefined;
+  }
+
+  private resolveBranchScope(req: AuthenticatedRequest): string | undefined {
+    const roles = this.getNormalizedRoleNames(req.user);
+    const assignedBranchId = req.user?.branchId;
+    const requestedBranchId = this.getHeaderBranchId(req);
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -70,21 +95,23 @@ export class ExpensesController {
 
   @Post()
   @Permissions('manage_expenses')
-  async createExpense(@Body() createExpenseDto: any, @Req() req) {
-    if (!req.user?.tenantId) {
-      throw new BadRequestException('Tenant ID is required');
-    }
-
+  async createExpense(
+    @Body() createExpenseDto: Record<string, unknown>,
+    @Req() req: AuthenticatedRequest,
+  ) {
     try {
+      const tenantId = this.getTenantId(req);
+      const userId = this.getUserId(req);
       const effectiveBranchId = this.resolveBranchScope(req);
-      if (effectiveBranchId) {
-        createExpenseDto.branchId = effectiveBranchId;
-      }
+      const payload =
+        effectiveBranchId !== undefined
+          ? { ...createExpenseDto, branchId: effectiveBranchId }
+          : createExpenseDto;
 
       const expense = await this.expensesService.createExpense(
-        createExpenseDto,
-        req.user.tenantId,
-        req.user.userId,
+        payload,
+        tenantId,
+        userId,
       );
       return {
         success: true,
@@ -99,9 +126,17 @@ export class ExpensesController {
 
   @Get()
   @Permissions('view_expenses')
-  async getExpenses(@Req() req, @Query() query: any) {
+  async getExpenses(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getExpenses(req.user.tenantId, effectiveBranchId, query);
+    const tenantId = this.getTenantId(req);
+    const result = await this.expensesService.getExpenses(
+      tenantId,
+      effectiveBranchId,
+      query,
+    );
     return {
       success: true,
       data: result.expenses,
@@ -116,45 +151,63 @@ export class ExpensesController {
 
   @Get(':id')
   @Permissions('view_expenses')
-  async getExpenseById(@Param('id') id: string, @Req() req) {
+  async getExpenseById(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.getExpenseById(id, req.user.tenantId, effectiveBranchId);
+    return this.expensesService.getExpenseById(
+      id,
+      this.getTenantId(req),
+      effectiveBranchId,
+    );
   }
 
   @Put(':id')
   @Permissions('manage_expenses')
   async updateExpense(
     @Param('id') id: string,
-    @Body() updateExpenseDto: any,
-    @Req() req,
+    @Body() updateExpenseDto: Record<string, unknown>,
+    @Req() req: AuthenticatedRequest,
   ) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    if (effectiveBranchId) {
-      updateExpenseDto.branchId = effectiveBranchId;
-    }
+    const payload =
+      effectiveBranchId !== undefined
+        ? { ...updateExpenseDto, branchId: effectiveBranchId }
+        : updateExpenseDto;
 
     return this.expensesService.updateExpense(
       id,
-      updateExpenseDto,
-      req.user.tenantId,
+      payload,
+      this.getTenantId(req),
       effectiveBranchId,
     );
   }
 
   @Delete(':id')
   @Permissions('manage_expenses')
-  async deleteExpense(@Param('id') id: string, @Req() req) {
+  async deleteExpense(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.deleteExpense(id, req.user.tenantId, effectiveBranchId);
+    return this.expensesService.deleteExpense(
+      id,
+      this.getTenantId(req),
+      effectiveBranchId,
+    );
   }
 
   @Get('analytics/summary')
   @Permissions('view_expenses')
-  async getExpenseAnalytics(@Req() req, @Query() query: any) {
+  async getExpenseAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { startDate?: string; endDate?: string },
+  ) {
     const { startDate, endDate } = query;
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.expensesService.getExpenseAnalytics(
-      req.user.tenantId,
+      this.getTenantId(req),
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
       effectiveBranchId,
@@ -163,17 +216,20 @@ export class ExpensesController {
 
   @Get('categories/list')
   @Permissions('view_expenses')
-  async getExpenseCategories(@Req() req) {
-    return this.expensesService.getExpenseCategories(req.user.tenantId);
+  async getExpenseCategories(@Req() req: AuthenticatedRequest) {
+    return this.expensesService.getExpenseCategories(this.getTenantId(req));
   }
 
   @Get('comparison/branches')
   @Permissions('view_expenses')
-  async getBranchComparison(@Req() req, @Query() query: any) {
+  async getBranchComparison(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { startDate?: string; endDate?: string },
+  ) {
     const { startDate, endDate } = query;
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.expensesService.getBranchComparison(
-      req.user.tenantId,
+      this.getTenantId(req),
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
       effectiveBranchId,
@@ -182,24 +238,39 @@ export class ExpensesController {
 
   @Post('reset-monthly')
   @Permissions('manage_expenses')
-  async resetMonthlyExpenses(@Req() req) {
+  async resetMonthlyExpenses(@Req() req: AuthenticatedRequest) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.resetMonthlyExpenses(req.user.tenantId, req.user.userId, effectiveBranchId);
+    return this.expensesService.resetMonthlyExpenses(
+      this.getTenantId(req),
+      this.getUserId(req),
+      effectiveBranchId,
+    );
   }
 
   @Get('past-months')
   @Permissions('view_expenses')
-  async getPastMonthsRecords(@Req() req, @Query() query: any) {
-    const { months = 12 } = query;
+  async getPastMonthsRecords(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { months?: string },
+  ) {
+    const monthsRaw = query.months ?? '12';
+    const months = Number.parseInt(monthsRaw, 10);
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.getPastMonthsRecords(req.user.tenantId, parseInt(months), effectiveBranchId);
+    return this.expensesService.getPastMonthsRecords(
+      this.getTenantId(req),
+      Number.isFinite(months) ? months : 12,
+      effectiveBranchId,
+    );
   }
 
   @Get('current-month-total')
   @Permissions('view_expenses')
-  async getCurrentMonthExpenseTotal(@Req() req) {
+  async getCurrentMonthExpenseTotal(@Req() req: AuthenticatedRequest) {
     const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getCurrentMonthExpenseTotal(req.user.tenantId, effectiveBranchId);
+    const result = await this.expensesService.getCurrentMonthExpenseTotal(
+      this.getTenantId(req),
+      effectiveBranchId,
+    );
     return {
       success: true,
       data: result,
@@ -208,12 +279,32 @@ export class ExpensesController {
 
   @Get('total-expense')
   @Permissions('view_expenses')
-  async getExpenseTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
-    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+  async getExpenseTotalForMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
+    const parsedMonth = Number(month);
+    const parsedYear = Number(year);
+    if (
+      !parsedMonth ||
+      !parsedYear ||
+      parsedMonth < 1 ||
+      parsedMonth > 12 ||
+      parsedYear < 1900 ||
+      parsedYear > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
     }
     const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getExpenseTotalForMonth(req.user.tenantId, month, year, effectiveBranchId);
+    const result = await this.expensesService.getExpenseTotalForMonth(
+      this.getTenantId(req),
+      parsedMonth,
+      parsedYear,
+      effectiveBranchId,
+    );
     return {
       success: true,
       data: result,
@@ -222,13 +313,32 @@ export class ExpensesController {
 
   @Get('by-month')
   @Permissions('view_expenses')
-  async getExpensesByMonth(@Req() req, @Query() query: any) {
-    const { month, year } = query;
-    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+  async getExpensesByMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const month = typeof query.month === 'string' ? Number(query.month) : NaN;
+    const year = typeof query.year === 'string' ? Number(query.year) : NaN;
+    if (
+      !month ||
+      !year ||
+      month < 1 ||
+      month > 12 ||
+      year < 1900 ||
+      year > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
     }
     const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getExpensesByMonth(req.user.tenantId, parseInt(month), parseInt(year), effectiveBranchId, query);
+    const result = await this.expensesService.getExpensesByMonth(
+      this.getTenantId(req),
+      month,
+      year,
+      effectiveBranchId,
+      query,
+    );
     return {
       success: true,
       data: result.expenses,

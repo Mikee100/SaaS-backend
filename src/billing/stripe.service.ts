@@ -66,7 +66,9 @@ export class StripeService {
     return `stripe_webhook_event:${eventId}`;
   }
 
-  private async acquireWebhookEventLock(event: Stripe.Event): Promise<string | null> {
+  private async acquireWebhookEventLock(
+    event: Stripe.Event,
+  ): Promise<string | null> {
     const key = this.getWebhookEventKey(event.id);
 
     try {
@@ -85,7 +87,12 @@ export class StripeService {
 
       return key;
     } catch (error) {
-      if ((error as any)?.code === 'P2002') {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002'
+      ) {
         return null;
       }
 
@@ -124,7 +131,28 @@ export class StripeService {
     return (amountMinor || 0) / 100;
   }
 
-  private async resolvePlanIdByPriceId(priceId: string): Promise<string | null> {
+  private getExpandableId(value: unknown): string | null {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (value && typeof value === 'object') {
+      const candidate = value as { id?: unknown };
+      if (typeof candidate.id === 'string') {
+        return candidate.id;
+      }
+    }
+
+    return null;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
+  private async resolvePlanIdByPriceId(
+    priceId: string,
+  ): Promise<string | null> {
     if (!priceId) return null;
 
     const plan = await this.prisma.plan.findFirst({
@@ -197,19 +225,28 @@ export class StripeService {
       return null;
     }
 
+    const subscriptionWithPeriods = subscription as Stripe.Subscription & {
+      current_period_start?: number;
+      start_date?: number;
+      current_period_end?: number;
+      trial_end?: number;
+    };
+
     const rawCurrentPeriodStart = Number(
-      (subscription as any).current_period_start ??
-        (subscription as any).start_date ??
+      subscriptionWithPeriods.current_period_start ??
+        subscriptionWithPeriods.start_date ??
         0,
     );
     const rawCurrentPeriodEnd = Number(
-      (subscription as any).current_period_end ??
-        (subscription as any).trial_end ??
+      subscriptionWithPeriods.current_period_end ??
+        subscriptionWithPeriods.trial_end ??
         0,
     );
 
-    const hasValidStart = Number.isFinite(rawCurrentPeriodStart) && rawCurrentPeriodStart > 0;
-    const hasValidEnd = Number.isFinite(rawCurrentPeriodEnd) && rawCurrentPeriodEnd > 0;
+    const hasValidStart =
+      Number.isFinite(rawCurrentPeriodStart) && rawCurrentPeriodStart > 0;
+    const hasValidEnd =
+      Number.isFinite(rawCurrentPeriodEnd) && rawCurrentPeriodEnd > 0;
 
     const fallbackStart = new Date();
     const fallbackEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -344,9 +381,7 @@ export class StripeService {
   ): Promise<Stripe.Checkout.Session> {
     const stripe = await this.getStripeForTenant(tenantId);
     if (!stripe) {
-      throw new BadRequestException(
-        'Stripe is not configured for this tenant',
-      );
+      throw new BadRequestException('Stripe is not configured for this tenant');
     }
 
     // Get the tenant's subscription to determine if this is an upgrade/downgrade
@@ -367,7 +402,7 @@ export class StripeService {
         }
       } catch (error) {
         this.logger.error(
-          `Failed to retrieve customer: ${(error as any).message}`,
+          `Failed to retrieve customer: ${this.getErrorMessage(error)}`,
         );
       }
     }
@@ -462,9 +497,14 @@ export class StripeService {
         invoiceId = latestInvoice.id;
         if (latestInvoice.status === 'paid') {
           await this.handlePaymentSucceeded(latestInvoice, userId);
-        } else if (latestInvoice.status === 'open' || latestInvoice.status === 'draft') {
+        } else if (
+          latestInvoice.status === 'open' ||
+          latestInvoice.status === 'draft'
+        ) {
           const amountMajor = this.toMajorAmount(
-            latestInvoice.amount_due || latestInvoice.amount_paid || latestInvoice.total,
+            latestInvoice.amount_due ||
+              latestInvoice.amount_paid ||
+              latestInvoice.total,
           );
           const localSubscription = stripeSubscription.id
             ? await this.prisma.subscription.findUnique({
@@ -500,7 +540,10 @@ export class StripeService {
               updatedAt: new Date(),
             },
           });
-        } else if (latestInvoice.status === 'uncollectible' || latestInvoice.status === 'void') {
+        } else if (
+          latestInvoice.status === 'uncollectible' ||
+          latestInvoice.status === 'void'
+        ) {
           await this.handlePaymentFailed(latestInvoice, userId);
         }
       }
@@ -510,9 +553,10 @@ export class StripeService {
       synced: Boolean(subscriptionId || invoiceId),
       subscriptionId,
       invoiceId,
-      message: subscriptionId || invoiceId
-        ? 'Checkout session synced successfully'
-        : 'Checkout session found but no subscription/invoice records were synced',
+      message:
+        subscriptionId || invoiceId
+          ? 'Checkout session synced successfully'
+          : 'Checkout session found but no subscription/invoice records were synced',
     };
   }
 
@@ -547,8 +591,8 @@ export class StripeService {
       } catch {
         const customerList = await stripe.customers.list({ limit: 100 });
         stripeCustomerId =
-          customerList.data.find((c) => c.metadata?.tenantId === tenantId)?.id ||
-          null;
+          customerList.data.find((c) => c.metadata?.tenantId === tenantId)
+            ?.id || null;
       }
 
       if (stripeCustomerId) {
@@ -586,7 +630,10 @@ export class StripeService {
     let syncedPayments = 0;
 
     for (const subscription of subscriptions.data) {
-      const synced = await this.syncSubscriptionFromStripe(subscription, userId);
+      const synced = await this.syncSubscriptionFromStripe(
+        subscription,
+        userId,
+      );
       if (synced) {
         syncedSubscriptions += 1;
       }
@@ -594,9 +641,7 @@ export class StripeService {
 
     for (const invoice of invoices.data) {
       const stripeSubscriptionId =
-        typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        this.getExpandableId(invoice.subscription) ?? undefined;
 
       const localSubscription = stripeSubscriptionId
         ? await this.prisma.subscription.findUnique({
@@ -650,10 +695,7 @@ export class StripeService {
       syncedInvoices += 1;
 
       if (invoice.status === 'paid') {
-        const paymentIntentId =
-          typeof invoice.payment_intent === 'string'
-            ? invoice.payment_intent
-            : invoice.payment_intent?.id || null;
+        const paymentIntentId = this.getExpandableId(invoice.payment_intent);
 
         await this.prisma.payment.upsert({
           where: { id: `stripe_inv_${invoice.id}` },
@@ -691,12 +733,16 @@ export class StripeService {
       }
     }
 
-    await this.auditLogService.log(userId || 'system', 'stripe_billing_synced', {
-      tenantId,
-      syncedSubscriptions,
-      syncedInvoices,
-      syncedPayments,
-    });
+    await this.auditLogService.log(
+      userId || 'system',
+      'stripe_billing_synced',
+      {
+        tenantId,
+        syncedSubscriptions,
+        syncedInvoices,
+        syncedPayments,
+      },
+    );
 
     return {
       syncedSubscriptions,
@@ -827,7 +873,10 @@ export class StripeService {
     userId?: string,
   ): Promise<void> {
     try {
-      const synced = await this.syncSubscriptionFromStripe(subscription, userId);
+      const synced = await this.syncSubscriptionFromStripe(
+        subscription,
+        userId,
+      );
       if (!synced) return;
 
       await this.auditLogService.log(
@@ -859,7 +908,10 @@ export class StripeService {
     userId?: string,
   ): Promise<void> {
     try {
-      const synced = await this.syncSubscriptionFromStripe(subscription, userId);
+      const synced = await this.syncSubscriptionFromStripe(
+        subscription,
+        userId,
+      );
       if (!synced) return;
 
       await this.auditLogService.log(
@@ -897,7 +949,9 @@ export class StripeService {
           : subscription.customer?.id;
       const tenantId =
         subscription.metadata?.tenantId ||
-        (customerId ? await this.resolveTenantIdFromCustomer(customerId) : null);
+        (customerId
+          ? await this.resolveTenantIdFromCustomer(customerId)
+          : null);
 
       await this.prisma.subscription.update({
         where: { stripeSubscriptionId: subscription.id },
@@ -941,9 +995,7 @@ export class StripeService {
 
     try {
       const stripeSubscriptionId =
-        typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        this.getExpandableId(invoice.subscription) ?? undefined;
 
       const localSubscription = stripeSubscriptionId
         ? await this.prisma.subscription.findUnique({
@@ -952,14 +1004,13 @@ export class StripeService {
           })
         : null;
 
-      const customerId =
-        typeof invoice.customer === 'string'
-          ? invoice.customer
-          : invoice.customer?.id;
+      const customerId = this.getExpandableId(invoice.customer) ?? undefined;
 
       const tenantId =
         localSubscription?.tenantId ||
-        (customerId ? await this.resolveTenantIdFromCustomer(customerId) : null);
+        (customerId
+          ? await this.resolveTenantIdFromCustomer(customerId)
+          : null);
 
       if (!tenantId) {
         this.logger.error('No tenantId found for invoice:', invoice.id);
@@ -997,10 +1048,7 @@ export class StripeService {
         },
       });
 
-      const paymentIntentId =
-        typeof invoice.payment_intent === 'string'
-          ? invoice.payment_intent
-          : invoice.payment_intent?.id || null;
+      const paymentIntentId = this.getExpandableId(invoice.payment_intent);
 
       await this.prisma.payment.upsert({
         where: { id: `stripe_inv_${invoiceId}` },
@@ -1057,22 +1105,19 @@ export class StripeService {
   ): Promise<void> {
     try {
       const stripeSubscriptionId =
-        typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        this.getExpandableId(invoice.subscription) ?? undefined;
       const localSubscription = stripeSubscriptionId
         ? await this.prisma.subscription.findUnique({
             where: { stripeSubscriptionId },
             select: { id: true, tenantId: true },
           })
         : null;
-      const customerId =
-        typeof invoice.customer === 'string'
-          ? invoice.customer
-          : invoice.customer?.id;
+      const customerId = this.getExpandableId(invoice.customer) ?? undefined;
       const tenantId =
         localSubscription?.tenantId ||
-        (customerId ? await this.resolveTenantIdFromCustomer(customerId) : null);
+        (customerId
+          ? await this.resolveTenantIdFromCustomer(customerId)
+          : null);
 
       if (tenantId) {
         const invoiceId = invoice.id || `inv_${Date.now()}`;
@@ -1090,7 +1135,9 @@ export class StripeService {
             subscriptionId: localSubscription?.id || null,
             amount: amountMajor,
             status: 'open',
-            dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+            dueDate: invoice.due_date
+              ? new Date(invoice.due_date * 1000)
+              : null,
             paidAt: null,
             updatedAt: new Date(),
           },
@@ -1100,16 +1147,15 @@ export class StripeService {
             subscriptionId: localSubscription?.id || null,
             amount: amountMajor,
             status: 'open',
-            dueDate: invoice.due_date ? new Date(invoice.due_date * 1000) : null,
+            dueDate: invoice.due_date
+              ? new Date(invoice.due_date * 1000)
+              : null,
             paidAt: null,
             updatedAt: new Date(),
           },
         });
 
-        const paymentIntentId =
-          typeof invoice.payment_intent === 'string'
-            ? invoice.payment_intent
-            : invoice.payment_intent?.id || null;
+        const paymentIntentId = this.getExpandableId(invoice.payment_intent);
 
         await this.prisma.payment.upsert({
           where: { id: `stripe_inv_${invoiceId}` },
@@ -1322,7 +1368,7 @@ export class StripeService {
   /**
    * Verify webhook signature
    */
-  async verifyWebhookSignature(
+  verifyWebhookSignature(
     payload: Buffer,
     signature: string,
     secret: string,
@@ -1485,7 +1531,11 @@ export class StripeService {
     try {
       this.logger.log(`Updating Stripe prices for tenant: ${tenantId}`);
 
-      const results: any = {};
+      const results: Partial<{
+        basicPriceId: string;
+        proPriceId: string;
+        enterprisePriceId: string;
+      }> = {};
 
       // Update Basic Plan Price
       if (prices.basicPrice !== undefined) {
@@ -1779,7 +1829,12 @@ export class StripeService {
       const refund = await stripe.refunds.create({
         payment_intent: paymentIntentId,
         amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents
-        reason: reason as any,
+        reason:
+          reason === 'duplicate' ||
+          reason === 'fraudulent' ||
+          reason === 'requested_by_customer'
+            ? reason
+            : undefined,
         metadata: {
           tenantId,
         },

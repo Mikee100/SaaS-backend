@@ -5,16 +5,35 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { AUTH_COOKIE_NAMES } from './constants';
 import { PrismaService } from '../prisma.service';
 
+type JwtPayload = {
+  sub: string;
+  email?: string;
+  [key: string]: unknown;
+};
+
 /** Extract JWT from cookie (enterprise auth) or Authorization Bearer (legacy / Electron). */
 function jwtFromCookieOrBearer(req: Request): string | null {
-  const cookieToken = req?.cookies?.[AUTH_COOKIE_NAMES.ACCESS_TOKEN];
-  if (cookieToken) return cookieToken;
-  return ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+  const cookies = (req as { cookies?: unknown }).cookies;
+  const cookieToken =
+    cookies && typeof cookies === 'object'
+      ? (cookies as Record<string, unknown>)[AUTH_COOKIE_NAMES.ACCESS_TOKEN]
+      : undefined;
+  if (typeof cookieToken === 'string' && cookieToken.length > 0) {
+    return cookieToken;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const bearerToken = authHeader.slice('Bearer '.length).trim();
+  return bearerToken.length > 0 ? bearerToken : null;
 }
 
 @Injectable()
@@ -30,7 +49,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(req: Request, payload: any) {
+  async validate(req: Request, payload: JwtPayload) {
     const dbUser = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -143,9 +162,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     return extensions.reduce((sum, extension) => {
-      const data = extension.data as
-        | { days?: number; subscriptionId?: string }
-        | null;
+      const data = extension.data as {
+        days?: number;
+        subscriptionId?: string;
+      } | null;
       if (!data) {
         return sum;
       }

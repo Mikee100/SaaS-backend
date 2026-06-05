@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 interface BillingOpsFilters {
@@ -89,7 +95,7 @@ export class SubscriptionAdminService {
 
   async getTenantBillingOperationsOverview(filters: BillingOpsFilters = {}) {
     const search = (filters.search || '').trim();
-    const where: any = {
+    const where: Prisma.TenantWhereInput = {
       deletedAt: null,
     };
 
@@ -145,7 +151,11 @@ export class SubscriptionAdminService {
       tenants.map(async (tenant) => {
         const sub = tenant.Subscription?.[0] || null;
         const extensionDays = sub
-          ? await this.getExtraGraceDays(tenant.id, sub.currentPeriodStart, sub.id)
+          ? await this.getExtraGraceDays(
+              tenant.id,
+              sub.currentPeriodStart,
+              sub.id,
+            )
           : 0;
 
         const baseGraceDays = SubscriptionAdminService.BASE_GRACE_DAYS;
@@ -221,7 +231,9 @@ export class SubscriptionAdminService {
     );
 
     const state = (filters.state || 'all').toLowerCase();
-    return mapped.filter((item) => state === 'all' || item.billingState === state);
+    return mapped.filter(
+      (item) => state === 'all' || item.billingState === state,
+    );
   }
 
   async reactivateTenantBillingAccess(tenantId: string) {
@@ -333,8 +345,13 @@ export class SubscriptionAdminService {
     );
 
     const totalGraceDays =
-      SubscriptionAdminService.BASE_GRACE_DAYS + currentExtensionDays + normalizedDays;
-    const newGraceEndsAt = this.addDays(subscription.currentPeriodEnd, totalGraceDays);
+      SubscriptionAdminService.BASE_GRACE_DAYS +
+      currentExtensionDays +
+      normalizedDays;
+    const newGraceEndsAt = this.addDays(
+      subscription.currentPeriodEnd,
+      totalGraceDays,
+    );
     const now = new Date();
 
     const tx: any[] = [
@@ -368,7 +385,9 @@ export class SubscriptionAdminService {
           where: { id: subscription.id },
           data: {
             status:
-              subscription.currentPeriodEnd < now ? 'past_due' : subscription.status,
+              subscription.currentPeriodEnd < now
+                ? 'past_due'
+                : subscription.status,
           },
         }),
       );
@@ -592,10 +611,7 @@ export class SubscriptionAdminService {
     };
   }
 
-  async recordManualPayment(
-    tenantId: string,
-    input: RecordManualPaymentInput,
-  ) {
+  async recordManualPayment(tenantId: string, input: RecordManualPaymentInput) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -622,7 +638,10 @@ export class SubscriptionAdminService {
 
     const latestSubscription = tenant.Subscription?.[0] || null;
     const now = new Date();
-    const normalizedMonths = Math.max(1, Math.min(24, Math.floor(input.months || 1)));
+    const normalizedMonths = Math.max(
+      1,
+      Math.min(24, Math.floor(input.months || 1)),
+    );
 
     const payment = await this.prisma.payment.create({
       data: {
@@ -711,7 +730,10 @@ export class SubscriptionAdminService {
         return metadata?.source === 'manual_subscription_register';
       })
       .map((payment) => {
-        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        const metadata =
+          (payment.metadata as Record<string, unknown> | null) || {};
+        const invoiceId =
+          typeof metadata.invoiceId === 'string' ? metadata.invoiceId : null;
         return {
           id: payment.id,
           amount: payment.amount,
@@ -732,7 +754,7 @@ export class SubscriptionAdminService {
           linkedSubscriptionId: metadata.linkedSubscriptionId || null,
           linkedPeriodStart: metadata.linkedPeriodStart || null,
           linkedPeriodEnd: metadata.linkedPeriodEnd || null,
-          invoiceId: metadata.invoiceId || null,
+          invoiceId,
         };
       });
   }
@@ -757,11 +779,15 @@ export class SubscriptionAdminService {
 
     const metadata = (payment.metadata as Record<string, unknown> | null) || {};
     if (metadata.source !== 'manual_subscription_register') {
-      throw new BadRequestException('Payment is not a manual subscription register entry');
+      throw new BadRequestException(
+        'Payment is not a manual subscription register entry',
+      );
     }
 
     if (metadata.appliedToSubscription) {
-      throw new BadRequestException('This payment is already applied to a subscription');
+      throw new BadRequestException(
+        'This payment is already applied to a subscription',
+      );
     }
 
     const normalizedMonths =
@@ -772,18 +798,30 @@ export class SubscriptionAdminService {
     return this.manuallyRenewTenantSubscription(
       tenantId,
       normalizedMonths,
-      reason || String(metadata.notes || 'Applied from manual payment register'),
+      reason ||
+        (typeof metadata.notes === 'string'
+          ? metadata.notes
+          : 'Applied from manual payment register'),
       planId,
       {
         amount: payment.amount,
         currency: payment.currency,
-        method: String(metadata.method || 'bank_transfer'),
+        method:
+          typeof metadata.method === 'string'
+            ? metadata.method
+            : 'bank_transfer',
         referenceCode:
-          typeof metadata.referenceCode === 'string' ? metadata.referenceCode : undefined,
+          typeof metadata.referenceCode === 'string'
+            ? metadata.referenceCode
+            : undefined,
         payerName:
-          typeof metadata.payerName === 'string' ? metadata.payerName : undefined,
+          typeof metadata.payerName === 'string'
+            ? metadata.payerName
+            : undefined,
         receiptUrl:
-          typeof metadata.receiptUrl === 'string' ? metadata.receiptUrl : undefined,
+          typeof metadata.receiptUrl === 'string'
+            ? metadata.receiptUrl
+            : undefined,
         notes: typeof metadata.notes === 'string' ? metadata.notes : undefined,
         paymentId,
       },
@@ -791,36 +829,37 @@ export class SubscriptionAdminService {
   }
 
   async getTenantSubscriptionTimeline(tenantId: string) {
-    const [subscriptions, invoices, manualPayments, notifications] = await Promise.all([
-      this.prisma.subscription.findMany({
-        where: { tenantId },
-        include: { Plan: true },
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-      }),
-      this.prisma.invoice.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: 'desc' },
-        take: 30,
-      }),
-      this.listManualPayments(tenantId),
-      this.prisma.notification.findMany({
-        where: {
-          tenantId,
-          type: {
-            in: [
-              'subscription_grace_extension',
-              'subscription_manual_suspension',
-              'subscription_manual_reactivation',
-              'subscription_manual_renewal',
-              'subscription_manual_payment_recorded',
-            ],
+    const [subscriptions, invoices, manualPayments, notifications] =
+      await Promise.all([
+        this.prisma.subscription.findMany({
+          where: { tenantId },
+          include: { Plan: true },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.invoice.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        }),
+        this.listManualPayments(tenantId),
+        this.prisma.notification.findMany({
+          where: {
+            tenantId,
+            type: {
+              in: [
+                'subscription_grace_extension',
+                'subscription_manual_suspension',
+                'subscription_manual_reactivation',
+                'subscription_manual_renewal',
+                'subscription_manual_payment_recorded',
+              ],
+            },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      }),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+      ]);
 
     const timeline = [
       ...subscriptions.map((sub) => ({
@@ -920,7 +959,8 @@ export class SubscriptionAdminService {
           subscription.id,
         )
       : 0;
-    const currentGraceDays = SubscriptionAdminService.BASE_GRACE_DAYS + extensionDays;
+    const currentGraceDays =
+      SubscriptionAdminService.BASE_GRACE_DAYS + extensionDays;
     const currentGraceEnd =
       currentPeriodEnd && subscription
         ? this.addDays(currentPeriodEnd, currentGraceDays)
@@ -935,28 +975,37 @@ export class SubscriptionAdminService {
     if (action === 'grace' && subscription && currentPeriodEnd) {
       const days = Math.max(1, Math.min(365, Math.floor(options?.days || 1)));
       newGraceEnd = this.addDays(currentPeriodEnd, currentGraceDays + days);
-      accessImpact = now <= newGraceEnd
-        ? 'Tenant will be in grace/full access window after extension'
-        : 'Tenant remains over grace and restricted if already suspended';
+      accessImpact =
+        now <= newGraceEnd
+          ? 'Tenant will be in grace/full access window after extension'
+          : 'Tenant remains over grace and restricted if already suspended';
     }
 
     if (action === 'renew' && subscription) {
-      const months = Math.max(1, Math.min(24, Math.floor(options?.months || 1)));
+      const months = Math.max(
+        1,
+        Math.min(24, Math.floor(options?.months || 1)),
+      );
       const anchorStart =
         subscription.currentPeriodEnd && subscription.currentPeriodEnd > now
           ? subscription.currentPeriodEnd
           : now;
       newPeriodEnd = this.addMonths(anchorStart, months);
-      newGraceEnd = this.addDays(newPeriodEnd, SubscriptionAdminService.BASE_GRACE_DAYS);
+      newGraceEnd = this.addDays(
+        newPeriodEnd,
+        SubscriptionAdminService.BASE_GRACE_DAYS,
+      );
       accessImpact = 'Tenant will have full access after renewal';
     }
 
     if (action === 'suspend') {
-      accessImpact = 'Tenant and linked accounts will be restricted immediately';
+      accessImpact =
+        'Tenant and linked accounts will be restricted immediately';
     }
 
     if (action === 'reactivate') {
-      accessImpact = 'Tenant and linked accounts will regain full access immediately';
+      accessImpact =
+        'Tenant and linked accounts will regain full access immediately';
     }
 
     return {
@@ -997,7 +1046,7 @@ export class SubscriptionAdminService {
     const paymentByInvoice = new Map<string, (typeof payments)[number]>();
     for (const payment of payments) {
       if (payment.invoiceId) {
-        paymentByInvoice.set(String(payment.invoiceId), payment);
+        paymentByInvoice.set(payment.invoiceId, payment);
       }
     }
 
@@ -1040,7 +1089,9 @@ export class SubscriptionAdminService {
         select: { id: true },
       });
       if (!sub) {
-        throw new BadRequestException('subscriptionId does not belong to tenant');
+        throw new BadRequestException(
+          'subscriptionId does not belong to tenant',
+        );
       }
     }
 
@@ -1121,7 +1172,9 @@ export class SubscriptionAdminService {
     }
 
     if (!invoice.number.startsWith('INV-MAN')) {
-      throw new BadRequestException('Only manual invoices can be transitioned here');
+      throw new BadRequestException(
+        'Only manual invoices can be transitioned here',
+      );
     }
 
     const currentStatus = this.normalizeInvoiceStatus(invoice.status);
@@ -1151,7 +1204,12 @@ export class SubscriptionAdminService {
       where: { id: invoice.id },
       data: {
         status: nextStatus,
-        paidAt: nextStatus === 'paid' ? now : nextStatus === 'void' ? null : invoice.paidAt,
+        paidAt:
+          nextStatus === 'paid'
+            ? now
+            : nextStatus === 'void'
+              ? null
+              : invoice.paidAt,
         updatedAt: now,
       },
     });
@@ -1163,12 +1221,14 @@ export class SubscriptionAdminService {
       });
 
       for (const payment of payments) {
-        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        const metadata =
+          (payment.metadata as Record<string, unknown> | null) || {};
         if (metadata.invoiceId === invoice.id) {
           await this.prisma.payment.update({
             where: { id: payment.id },
             data: {
-              status: payment.status === 'completed' ? 'voided' : payment.status,
+              status:
+                payment.status === 'completed' ? 'voided' : payment.status,
               metadata: {
                 ...metadata,
                 invoiceVoided: true,
@@ -1206,7 +1266,7 @@ export class SubscriptionAdminService {
     const search = (filters.search || '').trim();
     const now = new Date();
 
-    const paymentWhere: any = {};
+    const paymentWhere: Prisma.PaymentWhereInput = {};
     if (filters.tenantId) {
       paymentWhere.tenantId = filters.tenantId;
     }
@@ -1270,7 +1330,8 @@ export class SubscriptionAdminService {
 
     const manualPayments = payments
       .map((payment) => {
-        const metadata = (payment.metadata as Record<string, unknown> | null) || {};
+        const metadata =
+          (payment.metadata as Record<string, unknown> | null) || {};
         return {
           id: payment.id,
           tenantId: payment.tenantId,
@@ -1282,15 +1343,21 @@ export class SubscriptionAdminService {
           createdAt: payment.createdAt,
           appliedToSubscription: !!metadata.appliedToSubscription,
           referenceCode:
-            typeof metadata.referenceCode === 'string' ? metadata.referenceCode : null,
-          receiptUrl: typeof metadata.receiptUrl === 'string' ? metadata.receiptUrl : null,
+            typeof metadata.referenceCode === 'string'
+              ? metadata.referenceCode
+              : null,
+          receiptUrl:
+            typeof metadata.receiptUrl === 'string'
+              ? metadata.receiptUrl
+              : null,
           receiptUploadFailed: !!metadata.receiptUploadFailed,
           receiptUploadError:
             typeof metadata.receiptUploadError === 'string'
               ? metadata.receiptUploadError
               : null,
           source: metadata.source,
-          invoiceId: typeof metadata.invoiceId === 'string' ? metadata.invoiceId : null,
+          invoiceId:
+            typeof metadata.invoiceId === 'string' ? metadata.invoiceId : null,
         };
       })
       .filter((payment) => payment.source === 'manual_subscription_register');
@@ -1372,7 +1439,9 @@ export class SubscriptionAdminService {
     const filteredMismatches = filters.mismatchOnly
       ? invoicePaymentMismatches
       : invoicePaymentMismatches;
-    const filteredOverdue = filters.overdueOnly ? overdueTenants : overdueTenants;
+    const filteredOverdue = filters.overdueOnly
+      ? overdueTenants
+      : overdueTenants;
 
     return {
       generatedAt: now,
@@ -1478,7 +1547,7 @@ export class SubscriptionAdminService {
         },
         orderBy: { createdAt: 'desc' },
       });
-      
+
       this.logger.log(`Retrieved ${subscriptions.length} subscriptions`);
       return subscriptions;
     } catch (error) {
@@ -1523,7 +1592,12 @@ export class SubscriptionAdminService {
   }
 
   async getTenantUsage(tenantId: string) {
-    const [userCount, activeVariationCount, nonVariationProductCount, salesCount] = await Promise.all([
+    const [
+      userCount,
+      activeVariationCount,
+      nonVariationProductCount,
+      salesCount,
+    ] = await Promise.all([
       this.prisma.user.count({ where: { tenantId } }),
       this.prisma.productVariation.count({
         where: {
@@ -1698,9 +1772,10 @@ export class SubscriptionAdminService {
     });
 
     return extensions.reduce((sum, extension) => {
-      const data = extension.data as
-        | { days?: number; subscriptionId?: string }
-        | null;
+      const data = extension.data as {
+        days?: number;
+        subscriptionId?: string;
+      } | null;
       if (!data) {
         return sum;
       }
@@ -1731,12 +1806,16 @@ export class SubscriptionAdminService {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  private normalizeInvoiceStatus(status: string): 'draft' | 'issued' | 'paid' | 'void' {
+  private normalizeInvoiceStatus(
+    status: string,
+  ): 'draft' | 'issued' | 'paid' | 'void' {
     const normalized = String(status || '').toLowerCase();
     if (normalized === 'draft') return 'draft';
     if (normalized === 'issued') return 'issued';
     if (normalized === 'paid') return 'paid';
     if (normalized === 'void') return 'void';
-    throw new BadRequestException('Invoice status must be one of: draft, issued, paid, void');
+    throw new BadRequestException(
+      'Invoice status must be one of: draft, issued, paid, void',
+    );
   }
 }

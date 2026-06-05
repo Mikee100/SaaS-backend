@@ -5,7 +5,14 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+
+type BadRequestPayload =
+  | string
+  | {
+      message?: unknown;
+      [key: string]: unknown;
+    };
 
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
@@ -14,32 +21,39 @@ export class ValidationExceptionFilter implements ExceptionFilter {
   catch(exception: BadRequestException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest();
+    const request = ctx.getRequest<Request>();
     const status = exception.getStatus();
-    const exceptionResponse = exception.getResponse() as any;
+    const exceptionResponse = exception.getResponse() as BadRequestPayload;
 
     // Log validation errors for debugging (even in production)
     // This helps identify validation issues without exposing them to clients
     if (status === 400) {
       // Extract validation error details (even when disabled for clients)
-      let validationErrors: any = null;
-      
+      let validationErrors: unknown = null;
+
+      const responseMessage =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? exceptionResponse.message
+          : undefined;
+
       if (exceptionResponse) {
         // ValidationPipe errors can be in different formats:
         // 1. { message: ['error1', 'error2'] } - array of messages
         // 2. { message: [{ property: 'field', constraints: {...} }] } - detailed validation
         // 3. { message: 'string' } - simple message
-        if (Array.isArray(exceptionResponse.message)) {
-          validationErrors = exceptionResponse.message;
-        } else if (exceptionResponse.message) {
-          validationErrors = exceptionResponse.message;
+        if (Array.isArray(responseMessage)) {
+          validationErrors = responseMessage;
+        } else if (responseMessage) {
+          validationErrors = responseMessage;
         }
       }
+
+      const requestBody: unknown = request.body as unknown;
 
       this.logger.error('Validation Error:', {
         path: request.url,
         method: request.method,
-        body: request.body,
+        body: requestBody,
         error: exceptionResponse,
         validationErrors: validationErrors,
         message: exception.message,
@@ -49,9 +63,11 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       console.error('❌ Validation Error Details:', {
         url: request.url,
         method: request.method,
-        requestBody: JSON.stringify(request.body, null, 2),
+        requestBody: JSON.stringify(requestBody, null, 2),
         errorResponse: JSON.stringify(exceptionResponse, null, 2),
-        validationErrors: validationErrors ? JSON.stringify(validationErrors, null, 2) : 'No validation errors found',
+        validationErrors: validationErrors
+          ? JSON.stringify(validationErrors, null, 2)
+          : 'No validation errors found',
         errorMessage: exception.message,
         exceptionStack: exception.stack,
       });
@@ -59,17 +75,21 @@ export class ValidationExceptionFilter implements ExceptionFilter {
 
     // Return error to client: pass through single-string messages (e.g. "Product not found")
     // so the POS can show them; sanitize validation-style responses (arrays/constraint objects)
+    const responseMessage =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? exceptionResponse.message
+        : undefined;
     const isValidationError =
-      exceptionResponse?.message &&
-      (Array.isArray(exceptionResponse.message) ||
-        (typeof exceptionResponse.message === 'object' &&
-          !Array.isArray(exceptionResponse.message) &&
-          exceptionResponse.message !== null));
+      responseMessage &&
+      (Array.isArray(responseMessage) ||
+        (typeof responseMessage === 'object' &&
+          !Array.isArray(responseMessage) &&
+          responseMessage !== null));
     const messageToSend =
       !isValidationError &&
-      exceptionResponse?.message &&
-      typeof exceptionResponse.message === 'string'
-        ? exceptionResponse.message
+      responseMessage &&
+      typeof responseMessage === 'string'
+        ? responseMessage
         : 'Bad Request';
 
     response.status(status).json({

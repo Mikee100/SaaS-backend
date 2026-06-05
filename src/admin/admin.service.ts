@@ -4,7 +4,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { BillingService } from '../billing/billing.service';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma.service';
 import { AdminTenantStatsService } from '../adminTenantStats/admin-tenant-stats.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -117,14 +119,23 @@ export class AdminService {
   }
 
   async getRevenueHistory(months: number = 12) {
-    this.logger.log(`AdminService: getRevenueHistory called with months: ${months}`);
+    this.logger.log(
+      `AdminService: getRevenueHistory called with months: ${months}`,
+    );
 
     const now = new Date();
     const data: Array<{ month: string; revenue: number; mrr: number }> = [];
 
     for (let i = months - 1; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
 
       // Get revenue for this month (from payments)
       const payments = await this.prisma.payment.findMany({
@@ -137,7 +148,10 @@ export class AdminService {
         },
       });
 
-      const revenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const revenue = payments.reduce(
+        (sum, payment) => sum + payment.amount,
+        0,
+      );
 
       // Get MRR at the end of this month (from active subscriptions)
       const subscriptions = await this.prisma.subscription.findMany({
@@ -151,7 +165,9 @@ export class AdminService {
       const mrr = subscriptions.reduce((total, sub) => {
         if (sub.Plan) {
           const monthlyPrice =
-            sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
+            sub.Plan.interval === 'yearly'
+              ? sub.Plan.price / 12
+              : sub.Plan.price;
           return total + monthlyPrice;
         }
         return total;
@@ -173,14 +189,27 @@ export class AdminService {
   }
 
   async getTenantGrowth(months: number = 12) {
-    this.logger.log(`AdminService: getTenantGrowth called with months: ${months}`);
+    this.logger.log(
+      `AdminService: getTenantGrowth called with months: ${months}`,
+    );
 
     const now = new Date();
-    const data: Array<{ month: string; newTenants: number; totalTenants: number }> = [];
+    const data: Array<{
+      month: string;
+      newTenants: number;
+      totalTenants: number;
+    }> = [];
 
     for (let i = months - 1; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
 
       // Count tenants created in this month
       const newTenants = await this.prisma.tenant.count({
@@ -272,12 +301,22 @@ export class AdminService {
   }
 
   async getDeletedTenants() {
-    const tenants = await this.prisma.$queryRaw`
+    const tenants = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        businessType: string;
+        contactEmail: string;
+        contactPhone: string | null;
+        createdAt: Date;
+        deletedAt: Date | null;
+      }>
+    >`
       SELECT t.id, t.name, t."businessType", t."contactEmail", t."contactPhone", t."createdAt", t."deletedAt"
       FROM "Tenant" t
       WHERE t."deletedAt" IS NOT NULL
       ORDER BY t."deletedAt" DESC
-    ` as Array<{ id: string; name: string; businessType: string; contactEmail: string; contactPhone: string | null; createdAt: Date; deletedAt: Date }>;
+    `;
     return tenants.map((t) => ({
       id: t.id,
       name: t.name,
@@ -378,16 +417,15 @@ export class AdminService {
 
     for (const table of tables) {
       try {
-        const rows: any = await this.prisma.$queryRawUnsafe(
-          table.query,
-          tenantId,
-        );
+        const rows = await this.prisma.$queryRawUnsafe<
+          Array<{ bytes_used: string | null }>
+        >(table.query, tenantId);
         const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
         totalBytes += bytes;
         resourceSpaceUsage[table.displayName] = bytes;
-      } catch (error) {
+      } catch (error: unknown) {
         this.logger.warn(
-          `Failed to query table ${table.name} for tenant ${tenantId}: ${error.message}`,
+          `Failed to query table ${table.name} for tenant ${tenantId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
         resourceSpaceUsage[table.displayName] = 0;
         // Skip this table if it doesn't exist or query fails
@@ -646,7 +684,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: (plan as any).PlanFeatureOnPlan.map((pf) => ({
+      features: plan.PlanFeatureOnPlan.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -687,15 +725,12 @@ export class AdminService {
         isActive: planData.isActive ?? true,
         stripePriceId: planData.stripePriceId,
         PlanFeatureOnPlan: {
-          create: planData.featureIds.map(
-            (featureId) =>
-              ({
-                PlanFeature: {
-                  connect: { id: featureId },
-                },
-                isEnabled: true,
-              }) as any,
-          ),
+          create: planData.featureIds.map((featureId) => ({
+            PlanFeature: {
+              connect: { id: featureId },
+            },
+            isEnabled: true,
+          })),
         },
       },
       include: {
@@ -711,6 +746,16 @@ export class AdminService {
       `AdminService: Created plan: ${plan.name} with id: ${plan.id}`,
     );
 
+    const planFeatures = plan.PlanFeatureOnPlan as Array<{
+      PlanFeature: {
+        id: string;
+        featureKey: string;
+        featureName: string;
+        featureDescription: string;
+      };
+      isEnabled: boolean;
+    }>;
+
     return {
       id: plan.id,
       name: plan.name,
@@ -723,7 +768,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: plan.PlanFeatureOnPlan.map((pf) => ({
+      features: planFeatures.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -765,7 +810,7 @@ export class AdminService {
     }
 
     // Update the plan
-    const updateData: any = {};
+    const updateData: Prisma.PlanUpdateInput = {};
     if (planData.name !== undefined) updateData.name = planData.name;
     if (planData.description !== undefined)
       updateData.description = planData.description;
@@ -834,7 +879,7 @@ export class AdminService {
       maxBranches: plan.maxBranches,
       isActive: plan.isActive,
       stripePriceId: plan.stripePriceId,
-      features: (plan as any).PlanFeatureOnPlan.map((pf) => ({
+      features: plan.PlanFeatureOnPlan.map((pf) => ({
         id: pf.PlanFeature.id,
         key: pf.PlanFeature.featureKey,
         name: pf.PlanFeature.featureName,
@@ -906,8 +951,12 @@ export class AdminService {
     ownerPassword?: string;
     [key: string]: any;
   }) {
-    this.logger.log(`AdminService: createTenant called for ${tenantData.name || 'unknown'}`);
-    this.logger.debug(`AdminService: Received tenant data: ${JSON.stringify(tenantData)}`);
+    this.logger.log(
+      `AdminService: createTenant called for ${tenantData.name || 'unknown'}`,
+    );
+    this.logger.debug(
+      `AdminService: Received tenant data: ${JSON.stringify(tenantData)}`,
+    );
 
     // Normalize owner data - handle both nested and flat formats
     let ownerName: string | undefined;
@@ -946,7 +995,7 @@ export class AdminService {
     // Generate a default password for the owner
     const defaultPassword = 'owner1234@';
 
-    const result = await this.tenantService.createTenantWithOwner({
+    const result = (await this.tenantService.createTenantWithOwner({
       name: tenantData.name,
       businessType: tenantData.businessType,
       contactEmail: tenantData.contactEmail,
@@ -958,7 +1007,10 @@ export class AdminService {
         email: validatedOwnerEmail,
         password: defaultPassword, // Use default password instead of provided one
       },
-    });
+    })) as {
+      tenant: { id: string; name: string };
+      user: { email: string };
+    };
 
     this.logger.log(
       `AdminService: Created tenant ${result.tenant.name} with id ${result.tenant.id}`,
@@ -966,8 +1018,7 @@ export class AdminService {
 
     // Send welcome email with login credentials
     try {
-      const emailService =
-        new (require('../email/email.service').EmailService)();
+      const emailService = new EmailService();
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -983,14 +1034,11 @@ export class AdminService {
         </div>
       `;
 
-      await emailService.transporter.sendMail({
-        from:
-          process.env.FROM_EMAIL ||
-          '"SaaS Platform" <noreply@saasplatform.com>',
-        to: result.user.email,
-        subject: 'Welcome to SaaS Platform - Your Account is Ready',
+      await emailService.sendPaymentConfirmationEmail(
+        result.user.email,
+        'Welcome to SaaS Platform - Your Account is Ready',
         html,
-      });
+      );
 
       this.logger.log(
         `Welcome email with credentials sent to ${result.user.email}`,
@@ -1050,7 +1098,9 @@ export class AdminService {
   }
 
   async updateUserRole(userId: string, roleId: string, tenantId?: string) {
-    this.logger.log(`AdminService: updateUserRole called for userId: ${userId}, roleId: ${roleId}`);
+    this.logger.log(
+      `AdminService: updateUserRole called for userId: ${userId}, roleId: ${roleId}`,
+    );
 
     // Find the user
     const user = await this.prisma.user.findUnique({
@@ -1105,12 +1155,16 @@ export class AdminService {
       // await this.auditLogService.log(userId, 'role_changed', { oldRole: oldRole?.name, newRole: role.name }, null);
     }
 
-    this.logger.log(`AdminService: Successfully updated role for user ${userId} to ${role.name}`);
+    this.logger.log(
+      `AdminService: Successfully updated role for user ${userId} to ${role.name}`,
+    );
     return userRole;
   }
 
   async getUserActivity(userId: string, limit: number = 50) {
-    this.logger.log(`AdminService: getUserActivity called for userId: ${userId}`);
+    this.logger.log(
+      `AdminService: getUserActivity called for userId: ${userId}`,
+    );
 
     const activities = await this.prisma.loginHistory.findMany({
       where: { userId: userId },
@@ -1126,7 +1180,9 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`AdminService: Found ${activities.length} login records for user ${userId}`);
+    this.logger.log(
+      `AdminService: Found ${activities.length} login records for user ${userId}`,
+    );
     return activities;
   }
 
@@ -1180,9 +1236,7 @@ export class AdminService {
     }
 
     if (tenant.deletedAt) {
-      this.logger.warn(
-        `AdminService: Tenant already deleted: ${tenantId}`,
-      );
+      this.logger.warn(`AdminService: Tenant already deleted: ${tenantId}`);
       throw new ConflictException('Tenant is already deleted');
     }
 
@@ -1196,63 +1250,63 @@ export class AdminService {
     // Use 60s timeout: many updateMany calls can be slow for large tenants
     await this.prisma.$transaction(
       async (prisma) => {
-      // Soft-delete child entities first
-      await prisma.productVariation.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.product.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.supplier.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.expense.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.expenseCategory.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.supportTicket.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.credit.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.salesTarget.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.salaryScheme.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.role.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.branch.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-      await prisma.user.updateMany({
-        where: { tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
+        // Soft-delete child entities first
+        await prisma.productVariation.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.product.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.supplier.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.expense.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.expenseCategory.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.supportTicket.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.credit.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.salesTarget.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.salaryScheme.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.role.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.branch.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        await prisma.user.updateMany({
+          where: { tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
 
-      // Soft-delete the tenant (updateMany avoids P2025 when 0 rows match)
-      await prisma.tenant.updateMany({
-        where: { id: tenantId, deletedAt: null },
-        data: { deletedAt: now },
-      });
-    },
-    { timeout: 60_000 }
+        // Soft-delete the tenant (updateMany avoids P2025 when 0 rows match)
+        await prisma.tenant.updateMany({
+          where: { id: tenantId, deletedAt: null },
+          data: { deletedAt: now },
+        });
+      },
+      { timeout: 60_000 },
     );
 
     this.logger.log(
@@ -1263,9 +1317,11 @@ export class AdminService {
   }
 
   async restoreTenant(tenantId: string) {
-    const tenant = await this.prisma.$queryRaw`
+    const tenant = await this.prisma.$queryRaw<
+      Array<{ id: string; name: string }>
+    >`
       SELECT id, name FROM "Tenant" WHERE id = ${tenantId} AND "deletedAt" IS NOT NULL
-    ` as Array<{ id: string; name: string }>;
+    `;
     if (!tenant || tenant.length === 0) {
       throw new Error('Tenant not found or not deleted');
     }
@@ -1286,12 +1342,14 @@ export class AdminService {
     ];
     for (const { name, extraSet = '' } of tables) {
       const col = name === 'Tenant' ? 'id' : 'tenantId';
-      await (this.prisma as any).$executeRawUnsafe(
+      await this.prisma.$executeRawUnsafe(
         `UPDATE "${name}" SET "deletedAt" = NULL${extraSet} WHERE "${col}" = $1 AND "deletedAt" IS NOT NULL`,
         tenantId,
       );
     }
-    this.logger.log(`AdminService: Restored tenant ${tenant[0].name} (${tenantId})`);
+    this.logger.log(
+      `AdminService: Restored tenant ${tenant[0]?.name ?? tenantId} (${tenantId})`,
+    );
     return { success: true, message: 'Tenant restored successfully' };
   }
 }

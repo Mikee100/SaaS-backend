@@ -11,6 +11,9 @@ import {
   Delete,
   Res,
 } from '@nestjs/common';
+import { createReadStream, existsSync } from 'fs';
+import type { Request as ExpressRequest, Response } from 'express';
+import { join } from 'path';
 import { AiService } from './ai.service';
 import { ChartService } from './services/chart.service';
 import { ReportService } from './services/report.service';
@@ -30,16 +33,39 @@ export class AiController {
     private readonly reportService: ReportService,
   ) {}
 
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asString(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+  }
+
+  private getAuthContext(req: ExpressRequest): {
+    userId: string;
+    tenantId: string;
+    branchId: string;
+  } {
+    const user = this.asObject(
+      (req as ExpressRequest & { user?: unknown }).user,
+    );
+    return {
+      userId: this.asString(user?.userId) || this.asString(user?.sub),
+      tenantId: this.asString(user?.tenantId),
+      branchId: this.asString(user?.branchId),
+    };
+  }
+
   @Post('chat')
   @Permissions('use_ai_assistant')
   async chat(
     @Body() body: { message: string; conversationId?: string },
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
     const { message, conversationId } = body;
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
-    const branchId = req.user.branchId;
+    const { userId, tenantId, branchId } = this.getAuthContext(req);
 
     const result = await this.aiService.processChat(
       message,
@@ -89,10 +115,10 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async getConversationHistory(
     @Param('userId') userId: string,
-    @Request() req,
+    @Request() req: ExpressRequest,
     @Query('conversationId') conversationId?: string,
   ) {
-    const tenantId = req.user.tenantId;
+    const { tenantId } = this.getAuthContext(req);
     const history = await this.aiService.getConversationHistory(
       userId,
       tenantId,
@@ -103,19 +129,20 @@ export class AiController {
 
   @Get('learning-insights')
   @Permissions('use_ai_assistant')
-  async getLearningInsights(@Request() req) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
-    const insights = await this.aiService.getLearningInsights(userId, tenantId);
+  async getLearningInsights(@Request() req: ExpressRequest) {
+    const { userId, tenantId } = this.getAuthContext(req);
+    const insights: unknown = await this.aiService.getLearningInsights(
+      userId,
+      tenantId,
+    );
     return insights;
   }
 
   @Get('feedback-analysis')
   @Permissions('use_ai_assistant')
-  async getFeedbackAnalysis(@Request() req) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
-    const analysis = await this.aiService.analyzeFeedbackPatterns(
+  async getFeedbackAnalysis(@Request() req: ExpressRequest) {
+    const { userId, tenantId } = this.getAuthContext(req);
+    const analysis: unknown = await this.aiService.analyzeFeedbackPatterns(
       userId,
       tenantId,
     );
@@ -124,26 +151,50 @@ export class AiController {
 
   @Get('performance-metrics')
   @Permissions('use_ai_assistant')
-  async getPerformanceMetrics(@Request() req) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+  async getPerformanceMetrics(@Request() req: ExpressRequest) {
+    const { userId, tenantId } = this.getAuthContext(req);
 
-    const insights = await this.aiService.getLearningInsights(userId, tenantId);
-    const feedbackAnalysis = await this.aiService.analyzeFeedbackPatterns(
-      userId,
-      tenantId,
+    const insights = this.asObject(
+      await this.aiService.getLearningInsights(userId, tenantId),
     );
+    const performanceMetrics =
+      this.asObject(insights?.performanceMetrics) ?? {};
+    const learningProgress = this.asObject(insights?.learningProgress) ?? {};
+
+    const feedbackAnalysis = this.asObject(
+      await this.aiService.analyzeFeedbackPatterns(userId, tenantId),
+    );
+
+    const improvementAreasRaw = feedbackAnalysis?.improvementAreas;
+    const improvementAreas = Array.isArray(improvementAreasRaw)
+      ? improvementAreasRaw
+      : [];
+
+    const responsePatterns =
+      this.asObject(feedbackAnalysis?.responsePatterns) ?? {};
 
     return {
       userMetrics: {
-        totalInteractions: insights.performanceMetrics.totalInteractions,
-        averageRating: insights.performanceMetrics.averageRating,
-        adaptationLevel: insights.learningProgress.adaptationLevel,
+        totalInteractions:
+          typeof performanceMetrics.totalInteractions === 'number'
+            ? performanceMetrics.totalInteractions
+            : 0,
+        averageRating:
+          typeof performanceMetrics.averageRating === 'number'
+            ? performanceMetrics.averageRating
+            : 0,
+        adaptationLevel:
+          typeof learningProgress.adaptationLevel === 'number'
+            ? learningProgress.adaptationLevel
+            : 0,
       },
       systemMetrics: {
-        feedbackQuality: feedbackAnalysis.averageRating,
-        improvementAreas: feedbackAnalysis.improvementAreas,
-        responsePatterns: feedbackAnalysis.responsePatterns,
+        feedbackQuality:
+          typeof feedbackAnalysis?.averageRating === 'number'
+            ? feedbackAnalysis.averageRating
+            : 0,
+        improvementAreas,
+        responsePatterns,
       },
     };
   }
@@ -151,7 +202,7 @@ export class AiController {
   @Post('generate-visualization')
   @Permissions('use_ai_assistant')
   async generateVisualization(
-    @Body() body: { data: any; chartType: string; title: string },
+    @Body() body: { data: unknown; chartType: string; title: string },
   ) {
     const { data, chartType, title } = body;
     const description = await this.aiService.generateVisualizationWithOpenAI(
@@ -167,12 +218,10 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async createConversation(
     @Body() body: { title?: string },
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
     const { title } = body;
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
-    const branchId = req.user.branchId;
+    const { userId, tenantId, branchId } = this.getAuthContext(req);
 
     const conversation = await this.aiService.createConversation(
       userId,
@@ -186,13 +235,11 @@ export class AiController {
   @Get('conversations')
   @Permissions('use_ai_assistant')
   async getConversations(
-    @Request() req,
+    @Request() req: ExpressRequest,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
-    const branchId = req.user.branchId;
+    const { userId, tenantId, branchId } = this.getAuthContext(req);
 
     const conversations = await this.aiService.getConversations(
       userId,
@@ -208,10 +255,9 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async getConversationById(
     @Param('conversationId') conversationId: string,
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+    const { userId, tenantId } = this.getAuthContext(req);
 
     const conversation = await this.aiService.getConversationById(
       conversationId,
@@ -226,12 +272,11 @@ export class AiController {
   async updateConversation(
     @Param('conversationId') conversationId: string,
     @Body() body: { title?: string; isActive?: boolean },
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+    const { userId, tenantId } = this.getAuthContext(req);
 
-    const result = await this.aiService.updateConversation(
+    const result: unknown = await this.aiService.updateConversation(
       conversationId,
       userId,
       tenantId,
@@ -244,10 +289,9 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async generateConversationTitle(
     @Param('conversationId') conversationId: string,
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+    const { userId, tenantId } = this.getAuthContext(req);
 
     const title = await this.aiService.generateConversationTitle(
       conversationId,
@@ -261,10 +305,9 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async deleteConversation(
     @Param('conversationId') conversationId: string,
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+    const { userId, tenantId } = this.getAuthContext(req);
 
     const success = await this.aiService.deleteConversation(
       conversationId,
@@ -278,11 +321,10 @@ export class AiController {
   @Permissions('use_ai_assistant')
   async getConversationContext(
     @Param('conversationId') conversationId: string,
-    @Request() req,
+    @Request() req: ExpressRequest,
     @Query('maxInteractions') maxInteractions?: string,
   ) {
-    const userId = req.user.userId || req.user.sub;
-    const tenantId = req.user.tenantId;
+    const { userId, tenantId } = this.getAuthContext(req);
 
     const context = await this.aiService.summarizeConversationContext(
       conversationId,
@@ -303,13 +345,12 @@ export class AiController {
       period?: string;
       limit?: number;
     },
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const tenantId = req.user.tenantId;
-    const branchId = req.user.branchId;
+    const { tenantId, branchId } = this.getAuthContext(req);
     const { chartType, dataType, period, limit } = body;
 
-    let chartConfig;
+    let chartConfig: unknown;
 
     if (dataType === 'product') {
       chartConfig = await this.chartService.generateProductPerformanceChart(
@@ -352,13 +393,12 @@ export class AiController {
       format?: string;
       period?: string;
     },
-    @Request() req,
+    @Request() req: ExpressRequest,
   ) {
-    const tenantId = req.user.tenantId;
-    const branchId = req.user.branchId;
+    const { tenantId, branchId } = this.getAuthContext(req);
     const { reportType, format, period } = body;
 
-    let reportResult;
+    let reportResult: unknown;
 
     if (reportType === 'inventory') {
       reportResult = await this.reportService.generateInventoryReport(
@@ -381,9 +421,10 @@ export class AiController {
       );
     }
 
+    const reportResultObj = this.asObject(reportResult) ?? {};
     return {
-      filename: reportResult.filename,
-      downloadUrl: `/api/ai/reports/download/${reportResult.filename}`,
+      filename: this.asString(reportResultObj.filename),
+      downloadUrl: `/api/ai/reports/download/${this.asString(reportResultObj.filename)}`,
       reportType,
       format: format || 'xlsx',
     };
@@ -391,13 +432,7 @@ export class AiController {
 
   @Get('reports/download/:filename')
   @Permissions('use_ai_assistant')
-  async downloadReport(
-    @Param('filename') filename: string,
-    @Request() req,
-    @Res() res: any,
-  ) {
-    const { join } = require('path');
-    const { existsSync, createReadStream } = require('fs');
+  downloadReport(@Param('filename') filename: string, @Res() res: Response) {
     const filePath = join(process.cwd(), 'reports', filename);
 
     if (!existsSync(filePath)) {

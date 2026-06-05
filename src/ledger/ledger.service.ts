@@ -1,8 +1,23 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { LedgerEntry as LedgerEntryType } from './ledger.types';
 import { PrismaService } from '../prisma.service';
-import { JournalEntryDto, TrialBalance, ProfitAndLoss, BalanceSheet } from './accounting.types';
+import {
+  JournalEntryDto,
+  TrialBalance,
+  ProfitAndLoss,
+  BalanceSheet,
+} from './accounting.types';
 import { RealtimeGateway } from '../realtime.gateway';
+
+type JournalEntryWithRelations = Prisma.JournalEntryGetPayload<{
+  include: {
+    user: true;
+    ledgerEntries: {
+      include: { account: true };
+    };
+  };
+}>;
 
 @Injectable()
 export class LedgerService {
@@ -38,10 +53,25 @@ export class LedgerService {
     { name: 'Sales Revenue', code: '4000', type: 'revenue', subtype: 'sales' },
 
     // Expenses (5000-5999)
-    { name: 'Cost of Goods Sold', code: '5000', type: 'expense', subtype: 'cogs' },
+    {
+      name: 'Cost of Goods Sold',
+      code: '5000',
+      type: 'expense',
+      subtype: 'cogs',
+    },
     { name: 'Rent Expense', code: '5100', type: 'expense', subtype: 'rent' },
-    { name: 'Salary Expense', code: '5200', type: 'expense', subtype: 'salary' },
-    { name: 'Utilities Expense', code: '5300', type: 'expense', subtype: 'utilities' },
+    {
+      name: 'Salary Expense',
+      code: '5200',
+      type: 'expense',
+      subtype: 'salary',
+    },
+    {
+      name: 'Utilities Expense',
+      code: '5300',
+      type: 'expense',
+      subtype: 'utilities',
+    },
     {
       name: 'General & Administrative',
       code: '5400',
@@ -51,7 +81,8 @@ export class LedgerService {
   ] as const;
 
   private resolveExpenseSubtype(categoryName?: string, description?: string) {
-    const lowerHints = `${categoryName || ''} ${description || ''}`.toLowerCase();
+    const lowerHints =
+      `${categoryName || ''} ${description || ''}`.toLowerCase();
 
     if (lowerHints.includes('rent')) return 'rent';
     if (
@@ -74,7 +105,12 @@ export class LedgerService {
   }
 
   private selectExpenseAccount(
-    accounts: Array<{ id: string; subtype: string | null }>,
+    accounts: Array<{
+      id: string;
+      subtype: string | null;
+      code?: string;
+      name?: string;
+    }>,
     categoryName?: string,
     description?: string,
   ) {
@@ -111,7 +147,15 @@ export class LedgerService {
   }
 
   private resolveLedgerSource(reference?: string | null): {
-    type: 'invoice' | 'payment' | 'expense' | 'credit_note' | 'sale' | 'return' | 'manual' | 'stock';
+    type:
+      | 'invoice'
+      | 'payment'
+      | 'expense'
+      | 'credit_note'
+      | 'sale'
+      | 'return'
+      | 'manual'
+      | 'stock';
     id?: string;
     paymentId?: string;
     url: string;
@@ -119,7 +163,9 @@ export class LedgerService {
   } {
     const scopedReference = this.stripBranchScope(reference || '');
 
-    const creditPayment = /^CREDIT:([^:]+):PAYMENT:([^:]+)$/.exec(scopedReference);
+    const creditPayment = /^CREDIT:([^:]+):PAYMENT:([^:]+)$/.exec(
+      scopedReference,
+    );
     if (creditPayment) {
       const creditId = creditPayment[1];
       const paymentId = creditPayment[2];
@@ -192,8 +238,8 @@ export class LedgerService {
   private async filterJournalEntriesByBranch(
     tenantId: string,
     branchId: string,
-    journalEntries: any[],
-  ) {
+    journalEntries: JournalEntryWithRelations[],
+  ): Promise<JournalEntryWithRelations[]> {
     if (!journalEntries.length) return journalEntries;
 
     const saleIds = new Set<string>();
@@ -225,7 +271,7 @@ export class LedgerService {
             },
             select: { id: true },
           })
-        : Promise.resolve([]),
+        : Promise.resolve<{ id: string }[]>([]),
       expenseIds.size
         ? this.prisma.expense.findMany({
             where: {
@@ -236,7 +282,7 @@ export class LedgerService {
             },
             select: { id: true },
           })
-        : Promise.resolve([]),
+        : Promise.resolve<{ id: string }[]>([]),
       initStockIds.size
         ? this.prisma.product.findMany({
             where: {
@@ -246,7 +292,7 @@ export class LedgerService {
             },
             select: { id: true },
           })
-        : Promise.resolve([]),
+        : Promise.resolve<{ id: string }[]>([]),
       initStockIds.size
         ? this.prisma.productVariation.findMany({
             where: {
@@ -256,7 +302,7 @@ export class LedgerService {
             },
             select: { id: true },
           })
-        : Promise.resolve([]),
+        : Promise.resolve<{ id: string }[]>([]),
       creditIds.size
         ? this.prisma.credit.findMany({
             where: {
@@ -266,7 +312,7 @@ export class LedgerService {
             },
             select: { id: true },
           })
-        : Promise.resolve([]),
+        : Promise.resolve<{ id: string }[]>([]),
     ]);
 
     const allowedSaleIds = new Set(sales.map((sale) => sale.id));
@@ -278,7 +324,9 @@ export class LedgerService {
     const allowedCreditIds = new Set(credits.map((credit) => credit.id));
 
     return journalEntries.filter((journalEntry) => {
-      const explicitBranchScope = this.extractBranchScope(journalEntry.reference);
+      const explicitBranchScope = this.extractBranchScope(
+        journalEntry.reference,
+      );
       if (explicitBranchScope) {
         return explicitBranchScope === branchId;
       }
@@ -318,19 +366,20 @@ export class LedgerService {
       endDate?: Date;
       branchId?: string;
     },
-  ) {
-    const whereClause: any = { tenantId };
+  ): Promise<JournalEntryWithRelations[]> {
+    const whereClause: Prisma.JournalEntryWhereInput = { tenantId };
 
     if (params.asOfDate) {
       whereClause.date = { lte: params.asOfDate };
     } else if (params.startDate || params.endDate) {
-      whereClause.date = {};
-      if (params.startDate) whereClause.date.gte = params.startDate;
+      const dateFilter: Prisma.DateTimeFilter = {};
+      if (params.startDate) dateFilter.gte = params.startDate;
       if (params.endDate) {
         const endOfDay = new Date(params.endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        whereClause.date.lte = endOfDay;
+        dateFilter.lte = endOfDay;
       }
+      whereClause.date = dateFilter;
     }
 
     const journalEntries = await this.prisma.journalEntry.findMany({
@@ -423,7 +472,11 @@ export class LedgerService {
     });
   }
 
-  async createJournalEntry(tenantId: string, userId: string | null, dto: JournalEntryDto) {
+  async createJournalEntry(
+    tenantId: string,
+    userId: string | null,
+    dto: JournalEntryDto,
+  ) {
     // Validate if user exists, otherwise set to null for system-generated entries
     let validUserId = userId;
     if (validUserId === 'system') {
@@ -442,7 +495,9 @@ export class LedgerService {
     const totalCredit = dto.lines.reduce((sum, line) => sum + line.credit, 0);
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      throw new BadRequestException('Journal entry must be balanced (Total Debit must equal Total Credit)');
+      throw new BadRequestException(
+        'Journal entry must be balanced (Total Debit must equal Total Credit)',
+      );
     }
 
     const created = await this.prisma.journalEntry.create({
@@ -454,7 +509,7 @@ export class LedgerService {
         type: dto.type,
         reference: dto.reference,
         ledgerEntries: {
-          create: dto.lines.map(line => ({
+          create: dto.lines.map((line) => ({
             accountId: line.accountId,
             debit: line.debit,
             credit: line.credit,
@@ -495,10 +550,10 @@ export class LedgerService {
     });
 
     const accountMap = new Map<string, { debit: number; credit: number }>();
-    accounts.forEach(acc => accountMap.set(acc.id, { debit: 0, credit: 0 }));
+    accounts.forEach((acc) => accountMap.set(acc.id, { debit: 0, credit: 0 }));
 
-    journalEntries.forEach(je => {
-      je.ledgerEntries.forEach(le => {
+    journalEntries.forEach((je) => {
+      je.ledgerEntries.forEach((le) => {
         const current = accountMap.get(le.accountId);
         if (current) {
           current.debit += le.debit;
@@ -510,11 +565,12 @@ export class LedgerService {
     let totalDebit = 0;
     let totalCredit = 0;
 
-    const trialBalanceAccounts = accounts.map(account => {
-      const { debit: movementDebit, credit: movementCredit } =
-        accountMap.get(account.id) || { debit: 0, credit: 0 };
+    const trialBalanceAccounts = accounts.map((account) => {
+      const { debit: movementDebit, credit: movementCredit } = accountMap.get(
+        account.id,
+      ) || { debit: 0, credit: 0 };
       const netMovement = movementDebit - movementCredit;
-      
+
       // Calculate balance based on account type
       let balance = 0;
       if (['asset', 'expense'].includes(account.type)) {
@@ -565,8 +621,8 @@ export class LedgerService {
     const cogsMap = new Map<string, number>();
     const expenseMap = new Map<string, number>();
 
-    journalEntries.forEach(je => {
-      je.ledgerEntries.forEach(le => {
+    journalEntries.forEach((je) => {
+      je.ledgerEntries.forEach((le) => {
         if (le.account.type === 'revenue') {
           const current = revenueMap.get(le.account.name) || 0;
           revenueMap.set(le.account.name, current + (le.credit - le.debit));
@@ -582,9 +638,18 @@ export class LedgerService {
       });
     });
 
-    const revenue = Array.from(revenueMap.entries()).map(([name, amount]) => ({ name, amount }));
-    const cogs = Array.from(cogsMap.entries()).map(([name, amount]) => ({ name, amount }));
-    const expenses = Array.from(expenseMap.entries()).map(([name, amount]) => ({ name, amount }));
+    const revenue = Array.from(revenueMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
+    const cogs = Array.from(cogsMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
+    const expenses = Array.from(expenseMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
 
     const totalRevenue = revenue.reduce((sum, r) => sum + r.amount, 0);
     const totalCOGS = cogs.reduce((sum, c) => sum + c.amount, 0);
@@ -607,19 +672,23 @@ export class LedgerService {
     asOfDate?: Date,
     branchId?: string,
   ): Promise<BalanceSheet> {
-    const trialBalance = await this.getTrialBalance(tenantId, asOfDate, branchId);
-    
+    const trialBalance = await this.getTrialBalance(
+      tenantId,
+      asOfDate,
+      branchId,
+    );
+
     const assets = trialBalance.accounts
-      .filter(a => a.type === 'asset')
-      .map(a => ({ name: a.name, amount: a.balance }));
-    
+      .filter((a) => a.type === 'asset')
+      .map((a) => ({ name: a.name, amount: a.balance }));
+
     const liabilities = trialBalance.accounts
-      .filter(a => a.type === 'liability')
-      .map(a => ({ name: a.name, amount: a.balance }));
-    
+      .filter((a) => a.type === 'liability')
+      .map((a) => ({ name: a.name, amount: a.balance }));
+
     const equity = trialBalance.accounts
-      .filter(a => a.type === 'equity')
-      .map(a => ({ name: a.name, amount: a.balance }));
+      .filter((a) => a.type === 'equity')
+      .map((a) => ({ name: a.name, amount: a.balance }));
 
     // Derive current earnings from the same trial-balance scope to keep
     // Assets and Liabilities+Equity in sync.
@@ -634,7 +703,8 @@ export class LedgerService {
     const retainedEarningsIndex = trialBalance.accounts.findIndex(
       (a) =>
         a.type === 'equity' &&
-        (a.subtype === 'retained_earnings' || a.name.toLowerCase() === 'retained earnings'),
+        (a.subtype === 'retained_earnings' ||
+          a.name.toLowerCase() === 'retained earnings'),
     );
 
     if (retainedEarningsIndex >= 0) {
@@ -663,25 +733,36 @@ export class LedgerService {
 
   // --- Automated Accounting Methods ---
 
-  async recordSaleAutomation(tenantId: string, userId: string, data: {
-    saleId: string,
-    total: number,
-    paymentMethod: string,
-    date?: Date,
-    items: { productId: string, name: string, quantity: number, price: number, cost?: number }[]
-  }) {
+  async recordSaleAutomation(
+    tenantId: string,
+    userId: string,
+    data: {
+      saleId: string;
+      total: number;
+      paymentMethod: string;
+      date?: Date;
+      items: {
+        productId: string;
+        name: string;
+        quantity: number;
+        price: number;
+        cost?: number;
+      }[];
+    },
+  ) {
     try {
       // Ensure COA is initialized
       await this.initializeCOA(tenantId);
-      
+
       // 1. Get relevant accounts
       const accounts = await this.getAccounts(tenantId);
-      const getAccount = (subtype: string) => accounts.find(a => a.subtype === subtype);
+      const getAccount = (subtype: string) =>
+        accounts.find((a) => a.subtype === subtype);
 
       const salesRevenueAcc = getAccount('sales');
       const cogsAcc = getAccount('cogs');
       const inventoryAcc = getAccount('inventory');
-      
+
       let paymentAcc = getAccount('cash'); // Default
       if (data.paymentMethod === 'mpesa' || data.paymentMethod === 'bank') {
         paymentAcc = getAccount('bank') || paymentAcc;
@@ -695,8 +776,18 @@ export class LedgerService {
       }
 
       const lines = [
-        { accountId: paymentAcc.id, debit: data.total, credit: 0, description: `Payment for Sale ${data.saleId}` },
-        { accountId: salesRevenueAcc.id, debit: 0, credit: data.total, description: `Revenue from Sale ${data.saleId}` }
+        {
+          accountId: paymentAcc.id,
+          debit: data.total,
+          credit: 0,
+          description: `Payment for Sale ${data.saleId}`,
+        },
+        {
+          accountId: salesRevenueAcc.id,
+          debit: 0,
+          credit: data.total,
+          description: `Revenue from Sale ${data.saleId}`,
+        },
       ];
 
       // COGS and Inventory
@@ -708,8 +799,18 @@ export class LedgerService {
       }
 
       if (totalCost > 0 && cogsAcc && inventoryAcc) {
-        lines.push({ accountId: cogsAcc.id, debit: totalCost, credit: 0, description: `COGS for Sale ${data.saleId}` });
-        lines.push({ accountId: inventoryAcc.id, debit: 0, credit: totalCost, description: `Inventory reduction for Sale ${data.saleId}` });
+        lines.push({
+          accountId: cogsAcc.id,
+          debit: totalCost,
+          credit: 0,
+          description: `COGS for Sale ${data.saleId}`,
+        });
+        lines.push({
+          accountId: inventoryAcc.id,
+          debit: 0,
+          credit: totalCost,
+          description: `Inventory reduction for Sale ${data.saleId}`,
+        });
       }
 
       return this.createJournalEntry(tenantId, userId, {
@@ -717,20 +818,24 @@ export class LedgerService {
         description: `Automated Sale Entry: ${data.saleId}`,
         type: 'sale',
         reference: `SALE-${data.saleId}`,
-        lines
+        lines,
       });
     } catch (error) {
       console.error('Failed to record automated sale entry:', error);
     }
   }
 
-  async recordInitialCapital(tenantId: string, userId: string, data: {
-    productId: string,
-    sku: string,
-    name: string,
-    quantity: number,
-    cost: number
-  }) {
+  async recordInitialCapital(
+    tenantId: string,
+    userId: string,
+    data: {
+      productId: string;
+      sku: string;
+      name: string;
+      quantity: number;
+      cost: number;
+    },
+  ) {
     try {
       if (data.quantity <= 0 || data.cost <= 0) return;
 
@@ -738,8 +843,8 @@ export class LedgerService {
       await this.initializeCOA(tenantId);
 
       const accounts = await this.getAccounts(tenantId);
-      const inventoryAcc = accounts.find(a => a.subtype === 'inventory');
-      const capitalAcc = accounts.find(a => a.subtype === 'capital');
+      const inventoryAcc = accounts.find((a) => a.subtype === 'inventory');
+      const capitalAcc = accounts.find((a) => a.subtype === 'capital');
 
       if (!inventoryAcc || !capitalAcc) return;
 
@@ -751,31 +856,52 @@ export class LedgerService {
         type: 'adjustment',
         reference: `INIT-STOCK-${data.productId}`,
         lines: [
-          { accountId: inventoryAcc.id, debit: totalValue, credit: 0, description: `Added ${data.quantity} units to inventory` },
-          { accountId: capitalAcc.id, debit: 0, credit: totalValue, description: `Owner investment in stock` }
-        ]
+          {
+            accountId: inventoryAcc.id,
+            debit: totalValue,
+            credit: 0,
+            description: `Added ${data.quantity} units to inventory`,
+          },
+          {
+            accountId: capitalAcc.id,
+            debit: 0,
+            credit: totalValue,
+            description: `Owner investment in stock`,
+          },
+        ],
       });
     } catch (error) {
       console.error('Failed to record initial capital entry:', error);
     }
   }
 
-  async recordReturnAutomation(tenantId: string, userId: string, data: {
-    returnId: string,
-    originalSaleId: string,
-    total: number,
-    refundMethod: string,
-    items: { productId: string, name: string, quantity: number, price: number, cost?: number }[]
-  }) {
+  async recordReturnAutomation(
+    tenantId: string,
+    userId: string,
+    data: {
+      returnId: string;
+      originalSaleId: string;
+      total: number;
+      refundMethod: string;
+      items: {
+        productId: string;
+        name: string;
+        quantity: number;
+        price: number;
+        cost?: number;
+      }[];
+    },
+  ) {
     try {
       await this.initializeCOA(tenantId);
       const accounts = await this.getAccounts(tenantId);
-      const getAccount = (subtype: string) => accounts.find(a => a.subtype === subtype);
+      const getAccount = (subtype: string) =>
+        accounts.find((a) => a.subtype === subtype);
 
       const salesRevenueAcc = getAccount('sales');
       const cogsAcc = getAccount('cogs');
       const inventoryAcc = getAccount('inventory');
-      
+
       let paymentAcc = getAccount('cash');
       if (data.refundMethod === 'mpesa' || data.refundMethod === 'bank') {
         paymentAcc = getAccount('bank') || paymentAcc;
@@ -784,8 +910,18 @@ export class LedgerService {
       if (!salesRevenueAcc || !paymentAcc) return;
 
       const lines = [
-        { accountId: salesRevenueAcc.id, debit: data.total, credit: 0, description: `Return for Sale ${data.originalSaleId}` },
-        { accountId: paymentAcc.id, debit: 0, credit: data.total, description: `Refund for Return ${data.returnId}` }
+        {
+          accountId: salesRevenueAcc.id,
+          debit: data.total,
+          credit: 0,
+          description: `Return for Sale ${data.originalSaleId}`,
+        },
+        {
+          accountId: paymentAcc.id,
+          debit: 0,
+          credit: data.total,
+          description: `Refund for Return ${data.returnId}`,
+        },
       ];
 
       let totalCost = 0;
@@ -796,8 +932,18 @@ export class LedgerService {
       }
 
       if (totalCost > 0 && cogsAcc && inventoryAcc) {
-        lines.push({ accountId: inventoryAcc.id, debit: totalCost, credit: 0, description: `Restocking for Return ${data.returnId}` });
-        lines.push({ accountId: cogsAcc.id, debit: 0, credit: totalCost, description: `COGS reversal for Return ${data.returnId}` });
+        lines.push({
+          accountId: inventoryAcc.id,
+          debit: totalCost,
+          credit: 0,
+          description: `Restocking for Return ${data.returnId}`,
+        });
+        lines.push({
+          accountId: cogsAcc.id,
+          debit: 0,
+          credit: totalCost,
+          description: `COGS reversal for Return ${data.returnId}`,
+        });
       }
 
       return this.createJournalEntry(tenantId, userId, {
@@ -805,28 +951,33 @@ export class LedgerService {
         description: `Automated Return Entry: ${data.returnId}`,
         type: 'adjustment',
         reference: `RETURN-${data.returnId}`,
-        lines
+        lines,
       });
     } catch (error) {
       console.error('Failed to record automated return entry:', error);
     }
   }
 
-  async recordExpenseAutomation(tenantId: string, userId: string | null, data: {
-    expenseId: string,
-    amount: number,
-    description: string,
-    categoryName?: string,
-    paymentMethod?: string,
-    date?: Date,
-  }) {
+  async recordExpenseAutomation(
+    tenantId: string,
+    userId: string | null,
+    data: {
+      expenseId: string;
+      amount: number;
+      description: string;
+      categoryName?: string;
+      paymentMethod?: string;
+      date?: Date;
+    },
+  ) {
     try {
       if (!data.amount || data.amount <= 0) return;
 
       await this.initializeCOA(tenantId);
 
       const accounts = await this.getAccounts(tenantId);
-      const getAccount = (subtype: string) => accounts.find(a => a.subtype === subtype);
+      const getAccount = (subtype: string) =>
+        accounts.find((a) => a.subtype === subtype);
       const expenseAcc = this.selectExpenseAccount(
         accounts,
         data.categoryName,
@@ -837,7 +988,9 @@ export class LedgerService {
       let paymentAcc = getAccount('cash');
       if (['mpesa', 'bank', 'card'].includes(normalizedPayment)) {
         paymentAcc = getAccount('bank') || paymentAcc;
-      } else if (['credit', 'payable', 'on_credit'].includes(normalizedPayment)) {
+      } else if (
+        ['credit', 'payable', 'on_credit'].includes(normalizedPayment)
+      ) {
         paymentAcc = getAccount('accounts_payable') || paymentAcc;
       }
 
@@ -855,8 +1008,18 @@ export class LedgerService {
         type: 'expense',
         reference: `EXPENSE-${data.expenseId}`,
         lines: [
-          { accountId: expenseAcc.id, debit: data.amount, credit: 0, description: `Expense recorded (${data.categoryName || 'General'})` },
-          { accountId: paymentAcc.id, debit: 0, credit: data.amount, description: `Expense payment (${normalizedPayment})` },
+          {
+            accountId: expenseAcc.id,
+            debit: data.amount,
+            credit: 0,
+            description: `Expense recorded (${data.categoryName || 'General'})`,
+          },
+          {
+            accountId: paymentAcc.id,
+            debit: 0,
+            credit: data.amount,
+            description: `Expense payment (${normalizedPayment})`,
+          },
         ],
       });
     } catch (error) {
@@ -881,7 +1044,10 @@ export class LedgerService {
         where: {
           tenantId,
           type: 'expense',
-          OR: [{ reference: `EXPENSE-${expenseId}` }, { reference: { endsWith: `:EXPENSE-${expenseId}` } }],
+          OR: [
+            { reference: `EXPENSE-${expenseId}` },
+            { reference: { endsWith: `:EXPENSE-${expenseId}` } },
+          ],
         },
         include: {
           ledgerEntries: true,
@@ -889,7 +1055,11 @@ export class LedgerService {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (!originalEntry || !Array.isArray(originalEntry.ledgerEntries) || originalEntry.ledgerEntries.length === 0) {
+      if (
+        !originalEntry ||
+        !Array.isArray(originalEntry.ledgerEntries) ||
+        originalEntry.ledgerEntries.length === 0
+      ) {
         return;
       }
 
@@ -926,7 +1096,10 @@ export class LedgerService {
         lines,
       });
     } catch (error) {
-      console.error('Failed to record automated expense reversal entry:', error);
+      console.error(
+        'Failed to record automated expense reversal entry:',
+        error,
+      );
     }
   }
 
@@ -960,10 +1133,13 @@ export class LedgerService {
       }
 
       if (!receivableAcc || !paymentAcc) {
-        console.warn('Accounting setup incomplete for customer payment posting', {
-          tenantId,
-          creditId: data.creditId,
-        });
+        console.warn(
+          'Accounting setup incomplete for customer payment posting',
+          {
+            tenantId,
+            creditId: data.creditId,
+          },
+        );
         return;
       }
 
@@ -1006,6 +1182,7 @@ export class LedgerService {
         reference: { startsWith: 'EXPENSE-' },
       },
       include: {
+        user: true,
         ledgerEntries: {
           include: { account: true },
         },
@@ -1013,7 +1190,11 @@ export class LedgerService {
     });
 
     const scopedJournalEntries = branchId
-      ? await this.filterJournalEntriesByBranch(tenantId, branchId, journalEntries)
+      ? await this.filterJournalEntriesByBranch(
+          tenantId,
+          branchId,
+          journalEntries,
+        )
       : journalEntries;
 
     const expenseIds = Array.from(
@@ -1035,7 +1216,9 @@ export class LedgerService {
         })
       : [];
 
-    const expenseMap = new Map(expenses.map((expense) => [expense.id, expense]));
+    const expenseMap = new Map(
+      expenses.map((expense) => [expense.id, expense]),
+    );
 
     let reclassifiedCount = 0;
     let unchangedCount = 0;
@@ -1112,26 +1295,19 @@ export class LedgerService {
   ): Promise<LedgerEntryType[]> {
     // Keep existing logic for transaction history view
     // ... (omitted for brevity, will merge in the next step or keep as is)
-    const [
-      sales,
-      expenses,
-      inventoryMovements,
-      payments,
-      journalEntries,
-    ] = await Promise.all([
+    const [sales, expenses, journalEntries] = await Promise.all([
       this.prisma.sale.findMany({
         where: { tenantId, ...(branchId ? { branchId } : {}) },
         include: { SaleItem: { include: { product: true } }, User: true },
       }),
       this.prisma.expense.findMany({
-        where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
+        where: {
+          tenantId,
+          deletedAt: null,
+          ...(branchId ? { branchId } : {}),
+        },
         include: { user: true, branch: true, category: true },
       }),
-      this.prisma.inventoryMovement.findMany({
-        where: { tenantId, ...(branchId ? { branchId } : {}) },
-        include: { product: true, branch: true },
-      }),
-      this.prisma.payment.findMany({ where: { tenantId } }),
       this.getJournalEntriesForReporting(tenantId, { branchId }),
     ]);
 
@@ -1140,7 +1316,13 @@ export class LedgerService {
       date: sale.createdAt,
       reference: `SALE-${sale.id}`,
       type: 'sale',
-      description: `Sale${sale.SaleItem && sale.SaleItem.length > 0 ? `: ${sale.SaleItem.map(i => i.product?.name).filter(Boolean).join(', ')}` : ''}`,
+      description: `Sale${
+        sale.SaleItem && sale.SaleItem.length > 0
+          ? `: ${sale.SaleItem.map((i) => i.product?.name)
+              .filter(Boolean)
+              .join(', ')}`
+          : ''
+      }`,
       debit: 0,
       credit: sale.total,
       user: sale.User?.name || undefined,
@@ -1159,17 +1341,19 @@ export class LedgerService {
     }));
 
     // Normalize manual journal entries
-    const journalLedgerEntries: LedgerEntryType[] = journalEntries.flatMap(je => 
-      je.ledgerEntries.map(le => ({
-        date: je.date,
-        reference: `JE-${je.id}`,
-        type: je.type as any,
-        description: je.description + (le.description ? ` (${le.description})` : ''),
-        debit: le.debit,
-        credit: le.credit,
-        user: undefined,
-        meta: { journalEntryId: je.id, account: le.account.name },
-      }))
+    const journalLedgerEntries: LedgerEntryType[] = journalEntries.flatMap(
+      (je) =>
+        je.ledgerEntries.map((le) => ({
+          date: je.date,
+          reference: `JE-${je.id}`,
+          type: je.type as LedgerEntryType['type'],
+          description:
+            je.description + (le.description ? ` (${le.description})` : ''),
+          debit: le.debit,
+          credit: le.credit,
+          user: undefined,
+          meta: { journalEntryId: je.id, account: le.account.name },
+        })),
     );
 
     // Combine all
@@ -1211,7 +1395,7 @@ export class LedgerService {
           total: sale.total,
           paymentMethod: sale.paymentType,
           date: sale.createdAt,
-          items: sale.SaleItem.map(item => ({
+          items: sale.SaleItem.map((item) => ({
             productId: item.productId,
             name: item.product?.name || 'Unknown',
             quantity: item.quantity,
@@ -1247,7 +1431,7 @@ export class LedgerService {
         syncedExpenses.push(expense.id);
       }
     }
-    
+
     const result = {
       syncedSalesCount: syncedSales.length,
       syncedSales: syncedSales,
@@ -1281,18 +1465,19 @@ export class LedgerService {
     const requestedLimit = Number(options?.limit || 50);
     const limit = Math.min(Math.max(requestedLimit, 10), 200);
 
-    const journalWhere: any = {
+    const journalWhere: Prisma.JournalEntryWhereInput = {
       tenantId,
     };
 
     if (options?.startDate || options?.endDate) {
-      journalWhere.date = {};
-      if (options.startDate) journalWhere.date.gte = options.startDate;
+      const dateFilter: Prisma.DateTimeFilter = {};
+      if (options.startDate) dateFilter.gte = options.startDate;
       if (options.endDate) {
         const endOfDay = new Date(options.endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        journalWhere.date.lte = endOfDay;
+        dateFilter.lte = endOfDay;
       }
+      journalWhere.date = dateFilter;
     }
 
     if (branchId) {
@@ -1318,10 +1503,7 @@ export class LedgerService {
           },
         },
       },
-      orderBy: [
-        { journalEntry: { date: 'desc' } },
-        { id: 'desc' },
-      ],
+      orderBy: [{ journalEntry: { date: 'desc' } }, { id: 'desc' }],
       ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
       take: limit + 1,
     });
@@ -1354,7 +1536,15 @@ export class LedgerService {
 
   async updateLedgerEntryTag(tenantId: string, entryId: string, tag: string) {
     // Only allow tags from a safe list or sanitize input as needed
-    const allowedTags = ['general', 'tax', 'refund', 'adjustment', 'expense', 'income', 'other'];
+    const allowedTags = [
+      'general',
+      'tax',
+      'refund',
+      'adjustment',
+      'expense',
+      'income',
+      'other',
+    ];
     const safeTag = allowedTags.includes(tag) ? tag : 'other';
 
     const existingEntry = await this.prisma.ledgerEntry.findFirst({

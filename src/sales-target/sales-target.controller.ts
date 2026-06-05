@@ -12,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { AuthenticatedRequest } from '../auth/request.types';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('sales-targets')
@@ -20,19 +21,34 @@ export class SalesTargetController {
 
   @Get()
   @Permissions('view_sales')
-  async getTargets(@Req() req) {
+  getTargets(@Req() req: AuthenticatedRequest) {
+    if (!req.user.tenantId) {
+      throw new Error('Tenant context is required');
+    }
     return this.salesTargetService.getTargets(req.user.tenantId);
   }
 
   @Post()
   @Permissions('create_sales')
-  async createTargets(@Body() body: { daily: number; weekly: number; monthly: number }, @Req() req) {
+  createTargets(
+    @Body() body: { daily: number; weekly: number; monthly: number },
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!req.user.tenantId) {
+      throw new Error('Tenant context is required');
+    }
     return this.salesTargetService.createTargets(req.user.tenantId, body);
   }
 
   @Put()
   @Permissions('create_sales')
-  async updateTargets(@Body() body: { daily: number; weekly: number; monthly: number }, @Req() req) {
+  updateTargets(
+    @Body() body: { daily: number; weekly: number; monthly: number },
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!req.user.tenantId) {
+      throw new Error('Tenant context is required');
+    }
     return this.salesTargetService.updateTargets(req.user.tenantId, body);
   }
 }

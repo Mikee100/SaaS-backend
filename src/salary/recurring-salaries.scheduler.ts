@@ -46,7 +46,9 @@ export class RecurringSalariesScheduler {
         },
       });
 
-      this.logger.log(`Found ${salarySchemes.length} salary schemes to process`);
+      this.logger.log(
+        `Found ${salarySchemes.length} salary schemes to process`,
+      );
 
       for (const salaryScheme of salarySchemes) {
         try {
@@ -54,7 +56,9 @@ export class RecurringSalariesScheduler {
           const expenseData = {
             amount: salaryScheme.salaryAmount,
             description: `Salary payment for ${salaryScheme.employeeName} (${salaryScheme.frequency})`,
-            categoryId: await this.getOrCreateSalaryCategory(salaryScheme.tenantId),
+            categoryId: await this.getOrCreateSalaryCategory(
+              salaryScheme.tenantId,
+            ),
             expenseType: 'one_time', // The expense is one-time, but salary is recurring
             branchId: salaryScheme.branchId,
             notes: `Auto-generated salary expense for ${salaryScheme.employeeName}`,
@@ -67,7 +71,7 @@ export class RecurringSalariesScheduler {
           );
 
           // Update the nextDueDate based on frequency
-          let nextDueDate = new Date(salaryScheme.nextDueDate!);
+          const nextDueDate = new Date(salaryScheme.nextDueDate!);
 
           switch (salaryScheme.frequency) {
             case 'monthly':
@@ -77,7 +81,9 @@ export class RecurringSalariesScheduler {
               nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
               break;
             default:
-              this.logger.warn(`Unknown frequency: ${salaryScheme.frequency} for salary scheme ${salaryScheme.id}`);
+              this.logger.warn(
+                `Unknown frequency: ${salaryScheme.frequency} for salary scheme ${salaryScheme.id}`,
+              );
               // Skip updating nextDueDate for unknown frequency
               continue;
           }
@@ -92,9 +98,14 @@ export class RecurringSalariesScheduler {
             },
           });
 
-          this.logger.log(`Processed salary scheme ${salaryScheme.id} for ${salaryScheme.employeeName}, next due: ${nextDueDate.toISOString()}`);
+          this.logger.log(
+            `Processed salary scheme ${salaryScheme.id} for ${salaryScheme.employeeName}, next due: ${nextDueDate.toISOString()}`,
+          );
         } catch (error) {
-          this.logger.error(`Failed to process salary scheme ${salaryScheme.id}:`, error);
+          this.logger.error(
+            `Failed to process salary scheme ${salaryScheme.id}:`,
+            error,
+          );
         }
       }
 

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma.service';
 
@@ -18,7 +22,7 @@ export interface PayrollBand {
 }
 
 export interface PayrollSettings {
-  countryCode: 'KE' | string;
+  countryCode: string;
   enabled: boolean;
   personalRelief: number;
   payeBands: PayrollBand[];
@@ -153,7 +157,22 @@ export interface PayrollRun {
     paidAmount: number;
     variance: number;
   };
-  items: any[];
+  items: PayrollRunItem[];
+}
+
+interface PayrollRunItem {
+  salarySchemeId?: string;
+  employeeName?: string;
+  grossPay?: number;
+  netPay?: number;
+  baseSalary?: number;
+  bonus?: number;
+  commission?: number;
+  nonTaxDeduction?: number;
+  deduction?: number;
+  paidAmount?: number;
+  variance?: number;
+  statutory?: Partial<KenyaStatutoryResult>;
 }
 
 interface PayrollPeriodLock {
@@ -273,13 +292,17 @@ export class HrService {
     return {
       ...this.getDefaultPayrollSettings(),
       ...saved,
-      payeBands: Array.isArray(saved?.payeBands) && saved.payeBands.length > 0
-        ? saved.payeBands
-        : this.getDefaultPayrollSettings().payeBands,
+      payeBands:
+        Array.isArray(saved?.payeBands) && saved.payeBands.length > 0
+          ? saved.payeBands
+          : this.getDefaultPayrollSettings().payeBands,
     };
   }
 
-  async updatePayrollSettings(tenantId: string, payload: Partial<PayrollSettings>) {
+  async updatePayrollSettings(
+    tenantId: string,
+    payload: Partial<PayrollSettings>,
+  ) {
     const merged = {
       ...(await this.getPayrollSettings(tenantId)),
       ...payload,
@@ -359,8 +382,12 @@ export class HrService {
         break;
       }
 
-      const bandUpper = band.upto === null ? Number.POSITIVE_INFINITY : band.upto;
-      const taxableInBand = Math.max(0, Math.min(remaining, bandUpper - previousUpper));
+      const bandUpper =
+        band.upto === null ? Number.POSITIVE_INFINITY : band.upto;
+      const taxableInBand = Math.max(
+        0,
+        Math.min(remaining, bandUpper - previousUpper),
+      );
       payeBeforeRelief += taxableInBand * band.rate;
       remaining -= taxableInBand;
       previousUpper = Number.isFinite(bandUpper) ? bandUpper : previousUpper;
@@ -400,7 +427,11 @@ export class HrService {
     };
   }
 
-  private async readJsonConfig<T>(tenantId: string, key: string, fallback: T): Promise<T> {
+  private async readJsonConfig<T>(
+    tenantId: string,
+    key: string,
+    fallback: T,
+  ): Promise<T> {
     const config = await this.prisma.tenantConfiguration.findUnique({
       where: {
         tenantId_key: {
@@ -424,7 +455,11 @@ export class HrService {
     }
   }
 
-  private async writeJsonConfig<T>(tenantId: string, key: string, value: T): Promise<void> {
+  private async writeJsonConfig<T>(
+    tenantId: string,
+    key: string,
+    value: T,
+  ): Promise<void> {
     await this.prisma.tenantConfiguration.upsert({
       where: {
         tenantId_key: {
@@ -522,7 +557,11 @@ export class HrService {
     return employee;
   }
 
-  async updateEmployee(tenantId: string, id: string, payload: Partial<EmployeeProfile>) {
+  async updateEmployee(
+    tenantId: string,
+    id: string,
+    payload: Partial<EmployeeProfile>,
+  ) {
     const employees = await this.readJsonConfig<EmployeeProfile[]>(
       tenantId,
       EMPLOYEE_PROFILES_KEY,
@@ -574,17 +613,27 @@ export class HrService {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  async createPayrollTemplate(tenantId: string, payload: Partial<PayrollTemplate>) {
+  async createPayrollTemplate(
+    tenantId: string,
+    payload: Partial<PayrollTemplate>,
+  ) {
     if (!payload.name?.trim()) {
       throw new BadRequestException('Template name is required');
     }
 
-    if (!payload.type || !['bonus', 'deduction', 'commission'].includes(payload.type)) {
-      throw new BadRequestException('Template type must be bonus, commission, or deduction');
+    if (
+      !payload.type ||
+      !['bonus', 'deduction', 'commission'].includes(payload.type)
+    ) {
+      throw new BadRequestException(
+        'Template type must be bonus, commission, or deduction',
+      );
     }
 
     if (!payload.mode || !['fixed', 'percentage'].includes(payload.mode)) {
-      throw new BadRequestException('Template mode must be fixed or percentage');
+      throw new BadRequestException(
+        'Template mode must be fixed or percentage',
+      );
     }
 
     const value = Number(payload.value || 0);
@@ -606,8 +655,12 @@ export class HrService {
       mode: payload.mode,
       value,
       applyScope: payload.applyScope || 'all',
-      targetEmployeeIds: Array.isArray(payload.targetEmployeeIds) ? payload.targetEmployeeIds : [],
-      targetDepartments: Array.isArray(payload.targetDepartments) ? payload.targetDepartments : [],
+      targetEmployeeIds: Array.isArray(payload.targetEmployeeIds)
+        ? payload.targetEmployeeIds
+        : [],
+      targetDepartments: Array.isArray(payload.targetDepartments)
+        ? payload.targetDepartments
+        : [],
       branchId: payload.branchId,
       isActive: payload.isActive ?? true,
       notes: payload.notes?.trim(),
@@ -620,7 +673,11 @@ export class HrService {
     return template;
   }
 
-  async updatePayrollTemplate(tenantId: string, id: string, payload: Partial<PayrollTemplate>) {
+  async updatePayrollTemplate(
+    tenantId: string,
+    id: string,
+    payload: Partial<PayrollTemplate>,
+  ) {
     const templates = await this.readJsonConfig<PayrollTemplate[]>(
       tenantId,
       PAYROLL_TEMPLATES_KEY,
@@ -636,7 +693,10 @@ export class HrService {
       ...templates[index],
       ...payload,
       name: payload.name?.trim() || templates[index].name,
-      value: payload.value !== undefined ? Number(payload.value) : templates[index].value,
+      value:
+        payload.value !== undefined
+          ? Number(payload.value)
+          : templates[index].value,
       targetEmployeeIds: Array.isArray(payload.targetEmployeeIds)
         ? payload.targetEmployeeIds
         : templates[index].targetEmployeeIds,
@@ -674,7 +734,11 @@ export class HrService {
     branchId?: string,
     status?: string,
   ) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
 
     return runs
       .filter((run) => {
@@ -686,7 +750,10 @@ export class HrService {
           return false;
         }
 
-        if ((branchId || '') !== '' && (run.branchId || '') !== (branchId || '')) {
+        if (
+          (branchId || '') !== '' &&
+          (run.branchId || '') !== (branchId || '')
+        ) {
           return false;
         }
 
@@ -696,7 +763,10 @@ export class HrService {
 
         return true;
       })
-      .sort((a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime(),
+      );
   }
 
   private samePeriodBranch(
@@ -714,8 +784,17 @@ export class HrService {
     return runBranch === expectedBranch;
   }
 
-  async findPostedRunForPeriod(tenantId: string, month: number, year: number, branchId?: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+  async findPostedRunForPeriod(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+  ) {
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     return runs.find((run) => {
       const status = run.status || 'posted';
       if (!this.samePeriodBranch(run, month, year, branchId)) {
@@ -726,8 +805,17 @@ export class HrService {
     });
   }
 
-  async findActiveRunForPeriod(tenantId: string, month: number, year: number, branchId?: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+  async findActiveRunForPeriod(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+  ) {
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     return runs.find((run) => {
       const status = run.status || 'posted';
       if (!this.samePeriodBranch(run, month, year, branchId)) {
@@ -739,7 +827,11 @@ export class HrService {
   }
 
   async getPayrollRunById(tenantId: string, id: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const run = runs.find((item) => item.id === id);
     if (!run) {
       throw new NotFoundException('Payroll run not found');
@@ -749,7 +841,11 @@ export class HrService {
   }
 
   async approvePayrollRun(tenantId: string, runId: string, approvedBy: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const index = runs.findIndex((run) => run.id === runId);
     if (index < 0) {
       throw new NotFoundException('Payroll run not found');
@@ -762,7 +858,9 @@ export class HrService {
     }
 
     if (status === 'posted') {
-      throw new BadRequestException('Posted payroll run does not require approval');
+      throw new BadRequestException(
+        'Posted payroll run does not require approval',
+      );
     }
 
     if (status === 'approved') {
@@ -806,7 +904,11 @@ export class HrService {
       liabilityTotals: PayrollRun['liabilityTotals'];
     },
   ) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const index = runs.findIndex((run) => run.id === runId);
     if (index < 0) {
       throw new NotFoundException('Payroll run not found');
@@ -852,8 +954,17 @@ export class HrService {
     return runs[index];
   }
 
-  async reversePayrollRun(tenantId: string, runId: string, reversedBy: string, reason?: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+  async reversePayrollRun(
+    tenantId: string,
+    runId: string,
+    reversedBy: string,
+    reason?: string,
+  ) {
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const index = runs.findIndex((run) => run.id === runId);
     if (index < 0) {
       throw new NotFoundException('Payroll run not found');
@@ -891,7 +1002,11 @@ export class HrService {
   }
 
   async recordPayrollRun(tenantId: string, run: PayrollRun) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const status = run.status || 'posted';
     const processedAt = run.processedAt || new Date().toISOString();
     runs.push({
@@ -905,8 +1020,8 @@ export class HrService {
                 status === 'draft'
                   ? 'draft_created'
                   : status === 'posted'
-                  ? 'posted'
-                  : 'created',
+                    ? 'posted'
+                    : 'created',
               by: run.processedBy,
               at: processedAt,
             },
@@ -915,8 +1030,17 @@ export class HrService {
     await this.writeJsonConfig(tenantId, PAYROLL_RUNS_KEY, runs);
   }
 
-  async cancelPayrollRun(tenantId: string, runId: string, cancelledBy: string, reason?: string) {
-    const runs = await this.readJsonConfig<PayrollRun[]>(tenantId, PAYROLL_RUNS_KEY, []);
+  async cancelPayrollRun(
+    tenantId: string,
+    runId: string,
+    cancelledBy: string,
+    reason?: string,
+  ) {
+    const runs = await this.readJsonConfig<PayrollRun[]>(
+      tenantId,
+      PAYROLL_RUNS_KEY,
+      [],
+    );
     const index = runs.findIndex((run) => run.id === runId);
     if (index < 0) {
       throw new NotFoundException('Payroll run not found');
@@ -964,7 +1088,12 @@ export class HrService {
     return Array.isArray(controls.locks) ? controls.locks : [];
   }
 
-  async isPayrollPeriodLocked(tenantId: string, month: number, year: number, branchId?: string) {
+  async isPayrollPeriodLocked(
+    tenantId: string,
+    month: number,
+    year: number,
+    branchId?: string,
+  ) {
     const locks = await this.listPayrollPeriodLocks(tenantId);
     return locks.find((lock) =>
       this.samePeriodBranch(
@@ -978,7 +1107,13 @@ export class HrService {
 
   async lockPayrollPeriod(
     tenantId: string,
-    payload: { month: number; year: number; branchId?: string; reason?: string; lockedBy: string },
+    payload: {
+      month: number;
+      year: number;
+      branchId?: string;
+      reason?: string;
+      lockedBy: string;
+    },
   ) {
     const controls = await this.readJsonConfig<PayrollControls>(
       tenantId,
@@ -1104,7 +1239,9 @@ export class HrService {
     for (const run of runs) {
       const items = Array.isArray(run.items) ? run.items : [];
       for (const item of items) {
-        const key = String(item.employeeName || item.salarySchemeId || 'unknown');
+        const key = String(
+          item.employeeName || item.salarySchemeId || 'unknown',
+        );
         const current = employeeMap.get(key) || {
           employeeName: String(item.employeeName || 'Unknown'),
           grossPay: 0,
@@ -1118,8 +1255,12 @@ export class HrService {
         current.grossPay += this.clampAmount(item.grossPay);
         current.paye += this.clampAmount(item?.statutory?.paye);
         current.nssf += this.clampAmount(item?.statutory?.nssfEmployee);
-        current.health += this.clampAmount(item?.statutory?.healthInsuranceEmployee);
-        current.housing += this.clampAmount(item?.statutory?.housingLevyEmployee);
+        current.health += this.clampAmount(
+          item?.statutory?.healthInsuranceEmployee,
+        );
+        current.housing += this.clampAmount(
+          item?.statutory?.housingLevyEmployee,
+        );
         current.netPay += this.clampAmount(item.netPay);
         employeeMap.set(key, current);
       }
@@ -1160,7 +1301,11 @@ export class HrService {
       year?: number;
     },
   ) {
-    const runs = await this.listPayrollRuns(tenantId, params.month, params.year);
+    const runs = await this.listPayrollRuns(
+      tenantId,
+      params.month,
+      params.year,
+    );
 
     let run = params.runId
       ? runs.find((item) => item.id === params.runId)
@@ -1172,18 +1317,24 @@ export class HrService {
     }
 
     if (!run) {
-      throw new NotFoundException('No payroll run found for payslip generation');
+      throw new NotFoundException(
+        'No payroll run found for payslip generation',
+      );
     }
 
     const runItems = Array.isArray(run.items) ? run.items : [];
-    const item = runItems.find((entry: any) => {
-      if (params.salarySchemeId && entry.salarySchemeId === params.salarySchemeId) {
+    const item = runItems.find((entry) => {
+      if (
+        params.salarySchemeId &&
+        entry.salarySchemeId === params.salarySchemeId
+      ) {
         return true;
       }
 
       if (
         params.employeeName &&
-        String(entry.employeeName || '').toLowerCase() === params.employeeName.toLowerCase()
+        String(entry.employeeName || '').toLowerCase() ===
+          params.employeeName.toLowerCase()
       ) {
         return true;
       }
@@ -1192,7 +1343,9 @@ export class HrService {
     });
 
     if (!item) {
-      throw new NotFoundException('Employee payroll line not found for payslip');
+      throw new NotFoundException(
+        'Employee payroll line not found for payslip',
+      );
     }
 
     return {
@@ -1210,12 +1363,16 @@ export class HrService {
         grossPay: this.clampAmount(item.grossPay),
       },
       deductions: {
-        nonTaxDeduction: this.clampAmount(item.nonTaxDeduction || item.deduction),
+        nonTaxDeduction: this.clampAmount(
+          item.nonTaxDeduction || item.deduction,
+        ),
         paye: this.clampAmount(item?.statutory?.paye),
         nssf: this.clampAmount(item?.statutory?.nssfEmployee),
         health: this.clampAmount(item?.statutory?.healthInsuranceEmployee),
         housingLevy: this.clampAmount(item?.statutory?.housingLevyEmployee),
-        totalStatutory: this.clampAmount(item?.statutory?.totalEmployeeStatutory),
+        totalStatutory: this.clampAmount(
+          item?.statutory?.totalEmployeeStatutory,
+        ),
       },
       employerContributions: {
         nssf: this.clampAmount(item?.statutory?.nssfEmployer),
@@ -1248,7 +1405,12 @@ export class HrService {
         bonus: number;
         commission: number;
         deduction: number;
-        breakdown: Array<{ templateId: string; name: string; amount: number; type: TemplateType }>;
+        breakdown: Array<{
+          templateId: string;
+          name: string;
+          amount: number;
+          type: TemplateType;
+        }>;
       }
     >();
 
@@ -1261,17 +1423,27 @@ export class HrService {
     for (const item of payrollItems) {
       const profileByScheme = employeesBySchemeId.get(item.salarySchemeId);
       const profileByName = employees.find(
-        (employee) => employee.fullName.toLowerCase() === item.employeeName.toLowerCase(),
+        (employee) =>
+          employee.fullName.toLowerCase() === item.employeeName.toLowerCase(),
       );
       const employeeProfile = profileByScheme || profileByName;
 
       let bonus = 0;
       let commission = 0;
       let deduction = 0;
-      const breakdown: Array<{ templateId: string; name: string; amount: number; type: TemplateType }> = [];
+      const breakdown: Array<{
+        templateId: string;
+        name: string;
+        amount: number;
+        type: TemplateType;
+      }> = [];
 
       for (const template of templates) {
-        if (template.branchId && item.branchId && template.branchId !== item.branchId) {
+        if (
+          template.branchId &&
+          item.branchId &&
+          template.branchId !== item.branchId
+        ) {
           continue;
         }
 
@@ -1280,9 +1452,13 @@ export class HrService {
         if (template.applyScope === 'all') {
           applies = true;
         } else if (template.applyScope === 'employee') {
-          applies = !!employeeProfile && (template.targetEmployeeIds || []).includes(employeeProfile.id);
+          applies =
+            !!employeeProfile &&
+            (template.targetEmployeeIds || []).includes(employeeProfile.id);
         } else if (template.applyScope === 'department') {
-          const employeeDepartment = (employeeProfile?.department || '').toLowerCase();
+          const employeeDepartment = (
+            employeeProfile?.department || ''
+          ).toLowerCase();
           applies =
             !!employeeDepartment &&
             (template.targetDepartments || []).some(

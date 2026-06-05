@@ -5,7 +5,8 @@ export const AI_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'generate_chart',
-      description: 'Generate a visual chart or graph (sales trends, product performance, etc.)',
+      description:
+        'Generate a visual chart or graph (sales trends, product performance, etc.)',
       parameters: {
         type: 'object',
         properties: {
@@ -75,7 +76,8 @@ export const AI_TOOLS: ChatCompletionTool[] = [
           },
           quantity: {
             type: 'number',
-            description: 'The amount to add to current stock (use negative for removals)',
+            description:
+              'The amount to add to current stock (use negative for removals)',
           },
         },
         required: ['productName', 'quantity'],
@@ -97,7 +99,8 @@ export const AI_TOOLS: ChatCompletionTool[] = [
     type: 'function',
     function: {
       name: 'get_system_status',
-      description: 'Check the current status of the database and key system metrics',
+      description:
+        'Check the current status of the database and key system metrics',
       parameters: {
         type: 'object',
         properties: {},

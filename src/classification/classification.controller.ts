@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -9,10 +10,10 @@ import {
   Query,
   UseGuards,
   Req,
-  ParseBoolPipe,
 } from '@nestjs/common';
 import { ClassificationService } from './classification.service';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedRequest } from '../auth/request.types';
 import {
   CreateClassificationDto,
   UpdateClassificationDto,
@@ -24,6 +25,13 @@ import {
 @Controller()
 export class ClassificationController {
   constructor(private readonly classificationService: ClassificationService) {}
+
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return req.user.tenantId;
+  }
 
   // ─── Public: used during tenant creation wizard ────────────────────────────
 
@@ -38,19 +46,21 @@ export class ClassificationController {
   /** GET /tenant/classification — returns current tenant's classification + units */
   @Get('tenant/classification')
   @UseGuards(AuthGuard('jwt'))
-  async getTenantClassification(@Req() req: any) {
-    return this.classificationService.getTenantClassification(req.user.tenantId);
+  async getTenantClassification(@Req() req: AuthenticatedRequest) {
+    return this.classificationService.getTenantClassification(
+      this.getTenantId(req),
+    );
   }
 
   /** POST /tenant/classification — assign/update classification for tenant */
   @Post('tenant/classification')
   @UseGuards(AuthGuard('jwt'))
   async assignTenantClassification(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Body() body: AssignTenantClassificationDto,
   ) {
     return this.classificationService.assignTenantClassification(
-      req.user.tenantId,
+      this.getTenantId(req),
       body.classificationId,
       body.secondaryClassificationId,
       body.measurementPreferences,
@@ -61,8 +71,10 @@ export class ClassificationController {
   /** POST /tenant/classification/provision-defaults — provision defaults for current tenant */
   @Post('tenant/classification/provision-defaults')
   @UseGuards(AuthGuard('jwt'))
-  async provisionDefaultsForTenant(@Req() req: any) {
-    return this.classificationService.syncTenantMetricDefaults(req.user.tenantId);
+  async provisionDefaultsForTenant(@Req() req: AuthenticatedRequest) {
+    return this.classificationService.syncTenantMetricDefaults(
+      this.getTenantId(req),
+    );
   }
 
   // ─── Superadmin: full CRUD ──────────────────────────────────────────────────
@@ -71,7 +83,9 @@ export class ClassificationController {
   @Get('admin/classifications')
   @UseGuards(AuthGuard('jwt'))
   async listAll(@Query('includeInactive') includeInactive?: string) {
-    return this.classificationService.findAllClassifications(includeInactive === 'true');
+    return this.classificationService.findAllClassifications(
+      includeInactive === 'true',
+    );
   }
 
   /** GET /admin/classifications/:id */
@@ -114,14 +128,20 @@ export class ClassificationController {
   /** POST /admin/classifications/:id/units */
   @Post('admin/classifications/:id/units')
   @UseGuards(AuthGuard('jwt'))
-  async createUnit(@Param('id') id: string, @Body() dto: CreateMeasurementUnitDto) {
+  async createUnit(
+    @Param('id') id: string,
+    @Body() dto: CreateMeasurementUnitDto,
+  ) {
     return this.classificationService.createUnit(id, dto);
   }
 
   /** PUT /admin/classifications/units/:unitId */
   @Put('admin/classifications/units/:unitId')
   @UseGuards(AuthGuard('jwt'))
-  async updateUnit(@Param('unitId') unitId: string, @Body() dto: UpdateMeasurementUnitDto) {
+  async updateUnit(
+    @Param('unitId') unitId: string,
+    @Body() dto: UpdateMeasurementUnitDto,
+  ) {
     return this.classificationService.updateUnit(unitId, dto);
   }
 
@@ -153,7 +173,9 @@ export class ClassificationController {
   /** POST /admin/tenants/:tenantId/classification/provision-defaults */
   @Post('admin/tenants/:tenantId/classification/provision-defaults')
   @UseGuards(AuthGuard('jwt'))
-  async provisionDefaultsForSpecificTenant(@Param('tenantId') tenantId: string) {
+  async provisionDefaultsForSpecificTenant(
+    @Param('tenantId') tenantId: string,
+  ) {
     return this.classificationService.syncTenantMetricDefaults(tenantId);
   }
 }

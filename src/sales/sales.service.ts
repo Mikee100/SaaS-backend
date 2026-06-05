@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { Sale, SaleItem as PrismaSaleItem } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateSaleDto } from './create-sale.dto';
@@ -83,7 +84,45 @@ import { RealtimeGateway } from '../realtime.gateway';
 import { ConfigurationService } from '../config/configuration.service';
 import { SubscriptionService } from '../billing/subscription.service';
 import { LedgerService } from '../ledger/ledger.service';
-import axios from 'axios';
+
+interface BranchSummary {
+  id: string;
+  name: string;
+  address: string | null;
+}
+
+interface CreditCreateData {
+  tenantId: string;
+  customerName: string;
+  customerPhone?: string;
+  totalAmount: number;
+  balance: number;
+  dueDate: Date | null;
+  notes?: string;
+}
+
+interface ItemWithCost {
+  productId: string;
+  name: string;
+  quantity: number;
+  price: number;
+  cost: number;
+}
+
+interface TenantReceiptInfo {
+  name: string;
+  businessType: string | null;
+  address: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  receiptLogo: string | null;
+  logoUrl: string | null;
+  watermark: string | null;
+  kraEnabled: boolean | null;
+  kraPin: string | null;
+  vatNumber: string | null;
+  etimsQrUrl: string | null;
+}
 
 @Injectable()
 export class SalesService {
@@ -124,17 +163,19 @@ export class SalesService {
       },
     });
 
-    const businessInfo = tenant ? {
-      name: tenant.name,
-      address: tenant.address,
-      phone: tenant.contactPhone,
-      email: tenant.contactEmail,
-      kraEnabled: tenant.kraEnabled,
-      kraPin: tenant.kraPin,
-      vatNumber: tenant.vatNumber,
-      receiptLogo: tenant.receiptLogo || tenant.logoUrl,
-      etimsQrUrl: tenant.etimsQrUrl,
-    } : undefined;
+    const businessInfo = tenant
+      ? {
+          name: tenant.name,
+          address: tenant.address,
+          phone: tenant.contactPhone,
+          email: tenant.contactEmail,
+          kraEnabled: tenant.kraEnabled,
+          kraPin: tenant.kraPin,
+          vatNumber: tenant.vatNumber,
+          receiptLogo: tenant.receiptLogo || tenant.logoUrl,
+          etimsQrUrl: tenant.etimsQrUrl,
+        }
+      : undefined;
 
     // Check for existing sale with this idempotencyKey for this user
     const existing = await this.prisma.sale.findFirst({
@@ -143,7 +184,7 @@ export class SalesService {
 
     if (existing) {
       // Fetch branch info for existing sale if it has one
-      let existingBranch: any = null;
+      let existingBranch: BranchSummary | null = null;
       if (existing.branchId) {
         const branch = await this.prisma.branch.findUnique({
           where: { id: existing.branchId },
@@ -213,18 +254,21 @@ export class SalesService {
           tenantId,
         });
         throw new BadRequestException(
-          `Product with ID ${item.productId} not found. Please sync your product catalog or use a different product.`
+          `Product with ID ${item.productId} not found. Please sync your product catalog or use a different product.`,
         );
       }
 
       // Check if product is soft-deleted
       if (product.deletedAt) {
-        this.logger.warn(`Attempted to sell soft-deleted product: ${item.productId}`, {
-          productId: item.productId,
-          deletedAt: product.deletedAt,
-        });
+        this.logger.warn(
+          `Attempted to sell soft-deleted product: ${item.productId}`,
+          {
+            productId: item.productId,
+            deletedAt: product.deletedAt,
+          },
+        );
         throw new BadRequestException(
-          `Product "${product.name || item.productId}" has been deleted and cannot be sold. Please sync your product catalog.`
+          `Product "${product.name || item.productId}" has been deleted and cannot be sold. Please sync your product catalog.`,
         );
       }
       // In multi-tenant setups we normally enforce tenant ownership.
@@ -253,15 +297,26 @@ export class SalesService {
               tenantId,
               isActive: true,
             },
-            select: { id: true, sku: true, price: true, stock: true, attributes: true },
+            select: {
+              id: true,
+              sku: true,
+              price: true,
+              stock: true,
+              attributes: true,
+            },
           });
           if (!variation) {
-            this.logger.error(`Variation not found: ${item.variationId} for product ${item.productId}`, {
-              variationId: item.variationId,
-              productId: item.productId,
-              tenantId,
-            });
-            throw new BadRequestException(`Invalid variation: ${item.variationId}`);
+            this.logger.error(
+              `Variation not found: ${item.variationId} for product ${item.productId}`,
+              {
+                variationId: item.variationId,
+                productId: item.productId,
+                tenantId,
+              },
+            );
+            throw new BadRequestException(
+              `Invalid variation: ${item.variationId}`,
+            );
           }
           if (variation.stock < item.quantity) {
             throw new BadRequestException(
@@ -271,15 +326,28 @@ export class SalesService {
           itemPrice = item.price ?? variation.price ?? product.price;
           const attrStr =
             variation.attributes && typeof variation.attributes === 'object'
-              ? Object.values(variation.attributes).join(', ')
+              ? Object.values(variation.attributes)
+                  .map((value) => {
+                    if (typeof value === 'string') return value;
+                    if (typeof value === 'number') return `${value}`;
+                    if (typeof value === 'boolean') return `${value}`;
+                    return null;
+                  })
+                  .filter((value): value is string => value !== null)
+                  .join(', ')
               : variation.sku;
           itemName = `${product.name} - ${attrStr}`;
         } catch (error) {
-          this.logger.error(`Error fetching variation ${item.variationId}:`, error);
+          this.logger.error(
+            `Error fetching variation ${item.variationId}:`,
+            error,
+          );
           if (error instanceof BadRequestException) {
             throw error;
           }
-          throw new BadRequestException(`Failed to fetch variation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          throw new BadRequestException(
+            `Failed to fetch variation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
         }
       }
 
@@ -294,8 +362,12 @@ export class SalesService {
     }
     // Validate branchId if provided
     let validBranchId: string | null = dto.branchId || null;
-    let validBranch: { id: string; name: string; address: string | null } | null = null;
-    
+    let validBranch: {
+      id: string;
+      name: string;
+      address: string | null;
+    } | null = null;
+
     this.logger.debug(`[BRANCH_CHECK] Incoming branchId: ${dto.branchId}`);
     this.logger.debug(`[BRANCH_CHECK] Incoming tenantId: ${tenantId}`);
 
@@ -304,21 +376,35 @@ export class SalesService {
         where: { id: dto.branchId },
         select: { id: true, name: true, address: true, tenantId: true },
       });
-      
+
       if (!branchExists) {
-        this.logger.warn(`[BRANCH_CHECK] BranchId ${dto.branchId} NOT FOUND in database.`);
+        this.logger.warn(
+          `[BRANCH_CHECK] BranchId ${dto.branchId} NOT FOUND in database.`,
+        );
         validBranchId = null;
       } else {
-        this.logger.debug(`[BRANCH_CHECK] Found branch: ${branchExists.name} with tenantId: ${branchExists.tenantId}`);
+        this.logger.debug(
+          `[BRANCH_CHECK] Found branch: ${branchExists.name} with tenantId: ${branchExists.tenantId}`,
+        );
         if (branchExists.tenantId !== tenantId) {
           this.logger.warn(
             `[BRANCH_CHECK] Tenant mismatch! Branch tenant: [${branchExists.tenantId}], Request tenant: [${tenantId}]`,
-            { branchId: dto.branchId, tenantId, branchTenantId: branchExists.tenantId },
+            {
+              branchId: dto.branchId,
+              tenantId,
+              branchTenantId: branchExists.tenantId,
+            },
           );
           validBranchId = null;
         } else {
-          this.logger.debug(`[BRANCH_CHECK] SUCCESS: Branch validated for tenant.`);
-          validBranch = { id: branchExists.id, name: branchExists.name, address: branchExists.address };
+          this.logger.debug(
+            `[BRANCH_CHECK] SUCCESS: Branch validated for tenant.`,
+          );
+          validBranch = {
+            id: branchExists.id,
+            name: branchExists.name,
+            address: branchExists.address,
+          };
           validBranchId = branchExists.id;
         }
       }
@@ -336,30 +422,30 @@ export class SalesService {
     const vatRate = 0.16; // 16% VAT rate
     const vatAmount = Math.round(subtotalAfterDiscount * vatRate * 100) / 100;
     const total = Math.round((subtotalAfterDiscount + vatAmount) * 100) / 100;
-    
+
     // Handle split payments (declare outside transaction so it's accessible in return statement)
     let paymentType = dto.paymentMethod;
-    let creditCreateData: any = null;
+    let creditCreateData: CreditCreateData | null = null;
     let mpesaTransactionId = dto.mpesaTransactionId;
-    let amountReceived = dto.amountReceived;
 
-    if (dto.isSplitPayment && dto.splitPayments && dto.splitPayments.length > 0) {
+    if (
+      dto.isSplitPayment &&
+      dto.splitPayments &&
+      dto.splitPayments.length > 0
+    ) {
       // For split payments, set paymentType to 'split'
       paymentType = 'split';
-      
-      // Calculate total amount received (sum of cash amounts)
-      amountReceived = dto.splitPayments
-        .filter(p => p.method === 'cash')
-        .reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
 
       // Get M-Pesa transaction ID from split payments if any
-      const mpesaPayment = dto.splitPayments.find(p => p.method === 'mpesa');
+      const mpesaPayment = dto.splitPayments.find((p) => p.method === 'mpesa');
       if (mpesaPayment?.mpesaTransactionId) {
         mpesaTransactionId = mpesaPayment.mpesaTransactionId;
       }
 
       // Handle credit portion of split payment
-      const creditPayment = dto.splitPayments.find(p => p.method === 'credit');
+      const creditPayment = dto.splitPayments.find(
+        (p) => p.method === 'credit',
+      );
       if (creditPayment) {
         creditCreateData = {
           tenantId,
@@ -381,9 +467,7 @@ export class SalesService {
         customerPhone: dto.customerPhone,
         totalAmount: dto.creditAmount || total,
         balance: dto.creditAmount || total,
-        dueDate: dto.creditDueDate
-          ? new Date(dto.creditDueDate)
-          : null,
+        dueDate: dto.creditDueDate ? new Date(dto.creditDueDate) : null,
         notes: dto.creditNotes,
       };
     }
@@ -403,19 +487,19 @@ export class SalesService {
               },
               select: { id: true, stock: true },
             });
-            
+
             if (!variation) {
               throw new BadRequestException(
-                `Variation ${item.variationId} not found or inactive`
+                `Variation ${item.variationId} not found or inactive`,
               );
             }
-            
+
             if (variation.stock < item.quantity) {
               throw new BadRequestException(
-                `Insufficient stock for variation. Available: ${variation.stock}, Requested: ${item.quantity}`
+                `Insufficient stock for variation. Available: ${variation.stock}, Requested: ${item.quantity}`,
               );
             }
-            
+
             await prisma.productVariation.update({
               where: { id: item.variationId },
               data: { stock: { decrement: item.quantity } },
@@ -426,19 +510,19 @@ export class SalesService {
               where: { id: item.productId },
               select: { id: true, stock: true },
             });
-            
+
             if (!product) {
               throw new BadRequestException(
-                `Product ${item.productId} not found`
+                `Product ${item.productId} not found`,
               );
             }
-            
+
             if (product.stock < item.quantity) {
               throw new BadRequestException(
-                `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}`
+                `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}`,
               );
             }
-            
+
             await prisma.product.update({
               where: { id: item.productId },
               data: { stock: { decrement: item.quantity } },
@@ -458,13 +542,13 @@ export class SalesService {
             throw error;
           }
           throw new BadRequestException(
-            `Failed to update stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+            `Failed to update stock: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
         }
       }
 
       // Create the sale record with nested credit if applicable
-      const saleData: any = {
+      const saleData: Record<string, unknown> = {
         id: saleId,
         tenantId,
         userId,
@@ -488,7 +572,7 @@ export class SalesService {
       };
 
       await prisma.sale.create({
-        data: saleData,
+        data: saleData as Prisma.SaleCreateInput,
       });
 
       // Create sale items separately
@@ -515,7 +599,7 @@ export class SalesService {
       await this.auditLogService.log(
         userId,
         'sale_created',
-        { saleId, items: dto.items, total },
+        { saleId, items: dto.items, total } as unknown as Prisma.InputJsonValue,
         undefined,
       );
     }
@@ -528,18 +612,18 @@ export class SalesService {
     // --- Automated Accounting Entry ---
     try {
       // Fetch product costs for COGS calculation
-      const itemsWithCost: any[] = [];
+      const itemsWithCost: ItemWithCost[] = [];
       for (const item of dto.items) {
         const product = await this.prisma.product.findUnique({
           where: { id: item.productId },
-          select: { cost: true, name: true }
+          select: { cost: true, name: true },
         });
         itemsWithCost.push({
           productId: item.productId,
           name: product?.name || 'Unknown',
           quantity: item.quantity,
           price: item.price ?? 0,
-          cost: product?.cost ?? 0
+          cost: product?.cost ?? 0,
         });
       }
 
@@ -547,20 +631,29 @@ export class SalesService {
         saleId,
         total,
         paymentMethod: paymentType,
-        items: itemsWithCost
+        items: itemsWithCost,
       });
     } catch (accError) {
-      this.logger.error('Failed to create automated accounting entry for sale:', accError);
+      this.logger.error(
+        'Failed to create automated accounting entry for sale:',
+        accError,
+      );
     }
     // Calculate change for split payments
     let change = 0;
     let finalAmountReceived = dto.amountReceived ?? 0;
-    
+
     if (dto.isSplitPayment && dto.splitPayments) {
       // For split payments, calculate change from cash portions
-      const cashPayments = dto.splitPayments.filter(p => p.method === 'cash');
-      const totalCashReceived = cashPayments.reduce((sum, p) => sum + (p.amountReceived || p.amount), 0);
-      const totalCashAmount = cashPayments.reduce((sum, p) => sum + p.amount, 0);
+      const cashPayments = dto.splitPayments.filter((p) => p.method === 'cash');
+      const totalCashReceived = cashPayments.reduce(
+        (sum, p) => sum + (p.amountReceived || p.amount),
+        0,
+      );
+      const totalCashAmount = cashPayments.reduce(
+        (sum, p) => sum + p.amount,
+        0,
+      );
       change = totalCashReceived - totalCashAmount;
       finalAmountReceived = totalCashReceived;
     } else {
@@ -590,7 +683,13 @@ export class SalesService {
     saleId: string,
     tenantId: string,
     userId: string,
-    items: { productId: string; quantity: number; unitPrice: number; variationId?: string; isResalable?: boolean }[],
+    items: {
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      variationId?: string;
+      isResalable?: boolean;
+    }[],
     reason?: string,
     refundMethod?: string,
   ) {
@@ -614,7 +713,9 @@ export class SalesService {
     // Map original quantities by product/variation for simple validation
     const originalQuantities = new Map<string, number>();
     for (const item of originalSale.SaleItem) {
-      const key = item.variationId ? `${item.productId}-${item.variationId}` : item.productId;
+      const key = item.variationId
+        ? `${item.productId}-${item.variationId}`
+        : item.productId;
       const prev = originalQuantities.get(key) ?? 0;
       originalQuantities.set(key, prev + item.quantity);
     }
@@ -622,16 +723,22 @@ export class SalesService {
     let refundSubtotal = 0;
     for (const item of items) {
       if (!item.productId) {
-        throw new BadRequestException('Each return item must include productId');
+        throw new BadRequestException(
+          'Each return item must include productId',
+        );
       }
       if (!item.quantity || item.quantity <= 0) {
         throw new BadRequestException('Return quantity must be greater than 0');
       }
       if (item.unitPrice == null || item.unitPrice < 0) {
-        throw new BadRequestException('Return unitPrice must be a non-negative number');
+        throw new BadRequestException(
+          'Return unitPrice must be a non-negative number',
+        );
       }
 
-      const key = item.variationId ? `${item.productId}-${item.variationId}` : item.productId;
+      const key = item.variationId
+        ? `${item.productId}-${item.variationId}`
+        : item.productId;
       const soldQty = originalQuantities.get(key) ?? 0;
       if (soldQty <= 0) {
         throw new BadRequestException(
@@ -675,7 +782,9 @@ export class SalesService {
 
       // Handle Credit Sales Refund
       if (originalSale.paymentType === 'credit') {
-        const creditRecord = await prisma.credit.findUnique({ where: { saleId: originalSale.id } });
+        const creditRecord = await prisma.credit.findUnique({
+          where: { saleId: originalSale.id },
+        });
         if (creditRecord) {
           const newTotal = Math.max(0, creditRecord.totalAmount - refundTotal);
           const newBalance = Math.max(0, creditRecord.balance - refundTotal);
@@ -684,8 +793,8 @@ export class SalesService {
             data: {
               totalAmount: newTotal,
               balance: newBalance,
-              status: newBalance <= 0 ? 'paid' : creditRecord.status
-            }
+              status: newBalance <= 0 ? 'paid' : creditRecord.status,
+            },
           });
         }
       }
@@ -844,7 +953,10 @@ export class SalesService {
               phoneNumber: sale.mpesaTransaction.phoneNumber,
               amount: sale.mpesaTransaction.amount,
               status: sale.mpesaTransaction.status,
-              mpesaReceipt: sale.mpesaTransaction.mpesaReceipt || sale.mpesaTransaction.transactionId || '',
+              mpesaReceipt:
+                sale.mpesaTransaction.mpesaReceipt ||
+                sale.mpesaTransaction.transactionId ||
+                '',
               message: sale.mpesaTransaction.responseDesc || '',
               transactionDate: sale.mpesaTransaction.createdAt,
             }
@@ -913,7 +1025,9 @@ export class SalesService {
             },
           },
         },
-        credit: { select: { dueDate: true, notes: true, balance: true, status: true } },
+        credit: {
+          select: { dueDate: true, notes: true, balance: true, status: true },
+        },
         Branch: true,
       },
     });
@@ -922,7 +1036,7 @@ export class SalesService {
 
     // Try to load tenant / business info, but don't block receipts if it's missing.
     // The POS can still render a receipt and fall back to user/tenant data on the client.
-    let tenant: any | null = null;
+    let tenant: TenantReceiptInfo | null = null;
     try {
       tenant = await this.getTenantInfo(tenantId);
     } catch {
@@ -930,14 +1044,20 @@ export class SalesService {
     }
 
     const items = sale.SaleItem.map((item) => {
-      const base: { productId: string; name: string; price: number; quantity: number } = {
+      const base: {
+        productId: string;
+        name: string;
+        price: number;
+        quantity: number;
+        cost?: number;
+      } = {
         productId: item.productId,
         name: item.product?.name || 'Unknown Product',
         price: item.price,
         quantity: item.quantity,
       };
       if (type === 'merchant' && item.product && 'cost' in item.product) {
-        (base as any).cost = item.product.cost ?? 0;
+        base.cost = item.product.cost ?? 0;
       }
       return base;
     });
@@ -946,13 +1066,13 @@ export class SalesService {
     let totalProfit = 0;
     if (type === 'merchant') {
       for (const item of sale.SaleItem) {
-        const cost = (item.product as any)?.cost ?? 0;
+        const cost = item.product?.cost ?? 0;
         totalCost += cost * item.quantity;
         totalProfit += (item.price - cost) * item.quantity;
       }
     }
 
-    const response: any = {
+    const response: Record<string, unknown> = {
       id: sale.id,
       saleId: sale.id,
       date: sale.createdAt,
@@ -981,7 +1101,11 @@ export class SalesService {
           }
         : undefined,
       branch: sale.Branch
-        ? { id: sale.Branch.id, name: sale.Branch.name, address: sale.Branch.address || '' }
+        ? {
+            id: sale.Branch.id,
+            name: sale.Branch.name,
+            address: sale.Branch.address || '',
+          }
         : null,
     };
 
@@ -1138,7 +1262,7 @@ export class SalesService {
     if (!tenantId) throw new BadRequestException('Tenant ID is required');
     if (limit < 1 || limit > 1000) limit = 100; // Enforce reasonable limit
 
-    const whereClause: any = { tenantId };
+    const whereClause: { tenantId: string; branchId?: string } = { tenantId };
     if (branchId && branchId !== 'all') {
       whereClause.branchId = branchId;
     }
@@ -1164,20 +1288,22 @@ export class SalesService {
       // Reconstruct split payments if paymentType is 'split'
       let splitPayments: any[] | undefined = undefined;
       const isSplitPayment = sale.paymentType === 'split';
-      
+
       if (isSplitPayment) {
         splitPayments = [];
-        
+
         // Add M-Pesa payment if exists
         if (sale.mpesaTransaction) {
           splitPayments.push({
             method: 'mpesa',
             amount: sale.mpesaTransaction.amount,
             mpesaTransactionId: sale.mpesaTransaction.id,
-            mpesaReceipt: sale.mpesaTransaction.mpesaReceipt || sale.mpesaTransaction.transactionId,
+            mpesaReceipt:
+              sale.mpesaTransaction.mpesaReceipt ||
+              sale.mpesaTransaction.transactionId,
           });
         }
-        
+
         // Add credit payment if exists
         if (sale.credit) {
           splitPayments.push({
@@ -1187,12 +1313,12 @@ export class SalesService {
             creditNotes: sale.credit.notes,
           });
         }
-        
+
         // Calculate cash amount (total - mpesa - credit)
         const mpesaAmount = sale.mpesaTransaction?.amount || 0;
         const creditAmount = sale.credit?.totalAmount || 0;
         const cashAmount = sale.total - mpesaAmount - creditAmount;
-        
+
         if (cashAmount > 0) {
           splitPayments.push({
             method: 'cash',
@@ -1311,8 +1437,8 @@ export class SalesService {
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
-          unitAbbreviation: (item as any).unitAbbreviation ?? null,
-          unitName: (item as any).unitName ?? null,
+          unitAbbreviation: null,
+          unitName: null,
           product: item.product
             ? {
                 id: item.product.id,
@@ -1480,10 +1606,11 @@ export class SalesService {
     // AI service removed - customer segmentation disabled
     const customerSegments: unknown[] = [];
     // AI service removed - forecast disabled
-    const forecast: { forecast_months: unknown[]; forecast_sales: unknown[] } = {
-      forecast_months: [],
-      forecast_sales: [],
-    };
+    const forecast: { forecast_months: unknown[]; forecast_sales: unknown[] } =
+      {
+        forecast_months: [],
+        forecast_sales: [],
+      };
     return {
       totalSales,
       totalRevenue,
@@ -1500,7 +1627,7 @@ export class SalesService {
     };
   }
 
-  async getTenantInfo(tenantId: string) {
+  async getTenantInfo(tenantId: string): Promise<TenantReceiptInfo | null> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -1521,7 +1648,11 @@ export class SalesService {
     return tenant;
   }
 
-  async getRecentSales(tenantId: string, limit: number = 10, branchId?: string) {
+  async getRecentSales(
+    tenantId: string,
+    limit: number = 10,
+    branchId?: string,
+  ) {
     try {
       this.logger.debug(
         `Fetching recent sales for tenant: ${tenantId}${branchId ? ` and branch: ${branchId}` : ''}`,
@@ -1573,11 +1704,13 @@ export class SalesService {
         customerPhone: sale.customerPhone || null,
         date: sale.createdAt,
         branchId: sale.branchId,
-        branch: sale.Branch ? {
-          id: sale.Branch.id,
-          name: sale.Branch.name,
-          address: sale.Branch.address,
-        } : null,
+        branch: sale.Branch
+          ? {
+              id: sale.Branch.id,
+              name: sale.Branch.name,
+              address: sale.Branch.address,
+            }
+          : null,
         items: sale.SaleItem.map((item) => ({
           productId: item.product?.id || '',
           productName: item.product?.name || 'Unknown',
@@ -1719,15 +1852,22 @@ export class SalesService {
     });
 
     try {
-      await this.ledgerService.recordCustomerPaymentAutomation(tenantId, userId, {
-        creditId,
-        amount,
-        paymentMethod,
-        paymentId: paymentResult.payment.id,
-        notes,
-      });
+      await this.ledgerService.recordCustomerPaymentAutomation(
+        tenantId,
+        userId,
+        {
+          creditId,
+          amount,
+          paymentMethod,
+          paymentId: paymentResult.payment.id,
+          notes,
+        },
+      );
     } catch (error) {
-      this.logger.error('Failed to create accounting entry for credit payment', error);
+      this.logger.error(
+        'Failed to create accounting entry for credit payment',
+        error,
+      );
     }
 
     return paymentResult.updatedCredit;
@@ -1919,7 +2059,9 @@ export class SalesService {
       },
     };
 
-    this.logger.debug('Credit score calculation complete', { score: result.score });
+    this.logger.debug('Credit score calculation complete', {
+      score: result.score,
+    });
     return result;
   }
 
@@ -1986,7 +2128,7 @@ export class SalesService {
       customerName,
       customerPhone,
     );
-    this.logger.debug(`Customer balance: ${balance}`);
+    this.logger.debug('Customer balance', { balance });
 
     const score = await this.calculateCustomerCreditScore(
       tenantId,
@@ -1994,7 +2136,7 @@ export class SalesService {
       customerPhone,
       branchId,
     );
-    this.logger.debug(`Credit score: ${score}`);
+    this.logger.debug('Credit score', { score });
 
     const currentOutstanding = balance.totalOutstanding;
     const maxAllowed = (policy as { maxCreditPerCustomer: number })
@@ -2021,7 +2163,9 @@ export class SalesService {
       ],
     };
 
-    this.logger.debug('Credit eligibility check complete', { eligible: result.isEligible });
+    this.logger.debug('Credit eligibility check complete', {
+      eligible: result.isEligible,
+    });
     return result;
   }
 
@@ -2161,7 +2305,9 @@ export class SalesService {
       });
     });
 
-    this.logger.debug('Payment trends calculated', { trendCount: paymentTrends.length });
+    this.logger.debug('Payment trends calculated', {
+      trendCount: paymentTrends.length,
+    });
 
     // Calculate outstanding amounts by month
     const outstandingByMonth: Record<string, number> = {};
@@ -2182,10 +2328,15 @@ export class SalesService {
         overdueByMonth[month] = (overdueByMonth[month] || 0) + 1;
       });
 
-    this.logger.debug('Overdue by month calculated', { monthCount: overdueByMonth.length });
+    this.logger.debug('Overdue by month calculated', {
+      monthCount: overdueByMonth.length,
+    });
 
     // Calculate credits by branch
-    const creditsByBranch: Record<string, { name: string; total: number; count: number }> = {};
+    const creditsByBranch: Record<
+      string,
+      { name: string; total: number; count: number }
+    > = {};
     credits.forEach((credit) => {
       const branchName = credit.sale?.Branch?.name || 'No Branch';
       const branchId = credit.sale?.Branch?.id || 'no-branch';
@@ -2196,7 +2347,9 @@ export class SalesService {
       creditsByBranch[branchId].count += 1;
     });
 
-    this.logger.debug('Credits by branch calculated', { branchCount: creditsByBranch.length });
+    this.logger.debug('Credits by branch calculated', {
+      branchCount: creditsByBranch.length,
+    });
 
     // Calculate average payment time
     let totalPaymentDays = 0;

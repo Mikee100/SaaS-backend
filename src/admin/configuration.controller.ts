@@ -7,14 +7,10 @@ import {
   Body,
   Param,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SuperadminGuard } from './superadmin.guard';
-import {
-  ConfigurationService,
-  ConfigurationItem,
-} from '../config/configuration.service';
+import { ConfigurationService } from '../config/configuration.service';
 
 interface UpdateConfigurationDto {
   value: string;
@@ -95,7 +91,7 @@ export class ConfigurationController {
   }
 
   @Get('categories/list')
-  async getCategories() {
+  getCategories() {
     return [
       { value: 'security', label: 'Security Settings' },
       { value: 'api', label: 'API Configuration' },

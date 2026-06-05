@@ -14,21 +14,37 @@ export class OpenAIConfig {
 
   constructor() {
     this.apiKey = process.env.OPENAI_API_KEY || '';
-    this.chatModel = process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o';
-    this.embeddingModel = process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
-    this.extractorModel = process.env.OPENAI_EXTRACTOR_MODEL || process.env.OPENAI_MODEL || 'gpt-4o';
-    
+    this.chatModel =
+      process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-4o';
+    this.embeddingModel =
+      process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+    this.extractorModel =
+      process.env.OPENAI_EXTRACTOR_MODEL ||
+      process.env.OPENAI_MODEL ||
+      'gpt-4o';
+
     // Token limits - configurable via env, with cost-conscious defaults
-    this.maxChatTokens = parseInt(process.env.OPENAI_MAX_CHAT_TOKENS || '1200', 10);
-    this.maxExtractorTokens = parseInt(process.env.OPENAI_MAX_EXTRACTOR_TOKENS || '300', 10);
-    this.maxVisualizationTokens = parseInt(process.env.OPENAI_MAX_VISUALIZATION_TOKENS || '600', 10);
+    this.maxChatTokens = parseInt(
+      process.env.OPENAI_MAX_CHAT_TOKENS || '1200',
+      10,
+    );
+    this.maxExtractorTokens = parseInt(
+      process.env.OPENAI_MAX_EXTRACTOR_TOKENS || '300',
+      10,
+    );
+    this.maxVisualizationTokens = parseInt(
+      process.env.OPENAI_MAX_VISUALIZATION_TOKENS || '600',
+      10,
+    );
 
     if (this.apiKey && this.apiKey.trim() !== '') {
       this.openai = new OpenAI({
         apiKey: this.apiKey,
       });
     } else {
-      console.warn('OpenAI API key not configured. AI features will be limited.');
+      console.warn(
+        'OpenAI API key not configured. AI features will be limited.',
+      );
     }
   }
 
@@ -64,4 +80,3 @@ export class OpenAIConfig {
     return this.maxVisualizationTokens;
   }
 }
-

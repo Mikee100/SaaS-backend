@@ -27,7 +27,23 @@ import { Logger } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { LogoService } from './logo.service';
 import { TrialGuard } from '../auth/trial.guard';
-import * as bcrypt from 'bcrypt';
+import { AuthenticatedRequest } from '../auth/request.types';
+
+interface TenantUserLike {
+  tenantId?: string;
+}
+
+interface UploadLogoBody {
+  type?: 'main' | 'favicon' | 'receiptLogo' | 'etimsQrCode' | 'watermark';
+}
+
+interface ApiSettingsBody {
+  webhookUrl?: string;
+  rateLimit?: number;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
 
 @Controller('tenant')
 @UseGuards(ThrottlerGuard)
@@ -65,8 +81,8 @@ export class TenantController {
         },
       );
 
-      const data = response.data;
-      return data.success && data.score >= 0.5;
+      const data = response.data as { success?: boolean; score?: number };
+      return data.success === true && (data.score ?? 0) >= 0.5;
     } catch (error) {
       this.logger.error('reCAPTCHA validation failed:', error);
       return false;
@@ -75,15 +91,24 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('me')
-  async getMyTenant(@Req() req) {
+  async getMyTenant(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.getTenantById(tenantId);
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('me')
-  async updateMyTenant(@Req() req, @Body() dto: any) {
+  async updateMyTenant(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: Record<string, unknown>,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.updateTenant(tenantId, dto);
   }
 
@@ -95,9 +120,16 @@ export class TenantController {
         destination: './uploads/logos',
         filename: (req, file, cb) => {
           const ext = path.extname(file.originalname);
-          const user = req.user as any;
-          const logoType = req.body.type || 'main';
-          const name = `${user.tenantId}_${logoType}${ext}`;
+          const request = req as AuthenticatedRequest & {
+            body?: unknown;
+            user: TenantUserLike;
+          };
+          const rawType = isRecord(request.body)
+            ? request.body.type
+            : undefined;
+          const logoType = typeof rawType === 'string' ? rawType : 'main';
+          const tenantId = request.user.tenantId || 'unknown-tenant';
+          const name = `${tenantId}_${logoType}${ext}`;
           cb(null, name);
         },
       }),
@@ -128,9 +160,9 @@ export class TenantController {
     }),
   )
   async uploadLogo(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: any,
+    @Body() body: UploadLogoBody,
   ) {
     if (!file) throw new Error('No file uploaded');
 
@@ -139,7 +171,7 @@ export class TenantController {
 
     // Validate logo file
     // Update the appropriate logo field based on type
-    const updateData: any = {};
+    const updateData: Record<string, string> = {};
     switch (logoType) {
       case 'main':
         updateData.logoUrl = logoUrl;
@@ -159,14 +191,20 @@ export class TenantController {
       default:
         updateData.logoUrl = logoUrl; // Default to main logo
     }
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     await this.tenantService.updateTenant(req.user.tenantId, updateData);
     return { logoUrl, type: logoType };
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('logo/compliance')
-  async getLogoCompliance(@Req() req) {
+  async getLogoCompliance(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.logoService.enforceLogoCompliance(tenantId);
   }
 
@@ -186,16 +224,25 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('logo/statistics')
-  async getLogoStatistics(@Req() req) {
+  async getLogoStatistics(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.logoService.getLogoStatistics(tenantId);
   }
 
   // Enterprise branding endpoints
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('branding')
-  async updateBranding(@Req() req, @Body() dto: any) {
+  async updateBranding(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: Record<string, unknown>,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     const allowedFields = [
       'primaryColor',
       'secondaryColor',
@@ -207,7 +254,7 @@ export class TenantController {
       'watermark',
     ];
 
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (dto[key] !== undefined) {
         data[key] = dto[key];
@@ -220,7 +267,10 @@ export class TenantController {
   // Enterprise API endpoints
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('api-settings')
-  async getApiSettings(@Req() req) {
+  async getApiSettings(@Req() req: AuthenticatedRequest) {
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     const tenant = await this.tenantService.getTenantById(req.user.tenantId);
     if (!tenant) {
       throw new Error('Tenant not found');
@@ -235,8 +285,14 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('api-settings')
-  async updateApiSettings(@Req() req, @Body() apiSettings: any) {
+  async updateApiSettings(
+    @Req() req: AuthenticatedRequest,
+    @Body() apiSettings: ApiSettingsBody,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.updateTenant(tenantId, {
       webhookUrl: apiSettings.webhookUrl,
       rateLimit: apiSettings.rateLimit,
@@ -246,15 +302,24 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('pdf-template')
-  async updatePdfTemplate(@Req() req, @Body() pdfTemplate: any) {
+  async updatePdfTemplate(
+    @Req() req: AuthenticatedRequest,
+    @Body() pdfTemplate: unknown,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.updateTenant(tenantId, { pdfTemplate });
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Post('generate-api-key')
-  async generateApiKey(@Req() req) {
+  async generateApiKey(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     const apiKey = `sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
     await this.tenantService.updateTenant(tenantId, { apiKey });
     return { apiKey };
@@ -264,7 +329,6 @@ export class TenantController {
   @Post()
   @UseGuards(ThrottlerGuard)
   async createTenant(
-    @Req() req,
     @Body(new ValidationPipe({ transform: true }))
     createTenantDto: RegistrationDto,
   ) {
@@ -324,29 +388,41 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('notifications')
-  async getNotifications(@Req() req: any) {
+  async getNotifications(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     const prefs = await this.tenantService.getNotificationPreferences(tenantId);
     return prefs ?? {};
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Put('notifications')
-  async updateNotifications(@Req() req: any, @Body() body: Record<string, unknown>) {
+  async updateNotifications(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: Record<string, unknown>,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.updateNotificationPreferences(tenantId, body);
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('integrations')
-  async getIntegrations(@Req() req: any) {
+  async getIntegrations(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return this.tenantService.getIntegrationsList(tenantId);
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Post('integrations/:id/connect')
-  async connectIntegration(@Req() req: any, @Param('id') id: string) {
+  connectIntegration(@Param('id') id: string) {
     if (id === 'stripe') {
       return { url: '/settings/billing/stripe-config' };
     }
@@ -355,8 +431,14 @@ export class TenantController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Post('integrations/:id/test')
-  async testIntegration(@Req() req: any, @Param('id') id: string) {
+  async testIntegration(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     if (id === 'mpesa') {
       const tenant = await this.tenantService.getTenantById(tenantId);
       if (!tenant?.mpesaIsActive) {
@@ -377,13 +459,16 @@ export class TenantController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
-  async getTenants(@Req() req: any) {
-    const isSuperadmin = req.user.isSuperadmin;
+  async getTenants(@Req() req: AuthenticatedRequest) {
+    const isSuperadmin = req.user.isSuperadmin === true;
     if (isSuperadmin) {
       // Return all tenants for superadmin
       return await this.tenantService.getAllTenants();
     }
     // Return tenant for user
+    if (!req.user.tenantId) {
+      throw new BadRequestException('Tenant context is required');
+    }
     return await this.tenantService.getTenantById(req.user.tenantId);
   }
 }

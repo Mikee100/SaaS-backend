@@ -19,6 +19,18 @@ export class TenantConfigurationService {
     process.env.CONFIG_ENCRYPTION_KEY ||
     'default-encryption-key-change-in-production';
 
+  private toCategory(value: string): TenantConfigurationItem['category'] {
+    const allowed: TenantConfigurationItem['category'][] = [
+      'stripe',
+      'payment',
+      'billing',
+      'general',
+    ];
+    return allowed.includes(value as TenantConfigurationItem['category'])
+      ? (value as TenantConfigurationItem['category'])
+      : 'general';
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
@@ -55,7 +67,7 @@ export class TenantConfigurationService {
   ): Promise<string | null> {
     try {
       const cacheKey = `tenant_config:${tenantId}:${key}`;
-      const cached = this.cache.get(cacheKey) as string | null;
+      const cached = this.cache.get<string>(cacheKey);
       if (cached !== null && cached !== undefined) {
         return cached;
       }
@@ -155,9 +167,7 @@ export class TenantConfigurationService {
   ): Promise<TenantConfigurationItem[]> {
     try {
       const listCacheKey = `tenant_config_all:${tenantId}:${category || 'all'}`;
-      const cached = this.cache.get(listCacheKey) as
-        | TenantConfigurationItem[]
-        | null;
+      const cached = this.cache.get<TenantConfigurationItem[]>(listCacheKey);
       if (cached) {
         return cached;
       }
@@ -173,7 +183,7 @@ export class TenantConfigurationService {
         key: config.key,
         value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
         description: config.description || undefined,
-        category: config.category as any,
+        category: this.toCategory(config.category),
         isEncrypted: config.isEncrypted,
         isPublic: config.isPublic,
       }));

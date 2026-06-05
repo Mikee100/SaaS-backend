@@ -3,11 +3,15 @@ import { PrismaService } from '../prisma.service';
 
 const TICKET_STATUSES = ['open', 'in_progress', 'resolved', 'closed'] as const;
 const TICKET_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
-const TICKET_CATEGORIES = ['technical', 'billing', 'feature_request', 'bug_report', 'general'] as const;
 
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
-export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+export type TicketCategory =
+  | 'technical'
+  | 'billing'
+  | 'feature_request'
+  | 'bug_report'
+  | 'general';
 
 @Injectable()
 export class SupportService {

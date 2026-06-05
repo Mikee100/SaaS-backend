@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma.service';
 
 interface SaveBomPayload {
@@ -25,11 +29,25 @@ export class RestaurantBomService {
         OR: [{ branchId }, { branchId: null }],
       },
       include: {
-        product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            cost: true,
+            unitAbbreviation: true,
+          },
+        },
         lines: {
           include: {
             ingredientProduct: {
-              select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                cost: true,
+                unitAbbreviation: true,
+              },
             },
           },
           orderBy: { createdAt: 'asc' },
@@ -49,11 +67,25 @@ export class RestaurantBomService {
         isActive: true,
       },
       include: {
-        product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            cost: true,
+            unitAbbreviation: true,
+          },
+        },
         lines: {
           include: {
             ingredientProduct: {
-              select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                cost: true,
+                unitAbbreviation: true,
+              },
             },
           },
           orderBy: { createdAt: 'asc' },
@@ -63,7 +95,11 @@ export class RestaurantBomService {
     });
   }
 
-  async findActiveByProduct(tenantId: string, branchId: string, productId: string) {
+  async findActiveByProduct(
+    tenantId: string,
+    branchId: string,
+    productId: string,
+  ) {
     const recipe = await this.prisma.bomRecipe.findFirst({
       where: {
         tenantId,
@@ -72,11 +108,25 @@ export class RestaurantBomService {
         OR: [{ branchId }, { branchId: null }],
       },
       include: {
-        product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            cost: true,
+            unitAbbreviation: true,
+          },
+        },
         lines: {
           include: {
             ingredientProduct: {
-              select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                cost: true,
+                unitAbbreviation: true,
+              },
             },
           },
           orderBy: { createdAt: 'asc' },
@@ -93,11 +143,25 @@ export class RestaurantBomService {
           isActive: true,
         },
         include: {
-          product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              cost: true,
+              unitAbbreviation: true,
+            },
+          },
           lines: {
             include: {
               ingredientProduct: {
-                select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  cost: true,
+                  unitAbbreviation: true,
+                },
               },
             },
             orderBy: { createdAt: 'asc' },
@@ -116,7 +180,12 @@ export class RestaurantBomService {
     return recipe;
   }
 
-  async saveRecipe(tenantId: string, branchId: string, actorUserId: string, payload: SaveBomPayload) {
+  async saveRecipe(
+    tenantId: string,
+    branchId: string,
+    actorUserId: string,
+    payload: SaveBomPayload,
+  ) {
     if (!payload?.productId) {
       throw new BadRequestException('Product is required');
     }
@@ -139,14 +208,24 @@ export class RestaurantBomService {
       throw new NotFoundException('Product not found in this branch or tenant');
     }
 
-    if (payload.lines.some((line) => line.ingredientProductId === payload.productId)) {
-      throw new BadRequestException('A product cannot reference itself as an ingredient');
+    if (
+      payload.lines.some(
+        (line) => line.ingredientProductId === payload.productId,
+      )
+    ) {
+      throw new BadRequestException(
+        'A product cannot reference itself as an ingredient',
+      );
     }
 
-    const ingredientIds = [...new Set(payload.lines.map((line) => line.ingredientProductId))];
+    const ingredientIds = [
+      ...new Set(payload.lines.map((line) => line.ingredientProductId)),
+    ];
 
     if (ingredientIds.length !== payload.lines.length) {
-      throw new BadRequestException('Duplicate ingredient lines are not allowed');
+      throw new BadRequestException(
+        'Duplicate ingredient lines are not allowed',
+      );
     }
 
     const ingredientCount = await this.prisma.product.count({
@@ -159,11 +238,15 @@ export class RestaurantBomService {
     });
 
     if (ingredientCount !== ingredientIds.length) {
-      throw new BadRequestException('One or more ingredient products were not found in this branch or tenant');
+      throw new BadRequestException(
+        'One or more ingredient products were not found in this branch or tenant',
+      );
     }
 
     if (payload.lines.some((line) => Number(line.quantity) <= 0)) {
-      throw new BadRequestException('Ingredient quantity must be greater than zero');
+      throw new BadRequestException(
+        'Ingredient quantity must be greater than zero',
+      );
     }
 
     const normalizedLines = payload.lines.map((line) => ({
@@ -204,11 +287,25 @@ export class RestaurantBomService {
             },
           },
           include: {
-            product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                cost: true,
+                unitAbbreviation: true,
+              },
+            },
             lines: {
               include: {
                 ingredientProduct: {
-                  select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    cost: true,
+                    unitAbbreviation: true,
+                  },
                 },
               },
               orderBy: { createdAt: 'asc' },
@@ -217,7 +314,9 @@ export class RestaurantBomService {
         });
       }
 
-      await tx.bomRecipeLine.deleteMany({ where: { recipeId: existingActive.id } });
+      await tx.bomRecipeLine.deleteMany({
+        where: { recipeId: existingActive.id },
+      });
 
       return tx.bomRecipe.update({
         where: { id: existingActive.id },
@@ -230,11 +329,25 @@ export class RestaurantBomService {
           },
         },
         include: {
-          product: { select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true } },
+          product: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              cost: true,
+              unitAbbreviation: true,
+            },
+          },
           lines: {
             include: {
               ingredientProduct: {
-                select: { id: true, name: true, sku: true, cost: true, unitAbbreviation: true },
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  cost: true,
+                  unitAbbreviation: true,
+                },
               },
             },
             orderBy: { createdAt: 'asc' },

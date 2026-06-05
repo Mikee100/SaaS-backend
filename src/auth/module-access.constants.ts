@@ -35,7 +35,8 @@ export const MODULE_PRESETS: ModulePresetDefinition[] = [
   {
     key: 'retail_ops',
     label: 'Retail Operations',
-    description: 'Sales, inventory, credits, expenses, and reporting for retail workflows.',
+    description:
+      'Sales, inventory, credits, expenses, and reporting for retail workflows.',
     enabledModules: [
       'dashboard',
       'sales',
@@ -58,7 +59,8 @@ export const MODULE_PRESETS: ModulePresetDefinition[] = [
   {
     key: 'finance_accounts',
     label: 'Finance & Accounts',
-    description: 'Accounts, expenses, analytics, and reports for finance teams.',
+    description:
+      'Accounts, expenses, analytics, and reports for finance teams.',
     enabledModules: [
       'dashboard',
       'accounts',
@@ -103,8 +105,12 @@ export const MODULE_PRESETS: ModulePresetDefinition[] = [
   },
 ];
 
-export function getModulePreset(key: string | undefined | null): ModulePresetDefinition | undefined {
-  const normalized = String(key || '').trim().toLowerCase();
+export function getModulePreset(
+  key: string | undefined | null,
+): ModulePresetDefinition | undefined {
+  const normalized = String(key || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) {
     return undefined;
   }
@@ -120,10 +126,16 @@ export function normalizeEnabledModules(input: unknown): AppModuleKey[] {
   }
 
   const normalized = input
-    .map((entry) => String(entry || '').trim().toLowerCase())
+    .map((entry) =>
+      String(entry || '')
+        .trim()
+        .toLowerCase(),
+    )
     .filter((entry): entry is AppModuleKey =>
       (AVAILABLE_MODULES as readonly string[]).includes(entry),
     );
 
-  return normalized.length > 0 ? Array.from(new Set(normalized)) : [...DEFAULT_ENABLED_MODULES];
+  return normalized.length > 0
+    ? Array.from(new Set(normalized))
+    : [...DEFAULT_ENABLED_MODULES];
 }

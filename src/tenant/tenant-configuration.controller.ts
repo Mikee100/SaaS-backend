@@ -14,10 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
-import {
-  TenantConfigurationService,
-  TenantConfigurationItem,
-} from '../config/tenant-configuration.service';
+import { TenantConfigurationService } from '../config/tenant-configuration.service';
 import {
   AVAILABLE_MODULES,
   DEFAULT_ENABLED_MODULES,
@@ -34,6 +31,41 @@ import {
   normalizeCrmEntitlements,
   normalizeCrmUsage,
 } from '../auth/crm-entitlements.constants';
+import { AuthenticatedRequest } from '../auth/request.types';
+
+interface StripeServiceLike {
+  createStripeProductsAndPrices(tenantId: string): Promise<unknown>;
+  updateStripePrices(
+    tenantId: string,
+    prices: {
+      basicPrice?: number;
+      proPrice?: number;
+      enterprisePrice?: number;
+    },
+  ): Promise<unknown>;
+}
+
+const isStripeServiceLike = (value: unknown): value is StripeServiceLike => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.createStripeProductsAndPrices === 'function' &&
+    typeof obj.updateStripePrices === 'function'
+  );
+};
+
+const getActorUserId = (req: AuthenticatedRequest): string | null =>
+  req.user.userId ?? req.user.sub ?? null;
+
+const getStripeService = (req: AuthenticatedRequest): StripeServiceLike => {
+  const service: unknown = req.app.get('StripeService');
+  if (!isStripeServiceLike(service)) {
+    throw new ForbiddenException('Stripe service unavailable');
+  }
+  return service;
+};
 
 interface CreateConfigurationDto {
   key: string;
@@ -74,12 +106,16 @@ export class TenantConfigurationController {
 
   @Get('modules')
   @Permissions('view_settings')
-  async getEnabledModules(@Req() req) {
+  async getEnabledModules(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
 
     let parsed: unknown;
     try {
@@ -99,8 +135,11 @@ export class TenantConfigurationController {
 
   @Get('crm/runtime')
   @Permissions('view_settings')
-  async getCrmRuntimeStatus(@Req() req) {
+  async getCrmRuntimeStatus(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
 
     const [crmEntitlementConfig, crmUsageConfig] = await Promise.all([
       this.tenantConfigurationService.getTenantConfiguration(
@@ -159,7 +198,10 @@ export class TenantConfigurationController {
 
   @Put('modules')
   @Permissions('edit_settings')
-  async updateEnabledModules(@Req() req, @Body() body: { enabledModules?: string[] }) {
+  async updateEnabledModules(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { enabledModules?: string[] },
+  ) {
     if (!req?.user?.isSuperadmin) {
       throw new ForbiddenException(
         'Module entitlements are managed by the platform administrator only',
@@ -167,11 +209,15 @@ export class TenantConfigurationController {
     }
 
     const tenantId = req.user.tenantId;
-    const actorUserId = req.user.userId || req.user.sub || null;
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+    const actorUserId = getActorUserId(req);
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
     let previousParsed: unknown;
     try {
       previousParsed = configured ? JSON.parse(configured) : undefined;
@@ -215,8 +261,11 @@ export class TenantConfigurationController {
 
   @Get()
   @Permissions('view_settings')
-  async getAllConfigurations(@Req() req) {
+  async getAllConfigurations(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     return this.tenantConfigurationService.getAllTenantConfigurations(tenantId);
   }
 
@@ -224,9 +273,12 @@ export class TenantConfigurationController {
   @Permissions('view_settings')
   async getConfigurationsByCategory(
     @Param('category') category: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     return this.tenantConfigurationService.getAllTenantConfigurations(
       tenantId,
       category,
@@ -235,8 +287,14 @@ export class TenantConfigurationController {
 
   @Get(':key')
   @Permissions('view_settings')
-  async getConfiguration(@Param('key') key: string, @Req() req) {
+  async getConfiguration(
+    @Param('key') key: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     const value = await this.tenantConfigurationService.getTenantConfiguration(
       tenantId,
       key,
@@ -246,8 +304,14 @@ export class TenantConfigurationController {
 
   @Post()
   @Permissions('edit_settings')
-  async createConfiguration(@Body() dto: CreateConfigurationDto, @Req() req) {
+  async createConfiguration(
+    @Body() dto: CreateConfigurationDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     await this.tenantConfigurationService.setTenantConfiguration(
       tenantId,
       dto.key,
@@ -267,9 +331,12 @@ export class TenantConfigurationController {
   async updateConfiguration(
     @Param('key') key: string,
     @Body() dto: UpdateConfigurationDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     await this.tenantConfigurationService.setTenantConfiguration(
       tenantId,
       key,
@@ -286,8 +353,14 @@ export class TenantConfigurationController {
 
   @Delete(':key')
   @Permissions('edit_settings')
-  async deleteConfiguration(@Param('key') key: string, @Req() req) {
+  async deleteConfiguration(
+    @Param('key') key: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     await this.tenantConfigurationService.deleteTenantConfiguration(
       tenantId,
       key,
@@ -298,8 +371,11 @@ export class TenantConfigurationController {
   // Stripe-specific endpoints
   @Get('stripe/status')
   @Permissions('view_billing')
-  async getStripeStatus(@Req() req) {
+  async getStripeStatus(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     const isConfigured =
       await this.tenantConfigurationService.isStripeConfigured(tenantId);
     return { isConfigured };
@@ -307,8 +383,11 @@ export class TenantConfigurationController {
 
   @Get('stripe/keys')
   @Permissions('view_billing')
-  async getStripeKeys(@Req() req) {
+  async getStripeKeys(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     const [secretKey, publishableKey, webhookSecret] = await Promise.all([
       this.tenantConfigurationService.getStripeSecretKey(tenantId),
       this.tenantConfigurationService.getStripePublishableKey(tenantId),
@@ -324,8 +403,14 @@ export class TenantConfigurationController {
 
   @Post('stripe/configure')
   @Permissions('edit_billing')
-  async configureStripe(@Body() dto: StripeConfigurationDto, @Req() req) {
+  async configureStripe(
+    @Body() dto: StripeConfigurationDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
 
     // Set Stripe keys
     await Promise.all([
@@ -349,13 +434,13 @@ export class TenantConfigurationController {
 
     // Auto-create products and prices if requested
     if (dto.autoCreateProducts) {
-      const stripeService = req.app.get('StripeService');
+      const stripeService = getStripeService(req);
       await stripeService.createStripeProductsAndPrices(tenantId);
     }
 
     // Update prices if provided
     if (dto.prices) {
-      const stripeService = req.app.get('StripeService');
+      const stripeService = getStripeService(req);
       await stripeService.updateStripePrices(tenantId, dto.prices);
     }
 
@@ -364,8 +449,11 @@ export class TenantConfigurationController {
 
   @Get('stripe/price-ids')
   @Permissions('view_billing')
-  async getStripePriceIds(@Req() req) {
+  async getStripePriceIds(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     const [basicPriceId, proPriceId, enterprisePriceId] = await Promise.all([
       this.tenantConfigurationService.getStripePriceId(tenantId, 'basic'),
       this.tenantConfigurationService.getStripePriceId(tenantId, 'pro'),
@@ -381,9 +469,12 @@ export class TenantConfigurationController {
 
   @Post('stripe/create-products')
   @Permissions('edit_billing')
-  async createStripeProducts(@Req() req) {
+  async createStripeProducts(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
-    const stripeService = req.app.get('StripeService');
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+    const stripeService = getStripeService(req);
 
     const priceIds =
       await stripeService.createStripeProductsAndPrices(tenantId);
@@ -399,10 +490,13 @@ export class TenantConfigurationController {
   async updateStripePrices(
     @Body()
     dto: { basicPrice?: number; proPrice?: number; enterprisePrice?: number },
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     const tenantId = req.user.tenantId;
-    const stripeService = req.app.get('StripeService');
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+    const stripeService = getStripeService(req);
 
     const priceIds = await stripeService.updateStripePrices(tenantId, dto);
 

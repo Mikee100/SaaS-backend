@@ -1,12 +1,26 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PrismaService } from './prisma.service';
 import { TrialGuard } from './auth/trial.guard';
+import { AuthenticatedRequest } from './auth/request.types';
 
 @Controller()
 export class AppController {
-  getHello(): any {
-    throw new Error('Method not implemented.');
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return req.user.tenantId;
+  }
+
+  getHello(): string {
+    return 'Hello World!';
   }
   constructor(private prisma: PrismaService) {}
 
@@ -20,7 +34,7 @@ export class AppController {
     try {
       // Check database connectivity
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -33,17 +47,20 @@ export class AppController {
         timestamp: new Date().toISOString(),
         database: 'disconnected',
         service: 'backend',
-        error: process.env.NODE_ENV === 'development' 
-          ? (error instanceof Error ? error.message : String(error)) 
-          : undefined,
+        error:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
       };
     }
   }
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('dashboard/stats')
-  async getDashboardStats(@Req() req: any) {
-    const tenantId = req.user.tenantId;
+  async getDashboardStats(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
 
     try {
       // Get total sales count
@@ -152,8 +169,8 @@ export class AppController {
 
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('usage/stats')
-  async getUsageStats(@Req() req: any) {
-    const tenantId = req.user.tenantId;
+  async getUsageStats(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
 
     try {
       // Get user count for this tenant

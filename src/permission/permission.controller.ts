@@ -3,7 +3,6 @@ import {
   Get,
   Post,
   Body,
-  Param,
   BadRequestException,
   UseGuards,
   Logger,
@@ -13,6 +12,11 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
 import { AuthGuard } from '@nestjs/passport';
+
+interface CreatePermissionBody {
+  key?: string;
+  description?: string;
+}
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('permissions')
@@ -29,11 +33,13 @@ export class PermissionController {
 
   @Post()
   @Permissions('edit_permissions')
-  async createPermission(@Body() body) {
+  async createPermission(@Body() body: CreatePermissionBody) {
     this.logger.log(
       `Received createPermission request: ${JSON.stringify(body)}`,
     );
-    if (!body.key) throw new BadRequestException('Permission key is required');
+    if (!body.key) {
+      throw new BadRequestException('Permission key is required');
+    }
     const result = await this.permissionService.createPermission(
       body.key,
       body.description,

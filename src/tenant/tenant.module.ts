@@ -11,7 +11,12 @@ import { TenantConfigurationModule } from './tenant-configuration.module';
 import { ClassificationModule } from '../classification/classification.module';
 
 @Module({
-  imports: [UserModule, BranchModule, TenantConfigurationModule, ClassificationModule],
+  imports: [
+    UserModule,
+    BranchModule,
+    TenantConfigurationModule,
+    ClassificationModule,
+  ],
   providers: [
     TenantService,
     LogoService,

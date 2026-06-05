@@ -12,37 +12,40 @@ export class RealtimeGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
+    void _server;
     // ...existing code...
   }
 
-  handleConnection(client: any) {
+  handleConnection(_client: unknown) {
+    void _client;
     // ...existing code...
   }
 
-  handleDisconnect(client: any) {
+  handleDisconnect(_client: unknown) {
+    void _client;
     // ...existing code...
   }
 
   // Emit sales update to all clients
-  emitSalesUpdate(data: any) {
+  emitSalesUpdate(data: unknown) {
     this.server.emit('salesUpdate', data);
   }
 
   // Emit inventory update to all clients
-  emitInventoryUpdate(data: any) {
+  emitInventoryUpdate(data: unknown) {
     this.server.emit('inventoryUpdate', data);
   }
 
   // Emit ledger update to all clients
-  emitLedgerUpdate(data: any) {
+  emitLedgerUpdate(data: unknown) {
     this.server.emit('ledgerUpdate', data);
   }
 
   // Emit notification to all clients
-  emitNotification(data: any) {
+  emitNotification(data: unknown) {
     this.server.emit('notification', data);
   }
 }

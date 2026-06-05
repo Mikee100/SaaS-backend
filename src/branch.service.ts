@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
 export class BranchService {
   constructor(private prisma: PrismaService) {}
 
-  async createBranch(data: any) {
+  async createBranch(data: Prisma.BranchUncheckedCreateInput) {
     // Accept all branch fields
     return this.prisma.branch.create({ data });
   }
@@ -21,7 +22,11 @@ export class BranchService {
     return this.prisma.branch.findFirst({ where: { id, tenantId } });
   }
 
-  async updateBranch(id: string, data: any, tenantId: string) {
+  async updateBranch(
+    id: string,
+    data: Prisma.BranchUncheckedUpdateInput,
+    tenantId: string,
+  ) {
     return this.prisma.branch.updateMany({ where: { id, tenantId }, data });
   }
 

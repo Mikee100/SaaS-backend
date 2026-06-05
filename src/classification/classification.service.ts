@@ -31,7 +31,10 @@ export class ClassificationService {
     },
   ];
 
-  private readonly variantTemplatesByKeyword: Record<string, AttributeTemplate[]> = {
+  private readonly variantTemplatesByKeyword: Record<
+    string,
+    AttributeTemplate[]
+  > = {
     shoe: [
       {
         name: 'Size',
@@ -139,7 +142,9 @@ export class ClassificationService {
     return this.normalize(a) === this.normalize(b);
   }
 
-  private isRestaurantClassification(classification?: { slug?: string; name?: string } | null) {
+  private isRestaurantClassification(
+    classification?: { slug?: string; name?: string } | null,
+  ) {
     if (!classification) return false;
     const token = `${this.normalize(classification.slug)} ${this.normalize(classification.name)}`;
     return token.includes('restaurant') || token.includes('hospitality');
@@ -150,18 +155,22 @@ export class ClassificationService {
     secondary: T[],
   ): T[] {
     const seen = new Set(primary.map((u) => this.normalize(u.abbreviation)));
-    return [...primary, ...secondary.filter((u) => !seen.has(this.normalize(u.abbreviation)))];
+    return [
+      ...primary,
+      ...secondary.filter((u) => !seen.has(this.normalize(u.abbreviation))),
+    ];
   }
 
   private async findClassificationByBusinessType(businessType?: string | null) {
     const normalized = this.normalizeBusinessToken(businessType);
     if (!normalized) return null;
 
-    const activeClassifications = await this.prisma.businessClassification.findMany({
-      where: { isActive: true },
-      select: { id: true, slug: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+    const activeClassifications =
+      await this.prisma.businessClassification.findMany({
+        where: { isActive: true },
+        select: { id: true, slug: true, name: true },
+        orderBy: { name: 'asc' },
+      });
 
     if (activeClassifications.length === 0) return null;
 
@@ -176,16 +185,25 @@ export class ClassificationService {
       activeClassifications.find((c) => {
         const slug = this.normalizeBusinessToken(c.slug);
         const name = this.normalizeBusinessToken(c.name);
-        return normalized.includes(slug) || slug.includes(normalized) || normalized.includes(name);
+        return (
+          normalized.includes(slug) ||
+          slug.includes(normalized) ||
+          normalized.includes(name)
+        );
       }) || null
     );
   }
 
-  private pickTemplatesForClassification(classification: { slug: string; name: string }): AttributeTemplate[] {
+  private pickTemplatesForClassification(classification: {
+    slug: string;
+    name: string;
+  }): AttributeTemplate[] {
     const candidate = `${this.normalize(classification.slug)} ${this.normalize(classification.name)}`;
     const templates: AttributeTemplate[] = [];
 
-    for (const [keyword, attrs] of Object.entries(this.variantTemplatesByKeyword)) {
+    for (const [keyword, attrs] of Object.entries(
+      this.variantTemplatesByKeyword,
+    )) {
       if (candidate.includes(keyword)) {
         templates.push(...attrs);
       }
@@ -228,7 +246,8 @@ export class ClassificationService {
           data: {
             isActive: true,
             deletedAt: null,
-            displayName: existing.displayName || template.displayName || template.name,
+            displayName:
+              existing.displayName || template.displayName || template.name,
             type: existing.type || template.type || 'text',
           },
           include: { values: true },
@@ -281,7 +300,11 @@ export class ClassificationService {
   private async provisionTenantMetricDefaults(
     tenantId: string,
     classifications: Array<{ slug: string; name: string }>,
-    mergedUnits: Array<{ abbreviation: string; name: string; isBaseUnit: boolean | null }>,
+    mergedUnits: Array<{
+      abbreviation: string;
+      name: string;
+      isBaseUnit: boolean | null;
+    }>,
   ) {
     const templatesByName = new Map<string, AttributeTemplate>();
     for (const c of classifications) {
@@ -299,7 +322,9 @@ export class ClassificationService {
     }
 
     const defaultUnit =
-      mergedUnits.find((u) => Boolean(u.isBaseUnit))?.abbreviation ?? mergedUnits[0]?.abbreviation ?? null;
+      mergedUnits.find((u) => Boolean(u.isBaseUnit))?.abbreviation ??
+      mergedUnits[0]?.abbreviation ??
+      null;
     const allowedUnits = mergedUnits.map((u) => u.abbreviation);
 
     const currentTenant = await this.prisma.tenant.findUnique({
@@ -313,16 +338,24 @@ export class ClassificationService {
     }
 
     const previousPrefs =
-      currentTenant.measurementPreferences && typeof currentTenant.measurementPreferences === 'object'
-        ? (currentTenant.measurementPreferences as Record<string, any>)
+      currentTenant.measurementPreferences &&
+      typeof currentTenant.measurementPreferences === 'object'
+        ? (currentTenant.measurementPreferences as Record<string, unknown>)
         : {};
+
+    const previousDefaultUnit =
+      typeof previousPrefs.defaultUnit === 'string'
+        ? previousPrefs.defaultUnit
+        : null;
 
     const mergedPrefs = {
       ...previousPrefs,
-      defaultUnit: previousPrefs.defaultUnit || defaultUnit,
+      defaultUnit: previousDefaultUnit ?? defaultUnit,
       allowedUnits,
       metricConfigVersion: 1,
-      variantAttributes: Array.from(templatesByName.values()).map((t) => t.name),
+      variantAttributes: Array.from(templatesByName.values()).map(
+        (t) => t.name,
+      ),
     };
 
     await this.prisma.tenant.update({
@@ -333,9 +366,14 @@ export class ClassificationService {
     });
 
     return {
-      provisionedAttributes: Array.from(templatesByName.values()).map((t) => t.name),
+      provisionedAttributes: Array.from(templatesByName.values()).map(
+        (t) => t.name,
+      ),
       allowedUnits,
-      defaultUnit: mergedPrefs.defaultUnit,
+      defaultUnit:
+        typeof mergedPrefs.defaultUnit === 'string'
+          ? mergedPrefs.defaultUnit
+          : null,
     };
   }
 
@@ -385,7 +423,10 @@ export class ClassificationService {
     const existing = await this.prisma.businessClassification.findUnique({
       where: { slug: dto.slug },
     });
-    if (existing) throw new ConflictException(`Classification slug '${dto.slug}' already exists`);
+    if (existing)
+      throw new ConflictException(
+        `Classification slug '${dto.slug}' already exists`,
+      );
 
     return this.prisma.businessClassification.create({
       data: {
@@ -401,18 +442,30 @@ export class ClassificationService {
     return this.prisma.businessClassification.update({
       where: { id },
       data: dto,
-      include: { units: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } } },
+      include: {
+        units: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+      },
     });
   }
 
   async deleteClassification(id: string) {
-    const c = await this.findClassificationById(id);
-    if (c.isSystem) {
-      throw new BadRequestException('System classifications cannot be deleted. You can deactivate them instead.');
+    const classification = (await this.findClassificationById(id)) as {
+      isSystem: boolean;
+      _count?: {
+        primaryTenants?: number;
+      };
+    };
+
+    if (classification.isSystem) {
+      throw new BadRequestException(
+        'System classifications cannot be deleted. You can deactivate them instead.',
+      );
     }
-    const tenantCount = (c as any)._count?.primaryTenants ?? 0;
+    const tenantCount = classification._count?.primaryTenants ?? 0;
     if (tenantCount > 0) {
-      throw new BadRequestException(`Cannot delete: ${tenantCount} tenants use this classification`);
+      throw new BadRequestException(
+        `Cannot delete: ${tenantCount} tenants use this classification`,
+      );
     }
     return this.prisma.businessClassification.delete({ where: { id } });
   }
@@ -430,9 +483,17 @@ export class ClassificationService {
   async createUnit(classificationId: string, dto: CreateMeasurementUnitDto) {
     await this.findClassificationById(classificationId);
     const existing = await this.prisma.measurementUnit.findUnique({
-      where: { classificationId_abbreviation: { classificationId, abbreviation: dto.abbreviation } },
+      where: {
+        classificationId_abbreviation: {
+          classificationId,
+          abbreviation: dto.abbreviation,
+        },
+      },
     });
-    if (existing) throw new ConflictException(`Unit '${dto.abbreviation}' already exists in this classification`);
+    if (existing)
+      throw new ConflictException(
+        `Unit '${dto.abbreviation}' already exists in this classification`,
+      );
 
     return this.prisma.measurementUnit.create({
       data: { ...dto, classificationId },
@@ -440,13 +501,20 @@ export class ClassificationService {
   }
 
   async updateUnit(unitId: string, dto: UpdateMeasurementUnitDto) {
-    const unit = await this.prisma.measurementUnit.findUnique({ where: { id: unitId } });
+    const unit = await this.prisma.measurementUnit.findUnique({
+      where: { id: unitId },
+    });
     if (!unit) throw new NotFoundException('Measurement unit not found');
-    return this.prisma.measurementUnit.update({ where: { id: unitId }, data: dto });
+    return this.prisma.measurementUnit.update({
+      where: { id: unitId },
+      data: dto,
+    });
   }
 
   async deactivateUnit(unitId: string) {
-    const unit = await this.prisma.measurementUnit.findUnique({ where: { id: unitId } });
+    const unit = await this.prisma.measurementUnit.findUnique({
+      where: { id: unitId },
+    });
     if (!unit) throw new NotFoundException('Measurement unit not found');
     return this.prisma.measurementUnit.update({
       where: { id: unitId },
@@ -486,7 +554,10 @@ export class ClassificationService {
     // Merge primary + secondary units, removing duplicates by abbreviation
     const primaryUnits = tenant.classification?.units ?? [];
     const secondaryUnits = tenant.secondaryClassification?.units ?? [];
-    const mergedUnits = this.mergeUnitsByAbbreviation(primaryUnits, secondaryUnits);
+    const mergedUnits = this.mergeUnitsByAbbreviation(
+      primaryUnits,
+      secondaryUnits,
+    );
 
     const variantAttributes = await this.prisma.productAttribute.findMany({
       where: {
@@ -530,8 +601,13 @@ export class ClassificationService {
     // Validate classification exists
     const classification = await this.findClassificationById(classificationId);
 
-    if (secondaryClassificationId && this.isSameToken(secondaryClassificationId, classificationId)) {
-      throw new BadRequestException('Secondary classification must be different from primary classification');
+    if (
+      secondaryClassificationId &&
+      this.isSameToken(secondaryClassificationId, classificationId)
+    ) {
+      throw new BadRequestException(
+        'Secondary classification must be different from primary classification',
+      );
     }
 
     const secondaryClassification = secondaryClassificationId
@@ -546,7 +622,8 @@ export class ClassificationService {
     // Build default measurementPreferences from classification units if not provided
     const defaultPrefs = measurementPreferences ?? {
       defaultUnit:
-        mergedUnits.find((u) => Boolean(u.isBaseUnit))?.abbreviation ?? mergedUnits[0]?.abbreviation,
+        mergedUnits.find((u) => Boolean(u.isBaseUnit))?.abbreviation ??
+        mergedUnits[0]?.abbreviation,
       allowedUnits: mergedUnits.map((u) => u.abbreviation),
     };
 
@@ -572,7 +649,10 @@ export class ClassificationService {
     if (provisionDefaults) {
       defaultsProvisioning = await this.provisionTenantMetricDefaults(
         tenantId,
-        [classification, ...(secondaryClassification ? [secondaryClassification] : [])],
+        [
+          classification,
+          ...(secondaryClassification ? [secondaryClassification] : []),
+        ],
         mergedUnits,
       );
     }
@@ -611,7 +691,9 @@ export class ClassificationService {
     }
 
     if (!tenant.classification) {
-      const matchedClassification = await this.findClassificationByBusinessType(tenant.businessType);
+      const matchedClassification = await this.findClassificationByBusinessType(
+        tenant.businessType,
+      );
       if (!matchedClassification) {
         throw new BadRequestException(
           'Primary classification is not assigned for this tenant, and no active classification matches tenant business type.',
@@ -652,7 +734,9 @@ export class ClassificationService {
         throw new NotFoundException('Tenant not found');
       }
       if (!tenant.classification) {
-        throw new BadRequestException('Primary classification is not assigned for this tenant');
+        throw new BadRequestException(
+          'Primary classification is not assigned for this tenant',
+        );
       }
     }
 
@@ -663,7 +747,12 @@ export class ClassificationService {
 
     const defaultsProvisioning = await this.provisionTenantMetricDefaults(
       tenantId,
-      [tenant.classification, ...(tenant.secondaryClassification ? [tenant.secondaryClassification] : [])],
+      [
+        tenant.classification,
+        ...(tenant.secondaryClassification
+          ? [tenant.secondaryClassification]
+          : []),
+      ],
       mergedUnits,
     );
 

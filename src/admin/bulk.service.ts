@@ -32,7 +32,10 @@ export class BulkService {
       id: `op-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     });
     if (this.operationsHistory.length > this.MAX_HISTORY) {
-      this.operationsHistory = this.operationsHistory.slice(0, this.MAX_HISTORY);
+      this.operationsHistory = this.operationsHistory.slice(
+        0,
+        this.MAX_HISTORY,
+      );
     }
   }
 
@@ -46,7 +49,9 @@ export class BulkService {
     switch (action) {
       case 'suspend_tenants': {
         if (!tenantIds.length) {
-          throw new BadRequestException('tenantIds array is required for suspend_tenants');
+          throw new BadRequestException(
+            'tenantIds array is required for suspend_tenants',
+          );
         }
         const result = await this.prisma.tenant.updateMany({
           where: { id: { in: tenantIds } },
@@ -63,7 +68,11 @@ export class BulkService {
           completedAt: now,
         });
         this.logger.log(`Suspended ${result.count} tenants`);
-        return { success: true, message: `Suspended ${result.count} tenant(s)`, affectedCount: result.count };
+        return {
+          success: true,
+          message: `Suspended ${result.count} tenant(s)`,
+          affectedCount: result.count,
+        };
       }
 
       case 'activate_tenants': {
@@ -85,12 +94,18 @@ export class BulkService {
           completedAt: now,
         });
         this.logger.log(`Activated ${result.count} tenants`);
-        return { success: true, message: `Activated ${result.count} tenant(s)`, affectedCount: result.count };
+        return {
+          success: true,
+          message: `Activated ${result.count} tenant(s)`,
+          affectedCount: result.count,
+        };
       }
 
       case 'suspend_users': {
         if (!userIds.length) {
-          throw new BadRequestException('userIds array is required for suspend_users');
+          throw new BadRequestException(
+            'userIds array is required for suspend_users',
+          );
         }
         const result = await this.prisma.user.updateMany({
           where: { id: { in: userIds } },
@@ -107,7 +122,11 @@ export class BulkService {
           completedAt: now,
         });
         this.logger.log(`Suspended ${result.count} users`);
-        return { success: true, message: `Suspended ${result.count} user(s)`, affectedCount: result.count };
+        return {
+          success: true,
+          message: `Suspended ${result.count} user(s)`,
+          affectedCount: result.count,
+        };
       }
 
       case 'activate_users': {
@@ -129,7 +148,11 @@ export class BulkService {
           completedAt: now,
         });
         this.logger.log(`Activated ${result.count} users`);
-        return { success: true, message: `Activated ${result.count} user(s)`, affectedCount: result.count };
+        return {
+          success: true,
+          message: `Activated ${result.count} user(s)`,
+          affectedCount: result.count,
+        };
       }
 
       case 'clear_cache':
@@ -143,7 +166,10 @@ export class BulkService {
           createdAt: now,
           completedAt: now,
         });
-        return { success: true, message: 'Cache clear requested (no-op in current implementation)' };
+        return {
+          success: true,
+          message: 'Cache clear requested (no-op in current implementation)',
+        };
 
       case 'reset_passwords':
       case 'update_plan':

@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, IsInt, MinLength, Max, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsInt,
+  MinLength,
+  Min,
+} from 'class-validator';
 
 export class CreateClassificationDto {
   @IsString()
@@ -118,7 +126,7 @@ export class AssignTenantClassificationDto {
   secondaryClassificationId?: string;
 
   @IsOptional()
-  measurementPreferences?: Record<string, any>;
+  measurementPreferences?: Record<string, unknown>;
 
   @IsOptional()
   @IsBoolean()

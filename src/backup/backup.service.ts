@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { exec } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -13,15 +13,20 @@ export class BackupService {
   private readonly logger = new Logger(BackupService.name);
   private readonly backupDir = path.join(process.cwd(), 'backups');
   private readonly maxBackups = 24; // Keep last 24 hourly backups
-  private currentBackupStatus: 'idle' | 'running' | 'success' | 'failed' = 'idle';
+  private currentBackupStatus: 'idle' | 'running' | 'success' | 'failed' =
+    'idle';
   private lastBackupAt?: Date;
   private lastBackupDuration?: number;
   private lastBackupSize?: number;
   private lastError?: string;
   private nextBackupAt?: Date;
 
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
+
   constructor() {
-    this.initializeBackupDirectory();
+    void this.initializeBackupDirectory();
     this.scheduleNextBackup();
   }
 
@@ -30,7 +35,9 @@ export class BackupService {
       await fs.mkdir(this.backupDir, { recursive: true });
       this.logger.log(`Backup directory initialized: ${this.backupDir}`);
     } catch (error) {
-      this.logger.error(`Failed to create backup directory: ${error.message}`);
+      this.logger.error(
+        `Failed to create backup directory: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 
@@ -49,7 +56,9 @@ export class BackupService {
       await this.createBackup();
       this.logger.log('Scheduled backup completed successfully');
     } catch (error) {
-      this.logger.error(`Scheduled backup failed: ${error.message}`);
+      this.logger.error(
+        `Scheduled backup failed: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 
@@ -75,7 +84,9 @@ export class BackupService {
       }
 
       // Parse database URL for pg_dump parameters
-      const dbUrlMatch = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+      const dbUrlMatch = dbUrl.match(
+        /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/,
+      );
       if (!dbUrlMatch) {
         throw new Error('Invalid DATABASE_URL format');
       }
@@ -118,17 +129,18 @@ export class BackupService {
         duration: duration,
       };
 
-      this.logger.log(`Backup completed successfully: ${backupFileName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+      this.logger.log(
+        `Backup completed successfully: ${backupFileName} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`,
+      );
 
       return backupInfo;
-
     } catch (error) {
       const duration = Date.now() - startTime;
       this.currentBackupStatus = 'failed';
-      this.lastError = error.message;
+      this.lastError = this.getErrorMessage(error);
       this.lastBackupDuration = duration;
 
-      this.logger.error(`Backup failed: ${error.message}`);
+      this.logger.error(`Backup failed: ${this.getErrorMessage(error)}`);
 
       throw error;
     }
@@ -138,8 +150,8 @@ export class BackupService {
     try {
       const files = await fs.readdir(this.backupDir);
       const backupFiles = files
-        .filter(file => file.endsWith('.sql.gz'))
-        .map(file => {
+        .filter((file) => file.endsWith('.sql.gz'))
+        .map((file) => {
           const filePath = path.join(this.backupDir, file);
           return {
             name: file,
@@ -153,11 +165,13 @@ export class BackupService {
         backupFiles.map(async (file) => ({
           ...file,
           stats: await file.stats,
-        }))
+        })),
       );
 
       // Sort by creation time (newest first)
-      backupStats.sort((a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime());
+      backupStats.sort(
+        (a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime(),
+      );
 
       // Remove old backups beyond the limit
       if (backupStats.length > this.maxBackups) {
@@ -169,13 +183,18 @@ export class BackupService {
         }
       }
     } catch (error) {
-      this.logger.error(`Failed to cleanup old backups: ${error.message}`);
+      this.logger.error(
+        `Failed to cleanup old backups: ${this.getErrorMessage(error)}`,
+      );
     }
   }
 
   async getBackupStatus(): Promise<BackupStatusDto> {
     const backups = await this.listBackups();
-    const diskSpaceUsed = backups.backups.reduce((total, backup) => total + backup.size, 0);
+    const diskSpaceUsed = backups.backups.reduce(
+      (total, backup) => total + backup.size,
+      0,
+    );
 
     return {
       status: this.currentBackupStatus,
@@ -192,7 +211,7 @@ export class BackupService {
   async listBackups(): Promise<{ backups: BackupInfoDto[]; total: number }> {
     try {
       const files = await fs.readdir(this.backupDir);
-      const backupFiles = files.filter(file => file.endsWith('.sql.gz'));
+      const backupFiles = files.filter((file) => file.endsWith('.sql.gz'));
 
       const backups: BackupInfoDto[] = [];
 
@@ -203,9 +222,13 @@ export class BackupService {
 
           // Try to parse timestamp from filename
           let createdAt = stats.mtime;
-          const timestampMatch = file.match(/backup-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/);
+          const timestampMatch = file.match(
+            /backup-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/,
+          );
           if (timestampMatch) {
-            const timestamp = timestampMatch[1].replace(/-/g, ':').replace('T', ' ');
+            const timestamp = timestampMatch[1]
+              .replace(/-/g, ':')
+              .replace('T', ' ');
             createdAt = new Date(timestamp + ':00.000Z');
           }
 
@@ -216,7 +239,9 @@ export class BackupService {
             status: 'success', // Assume success if file exists
           });
         } catch (error) {
-          this.logger.warn(`Failed to process backup file ${file}: ${error.message}`);
+          this.logger.warn(
+            `Failed to process backup file ${file}: ${this.getErrorMessage(error)}`,
+          );
         }
       }
 
@@ -228,16 +253,22 @@ export class BackupService {
         total: backups.length,
       };
     } catch (error) {
-      this.logger.error(`Failed to list backups: ${error.message}`);
+      this.logger.error(
+        `Failed to list backups: ${this.getErrorMessage(error)}`,
+      );
       return { backups: [], total: 0 };
     }
   }
 
-  async restoreBackup(filename: string): Promise<void> {
+  restoreBackup(filename: string): Promise<void> {
     // This would implement restore functionality
     // For now, just log that it's not implemented
-    this.logger.warn(`Restore functionality not yet implemented for ${filename}`);
-    throw new Error('Restore functionality not yet implemented');
+    this.logger.warn(
+      `Restore functionality not yet implemented for ${filename}`,
+    );
+    return Promise.reject(
+      new Error('Restore functionality not yet implemented'),
+    );
   }
 
   async getBackupPath(filename: string): Promise<string> {

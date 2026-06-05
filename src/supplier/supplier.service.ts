@@ -151,16 +151,34 @@ export class SupplierService {
       WHERE "tenantId" = ${tenantId} AND "deletedAt" IS NOT NULL
       ORDER BY "deletedAt" DESC
       LIMIT 100
-    ` as Promise<Array<{ id: string; name: string; contactName: string | null; email: string | null; deletedAt: Date }>>;
+    ` as Promise<
+      Array<{
+        id: string;
+        name: string;
+        contactName: string | null;
+        email: string | null;
+        deletedAt: Date;
+      }>
+    >;
   }
 
-  async restoreSupplier(id: string, tenantId: string, actorUserId?: string, ip?: string) {
+  async restoreSupplier(
+    id: string,
+    tenantId: string,
+    actorUserId?: string,
+    ip?: string,
+  ) {
     const count = await doRestoreSupplier(this.prisma, id, tenantId);
     if (count === 0) {
       throw new NotFoundException('Supplier not found or not deleted');
     }
     if (this.auditLogService) {
-      await this.auditLogService.log(actorUserId || null, 'supplier_restored', { supplierId: id }, ip);
+      await this.auditLogService.log(
+        actorUserId || null,
+        'supplier_restored',
+        { supplierId: id },
+        ip,
+      );
     }
     return { success: true, message: 'Supplier restored successfully' };
   }

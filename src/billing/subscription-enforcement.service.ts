@@ -55,6 +55,8 @@ export class SubscriptionEnforcementService {
             currentPeriodStart: true,
             currentPeriodEnd: true,
             isTrial: true,
+            scheduledPlanId: true,
+            scheduledEffectiveDate: true,
           },
         },
       },
@@ -167,12 +169,13 @@ export class SubscriptionEnforcementService {
       SubscriptionEnforcementService.BASE_GRACE_DAYS + extraGraceDays;
 
     const gracePeriodEndsAt = new Date(subscription.currentPeriodEnd);
-    gracePeriodEndsAt.setDate(
-      gracePeriodEndsAt.getDate() + totalGraceDays,
-    );
+    gracePeriodEndsAt.setDate(gracePeriodEndsAt.getDate() + totalGraceDays);
 
     if (now <= gracePeriodEndsAt) {
-      const daysAfterExpiry = this.diffInDays(now, subscription.currentPeriodEnd);
+      const daysAfterExpiry = this.diffInDays(
+        now,
+        subscription.currentPeriodEnd,
+      );
 
       if (daysAfterExpiry === 1) {
         await this.sendOwnerAlertOncePerCycle({
@@ -200,7 +203,10 @@ export class SubscriptionEnforcementService {
         });
       }
 
-      if (subscription.status === 'active' || subscription.status === 'trialing') {
+      if (
+        subscription.status === 'active' ||
+        subscription.status === 'trialing'
+      ) {
         await this.prisma.subscription.update({
           where: { id: subscription.id },
           data: { status: 'past_due' },
@@ -221,7 +227,11 @@ export class SubscriptionEnforcementService {
         title: 'Subscription expired - action required',
         message: `Your monthly subscription expired on ${subscription.currentPeriodEnd.toDateString()}. Renew within ${daysRemainingInGrace} day(s) to avoid temporary account suspension.`,
         emailSubject: `Subscription expired - renew in ${totalGraceDays} days`,
-        emailBody: this.buildExpiryEmailBody(tenant.name, subscription.currentPeriodEnd, daysRemainingInGrace),
+        emailBody: this.buildExpiryEmailBody(
+          tenant.name,
+          subscription.currentPeriodEnd,
+          daysRemainingInGrace,
+        ),
       });
 
       return;
@@ -408,7 +418,7 @@ export class SubscriptionEnforcementService {
           params.emailSubject,
           params.emailBody,
         );
-      } catch (error) {
+      } catch {
         this.logger.warn(`Failed to send subscription alert email to ${email}`);
       }
     }
@@ -492,9 +502,10 @@ export class SubscriptionEnforcementService {
     });
 
     return extensions.reduce((sum, extension) => {
-      const data = extension.data as
-        | { days?: number; subscriptionId?: string }
-        | null;
+      const data = extension.data as {
+        days?: number;
+        subscriptionId?: string;
+      } | null;
       if (!data) {
         return sum;
       }

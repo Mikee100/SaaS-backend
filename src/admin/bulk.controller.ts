@@ -20,17 +20,27 @@ export class BulkController {
   constructor(private readonly bulkService: BulkService) {}
 
   @Get('operations')
-  async getOperations(): Promise<BulkOperation[]> {
+  getOperations(): Promise<BulkOperation[]> {
     return this.bulkService.getOperations();
   }
 
   @Post('execute')
   async execute(
-    @Body() body: { action: string; tenantIds?: string[]; userIds?: string[]; confirmation?: string },
+    @Body()
+    body: {
+      action: string;
+      tenantIds?: string[];
+      userIds?: string[];
+      confirmation?: string;
+    },
   ) {
     const { action, tenantIds, userIds, confirmation } = body;
 
-    const destructiveActions = ['suspend_users', 'suspend_tenants', 'delete_tenants'];
+    const destructiveActions = [
+      'suspend_users',
+      'suspend_tenants',
+      'delete_tenants',
+    ];
     if (destructiveActions.includes(action) && confirmation !== 'CONFIRM') {
       throw new BadRequestException(
         'Destructive actions require confirmation. Please type CONFIRM.',

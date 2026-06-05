@@ -17,12 +17,28 @@ import { JournalEntryDto } from './accounting.types';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { RequireModules } from '../auth/module-access.decorator';
+import { AuthenticatedRequest, AuthenticatedUser } from '../auth/request.types';
 
 @Controller('ledger')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 @RequireModules('accounts')
 export class LedgerController {
   constructor(private readonly ledgerService: LedgerService) {}
+
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new UnauthorizedException();
+    }
+    return req.user.tenantId;
+  }
+
+  private getActorUserId(req: AuthenticatedRequest): string {
+    const actorUserId = req.user?.userId || req.user?.sub;
+    if (!actorUserId) {
+      throw new UnauthorizedException();
+    }
+    return actorUserId;
+  }
 
   private parseAsOfDate(date?: string): Date | undefined {
     if (!date) return undefined;
@@ -33,33 +49,49 @@ export class LedgerController {
     return parsedDate;
   }
 
-  private getNormalizedRoleNames(user: any): string[] {
-    const roles: any[] = [];
+  private getNormalizedRoleNames(
+    user: AuthenticatedUser | undefined,
+  ): string[] {
+    const roles: string[] = [];
 
     if (Array.isArray(user?.roles)) {
-      roles.push(...user.roles);
+      for (const role of user.roles) {
+        if (typeof role === 'string' && role.trim()) {
+          roles.push(role.toLowerCase());
+        }
+      }
     }
 
-    if (user?.role) {
-      roles.push(user.role);
+    if (typeof user?.role === 'string' && user.role.trim()) {
+      roles.push(user.role.toLowerCase());
     }
 
-    return roles
-      .map((role: any) =>
-        typeof role === 'string'
-          ? role.toLowerCase()
-          : String(role?.name || '').toLowerCase(),
-      )
-      .filter(Boolean);
+    return roles;
   }
 
-  private resolveBranchScope(req: any): string | undefined {
-    const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
+  private getHeaderBranchId(req: AuthenticatedRequest): string | undefined {
+    const headerValue = req.headers['x-branch-id'];
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    return undefined;
+  }
+
+  private getQueryBranchId(req: AuthenticatedRequest): string | undefined {
+    const branchIdValue = req.query['branchId'];
+    if (typeof branchIdValue === 'string' && branchIdValue.trim()) {
+      return branchIdValue.trim();
+    }
+    return undefined;
+  }
+
+  private resolveBranchScope(req: AuthenticatedRequest): string | undefined {
+    const roles = this.getNormalizedRoleNames(req.user);
+    const assignedBranchId = req.user?.branchId;
     const requestedBranchId =
-      (req?.headers?.['x-branch-id'] as string | undefined) ||
-      (req?.query?.branchId as string | undefined);
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+      this.getHeaderBranchId(req) || this.getQueryBranchId(req);
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -79,35 +111,32 @@ export class LedgerController {
 
   @Get()
   @Permissions('view_reports')
-  async getLedger(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+  async getLedger(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.ledgerService.getLedgerEntries(tenantId, effectiveBranchId);
   }
 
   @Post('init-coa')
   @Permissions('create_sales')
-  async initCOA(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
-    return this.ledgerService.initializeCOA(tenantId);
+  async initCOA(@Req() req: AuthenticatedRequest) {
+    return this.ledgerService.initializeCOA(this.getTenantId(req));
   }
 
   @Get('accounts')
   @Permissions('view_reports')
-  async getAccounts(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
-    return this.ledgerService.getAccounts(tenantId);
+  async getAccounts(@Req() req: AuthenticatedRequest) {
+    return this.ledgerService.getAccounts(this.getTenantId(req));
   }
 
   @Post('journal')
   @Permissions('create_sales')
-  async createJournalEntry(@Req() req: any, @Body() dto: JournalEntryDto) {
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId || req.user?.sub;
-    if (!tenantId || !userId) throw new UnauthorizedException();
+  async createJournalEntry(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: JournalEntryDto,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const userId = this.getActorUserId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     const branchPrefix = effectiveBranchId
       ? `BRANCH:${effectiveBranchId}:`
@@ -124,9 +153,11 @@ export class LedgerController {
 
   @Get('trial-balance')
   @Permissions('view_reports')
-  async getTrialBalance(@Req() req: any, @Query('date') date?: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+  async getTrialBalance(
+    @Req() req: AuthenticatedRequest,
+    @Query('date') date?: string,
+  ) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
 
     return this.ledgerService.getTrialBalance(
@@ -139,12 +170,11 @@ export class LedgerController {
   @Get('profit-loss')
   @Permissions('view_reports')
   async getProfitLoss(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.ledgerService.getProfitAndLoss(
       tenantId,
@@ -156,9 +186,11 @@ export class LedgerController {
 
   @Get('balance-sheet')
   @Permissions('view_reports')
-  async getBalanceSheet(@Req() req: any, @Query('date') date?: string) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+  async getBalanceSheet(
+    @Req() req: AuthenticatedRequest,
+    @Query('date') date?: string,
+  ) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.ledgerService.getBalanceSheet(
       tenantId,
@@ -169,57 +201,64 @@ export class LedgerController {
 
   @Post('sync')
   @Permissions('create_sales')
-  async syncLedger(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    const userId = req.user?.userId || req.user?.sub;
-    if (!tenantId || !userId) throw new UnauthorizedException();
+  async syncLedger(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
+    const userId = this.getActorUserId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     return this.ledgerService.syncLedger(tenantId, userId, effectiveBranchId);
   }
 
   @Post('reclassify-expenses')
   @Permissions('create_sales')
-  async reclassifyExpenses(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+  async reclassifyExpenses(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.ledgerService.reclassifyExpenseEntries(tenantId, effectiveBranchId);
+    return this.ledgerService.reclassifyExpenseEntries(
+      tenantId,
+      effectiveBranchId,
+    );
   }
 
   @Get('accounts/:id/entries')
   @Permissions('view_reports')
   async getAccountEntries(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limitText?: string,
     @Query('startDate') startDateText?: string,
     @Query('endDate') endDateText?: string,
   ) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     const parsedLimit = limitText ? Number(limitText) : undefined;
     const startDate = startDateText ? new Date(startDateText) : undefined;
     const endDate = endDateText ? new Date(endDateText) : undefined;
 
-    return this.ledgerService.getAccountEntries(tenantId, id, effectiveBranchId, {
-      cursor,
-      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      startDate,
-      endDate,
-    });
+    return this.ledgerService.getAccountEntries(
+      tenantId,
+      id,
+      effectiveBranchId,
+      {
+        cursor,
+        limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+        startDate,
+        endDate,
+      },
+    );
   }
 
   @Patch('entry/:id/tag')
   @Permissions('edit_ledger')
   async updateLedgerEntryTag(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body('tag') tag: string
+    @Body('tag') tag: string,
   ) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) throw new UnauthorizedException();
-    return this.ledgerService.updateLedgerEntryTag(tenantId, id, tag);
+    return this.ledgerService.updateLedgerEntryTag(
+      this.getTenantId(req),
+      id,
+      tag,
+    );
   }
 }

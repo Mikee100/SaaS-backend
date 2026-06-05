@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 
 @Injectable()
 export class PublicGuard implements CanActivate {
@@ -16,7 +17,7 @@ export class PublicGuard implements CanActivate {
     }
 
     // Check if it's an auth route that should be public
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     const url = request.url;
 
     // Allow these auth routes without authentication

@@ -6,33 +6,79 @@ import { ContextNeeds } from './context-selector.service';
 export class DataService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asNumber(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return 0;
+  }
+
   /** Fetch only the data slices that the user's question actually needs. */
   async getSelectiveData(
     tenantId: string,
     branchId: string,
     needs: ContextNeeds,
   ): Promise<any> {
-    const nothingNeeded = !needs.needsSales && !needs.needsInventory && !needs.needsProducts && !needs.needsCustomers && !needs.needsCreditors && !needs.needsExpenses;
+    const nothingNeeded =
+      !needs.needsSales &&
+      !needs.needsInventory &&
+      !needs.needsProducts &&
+      !needs.needsCustomers &&
+      !needs.needsCreditors &&
+      !needs.needsExpenses;
 
     // For pure general chat, only return a lightweight summary
     if (nothingNeeded) {
       return this.getLightweightSummary(tenantId, branchId);
     }
 
-    const tasks: Promise<any>[] = [];
+    const tasks: Promise<unknown>[] = [];
     const keys: string[] = [];
 
-    if (needs.needsSales) { tasks.push(this.getSalesData(tenantId, branchId)); keys.push('sales'); }
-    if (needs.needsInventory) { tasks.push(this.getInventoryData(tenantId, branchId)); keys.push('inventory'); }
-    if (needs.needsCustomers) { tasks.push(this.getCustomerData(tenantId, branchId)); keys.push('customers'); }
-    if (needs.needsProducts) { tasks.push(this.getProductData(tenantId, branchId)); keys.push('products'); }
-    if (needs.needsCreditors) { tasks.push(this.getCreditorData(tenantId)); keys.push('creditors'); }
-    if (needs.needsExpenses) { tasks.push(this.getExpenseData(tenantId, branchId)); keys.push('expenses'); }
+    if (needs.needsSales) {
+      tasks.push(this.getSalesData(tenantId, branchId));
+      keys.push('sales');
+    }
+    if (needs.needsInventory) {
+      tasks.push(this.getInventoryData(tenantId, branchId));
+      keys.push('inventory');
+    }
+    if (needs.needsCustomers) {
+      tasks.push(this.getCustomerData(tenantId, branchId));
+      keys.push('customers');
+    }
+    if (needs.needsProducts) {
+      tasks.push(this.getProductData(tenantId, branchId));
+      keys.push('products');
+    }
+    if (needs.needsCreditors) {
+      tasks.push(this.getCreditorData(tenantId));
+      keys.push('creditors');
+    }
+    if (needs.needsExpenses) {
+      tasks.push(this.getExpenseData(tenantId, branchId));
+      keys.push('expenses');
+    }
 
     try {
       const results = await Promise.all(tasks);
-      const data: any = {};
-      keys.forEach((k, i) => { data[k] = results[i]; });
+      const data: Record<string, unknown> = {};
+      keys.forEach((k, i) => {
+        data[k] = results[i];
+      });
       return data;
     } catch (error) {
       console.error('Error getting selective data:', error);
@@ -41,12 +87,17 @@ export class DataService {
   }
 
   /** Tiny summary for non-business questions  */
-  private async getLightweightSummary(tenantId: string, branchId: string): Promise<any> {
+  private async getLightweightSummary(
+    tenantId: string,
+    branchId: string,
+  ): Promise<any> {
     try {
       const [salesCount, productCount, customerCount] = await Promise.all([
         this.prisma.sale.count({ where: { tenantId, branchId } }),
         this.prisma.product.count({ where: { tenantId, deletedAt: null } }),
-        this.prisma.sale.groupBy({ by: ['customerName'], where: { tenantId, branchId } }).then((r) => r.length),
+        this.prisma.sale
+          .groupBy({ by: ['customerName'], where: { tenantId, branchId } })
+          .then((r) => r.length),
       ]);
       return {
         summary: {
@@ -62,12 +113,24 @@ export class DataService {
 
   async getBusinessData(tenantId: string, branchId: string): Promise<any> {
     try {
-      const [sales, inventory, customers, products] = await Promise.all([
-        this.getSalesData(tenantId, branchId),
-        this.getInventoryData(tenantId, branchId),
-        this.getCustomerData(tenantId, branchId),
-        this.getProductData(tenantId, branchId),
-      ]);
+      const salesRaw: unknown = await this.getSalesData(tenantId, branchId);
+      const inventoryRaw: unknown = await this.getInventoryData(
+        tenantId,
+        branchId,
+      );
+      const customersRaw: unknown = await this.getCustomerData(
+        tenantId,
+        branchId,
+      );
+      const productsRaw: unknown = await this.getProductData(
+        tenantId,
+        branchId,
+      );
+
+      const sales = this.asObject(salesRaw) ?? {};
+      const inventory = this.asObject(inventoryRaw) ?? {};
+      const customers = this.asObject(customersRaw) ?? {};
+      const products = this.asObject(productsRaw) ?? {};
 
       return {
         sales,
@@ -75,11 +138,11 @@ export class DataService {
         customers,
         products,
         summary: {
-          totalRevenue: sales.totalRevenue,
-          totalSales: sales.totalSales,
-          lowStockItems: inventory.lowStockCount,
-          totalCustomers: customers.totalCustomers,
-          totalProducts: products.totalProducts,
+          totalRevenue: this.asNumber(sales.totalRevenue),
+          totalSales: this.asNumber(sales.totalSales),
+          lowStockItems: this.asNumber(inventory.lowStockCount),
+          totalCustomers: this.asNumber(customers.totalCustomers),
+          totalProducts: this.asNumber(products.totalProducts),
         },
       };
     } catch (error) {
@@ -137,7 +200,20 @@ export class DataService {
     const highestSale = aggregates._max?.total || 0;
     const lowestSale = aggregates._min?.total || 0;
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     const monthName = monthNames[month];
 
     return {
@@ -160,62 +236,66 @@ export class DataService {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const [recentSales, totalSales, todaySales, weeklySales, allSales] = await Promise.all([
-      this.prisma.sale.findMany({
-        where: {
-          tenantId,
-          branchId,
-          createdAt: { gte: thirtyDaysAgo },
-        },
-        select: {
-          total: true,
-          createdAt: true,
-          customerName: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 200,
-      }),
-      this.prisma.sale.aggregate({
-        where: { tenantId, branchId },
-        _sum: { total: true },
-        _count: true,
-        _avg: { total: true },
-        _max: { total: true },
-        _min: { total: true },
-      }),
-      this.prisma.sale.aggregate({
-        where: {
-          tenantId,
-          branchId,
-          createdAt: { gte: today },
-        },
-        _sum: { total: true },
-        _count: true,
-      }),
-      this.prisma.sale.aggregate({
-        where: {
-          tenantId,
-          branchId,
-          createdAt: { gte: sevenDaysAgo },
-        },
-        _sum: { total: true },
-        _count: true,
-      }),
-      this.prisma.sale.findMany({
-        where: {
-          tenantId,
-          branchId,
-          createdAt: { gte: oneYearAgo },
-        },
-        select: {
-          total: true,
-          createdAt: true,
-        },
-      }),
-    ]);
+    const [recentSales, totalSales, todaySales, weeklySales, allSales] =
+      await Promise.all([
+        this.prisma.sale.findMany({
+          where: {
+            tenantId,
+            branchId,
+            createdAt: { gte: thirtyDaysAgo },
+          },
+          select: {
+            total: true,
+            createdAt: true,
+            customerName: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+        }),
+        this.prisma.sale.aggregate({
+          where: { tenantId, branchId },
+          _sum: { total: true },
+          _count: true,
+          _avg: { total: true },
+          _max: { total: true },
+          _min: { total: true },
+        }),
+        this.prisma.sale.aggregate({
+          where: {
+            tenantId,
+            branchId,
+            createdAt: { gte: today },
+          },
+          _sum: { total: true },
+          _count: true,
+        }),
+        this.prisma.sale.aggregate({
+          where: {
+            tenantId,
+            branchId,
+            createdAt: { gte: sevenDaysAgo },
+          },
+          _sum: { total: true },
+          _count: true,
+        }),
+        this.prisma.sale.findMany({
+          where: {
+            tenantId,
+            branchId,
+            createdAt: { gte: oneYearAgo },
+          },
+          select: {
+            total: true,
+            createdAt: true,
+          },
+        }),
+      ]);
 
     const totalRevenue = totalSales._sum.total || 0;
-    const recentRevenue = recentSales.reduce((sum, sale) => sum + sale.total, 0);
+    const recentRevenue = recentSales.reduce(
+      (sum, sale) => sum + sale.total,
+      0,
+    );
     const averageSale = totalSales._avg?.total || 0;
     const highestSale = totalSales._max?.total || 0;
     const lowestSale = totalSales._min?.total || 0;
@@ -225,18 +305,45 @@ export class DataService {
     const firstHalf = recentSales.slice(0, midpoint);
     const secondHalf = recentSales.slice(midpoint);
     const firstHalfTotal = firstHalf.reduce((sum, sale) => sum + sale.total, 0);
-    const secondHalfTotal = secondHalf.reduce((sum, sale) => sum + sale.total, 0);
-    const trend = secondHalfTotal > firstHalfTotal ? 'up' : secondHalfTotal < firstHalfTotal ? 'down' : 'stable';
-    const trendPercentage = firstHalfTotal > 0 
-      ? Math.round(((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100) 
-      : 0;
+    const secondHalfTotal = secondHalf.reduce(
+      (sum, sale) => sum + sale.total,
+      0,
+    );
+    const trend =
+      secondHalfTotal > firstHalfTotal
+        ? 'up'
+        : secondHalfTotal < firstHalfTotal
+          ? 'down'
+          : 'stable';
+    const trendPercentage =
+      firstHalfTotal > 0
+        ? Math.round(
+            ((secondHalfTotal - firstHalfTotal) / firstHalfTotal) * 100,
+          )
+        : 0;
 
     // Daily average
     const dailyAverage = recentSales.length > 0 ? recentRevenue / 30 : 0;
 
     // Calculate monthly sales breakdown
-    const monthlySales: Record<string, { revenue: number; count: number; month: string; year: number }> = {};
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthlySales: Record<
+      string,
+      { revenue: number; count: number; month: string; year: number }
+    > = {};
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
 
     allSales.forEach((sale) => {
       const date = new Date(sale.createdAt);
@@ -258,8 +365,9 @@ export class DataService {
     });
 
     // Convert to array and sort by revenue
-    const monthlySalesArray = Object.values(monthlySales)
-      .sort((a, b) => b.revenue - a.revenue);
+    const monthlySalesArray = Object.values(monthlySales).sort(
+      (a, b) => b.revenue - a.revenue,
+    );
 
     // Get current year monthly breakdown
     const currentYear = new Date().getFullYear();
@@ -321,7 +429,12 @@ export class DataService {
         name: item.product.name,
         quantity: item.quantity,
         minStock: item.minStock,
-        status: item.quantity <= item.minStock ? 'low' : item.quantity === 0 ? 'out' : 'ok',
+        status:
+          item.quantity <= item.minStock
+            ? 'low'
+            : item.quantity === 0
+              ? 'out'
+              : 'ok',
       })),
     };
   }
@@ -430,36 +543,60 @@ export class DataService {
       }),
     ]);
 
-    const productSales = topProducts.reduce(
-      (acc, item) => {
-        const productName = item.product.name;
-        if (!acc[productName]) {
-          acc[productName] = {
-            name: productName,
-            quantity: 0,
-            revenue: 0,
-            salesCount: 0,
-            averagePrice: 0,
-            price: item.product.price || 0,
-            description: item.product.description,
-          };
-        }
-        acc[productName].quantity += item.quantity;
-        acc[productName].revenue += item.quantity * item.price;
-        acc[productName].salesCount += 1;
-        acc[productName].averagePrice = acc[productName].revenue / acc[productName].quantity;
-        return acc;
-      },
-      {} as Record<string, any>,
-    );
+    type TopProductSaleRow = {
+      quantity: number;
+      price: number;
+      product: {
+        name: string | null;
+        price: number | null;
+        description: string | null;
+      } | null;
+    };
+
+    type ProductAggregate = {
+      name: string;
+      quantity: number;
+      revenue: number;
+      salesCount: number;
+      averagePrice: number;
+      price: number;
+      description: string | null;
+    };
+
+    const productSales: Record<string, ProductAggregate> = {};
+    for (const item of topProducts as TopProductSaleRow[]) {
+      const productName = item.product?.name ?? 'Unknown Product';
+      if (!productSales[productName]) {
+        productSales[productName] = {
+          name: productName,
+          quantity: 0,
+          revenue: 0,
+          salesCount: 0,
+          averagePrice: 0,
+          price: item.product?.price ?? 0,
+          description: item.product?.description ?? null,
+        };
+      }
+      productSales[productName].quantity += item.quantity;
+      productSales[productName].revenue += item.quantity * item.price;
+      productSales[productName].salesCount += 1;
+      productSales[productName].averagePrice =
+        productSales[productName].revenue / productSales[productName].quantity;
+    }
 
     const topProductsList = Object.values(productSales)
-      .sort((a: any, b: any) => b.revenue - a.revenue)
+      .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 20);
 
     // Get product performance metrics
-    const totalProductRevenue = topProductsList.reduce((sum: number, p: any) => sum + (p.revenue || 0), 0);
-    const averageProductRevenue = topProductsList.length > 0 ? totalProductRevenue / topProductsList.length : 0;
+    const totalProductRevenue = topProductsList.reduce(
+      (sum, p) => sum + p.revenue,
+      0,
+    );
+    const averageProductRevenue =
+      topProductsList.length > 0
+        ? totalProductRevenue / topProductsList.length
+        : 0;
 
     return {
       totalProducts: products,
@@ -475,45 +612,54 @@ export class DataService {
 
   async getCreditorData(tenantId: string): Promise<any> {
     try {
-      const [suppliers, credits, overdueCredits, totalOutstanding] = await Promise.all([
-        this.prisma.supplier.findMany({
-          where: { tenantId, isActive: true, deletedAt: null },
-          select: {
-            id: true,
-            name: true,
-            contactName: true,
-            email: true,
-            phone: true,
-            city: true,
-            country: true,
-            notes: true,
-          },
-          orderBy: { name: 'asc' },
-          take: 30,
-        }),
-        this.prisma.credit.findMany({
-          where: { tenantId, status: { in: ['active', 'overdue'] }, deletedAt: null },
-          select: {
-            customerName: true,
-            customerPhone: true,
-            totalAmount: true,
-            paidAmount: true,
-            balance: true,
-            status: true,
-            dueDate: true,
-          },
-          orderBy: { balance: 'desc' },
-          take: 20,
-        }),
-        this.prisma.credit.count({
-          where: { tenantId, status: 'overdue', deletedAt: null },
-        }),
-        this.prisma.credit.aggregate({
-          where: { tenantId, status: { in: ['active', 'overdue'] }, deletedAt: null },
-          _sum: { balance: true, totalAmount: true },
-          _count: true,
-        }),
-      ]);
+      const [suppliers, credits, overdueCredits, totalOutstanding] =
+        await Promise.all([
+          this.prisma.supplier.findMany({
+            where: { tenantId, isActive: true, deletedAt: null },
+            select: {
+              id: true,
+              name: true,
+              contactName: true,
+              email: true,
+              phone: true,
+              city: true,
+              country: true,
+              notes: true,
+            },
+            orderBy: { name: 'asc' },
+            take: 30,
+          }),
+          this.prisma.credit.findMany({
+            where: {
+              tenantId,
+              status: { in: ['active', 'overdue'] },
+              deletedAt: null,
+            },
+            select: {
+              customerName: true,
+              customerPhone: true,
+              totalAmount: true,
+              paidAmount: true,
+              balance: true,
+              status: true,
+              dueDate: true,
+            },
+            orderBy: { balance: 'desc' },
+            take: 20,
+          }),
+          this.prisma.credit.count({
+            where: { tenantId, status: 'overdue', deletedAt: null },
+          }),
+          this.prisma.credit.aggregate({
+            where: {
+              tenantId,
+              status: { in: ['active', 'overdue'] },
+              deletedAt: null,
+            },
+            _sum: { balance: true, totalAmount: true },
+            _count: true,
+          }),
+        ]);
 
       return {
         suppliers,
@@ -525,7 +671,14 @@ export class DataService {
       };
     } catch (error) {
       console.error('Error getting creditor data:', error);
-      return { suppliers: [], customerCredits: [], totalSuppliers: 0, totalOutstandingBalance: 0, totalCreditCount: 0, overdueCount: 0 };
+      return {
+        suppliers: [],
+        customerCredits: [],
+        totalSuppliers: 0,
+        totalOutstandingBalance: 0,
+        totalCreditCount: 0,
+        overdueCount: 0,
+      };
     }
   }
 
@@ -534,81 +687,89 @@ export class DataService {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-      const [recentExpenses, totalAggregate, byCategory, recurringExpenses] = await Promise.all([
-        this.prisma.expense.findMany({
-          where: {
-            tenantId,
-            ...(branchId ? { branchId } : {}),
-            deletedAt: null,
-            createdAt: { gte: thirtyDaysAgo },
-          },
-          select: {
-            amount: true,
-            description: true,
-            expenseType: true,
-            createdAt: true,
-            category: { select: { name: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-        }),
-        this.prisma.expense.aggregate({
-          where: {
-            tenantId,
-            ...(branchId ? { branchId } : {}),
-            deletedAt: null,
-            createdAt: { gte: ninetyDaysAgo },
-          },
-          _sum: { amount: true },
-          _count: true,
-          _avg: { amount: true },
-          _max: { amount: true },
-        }),
-        this.prisma.expense.groupBy({
-          by: ['categoryId'],
-          where: {
-            tenantId,
-            ...(branchId ? { branchId } : {}),
-            deletedAt: null,
-            createdAt: { gte: ninetyDaysAgo },
-          },
-          _sum: { amount: true },
-          _count: true,
-          orderBy: { _sum: { amount: 'desc' } },
-          take: 10,
-        }),
-        this.prisma.expense.findMany({
-          where: {
-            tenantId,
-            ...(branchId ? { branchId } : {}),
-            deletedAt: null,
-            expenseType: 'recurring',
-            isActive: true,
-          },
-          select: {
-            amount: true,
-            description: true,
-            frequency: true,
-            nextDueDate: true,
-            category: { select: { name: true } },
-          },
-          orderBy: { amount: 'desc' },
-          take: 10,
-        }),
-      ]);
+      const [recentExpenses, totalAggregate, byCategory, recurringExpenses] =
+        await Promise.all([
+          this.prisma.expense.findMany({
+            where: {
+              tenantId,
+              ...(branchId ? { branchId } : {}),
+              deletedAt: null,
+              createdAt: { gte: thirtyDaysAgo },
+            },
+            select: {
+              amount: true,
+              description: true,
+              expenseType: true,
+              createdAt: true,
+              category: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          }),
+          this.prisma.expense.aggregate({
+            where: {
+              tenantId,
+              ...(branchId ? { branchId } : {}),
+              deletedAt: null,
+              createdAt: { gte: ninetyDaysAgo },
+            },
+            _sum: { amount: true },
+            _count: true,
+            _avg: { amount: true },
+            _max: { amount: true },
+          }),
+          this.prisma.expense.groupBy({
+            by: ['categoryId'],
+            where: {
+              tenantId,
+              ...(branchId ? { branchId } : {}),
+              deletedAt: null,
+              createdAt: { gte: ninetyDaysAgo },
+            },
+            _sum: { amount: true },
+            _count: true,
+            orderBy: { _sum: { amount: 'desc' } },
+            take: 10,
+          }),
+          this.prisma.expense.findMany({
+            where: {
+              tenantId,
+              ...(branchId ? { branchId } : {}),
+              deletedAt: null,
+              expenseType: 'recurring',
+              isActive: true,
+            },
+            select: {
+              amount: true,
+              description: true,
+              frequency: true,
+              nextDueDate: true,
+              category: { select: { name: true } },
+            },
+            orderBy: { amount: 'desc' },
+            take: 10,
+          }),
+        ]);
 
       // Resolve category names from the grouped data
-      const categoryIds = byCategory.map((c) => c.categoryId).filter(Boolean) as string[];
-      const categories = categoryIds.length > 0
-        ? await this.prisma.expenseCategory.findMany({
-            where: { id: { in: categoryIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-      const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+      const categoryIds = byCategory
+        .map((c) => c.categoryId)
+        .filter(Boolean) as string[];
+      const categories =
+        categoryIds.length > 0
+          ? await this.prisma.expenseCategory.findMany({
+              where: { id: { in: categoryIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const categoryMap = Object.fromEntries(
+        categories.map((c) => [c.id, c.name]),
+      );
 
       const categoryBreakdown = byCategory.map((c) => ({
-        category: c.categoryId ? (categoryMap[c.categoryId] || 'Uncategorized') : 'Uncategorized',
+        category: c.categoryId
+          ? categoryMap[c.categoryId] || 'Uncategorized'
+          : 'Uncategorized',
         total: c._sum.amount || 0,
         count: c._count,
       }));
@@ -640,7 +801,14 @@ export class DataService {
       };
     } catch (error) {
       console.error('Error getting expense data:', error);
-      return { recentExpenses: [], totalLast90Days: 0, totalLast30Days: 0, expenseCount: 0, categoryBreakdown: [], recurringExpenses: [] };
+      return {
+        recentExpenses: [],
+        totalLast90Days: 0,
+        totalLast30Days: 0,
+        expenseCount: 0,
+        categoryBreakdown: [],
+        recurringExpenses: [],
+      };
     }
   }
 
@@ -694,5 +862,3 @@ export class DataService {
     }
   }
 }
-
-

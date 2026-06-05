@@ -14,18 +14,24 @@ export const envValidationSchema = Joi.object({
   CONFIG_ENCRYPTION_KEY: Joi.string()
     .min(32)
     .required()
-    .description('Encryption key for configuration values (minimum 32 characters)'),
+    .description(
+      'Encryption key for configuration values (minimum 32 characters)',
+    ),
 });
 
-export const validate = (config: Record<string, any>) => {
-  const { error, value } = envValidationSchema.validate(config, {
+export const validate = (
+  config: Record<string, unknown>,
+): Record<string, unknown> => {
+  const validationResult = envValidationSchema.validate(config, {
     allowUnknown: true,
     abortEarly: false,
   });
 
-  if (error) {
-    throw new Error(`Config validation error: ${error.message}`);
+  if (validationResult.error) {
+    throw new Error(
+      `Config validation error: ${validationResult.error.message}`,
+    );
   }
 
-  return value;
+  return validationResult.value as Record<string, unknown>;
 };

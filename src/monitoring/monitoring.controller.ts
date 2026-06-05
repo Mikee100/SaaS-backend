@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Put, Param, Body, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { SuperadminGuard } from '../admin/superadmin.guard';
 import { MonitoringService } from './monitoring.service';
@@ -14,7 +23,7 @@ export class MonitoringController {
   }
 
   @Get('health/history')
-  async getHealthHistory(@Query('limit') limit?: string) {
+  getHealthHistory(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit) : 50;
     return this.monitoringService.getHealthHistory(limitNum);
   }
@@ -30,23 +39,28 @@ export class MonitoringController {
   }
 
   @Get('alerts')
-  async getAlertConfigs() {
+  getAlertConfigs() {
     return this.monitoringService.getAlertConfigs();
   }
 
   @Put('alerts/:alertId')
-  async updateAlertConfig(
+  updateAlertConfig(
     @Param('alertId') alertId: string,
-    @Body() config: { enabled?: boolean; threshold?: number; notificationChannels?: string[] }
+    @Body()
+    config: {
+      enabled?: boolean;
+      threshold?: number;
+      notificationChannels?: string[];
+    },
   ) {
-    await this.monitoringService.updateAlertConfig(alertId, config);
+    this.monitoringService.updateAlertConfig(alertId, config);
     return { success: true, message: 'Alert configuration updated' };
   }
 
   @Post('alerts/test/:alertId')
   async testAlert(@Param('alertId') alertId: string) {
-    const alerts = await this.monitoringService.getAlertConfigs();
-    const alert = alerts.find(a => a.id === alertId);
+    const alerts = this.monitoringService.getAlertConfigs();
+    const alert = alerts.find((a) => a.id === alertId);
 
     if (!alert) {
       return { success: false, message: 'Alert not found' };
@@ -58,7 +72,7 @@ export class MonitoringController {
   }
 
   @Get('notifications')
-  async getNotificationHistory(@Query('limit') limit?: string) {
+  getNotificationHistory(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit) : 50;
     return this.monitoringService.getNotificationHistory(limitNum);
   }

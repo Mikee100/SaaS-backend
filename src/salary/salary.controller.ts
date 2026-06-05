@@ -15,9 +15,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { RequireModules } from '../auth/module-access.decorator';
+import { AuthenticatedRequest, AuthenticatedUser } from '../auth/request.types';
 import {
   BadRequestException,
-  NotFoundException,
   InternalServerErrorException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -28,8 +28,85 @@ import {
 export class SalaryController {
   constructor(private readonly salaryService: SalaryService) {}
 
-  private getNormalizedRoleNames(user: any): string[] {
-    const roles: any[] = [];
+  private normalizeAdjustments(rawAdjustments: unknown): Array<{
+    salarySchemeId: string;
+    bonus?: number;
+    commission?: number;
+    deduction?: number;
+    paidAmount?: number;
+    note?: string;
+  }> {
+    if (!Array.isArray(rawAdjustments)) {
+      return [];
+    }
+
+    return rawAdjustments
+      .filter((item): item is Record<string, unknown> => this.isRecord(item))
+      .map((item) => {
+        const salarySchemeId = this.toStringOrUndefined(item.salarySchemeId);
+        if (!salarySchemeId) {
+          return null;
+        }
+
+        return {
+          salarySchemeId,
+          bonus: this.toNumberOrUndefined(item.bonus),
+          commission: this.toNumberOrUndefined(item.commission),
+          deduction: this.toNumberOrUndefined(item.deduction),
+          paidAmount: this.toNumberOrUndefined(item.paidAmount),
+          note: this.toStringOrUndefined(item.note),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }
+
+  private toStringOrUndefined(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value : undefined;
+  }
+
+  private toNumberOrUndefined(value: unknown): number | undefined {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : undefined;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  }
+
+  private getTenantId(req: AuthenticatedRequest): string {
+    const tenantId = this.toStringOrUndefined(req.user?.tenantId);
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+    return tenantId;
+  }
+
+  private getActorUserId(req: AuthenticatedRequest): string {
+    const userId = this.toStringOrUndefined(req.user?.userId);
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    return userId;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private toRoleName(role: unknown): string {
+    if (typeof role === 'string') {
+      return role.toLowerCase();
+    }
+    if (this.isRecord(role) && typeof role.name === 'string') {
+      return role.name.toLowerCase();
+    }
+    return '';
+  }
+
+  private getNormalizedRoleNames(user: AuthenticatedUser): string[] {
+    const roles: unknown[] = [];
 
     if (Array.isArray(user?.roles)) {
       roles.push(...user.roles);
@@ -39,20 +116,20 @@ export class SalaryController {
       roles.push(user.role);
     }
 
-    return roles
-      .map((role: any) =>
-        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
-      )
-      .filter(Boolean);
+    return roles.map((role) => this.toRoleName(role)).filter(Boolean);
   }
 
-  private resolveBranchScope(req: any): string | undefined {
+  private resolveBranchScope(
+    req: AuthenticatedRequest,
+    query?: Record<string, unknown>,
+  ): string | undefined {
     const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
+    const assignedBranchId = this.toStringOrUndefined(req?.user?.branchId);
     const requestedBranchId =
-      (req?.headers?.['x-branch-id'] as string | undefined) ||
-      (req?.query?.branchId as string | undefined);
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+      this.toStringOrUndefined(req?.headers?.['x-branch-id']) ||
+      this.toStringOrUndefined(query?.branchId);
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -73,10 +150,12 @@ export class SalaryController {
 
   @Post()
   @Permissions('create_sales')
-  async createSalaryScheme(@Body() createSalarySchemeDto: any, @Req() req) {
-    if (!req.user?.tenantId) {
-      throw new BadRequestException('Tenant ID is required');
-    }
+  async createSalaryScheme(
+    @Body() createSalarySchemeDto: Record<string, unknown>,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const actorUserId = this.getActorUserId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
@@ -86,8 +165,8 @@ export class SalaryController {
 
       const salaryScheme = await this.salaryService.createSalaryScheme(
         createSalarySchemeDto,
-        req.user.tenantId,
-        req.user.userId,
+        tenantId,
+        actorUserId,
       );
       return {
         success: true,
@@ -102,15 +181,14 @@ export class SalaryController {
 
   @Post('sync-expenses')
   @Permissions('create_sales')
-  async syncSalarySchemeExpenses(@Req() req) {
-    if (!req.user?.tenantId) {
-      throw new BadRequestException('Tenant ID is required');
-    }
+  async syncSalarySchemeExpenses(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
+    const actorUserId = this.getActorUserId(req);
 
     const effectiveBranchId = this.resolveBranchScope(req);
     const result = await this.salaryService.syncSalarySchemeExpenses(
-      req.user.tenantId,
-      req.user.userId,
+      tenantId,
+      actorUserId,
       effectiveBranchId,
     );
 
@@ -123,10 +201,14 @@ export class SalaryController {
 
   @Get()
   @Permissions('view_sales')
-  async getSalarySchemes(@Req() req, @Query() query: any) {
-    const effectiveBranchId = this.resolveBranchScope(req);
+  async getSalarySchemes(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const effectiveBranchId = this.resolveBranchScope(req, query);
     const result = await this.salaryService.getSalarySchemes(
-      req.user.tenantId,
+      tenantId,
       effectiveBranchId,
       query,
     );
@@ -144,23 +226,29 @@ export class SalaryController {
 
   @Get('analytics/summary')
   @Permissions('view_sales')
-  async getSalaryAnalytics(@Req() req, @Query() query: any) {
-    const { startDate, endDate } = query;
-    const effectiveBranchId = this.resolveBranchScope(req);
+  async getSalaryAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const startDateString = this.toStringOrUndefined(query.startDate);
+    const endDateString = this.toStringOrUndefined(query.endDate);
+    const effectiveBranchId = this.resolveBranchScope(req, query);
     return this.salaryService.getSalaryAnalytics(
-      req.user.tenantId,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
+      tenantId,
+      startDateString ? new Date(startDateString) : undefined,
+      endDateString ? new Date(endDateString) : undefined,
       effectiveBranchId,
     );
   }
 
   @Get('current-month-total')
   @Permissions('view_sales')
-  async getCurrentMonthSalaryTotal(@Req() req) {
+  async getCurrentMonthSalaryTotal(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     const result = await this.salaryService.getCurrentMonthSalaryTotal(
-      req.user.tenantId,
+      tenantId,
       effectiveBranchId,
     );
     return {
@@ -171,13 +259,27 @@ export class SalaryController {
 
   @Get('total-expense')
   @Permissions('view_sales')
-  async getSalaryTotalForMonth(@Req() req, @Query('month') month: number, @Query('year') year: number) {
-    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+  async getSalaryTotalForMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month: number,
+    @Query('year') year: number,
+  ) {
+    const tenantId = this.getTenantId(req);
+    if (
+      !month ||
+      !year ||
+      month < 1 ||
+      month > 12 ||
+      year < 1900 ||
+      year > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
     }
     const effectiveBranchId = this.resolveBranchScope(req);
     const result = await this.salaryService.getSalaryTotalForMonth(
-      req.user.tenantId,
+      tenantId,
       month,
       year,
       effectiveBranchId,
@@ -190,16 +292,30 @@ export class SalaryController {
 
   @Get('by-month')
   @Permissions('view_sales')
-  async getSalarySchemesByMonth(@Req() req, @Query() query: any) {
-    const { month, year } = query;
-    if (!month || !year || month < 1 || month > 12 || year < 1900 || year > 2100) {
-      throw new BadRequestException('Valid month (1-12) and year (1900-2100) are required');
+  async getSalarySchemesByMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const month = this.toNumberOrUndefined(query.month);
+    const year = this.toNumberOrUndefined(query.year);
+    if (
+      !month ||
+      !year ||
+      month < 1 ||
+      month > 12 ||
+      year < 1900 ||
+      year > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
     }
-    const effectiveBranchId = this.resolveBranchScope(req);
+    const effectiveBranchId = this.resolveBranchScope(req, query);
     const result = await this.salaryService.getSalarySchemesByMonth(
-      req.user.tenantId,
-      parseInt(month),
-      parseInt(year),
+      tenantId,
+      month,
+      year,
       effectiveBranchId,
       query,
     );
@@ -217,20 +333,33 @@ export class SalaryController {
 
   @Post('payroll-preview')
   @Permissions('view_sales')
-  async payrollPreview(@Req() req, @Body() body: any) {
-    const { month, year, adjustments, applyTemplates } = body || {};
+  async payrollPreview(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      month?: unknown;
+      year?: unknown;
+      adjustments?: unknown;
+      applyTemplates?: unknown;
+    },
+  ) {
+    const tenantId = this.getTenantId(req);
+    const month = this.toNumberOrUndefined(body?.month);
+    const year = this.toNumberOrUndefined(body?.year);
+    const applyTemplates = body?.applyTemplates;
+    const adjustments = this.normalizeAdjustments(body?.adjustments);
     if (!month || !year) {
       throw new BadRequestException('Month and year are required');
     }
 
     const effectiveBranchId = this.resolveBranchScope(req);
     const preview = await this.salaryService.buildPayrollPreview(
-      req.user.tenantId,
-      Number(month),
-      Number(year),
+      tenantId,
+      month,
+      year,
       effectiveBranchId,
       applyTemplates !== false,
-      Array.isArray(adjustments) ? adjustments : [],
+      adjustments,
     );
 
     return {
@@ -241,20 +370,38 @@ export class SalaryController {
 
   @Post('process-payroll')
   @Permissions('create_sales')
-  async processPayroll(@Req() req, @Body() body: any) {
-    const { month, year, adjustments, applyTemplates } = body || {};
+  async processPayroll(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      month?: unknown;
+      year?: unknown;
+      adjustments?: unknown;
+      applyTemplates?: unknown;
+    },
+  ) {
+    const tenantId = this.getTenantId(req);
+    const actorUserId = this.getActorUserId(req);
+    const month = this.toNumberOrUndefined(body?.month);
+    const year = this.toNumberOrUndefined(body?.year);
+    const applyTemplates = body?.applyTemplates;
+    const adjustments = this.normalizeAdjustments(body?.adjustments);
     if (!month || !year) {
       throw new BadRequestException('Month and year are required');
     }
 
     const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.salaryService.processPayroll(req.user.tenantId, req.user.userId, {
-      month: Number(month),
-      year: Number(year),
-      branchId: effectiveBranchId,
-      applyTemplates: applyTemplates !== false,
-      adjustments: Array.isArray(adjustments) ? adjustments : [],
-    });
+    const result = await this.salaryService.processPayroll(
+      tenantId,
+      actorUserId,
+      {
+        month,
+        year,
+        branchId: effectiveBranchId,
+        applyTemplates: applyTemplates !== false,
+        adjustments,
+      },
+    );
 
     return {
       success: true,
@@ -265,8 +412,17 @@ export class SalaryController {
 
   @Post('payroll-runs/:id/post')
   @Permissions('create_sales')
-  async postPayrollRun(@Req() req, @Param('id') id: string) {
-    const result = await this.salaryService.postPayrollRun(req.user.tenantId, req.user.userId, id);
+  async postPayrollRun(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const actorUserId = this.getActorUserId(req);
+    const result = await this.salaryService.postPayrollRun(
+      tenantId,
+      actorUserId,
+      id,
+    );
     return {
       success: true,
       data: result,
@@ -276,12 +432,18 @@ export class SalaryController {
 
   @Post('payroll-runs/:id/reverse')
   @Permissions('create_sales')
-  async reversePayrollRun(@Req() req, @Param('id') id: string, @Body() body: any) {
+  async reversePayrollRun(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { reason?: unknown },
+  ) {
+    const tenantId = this.getTenantId(req);
+    const actorUserId = this.getActorUserId(req);
     const result = await this.salaryService.reversePayrollRun(
-      req.user.tenantId,
-      req.user.userId,
+      tenantId,
+      actorUserId,
       id,
-      body?.reason,
+      this.toStringOrUndefined(body?.reason),
     );
     return {
       success: true,
@@ -292,18 +454,27 @@ export class SalaryController {
 
   @Get(':id')
   @Permissions('view_sales')
-  async getSalarySchemeById(@Param('id') id: string, @Req() req) {
+  async getSalarySchemeById(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.salaryService.getSalarySchemeById(id, req.user.tenantId, effectiveBranchId);
+    return this.salaryService.getSalarySchemeById(
+      id,
+      tenantId,
+      effectiveBranchId,
+    );
   }
 
   @Put(':id')
   @Permissions('create_sales')
   async updateSalaryScheme(
     @Param('id') id: string,
-    @Body() updateSalarySchemeDto: any,
-    @Req() req,
+    @Body() updateSalarySchemeDto: Record<string, unknown>,
+    @Req() req: AuthenticatedRequest,
   ) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
     if (effectiveBranchId) {
       updateSalarySchemeDto.branchId = effectiveBranchId;
@@ -312,15 +483,23 @@ export class SalaryController {
     return this.salaryService.updateSalaryScheme(
       id,
       updateSalarySchemeDto,
-      req.user.tenantId,
+      tenantId,
       effectiveBranchId,
     );
   }
 
   @Delete(':id')
   @Permissions('create_sales')
-  async deleteSalaryScheme(@Param('id') id: string, @Req() req) {
+  async deleteSalaryScheme(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const tenantId = this.getTenantId(req);
     const effectiveBranchId = this.resolveBranchScope(req);
-    return this.salaryService.deleteSalaryScheme(id, req.user.tenantId, effectiveBranchId);
+    return this.salaryService.deleteSalaryScheme(
+      id,
+      tenantId,
+      effectiveBranchId,
+    );
   }
 }

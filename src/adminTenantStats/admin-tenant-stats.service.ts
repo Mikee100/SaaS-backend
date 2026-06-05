@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 interface TenantSpaceRow {
@@ -68,16 +67,16 @@ export class AdminTenantStatsService {
     let totalBytes = 0;
     for (const table of tables) {
       try {
-        const rows: any = await this.prisma.$queryRawUnsafe(
+        const rows = await this.prisma.$queryRawUnsafe<TenantSpaceRow[]>(
           table.query,
           tenantId,
         );
         const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
         totalBytes += bytes;
-      } catch (error) {
+      } catch (error: unknown) {
         // Skip tables that don't exist or query fails
         console.warn(
-          `Failed to query table ${table.name} for tenant ${tenantId}: ${error.message}`,
+          `Failed to query table ${table.name} for tenant ${tenantId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
       }
     }

@@ -16,6 +16,19 @@ import { SessionService } from './session.service';
 import { DeviceService } from './device.service';
 import { REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from './constants';
 
+type UserRoleWithRoleName = {
+  tenantId?: string | null;
+  role?: {
+    name?: string | null;
+  } | null;
+};
+
+type UserWithAuthMeta = {
+  isDisabled?: boolean | null;
+  isSuperadmin?: boolean | null;
+  userRoles?: UserRoleWithRoleName[] | null;
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -34,7 +47,8 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.userService.findByEmail(email);
     if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
+      const { password: _password, ...result } = user;
+      void _password;
       return result;
     }
     return null;
@@ -96,8 +110,10 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      const userWithAuthMeta = user as typeof user & UserWithAuthMeta;
+
       // 2.5. Check if user account is disabled
-      if ((user as any).isDisabled) {
+      if (userWithAuthMeta.isDisabled) {
         if (this.auditLogService) {
           await this.auditLogService.log(
             null,
@@ -119,20 +135,22 @@ export class AuthService {
             },
           });
         } catch (error) {
-          this.logger.error('Failed to record disabled account login history:', error);
+          this.logger.error(
+            'Failed to record disabled account login history:',
+            error,
+          );
         }
         throw new UnauthorizedException('Account disabled. Contact admin.');
       }
 
       // 3. Get user's roles and tenant from user.userRoles
-      const userWithRoles = user as any; // Cast to include userRoles
-      const userRoles = userWithRoles.userRoles || [];
+      const userRoles = userWithAuthMeta.userRoles ?? [];
       let tenantId: string | null = null;
       if (userRoles.length > 0 && 'tenantId' in userRoles[0]) {
-        tenantId = userRoles[0].tenantId;
+        tenantId = userRoles[0].tenantId ?? null;
       }
       // Allow superadmin to login without tenant
-      if (!tenantId && !(user as any).isSuperadmin) {
+      if (!tenantId && !userWithAuthMeta.isSuperadmin) {
         throw new UnauthorizedException(
           'No tenant assigned to this user. Please contact support.',
         );
@@ -179,14 +197,20 @@ export class AuthService {
           );
           deviceId = device.id;
         } catch (err) {
-          this.logger.warn('Device create failed, continuing without device', err);
+          this.logger.warn(
+            'Device create failed, continuing without device',
+            err,
+          );
         }
       }
 
       // 7. Session + refresh token (enterprise auth)
       const refreshTokenRaw = this.sessionService.generateRefreshToken();
-      const refreshTokenHash = this.sessionService.hashRefreshToken(refreshTokenRaw);
-      const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SEC * 1000);
+      const refreshTokenHash =
+        this.sessionService.hashRefreshToken(refreshTokenRaw);
+      const sessionExpiresAt = new Date(
+        Date.now() + REFRESH_TOKEN_TTL_SEC * 1000,
+      );
       const session = await this.sessionService.createSession({
         userId: user.id,
         tenantId,
@@ -198,7 +222,9 @@ export class AuthService {
       });
 
       // 8. Prepare JWT payload (include sessionId for revocation)
-      const roles = userRoles.map((ur) => ur.role?.name).filter(Boolean) || [];
+      const roles = userRoles
+        .map((ur) => ur.role?.name)
+        .filter((roleName): roleName is string => Boolean(roleName));
       const payload = {
         sub: user.id,
         userId: user.id,
@@ -208,7 +234,7 @@ export class AuthService {
         branchId: user.branchId || null,
         roles: roles,
         permissions: userPermissions,
-        isSuperadmin: (user as any).isSuperadmin || false,
+        isSuperadmin: userWithAuthMeta.isSuperadmin ?? false,
         sessionId: session.id,
       };
 
@@ -340,7 +366,7 @@ export class AuthService {
     try {
       await this.userService.resetPassword(token, newPassword);
       return { message: 'Password has been reset successfully.' };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
   }
@@ -355,7 +381,8 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token required');
     }
     const hash = this.sessionService.hashRefreshToken(refreshToken);
-    const session = await this.sessionService.findValidSessionByRefreshHash(hash);
+    const session =
+      await this.sessionService.findValidSessionByRefreshHash(hash);
     if (!session) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -365,10 +392,15 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Session user not found');
     }
-    const userWithRoles = user as any;
-    const userRolesList = userWithRoles.userRoles || [];
-    const roles = userRolesList.map((ur: any) => ur.role?.name).filter(Boolean) || [];
-    const perms = await this.userService.getEffectivePermissions(userId, tenantId ?? undefined);
+    const userWithAuthMeta = user as typeof user & UserWithAuthMeta;
+    const userRolesList = userWithAuthMeta.userRoles ?? [];
+    const roles = userRolesList
+      .map((ur: UserRoleWithRoleName) => ur.role?.name)
+      .filter((roleName): roleName is string => Boolean(roleName));
+    const perms = await this.userService.getEffectivePermissions(
+      userId,
+      tenantId ?? undefined,
+    );
     const permissions = perms.map((p) => p.name).filter(Boolean);
     const payload = {
       sub: user.id,
@@ -379,7 +411,7 @@ export class AuthService {
       branchId: user.branchId ?? null,
       roles,
       permissions,
-      isSuperadmin: (user as any).isSuperadmin ?? false,
+      isSuperadmin: userWithAuthMeta.isSuperadmin ?? false,
       sessionId: session.id,
     };
     const newRefreshRaw = this.sessionService.generateRefreshToken();
@@ -427,11 +459,19 @@ export class AuthService {
 
   /** List active sessions for a user (for security / session management UI). */
   async getActiveSessionsForUser(userId: string): Promise<
-    { id: string; ip: string | null; userAgent: string | null; lastActive: string; deviceName?: string }[]
+    {
+      id: string;
+      ip: string | null;
+      userAgent: string | null;
+      lastActive: string;
+      deviceName?: string;
+    }[]
   > {
     const sessions = await this.sessionService.getActiveSessionsForUser(userId);
     return sessions.map((s) => {
-      const session = s as typeof s & { device?: { name: string | null } | null };
+      const session = s as typeof s & {
+        device?: { name: string | null } | null;
+      };
       return {
         id: session.id,
         ip: session.ip ?? null,

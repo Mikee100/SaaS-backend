@@ -3,12 +3,13 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { BillingService } from './billing.service';
 
 interface CreateSubscriptionDto {
   tenantId: string;
-  userId: string;
+  userId?: string;
   planId: string;
   paymentMethodId?: string;
   allowManualPaidPlans?: boolean;
@@ -18,6 +19,26 @@ interface UpdateSubscriptionDto {
   planId: string;
   effectiveDate?: Date;
 }
+
+type PlanForChange = {
+  id: string;
+  name: string | null;
+  price: number;
+  interval: string;
+  stripePriceId: string | null;
+};
+
+type SubscriptionForPlanChange = {
+  id: string;
+  tenantId: string;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  stripePriceId: string | null;
+  Plan: {
+    name: string | null;
+    price: number | null;
+  };
+};
 
 @Injectable()
 export class SubscriptionService {
@@ -68,7 +89,9 @@ export class SubscriptionService {
       });
 
       if (!user?.isSuperadmin) {
-        throw new BadRequestException('Only superadmins can assign subscriptions');
+        throw new BadRequestException(
+          'Only superadmins can assign subscriptions',
+        );
       }
 
       console.log('Creating subscription with data:', data);
@@ -185,7 +208,7 @@ export class SubscriptionService {
       });
 
       // Create new subscription
-      const subscriptionData: any = {
+      const subscriptionData: Prisma.SubscriptionUncheckedCreateInput = {
         id: `sub_${Date.now()}`,
         tenantId: data.tenantId,
         planId: data.planId,
@@ -222,7 +245,14 @@ export class SubscriptionService {
     }
   }
 
-  private async handleManualAssignment(currentSubscription: any, newPlan: any) {
+  private async handleManualAssignment(
+    currentSubscription: {
+      id: string;
+      tenantId: string;
+      stripePriceId: string | null;
+    },
+    newPlan: { id: string; interval: string; stripePriceId: string | null },
+  ) {
     const now = new Date();
     const endDate = this.calculateEndDate(newPlan.interval);
 
@@ -234,7 +264,10 @@ export class SubscriptionService {
         currentPeriodStart: now,
         currentPeriodEnd: endDate,
         stripeCurrentPeriodEnd: endDate,
-        stripePriceId: newPlan.stripePriceId ?? currentSubscription.stripePriceId,
+        stripePriceId:
+          newPlan.stripePriceId ??
+          currentSubscription.stripePriceId ??
+          undefined,
         cancelAtPeriodEnd: false,
         canceledAt: null,
         trialStart: null,
@@ -370,7 +403,8 @@ export class SubscriptionService {
     });
   }
 
-  private calculateEndDate(_interval: string): Date {
+  private calculateEndDate(interval: string): Date {
+    void interval;
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
@@ -394,12 +428,16 @@ export class SubscriptionService {
       enterprise: 5,
     };
 
-    const currentLevel = planHierarchy[(currentPlan?.name || '').toLowerCase()] || 0;
+    const currentLevel =
+      planHierarchy[(currentPlan?.name || '').toLowerCase()] || 0;
     const newLevel = planHierarchy[(newPlan?.name || '').toLowerCase()] || 0;
     return newLevel > currentLevel;
   }
 
-  private async handleUpgrade(currentSubscription: any, newPlan: any) {
+  private async handleUpgrade(
+    currentSubscription: SubscriptionForPlanChange,
+    newPlan: Pick<PlanForChange, 'id' | 'price'>,
+  ) {
     // Calculate proration
     const daysRemaining = Math.ceil(
       (currentSubscription.currentPeriodEnd.getTime() - new Date().getTime()) /
@@ -412,7 +450,7 @@ export class SubscriptionService {
     );
     const prorationRatio = daysRemaining / totalDays;
 
-    const currentPlanPrice = currentSubscription.Plan.price;
+    const currentPlanPrice = currentSubscription.Plan.price ?? 0;
     const newPlanPrice = newPlan.price;
     const proratedCredit = currentPlanPrice * prorationRatio;
     const proratedCharge = newPlanPrice * prorationRatio;
@@ -454,8 +492,8 @@ export class SubscriptionService {
   }
 
   private async handleDowngrade(
-    currentSubscription: any,
-    newPlan: any,
+    currentSubscription: SubscriptionForPlanChange,
+    newPlan: Pick<PlanForChange, 'id' | 'name'>,
     effectiveDate?: Date,
   ) {
     const effective = effectiveDate || currentSubscription.currentPeriodEnd;
@@ -551,10 +589,7 @@ export class SubscriptionService {
       throw new BadRequestException('Selected plan is already active');
     }
 
-    const isUpgrade = this.isPlanUpgrade(
-      currentSubscription.Plan,
-      newPlan,
-    );
+    const isUpgrade = this.isPlanUpgrade(currentSubscription.Plan, newPlan);
 
     if (isUpgrade) {
       throw new BadRequestException(
@@ -946,7 +981,10 @@ export class SubscriptionService {
     });
 
     // Count physical items created during trial (variations + non-variation products)
-    const productCount = await this.getPhysicalProductCount(tenantId, trialStart);
+    const productCount = await this.getPhysicalProductCount(
+      tenantId,
+      trialStart,
+    );
 
     // Count branches created during trial
     const branchCount = await this.prisma.branch.count({
@@ -1060,12 +1098,6 @@ export class SubscriptionService {
       });
 
       // First, let's see all subscriptions for this tenant to debug
-      const allSubscriptions = await this.prisma.subscription.findMany({
-        where: { tenantId },
-        include: { Plan: true },
-        orderBy: { currentPeriodStart: 'desc' },
-      });
-
       const subscription = await this.prisma.subscription.findFirst({
         where: {
           tenantId,

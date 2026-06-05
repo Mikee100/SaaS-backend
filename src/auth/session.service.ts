@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AuthSession } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
@@ -40,7 +40,9 @@ export class SessionService {
     });
   }
 
-  async findValidSessionByRefreshHash(refreshTokenHash: string): Promise<AuthSession | null> {
+  async findValidSessionByRefreshHash(
+    refreshTokenHash: string,
+  ): Promise<AuthSession | null> {
     const session = await this.prisma.authSession.findFirst({
       where: {
         refreshTokenHash,

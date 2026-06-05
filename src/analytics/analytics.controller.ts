@@ -4,28 +4,61 @@ import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
 import { TrialGuard } from '../auth/trial.guard';
 import { RequireModules } from '../auth/module-access.decorator';
+import { AuthenticatedRequest } from '../auth/request.types';
 
 @RequireModules('analytics')
 @Controller()
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
-  private getNormalizedRoleNames(user: any): string[] {
-    if (!Array.isArray(user?.roles)) return [];
-    return user.roles
-      .map((role: any) =>
-        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
-      )
-      .filter(Boolean);
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
   }
 
-  private resolveBranchScope(req: any): string | undefined {
-    const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
+  private getString(value: unknown): string | undefined {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+    return undefined;
+  }
+
+  private getNumber(value: unknown, fallback: number = 0): number {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : fallback;
+  }
+
+  private getNormalizedRoleNames(user: unknown): string[] {
+    const userObj = this.asObject(user);
+    const roles = userObj?.roles;
+    if (!Array.isArray(roles)) return [];
+
+    return roles
+      .map((role) => {
+        if (typeof role === 'string') {
+          return role.toLowerCase();
+        }
+        const roleObj = this.asObject(role);
+        const roleName = this.getString(roleObj?.name);
+        return roleName ? roleName.toLowerCase() : '';
+      })
+      .filter((roleName): roleName is string => roleName.length > 0);
+  }
+
+  private resolveBranchScope(req: AuthenticatedRequest): string | undefined {
+    const roles = this.getNormalizedRoleNames(req.user);
+    const assignedBranchId = req.user?.branchId;
+    const headers = req.headers as Record<string, unknown>;
+    const query = req.query as Record<string, unknown>;
     const requestedBranchId =
-      (req?.headers?.['x-branch-id'] as string | undefined) ||
-      (req?.query?.branchId as string | undefined);
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+      this.getString(headers['x-branch-id']) ?? this.getString(query.branchId);
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -43,25 +76,29 @@ export class AnalyticsController {
     return undefined;
   }
 
-  @Get('/analytics/basic')
-  @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getBasicAnalytics(@Req() req: any) {
-    // Get the tenant ID from the authenticated user
-    const tenantId = req.user.tenantId;
-
+  private requireTenantId(req: AuthenticatedRequest): string {
+    const tenantId = req.user?.tenantId;
     if (!tenantId) {
       throw new Error('Tenant ID not found in user session');
     }
+    return tenantId;
+  }
+
+  @Get('/analytics/basic')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getBasicAnalytics(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
-      const data = await this.analyticsService.getDashboardAnalytics(
-        tenantId,
-        effectiveBranchId,
-      );
+      const dashboardData: unknown =
+        await this.analyticsService.getDashboardAnalytics(
+          tenantId,
+          effectiveBranchId,
+        );
+      const data = this.asObject(dashboardData) ?? {};
 
       // Calculate previous period for growth comparison
-      const now = new Date();
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
       const thirtyDaysAgo = new Date();
@@ -84,43 +121,56 @@ export class AnalyticsController {
       );
 
       // Calculate growth percentages
-      const revenueGrowth = previousRevenue > 0
-        ? ((data.totalRevenue - previousRevenue) / previousRevenue) * 100
-        : 0;
-      const salesGrowth = previousSales > 0
-        ? ((data.totalSales - previousSales) / previousSales) * 100
-        : 0;
+      const revenueGrowth =
+        previousRevenue > 0
+          ? ((data.totalRevenue - previousRevenue) / previousRevenue) * 100
+          : 0;
+      const salesGrowth =
+        previousSales > 0
+          ? ((this.getNumber(data.totalSales) - previousSales) /
+              previousSales) *
+            100
+          : 0;
 
       // Calculate average order value
-      const averageOrderValue = data.totalSales > 0
-        ? data.totalRevenue / data.totalSales
-        : 0;
+      const averageOrderValue =
+        this.getNumber(data.totalSales) > 0
+          ? this.getNumber(data.totalRevenue) / this.getNumber(data.totalSales)
+          : 0;
 
       // Format sales by month for chart (last 6 months)
-      const salesByMonth = data.salesByMonth || {};
+      const salesByMonth = this.asObject(data.salesByMonth) ?? {};
 
       // Get top products with revenue
-      const topProducts = (data.topProducts || []).map((product: any) => ({
-        name: product.name || 'Unknown Product',
-        revenue: product.revenue || 0,
-        sales: product.sales || 0,
-      }));
+      const topProductsRaw = Array.isArray(data.topProducts)
+        ? data.topProducts
+        : [];
+      const topProducts = topProductsRaw.map((product) => {
+        const row = this.asObject(product);
+        return {
+          name: this.getString(row?.name) ?? 'Unknown Product',
+          revenue: this.getNumber(row?.revenue),
+          sales: this.getNumber(row?.sales),
+        };
+      });
 
       // Get COGS for last 30 days
       const cogs = await this.analyticsService.getCostOfGoodsSold(tenantId, 30);
 
       return {
-        totalSales: data.totalSales,
-        totalRevenue: data.totalRevenue,
-        totalProducts: data.totalProducts,
-        totalCustomers: data.totalCustomers,
+        totalSales: this.getNumber(data.totalSales),
+        totalRevenue: this.getNumber(data.totalRevenue),
+        totalProducts: this.getNumber(data.totalProducts),
+        totalCustomers: this.getNumber(data.totalCustomers),
         averageOrderValue,
         conversionRate: 0, // Can be calculated if you have visitor data
         salesByMonth,
         topProducts,
         revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
         salesGrowth: parseFloat(salesGrowth.toFixed(1)),
-        customerRetention: data.customerRetention?.retentionRate || 0,
+        customerRetention: this.getNumber(
+          this.asObject(data.customerRetention)?.retentionRate,
+        ),
         cogs: parseFloat(cogs.toFixed(2)),
         message: 'Basic analytics available to all plans',
       };
@@ -130,20 +180,18 @@ export class AnalyticsController {
     }
   }
 
-
   @Get('/analytics/dashboard')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getDashboardAnalytics(@Req() req: any) {
-    // Get the tenant ID from the authenticated user
-    const tenantId = req.user.tenantId;
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getDashboardAnalytics(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     const branchId = this.resolveBranchScope(req);
 
     try {
-      return await this.analyticsService.getDashboardAnalytics(tenantId, branchId);
+      return await this.analyticsService.getDashboardAnalytics(
+        tenantId,
+        branchId,
+      );
     } catch (error) {
       console.error('Error fetching dashboard analytics:', error);
       throw new Error('Failed to fetch dashboard data');
@@ -152,12 +200,8 @@ export class AnalyticsController {
 
   @Get('/analytics/advanced')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getAdvancedAnalytics(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getAdvancedAnalytics(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
@@ -177,12 +221,8 @@ export class AnalyticsController {
 
   @Get('/analytics/enterprise')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getEnterpriseAnalytics(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getEnterpriseAnalytics(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
@@ -202,16 +242,15 @@ export class AnalyticsController {
 
   @Get('/analytics/sales/daily')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getDailySales(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getDailySales(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
-      return await this.analyticsService.getDailySales(tenantId, effectiveBranchId);
+      return await this.analyticsService.getDailySales(
+        tenantId,
+        effectiveBranchId,
+      );
     } catch (error) {
       console.error('Error fetching daily sales:', error);
       throw new Error('Failed to fetch daily sales');
@@ -220,16 +259,15 @@ export class AnalyticsController {
 
   @Get('/analytics/sales/weekly')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getWeeklySales(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getWeeklySales(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
-      return await this.analyticsService.getWeeklySales(tenantId, effectiveBranchId);
+      return await this.analyticsService.getWeeklySales(
+        tenantId,
+        effectiveBranchId,
+      );
     } catch (error) {
       console.error('Error fetching weekly sales:', error);
       throw new Error('Failed to fetch weekly sales');
@@ -238,16 +276,15 @@ export class AnalyticsController {
 
   @Get('/analytics/sales/yearly')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getYearlySales(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getYearlySales(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
-      return await this.analyticsService.getYearlySales(tenantId, effectiveBranchId);
+      return await this.analyticsService.getYearlySales(
+        tenantId,
+        effectiveBranchId,
+      );
     } catch (error) {
       console.error('Error fetching yearly sales:', error);
       throw new Error('Failed to fetch yearly sales');
@@ -256,12 +293,8 @@ export class AnalyticsController {
 
   @Get('/analytics/stockout-lost-sales')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getStockoutLostSales(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getStockoutLostSales(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
@@ -278,9 +311,11 @@ export class AnalyticsController {
   @Get('/api/reports/branches/:tenantId/sales')
   @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getBranchSales(@Req() req: any) {
-    const { tenantId } = req.params;
-    const { timeRange = '30days' } = req.query;
+  async getBranchSales(@Req() req: AuthenticatedRequest) {
+    const params = req.params as Record<string, unknown>;
+    const query = req.query as Record<string, unknown>;
+    const tenantId = this.getString(params.tenantId);
+    const timeRange = this.getString(query.timeRange) ?? '30days';
     const userTenantId = req.user?.tenantId;
 
     if (!tenantId || !userTenantId || tenantId !== userTenantId) {
@@ -291,7 +326,7 @@ export class AnalyticsController {
       const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchSales(
         tenantId,
-        timeRange as string,
+        timeRange,
         effectiveBranchId,
       );
     } catch (error) {
@@ -303,9 +338,11 @@ export class AnalyticsController {
   @Get('/api/reports/branches/:tenantId/comparison/timeseries')
   @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getBranchComparisonTimeSeries(@Req() req: any) {
-    const { tenantId } = req.params;
-    const { timeRange = '30days' } = req.query;
+  async getBranchComparisonTimeSeries(@Req() req: AuthenticatedRequest) {
+    const params = req.params as Record<string, unknown>;
+    const query = req.query as Record<string, unknown>;
+    const tenantId = this.getString(params.tenantId);
+    const timeRange = this.getString(query.timeRange) ?? '30days';
     const userTenantId = req.user?.tenantId;
 
     if (!tenantId || !userTenantId || tenantId !== userTenantId) {
@@ -316,7 +353,7 @@ export class AnalyticsController {
       const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchComparisonTimeSeries(
         tenantId,
-        timeRange as string,
+        timeRange,
         effectiveBranchId,
       );
     } catch (error) {
@@ -328,9 +365,11 @@ export class AnalyticsController {
   @Get('/api/reports/branches/:tenantId/comparison/products')
   @RequireModules('reports')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getBranchProductComparison(@Req() req: any) {
-    const { tenantId } = req.params;
-    const { timeRange = '30days' } = req.query;
+  async getBranchProductComparison(@Req() req: AuthenticatedRequest) {
+    const params = req.params as Record<string, unknown>;
+    const query = req.query as Record<string, unknown>;
+    const tenantId = this.getString(params.tenantId);
+    const timeRange = this.getString(query.timeRange) ?? '30days';
     const userTenantId = req.user?.tenantId;
 
     if (!tenantId || !userTenantId || tenantId !== userTenantId) {
@@ -341,7 +380,7 @@ export class AnalyticsController {
       const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchProductComparison(
         tenantId,
-        timeRange as string,
+        timeRange,
         effectiveBranchId,
       );
     } catch (error) {
@@ -352,19 +391,17 @@ export class AnalyticsController {
 
   @Get('/analytics/branch-monthly-sales-comparison')
   @UseGuards(AuthGuard('jwt'), TrialGuard)
-  async getBranchMonthlySalesComparison(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-    const { months = 6 } = req.query;
-
-    if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
-    }
+  async getBranchMonthlySalesComparison(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+    const query = req.query as Record<string, unknown>;
+    const monthsRaw = this.getString(query.months);
+    const parsedMonths = monthsRaw ? Number.parseInt(monthsRaw, 10) : 6;
 
     try {
       const effectiveBranchId = this.resolveBranchScope(req);
       return await this.analyticsService.getBranchMonthlySalesComparison(
         tenantId,
-        parseInt(months as string) || 6,
+        Number.isFinite(parsedMonths) ? parsedMonths : 6,
         effectiveBranchId,
       );
     } catch (error) {

@@ -14,7 +14,7 @@ interface ChatResult {
   suggestions: string[];
   conversationId?: string;
   followUpQuestions?: string[];
-  chartData?: any;
+  chartData?: unknown;
   reportData?: {
     filename: string;
     downloadUrl: string;
@@ -39,7 +39,21 @@ interface CommandResult {
   success: boolean;
   message: string;
   action_taken?: string;
-  data?: any;
+  data?: unknown;
+}
+
+interface FeedbackAnalysisResult {
+  totalFeedback: number;
+  averageRating: number;
+  commonIssues: string[];
+  improvementAreas: string[];
+  responsePatterns: Record<string, { total: number; avgRating: number }>;
+}
+
+interface SystemMetrics {
+  totalSales: number;
+  activeUsers: number;
+  lastBackup: string | null;
 }
 
 @Injectable()
@@ -53,7 +67,35 @@ export class AiService {
     private embeddingService: EmbeddingService,
     private chartService: ChartService,
     private reportService: ReportService,
-  ) { }
+  ) {}
+
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asString(value: unknown, fallback: string = ''): string {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  private asNumber(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return 0;
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Unknown error';
+  }
 
   async processChat(
     message: string,
@@ -80,22 +122,37 @@ export class AiService {
       }
 
       // Get conversation history
-      const conversationHistory = await this.getConversationHistory(
-        userId,
-        tenantId,
-        activeConversationId,
-        20,
-      );
+      const conversationHistoryRaw: unknown[] =
+        await this.getConversationHistory(
+          userId,
+          tenantId,
+          activeConversationId,
+          20,
+        );
 
       // Get tenant/branch metadata only — data is now fetched selectively inside ChatService (RAG)
-      const tenantInfo = await this.dataService.getTenantInfo(tenantId);
-      const branchInfo = await this.dataService.getBranchInfo(tenantId, branchId);
+      const tenantInfo: unknown =
+        await this.dataService.getTenantInfo(tenantId);
+      const branchInfo: unknown = await this.dataService.getBranchInfo(
+        tenantId,
+        branchId,
+      );
 
       // Build chat context
-      const historyMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-      for (const interaction of conversationHistory.reverse()) {
-        historyMessages.push({ role: 'user', content: interaction.userMessage });
-        historyMessages.push({ role: 'assistant', content: interaction.aiResponse });
+      const historyMessages: Array<{
+        role: 'user' | 'assistant';
+        content: string;
+      }> = [];
+      for (const interactionRaw of conversationHistoryRaw.reverse()) {
+        const interaction = this.asObject(interactionRaw) ?? {};
+        historyMessages.push({
+          role: 'user',
+          content: this.asString(interaction.userMessage),
+        });
+        historyMessages.push({
+          role: 'assistant',
+          content: this.asString(interaction.aiResponse),
+        });
       }
 
       const chatContext: ChatContext = {
@@ -113,15 +170,19 @@ export class AiService {
         branchId,
       );
 
-      let chartData: any | undefined;
-      let reportData: any | undefined;
+      let chartData: unknown;
+      let reportData: ChatResult['reportData'];
       let finalResponse = chatResponse.response;
 
       // Handle Tool Calls if any
       if (chatResponse.toolCalls && chatResponse.toolCalls.length > 0) {
         for (const toolCall of chatResponse.toolCalls) {
-          const functionName = toolCall.function.name;
-          const args = JSON.parse(toolCall.function.arguments);
+          const toolCallObj = this.asObject(toolCall);
+          const functionObj = this.asObject(toolCallObj?.function);
+          const functionName = this.asString(functionObj?.name);
+          const rawArgs = this.asString(functionObj?.arguments, '{}');
+          const parsed = JSON.parse(rawArgs) as unknown;
+          const args = this.asObject(parsed) ?? {};
 
           if (functionName === 'generate_chart') {
             const chartResult = await this.executeGenerateChartCommand(
@@ -131,7 +192,8 @@ export class AiService {
               branchId,
             );
             if (chartResult.success) {
-              chartData = chartResult.data.chartConfig;
+              const chartResultData = this.asObject(chartResult.data) ?? {};
+              chartData = chartResultData.chartConfig;
               if (!finalResponse) finalResponse = chartResult.message;
             }
           } else if (functionName === 'generate_report') {
@@ -142,11 +204,12 @@ export class AiService {
               branchId,
             );
             if (reportResult.success) {
+              const reportResultData = this.asObject(reportResult.data) ?? {};
               reportData = {
-                filename: reportResult.data.filename,
-                downloadUrl: reportResult.data.downloadUrl,
-                reportType: reportResult.data.reportType || 'sales',
-                format: reportResult.data.format || 'xlsx',
+                filename: this.asString(reportResultData.filename),
+                downloadUrl: this.asString(reportResultData.downloadUrl),
+                reportType: this.asString(reportResultData.reportType, 'sales'),
+                format: this.asString(reportResultData.format, 'xlsx'),
               };
               if (!finalResponse) finalResponse = reportResult.message;
             }
@@ -164,7 +227,10 @@ export class AiService {
             const backupResult = await this.executeBackupCommand(tenantId);
             finalResponse = backupResult.message;
           } else if (functionName === 'get_system_status') {
-            const statusResult = await this.executeStatusCommand(tenantId, branchId);
+            const statusResult = await this.executeStatusCommand(
+              tenantId,
+              branchId,
+            );
             finalResponse = statusResult.message;
           }
         }
@@ -178,7 +244,7 @@ export class AiService {
         chartData,
         reportData,
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error processing AI chat:', error);
       return {
         response:
@@ -215,18 +281,24 @@ export class AiService {
 
   private async executeCommand(
     message: string,
-    extracted: any,
+    extracted: unknown,
     userId: string,
     tenantId: string,
     branchId: string,
   ): Promise<CommandResult> {
     const lowerMessage = message.toLowerCase();
 
-    if (lowerMessage.includes('backup') || lowerMessage.includes('backup data')) {
+    if (
+      lowerMessage.includes('backup') ||
+      lowerMessage.includes('backup data')
+    ) {
       return await this.executeBackupCommand(tenantId);
     }
 
-    if (lowerMessage.includes('system status') || lowerMessage.includes('status')) {
+    if (
+      lowerMessage.includes('system status') ||
+      lowerMessage.includes('status')
+    ) {
       return await this.executeStatusCommand(tenantId, branchId);
     }
 
@@ -295,10 +367,10 @@ export class AiService {
           createdAt: backupResult.createdAt,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Failed to initiate backup: ${error.message}`,
+        message: `Failed to initiate backup: ${this.getErrorMessage(error)}`,
         action_taken: 'backup_failed',
       };
     }
@@ -317,10 +389,10 @@ export class AiService {
         action_taken: 'status_check',
         data: { dbStatus, metrics },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Status check failed: ${error.message}`,
+        message: `Status check failed: ${this.getErrorMessage(error)}`,
         action_taken: 'status_check_failed',
       };
     }
@@ -328,23 +400,31 @@ export class AiService {
 
   private async executeUpdateInventoryCommand(
     message: string,
-    extracted: any,
+    extracted: unknown,
     tenantId: string,
     branchId: string,
   ): Promise<CommandResult> {
     try {
+      const extractedObj = this.asObject(extracted) ?? {};
+      const extractedParameters = this.asObject(extractedObj.parameters) ?? {};
+      const extractedEntities = this.asObject(extractedObj.entities) ?? {};
+
       // Enhanced extraction - look for numbers in the message
       const numberMatch = message.match(/\b(\d+)\b/);
+      const fallbackQuantity =
+        this.asNumber(extractedParameters.quantity) ||
+        this.asNumber(
+          (extractedParameters.numbers as unknown[] | undefined)?.[0],
+        ) ||
+        this.asNumber(extractedEntities.quantity);
       const quantity = numberMatch
-        ? parseInt(numberMatch[1])
-        : extracted.parameters?.quantity ||
-        extracted.parameters?.numbers?.[0] ||
-        extracted.entities?.quantity;
+        ? parseInt(numberMatch[1], 10)
+        : fallbackQuantity;
 
       // Enhanced product name extraction
       const productName =
-        extracted.entities?.product ||
-        extracted.parameters?.productName ||
+        this.asString(extractedEntities.product) ||
+        this.asString(extractedParameters.productName) ||
         this.extractProductNameFromMessage(message);
 
       if (!quantity || !productName) {
@@ -425,10 +505,10 @@ export class AiService {
           isLowStock,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Failed to update inventory: ${error.message}`,
+        message: `Failed to update inventory: ${this.getErrorMessage(error)}`,
         action_taken: 'inventory_update_failed',
       };
     }
@@ -436,7 +516,7 @@ export class AiService {
 
   private async executeGenerateReportCommand(
     message: string,
-    extracted: any,
+    extracted: unknown,
     tenantId: string,
     branchId: string,
   ): Promise<CommandResult> {
@@ -448,7 +528,10 @@ export class AiService {
       let specificMonth: { year: number; month: number } | undefined;
 
       // Determine report type
-      if (lowerMessage.includes('inventory') || lowerMessage.includes('stock')) {
+      if (
+        lowerMessage.includes('inventory') ||
+        lowerMessage.includes('stock')
+      ) {
         reportType = 'inventory';
       } else if (lowerMessage.includes('product')) {
         reportType = 'product';
@@ -461,8 +544,18 @@ export class AiService {
 
       // Check for specific month requests
       const monthNames = [
-        'january', 'february', 'march', 'april', 'may', 'june',
-        'july', 'august', 'september', 'october', 'november', 'december'
+        'january',
+        'february',
+        'march',
+        'april',
+        'may',
+        'june',
+        'july',
+        'august',
+        'september',
+        'october',
+        'november',
+        'december',
       ];
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth();
@@ -487,22 +580,38 @@ export class AiService {
       if (!specificMonth) {
         if (lowerMessage.includes('7 days') || lowerMessage.includes('week')) {
           period = '7days';
-        } else if (lowerMessage.includes('90 days') || lowerMessage.includes('3 months')) {
+        } else if (
+          lowerMessage.includes('90 days') ||
+          lowerMessage.includes('3 months')
+        ) {
           period = '90days';
-        } else if (lowerMessage.includes('year') || lowerMessage.includes('12 months')) {
+        } else if (
+          lowerMessage.includes('year') ||
+          lowerMessage.includes('12 months')
+        ) {
           period = '1year';
-        } else if (lowerMessage.includes('all') || lowerMessage.includes('everything')) {
+        } else if (
+          lowerMessage.includes('all') ||
+          lowerMessage.includes('everything')
+        ) {
           period = 'all';
-        } else if (lowerMessage.includes('this month') || lowerMessage.includes('current month')) {
+        } else if (
+          lowerMessage.includes('this month') ||
+          lowerMessage.includes('current month')
+        ) {
           specificMonth = { year: currentYear, month: currentMonth };
-        } else if (lowerMessage.includes('last month') || lowerMessage.includes('previous month')) {
+        } else if (
+          lowerMessage.includes('last month') ||
+          lowerMessage.includes('previous month')
+        ) {
           const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-          const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+          const lastMonthYear =
+            currentMonth === 0 ? currentYear - 1 : currentYear;
           specificMonth = { year: lastMonthYear, month: lastMonth };
         }
       }
 
-      let reportResult;
+      let reportResult: unknown;
       if (reportType === 'inventory') {
         reportResult = await this.reportService.generateInventoryReport(
           tenantId,
@@ -527,9 +636,24 @@ export class AiService {
 
       let periodMessage: string = period;
       if (specificMonth) {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthNames = [
+          'January',
+          'February',
+          'March',
+          'April',
+          'May',
+          'June',
+          'July',
+          'August',
+          'September',
+          'October',
+          'November',
+          'December',
+        ];
         periodMessage = `${monthNames[specificMonth.month]} ${specificMonth.year}`;
       }
+
+      const reportResultObj = this.asObject(reportResult) ?? {};
 
       return {
         success: true,
@@ -539,15 +663,15 @@ export class AiService {
           reportType,
           format,
           period: periodMessage,
-          filename: reportResult.filename,
-          filePath: reportResult.filePath,
-          downloadUrl: `/api/ai/reports/download/${reportResult.filename}`,
+          filename: this.asString(reportResultObj.filename),
+          filePath: this.asString(reportResultObj.filePath),
+          downloadUrl: `/api/ai/reports/download/${this.asString(reportResultObj.filename)}`,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Report generation failed: ${error.message}`,
+        message: `Report generation failed: ${this.getErrorMessage(error)}`,
         action_taken: 'report_failed',
       };
     }
@@ -555,12 +679,14 @@ export class AiService {
 
   private async executeGenerateChartCommand(
     message: string,
-    extracted: any,
+    extracted: unknown,
     tenantId: string,
     branchId: string,
   ): Promise<CommandResult> {
     try {
       const lowerMessage = message.toLowerCase();
+      const extractedObj = this.asObject(extracted) ?? {};
+      const extractedParameters = this.asObject(extractedObj.parameters) ?? {};
       let chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area' = 'line';
       let dataType = 'sales';
       let period: '7days' | '30days' | '90days' | '1year' = '30days';
@@ -580,23 +706,45 @@ export class AiService {
       // Determine data type
       if (lowerMessage.includes('product')) {
         dataType = 'product';
-      } else if (lowerMessage.includes('inventory') || lowerMessage.includes('stock')) {
+      } else if (
+        lowerMessage.includes('inventory') ||
+        lowerMessage.includes('stock')
+      ) {
         dataType = 'inventory';
       } else if (lowerMessage.includes('customer')) {
         dataType = 'customer';
       }
 
       // Determine period
-      const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-      const mentionsMonthName = monthNames.some(m => lowerMessage.includes(m));
+      const monthNames = [
+        'january',
+        'february',
+        'march',
+        'april',
+        'may',
+        'june',
+        'july',
+        'august',
+        'september',
+        'october',
+        'november',
+        'december',
+      ];
+      const mentionsMonthName = monthNames.some((m) =>
+        lowerMessage.includes(m),
+      );
 
       if (lowerMessage.includes('7 days') || lowerMessage.includes('week')) {
         period = '7days';
-      } else if (lowerMessage.includes('90 days') || lowerMessage.includes('3 months') || lowerMessage.includes('quarter')) {
+      } else if (
+        lowerMessage.includes('90 days') ||
+        lowerMessage.includes('3 months') ||
+        lowerMessage.includes('quarter')
+      ) {
         period = '90days';
       } else if (
-        extracted?.parameters?.period === '1year' ||
-        extracted?.parameters?.period === 'monthly' ||
+        this.asString(extractedParameters.period) === '1year' ||
+        this.asString(extractedParameters.period) === 'monthly' ||
         lowerMessage.includes('year') ||
         lowerMessage.includes('12 months') ||
         lowerMessage.includes('month ') ||
@@ -606,9 +754,9 @@ export class AiService {
       ) {
         // When user talks about months / monthly performance, show a 1-year monthly trend
         period = '1year';
-      } else if (extracted?.parameters?.period === '90days') {
+      } else if (this.asString(extractedParameters.period) === '90days') {
         period = '90days';
-      } else if (extracted?.parameters?.period === '7days') {
+      } else if (this.asString(extractedParameters.period) === '7days') {
         period = '7days';
       } else {
         period = '30days';
@@ -623,54 +771,63 @@ export class AiService {
         }
       }
 
-      let chartConfig;
+      let chartConfig: unknown;
       if (dataType === 'product') {
-        const productChartType = chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
+        const productChartType =
+          chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
         chartConfig = await this.chartService.generateProductPerformanceChart(
           tenantId,
           branchId,
-          productChartType as 'bar' | 'pie' | 'doughnut',
+          productChartType,
           limit,
         );
       } else if (dataType === 'inventory') {
-        const inventoryChartType = chartType === 'line' || chartType === 'area' || chartType === 'doughnut' ? 'bar' : chartType;
+        const inventoryChartType =
+          chartType === 'line' ||
+          chartType === 'area' ||
+          chartType === 'doughnut'
+            ? 'bar'
+            : chartType;
         chartConfig = await this.chartService.generateInventoryChart(
           tenantId,
           branchId,
-          inventoryChartType as 'bar' | 'pie',
+          inventoryChartType,
         );
       } else if (dataType === 'customer') {
-        const customerChartType = chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
+        const customerChartType =
+          chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
         chartConfig = await this.chartService.generateCustomerChart(
           tenantId,
           branchId,
-          customerChartType as 'bar' | 'pie' | 'doughnut',
+          customerChartType,
           limit,
         );
       } else {
-        const salesChartType = chartType === 'pie' || chartType === 'doughnut' ? 'line' : chartType;
+        const salesChartType =
+          chartType === 'pie' || chartType === 'doughnut' ? 'line' : chartType;
         chartConfig = await this.chartService.generateSalesChart(
           tenantId,
           branchId,
-          salesChartType as 'line' | 'bar' | 'area',
+          salesChartType,
           period,
         );
       }
 
+      const chartConfigObj = this.asObject(chartConfig) ?? {};
       return {
         success: true,
         message: `Sure thing! Here's a visual breakdown of the data you asked for:`,
         action_taken: 'chart_generated',
         data: {
           chartConfig,
-          chartType: chartConfig.type,
-          title: chartConfig.title,
+          chartType: this.asString(chartConfigObj.type, chartType),
+          title: this.asString(chartConfigObj.title, 'Chart'),
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: `Chart generation failed: ${error.message}`,
+        message: `Chart generation failed: ${this.getErrorMessage(error)}`,
         action_taken: 'chart_failed',
       };
     }
@@ -699,7 +856,7 @@ export class AiService {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -707,7 +864,7 @@ export class AiService {
   private async getSystemMetrics(
     tenantId: string,
     branchId: string,
-  ): Promise<any> {
+  ): Promise<SystemMetrics> {
     try {
       const [totalSales, activeUsers] = await Promise.all([
         this.prisma.sale.count({ where: { tenantId, branchId } }),
@@ -719,7 +876,7 @@ export class AiService {
         activeUsers,
         lastBackup: null,
       };
-    } catch (error) {
+    } catch {
       return {
         totalSales: 0,
         activeUsers: 0,
@@ -734,12 +891,14 @@ export class AiService {
   ): Promise<any> {
     try {
       const history = await this.getConversationHistory(userId, tenantId);
-      const patterns = await this.analyzePatterns(history);
+      const patterns = this.analyzePatterns(
+        history as Array<{ userMessage?: string | null }>,
+      );
       return {
         frequentTopics: Object.keys(patterns.query_categories).slice(0, 5),
         insights: patterns.insights,
       };
-    } catch (error) {
+    } catch {
       return {};
     }
   }
@@ -751,9 +910,9 @@ export class AiService {
     conversationId?: string,
     limit: number = 50,
     offset: number = 0,
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     try {
-      const whereClause: any = { userId, tenantId };
+      const whereClause: Record<string, unknown> = { userId, tenantId };
       if (conversationId) {
         whereClause.conversationId = conversationId;
       }
@@ -775,7 +934,7 @@ export class AiService {
     tenantId: string,
     branchId: string,
     title?: string,
-  ): Promise<any> {
+  ): Promise<{ id: string }> {
     try {
       const conversation = await this.prisma.conversation.create({
         data: {
@@ -786,7 +945,12 @@ export class AiService {
           isActive: true,
         },
       });
-      return conversation;
+      const conversationObj = this.asObject(conversation) ?? {};
+      const id = this.asString(conversationObj.id);
+      if (!id) {
+        throw new Error('Conversation was created without an id');
+      }
+      return { id };
     } catch (error) {
       console.error('Error creating conversation:', error);
       throw error;
@@ -799,9 +963,9 @@ export class AiService {
     branchId?: string,
     limit: number = 20,
     offset: number = 0,
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     try {
-      const whereClause: any = {
+      const whereClause: Record<string, unknown> = {
         userId,
         tenantId,
         isActive: true,
@@ -834,7 +998,7 @@ export class AiService {
     conversationId: string,
     userId: string,
     tenantId: string,
-  ): Promise<any | null> {
+  ): Promise<unknown> {
     try {
       const conversation = await this.prisma.conversation.findFirst({
         where: {
@@ -987,23 +1151,55 @@ export class AiService {
     return trimmedMessage || 'New Conversation';
   }
 
-  async analyzePatterns(conversations: any[]): Promise<PatternAnalysis> {
+  analyzePatterns(
+    conversations: Array<{ userMessage?: string | null }>,
+  ): PatternAnalysis {
     if (!conversations.length) {
       return { frequent_keywords: {}, query_categories: {}, insights: [] };
     }
 
     const queries = conversations
-      .map((conv) => conv.userMessage || '')
+      .map((conv) => conv.userMessage ?? '')
       .filter((q) => q.length > 0);
 
     const allText = queries.join(' ').toLowerCase();
     const words = allText.split(/\s+/).filter((word) => word.length > 2);
 
     const stopWords = new Set([
-      'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-      'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had',
-      'do', 'does', 'did', 'will', 'would', 'could', 'should',
-      'what', 'how', 'why', 'when', 'where', 'who',
+      'the',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'been',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'what',
+      'how',
+      'why',
+      'when',
+      'where',
+      'who',
     ]);
     const keywords = words.filter((word) => !stopWords.has(word));
 
@@ -1015,12 +1211,28 @@ export class AiService {
     const categories: Record<string, number> = {};
     queries.forEach((query) => {
       const lower = query.toLowerCase();
-      if (lower.includes('best') || lower.includes('top') || lower.includes('performing') || lower.includes('product')) {
-        categories['performance_analysis'] = (categories['performance_analysis'] || 0) + 1;
-      } else if (lower.includes('sales') || lower.includes('trend') || lower.includes('revenue') || lower.includes('growth')) {
+      if (
+        lower.includes('best') ||
+        lower.includes('top') ||
+        lower.includes('performing') ||
+        lower.includes('product')
+      ) {
+        categories['performance_analysis'] =
+          (categories['performance_analysis'] || 0) + 1;
+      } else if (
+        lower.includes('sales') ||
+        lower.includes('trend') ||
+        lower.includes('revenue') ||
+        lower.includes('growth')
+      ) {
         categories['sales_analysis'] = (categories['sales_analysis'] || 0) + 1;
-      } else if (lower.includes('customer') || lower.includes('segment') || lower.includes('churn')) {
-        categories['customer_analysis'] = (categories['customer_analysis'] || 0) + 1;
+      } else if (
+        lower.includes('customer') ||
+        lower.includes('segment') ||
+        lower.includes('churn')
+      ) {
+        categories['customer_analysis'] =
+          (categories['customer_analysis'] || 0) + 1;
       } else {
         categories['general'] = (categories['general'] || 0) + 1;
       }
@@ -1030,11 +1242,15 @@ export class AiService {
     const totalQueries = queries.length;
 
     if (categories['performance_analysis'] > totalQueries * 0.3) {
-      insights.push('You frequently ask about product performance - consider setting up automated performance reports');
+      insights.push(
+        'You frequently ask about product performance - consider setting up automated performance reports',
+      );
     }
 
     if (categories['sales_analysis'] > totalQueries * 0.3) {
-      insights.push('You focus on sales trends - I can help monitor your sales performance regularly');
+      insights.push(
+        'You focus on sales trends - I can help monitor your sales performance regularly',
+      );
     }
 
     return {
@@ -1044,23 +1260,29 @@ export class AiService {
     };
   }
 
-  async getPersonalizedSuggestions(
+  getPersonalizedSuggestions(
     query: string,
-    tenantData: any,
-    userHistory: any[],
-  ): Promise<PersonalizedSuggestions> {
+    tenantData: unknown,
+    userHistory: Array<{ aiResponse?: string | null }>,
+  ): PersonalizedSuggestions {
+    void query;
+    const tenantDataObj = this.asObject(tenantData) ?? {};
     const topicPreferences: Record<string, number> = {};
 
     userHistory.forEach((interaction) => {
-      const response = interaction.aiResponse || '';
+      const response = interaction.aiResponse ?? '';
       if (response.toLowerCase().includes('product')) {
         topicPreferences['products'] = (topicPreferences['products'] || 0) + 1;
       }
-      if (response.toLowerCase().includes('sales') || response.toLowerCase().includes('revenue')) {
+      if (
+        response.toLowerCase().includes('sales') ||
+        response.toLowerCase().includes('revenue')
+      ) {
         topicPreferences['sales'] = (topicPreferences['sales'] || 0) + 1;
       }
       if (response.toLowerCase().includes('customer')) {
-        topicPreferences['customers'] = (topicPreferences['customers'] || 0) + 1;
+        topicPreferences['customers'] =
+          (topicPreferences['customers'] || 0) + 1;
       }
     });
 
@@ -1072,14 +1294,14 @@ export class AiService {
 
     if (primaryTopic === 'products') {
       suggestions.push('Check your latest product performance');
-      if (tenantData.lowStockCount > 0) {
+      if (this.asNumber(tenantDataObj.lowStockCount) > 0) {
         suggestions.push('Review products running low on stock');
       }
       suggestions.push('View inventory levels');
     } else if (primaryTopic === 'sales') {
       suggestions.push('Review monthly sales trends');
       suggestions.push('Check revenue forecasts');
-      if (tenantData.recentSalesTrend === 'up') {
+      if (this.asString(tenantDataObj.recentSalesTrend) === 'up') {
         suggestions.push("Explore what's driving your recent sales growth");
       }
     } else if (primaryTopic === 'customers') {
@@ -1154,7 +1376,7 @@ export class AiService {
   async analyzeFeedbackPatterns(
     userId: string,
     tenantId: string,
-  ): Promise<any> {
+  ): Promise<FeedbackAnalysisResult> {
     try {
       const allInteractions = await this.prisma.aIChatInteraction.findMany({
         where: {
@@ -1164,31 +1386,34 @@ export class AiService {
       });
 
       const interactionsWithFeedback = allInteractions.filter((interaction) => {
-        const metadata = interaction.metadata as any;
-        return (
-          metadata &&
-          metadata.feedback &&
-          metadata.feedback.rating !== undefined
-        );
+        const metadata = this.asObject(interaction.metadata);
+        const feedback = this.asObject(metadata?.feedback);
+        return feedback?.rating !== undefined;
       });
 
-      const feedbackAnalysis = {
+      const feedbackAnalysis: FeedbackAnalysisResult = {
         totalFeedback: interactionsWithFeedback.length,
         averageRating: 0,
-        commonIssues: [] as string[],
-        improvementAreas: [] as string[],
-        responsePatterns: {} as Record<string, any>,
+        commonIssues: [],
+        improvementAreas: [],
+        responsePatterns: {},
       };
 
       if (interactionsWithFeedback.length > 0) {
-        const ratings = interactionsWithFeedback.map(
-          (i) => (i.metadata as any)?.feedback?.rating || 0,
-        );
+        const ratings = interactionsWithFeedback.map((i) => {
+          const metadata = this.asObject(i.metadata);
+          const feedback = this.asObject(metadata?.feedback);
+          return this.asNumber(feedback?.rating);
+        });
         feedbackAnalysis.averageRating =
           ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
 
         const feedbackTexts = interactionsWithFeedback
-          .map((i) => (i.metadata as any)?.feedback?.feedbackText || '')
+          .map((i) => {
+            const metadata = this.asObject(i.metadata);
+            const feedback = this.asObject(metadata?.feedback);
+            return this.asString(feedback?.feedbackText);
+          })
           .filter((text) => text.length > 0);
 
         const issueKeywords = {
@@ -1196,7 +1421,12 @@ export class AiService {
           'not helpful': ['not helpful', 'useless', 'unhelpful', 'not useful'],
           confusing: ['confusing', 'confused', 'unclear', 'complicated'],
           inaccurate: ['wrong', 'incorrect', 'inaccurate', 'not right'],
-          'missing info': ['missing', 'incomplete', 'not enough', 'more detail'],
+          'missing info': [
+            'missing',
+            'incomplete',
+            'not enough',
+            'more detail',
+          ],
         };
 
         const issueCounts: Record<string, number> = {};
@@ -1244,8 +1474,10 @@ export class AiService {
           { total: number; avgRating: number }
         > = {};
         interactionsWithFeedback.forEach((interaction) => {
-          const category = (interaction.metadata as any)?.category || 'unknown';
-          const rating = (interaction.metadata as any)?.feedback?.rating || 0;
+          const metadata = this.asObject(interaction.metadata);
+          const feedback = this.asObject(metadata?.feedback);
+          const category = this.asString(metadata?.category, 'unknown');
+          const rating = this.asNumber(feedback?.rating);
 
           if (!categoryPerformance[category]) {
             categoryPerformance[category] = { total: 0, avgRating: 0 };
@@ -1301,7 +1533,8 @@ export class AiService {
           'Provide more specific and actionable information',
         )
       ) {
-        improvementModifier += ' Include specific data and actionable insights.';
+        improvementModifier +=
+          ' Include specific data and actionable insights.';
       }
 
       if (
@@ -1309,7 +1542,8 @@ export class AiService {
           'Use clearer language and structure',
         )
       ) {
-        improvementModifier += ' Use clear, simple language and better structure.';
+        improvementModifier +=
+          ' Use clear, simple language and better structure.';
       }
 
       const categoryRating =
@@ -1328,7 +1562,9 @@ export class AiService {
   async getLearningInsights(userId: string, tenantId: string): Promise<any> {
     try {
       const userHistory = await this.getConversationHistory(userId, tenantId);
-      const patterns = await this.analyzePatterns(userHistory);
+      const patterns = this.analyzePatterns(
+        userHistory as Array<{ userMessage?: string | null }>,
+      );
       const feedbackAnalysis = await this.analyzeFeedbackPatterns(
         userId,
         tenantId,
@@ -1426,11 +1662,11 @@ Make the description vivid and actionable for someone who wants to understand th
   }
 
   private generateFallbackVisualization(
-    data: any,
+    data: unknown,
     chartType: string,
     title: string,
   ): string {
-    return `## 📊 ${title}\n\n### Chart Type: ${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart\n\n### Data Summary\n- **Available Data Points:** ${Object.keys(data).length}\n\n*Visualization description would be displayed here.*`;
+    const dataObj = this.asObject(data) ?? {};
+    return `## 📊 ${title}\n\n### Chart Type: ${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart\n\n### Data Summary\n- **Available Data Points:** ${Object.keys(dataObj).length}\n\n*Visualization description would be displayed here.*`;
   }
 }
-

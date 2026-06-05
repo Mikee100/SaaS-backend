@@ -95,7 +95,10 @@ export class MpesaService {
     if (amount < 10) {
       throw new BadRequestException('Minimum amount is 10 KES');
     }
-    if (!phoneNumber || !/^(07|2547|25407|\+2547|\b712)\d{8}$/.test(phoneNumber)) {
+    if (
+      !phoneNumber ||
+      !/^(07|2547|25407|\+2547|\b712)\d{8}$/.test(phoneNumber)
+    ) {
       throw new BadRequestException(
         'Invalid phone number format. Use format: 07XXXXXXXX, 2547XXXXXXXX, +2547XXXXXXXX, or 712345678',
       );
@@ -124,7 +127,9 @@ export class MpesaService {
     ].join('');
 
     // Correct password generation for M-Pesa
-    const password = Buffer.from(`${config.shortCode}${config.passkey}${timestamp}`).toString('base64');
+    const password = Buffer.from(
+      `${config.shortCode}${config.passkey}${timestamp}`,
+    ).toString('base64');
 
     // API URL based on environment
     const baseUrl =
@@ -150,11 +155,18 @@ export class MpesaService {
         statusText: tokenResponse.statusText,
         response: errorText,
       });
-      throw new BadRequestException(`Failed to authenticate with M-Pesa: ${errorText}`);
+      throw new BadRequestException(
+        `Failed to authenticate with M-Pesa: ${errorText}`,
+      );
     }
 
-    const tokenData = await tokenResponse.json();
+    const tokenData = (await tokenResponse.json()) as {
+      access_token?: string;
+    };
     const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      throw new BadRequestException('M-Pesa authentication token not received');
+    }
     console.log('M-Pesa access token obtained successfully');
 
     // Initiate STK Push
@@ -173,7 +185,10 @@ export class MpesaService {
       TransactionDesc: transactionDesc || 'Payment for Saas Platform',
     };
 
-    console.log('Initiating STK Push with payload:', JSON.stringify(stkPayload, null, 2));
+    console.log(
+      'Initiating STK Push with payload:',
+      JSON.stringify(stkPayload, null, 2),
+    );
 
     const stkResponse = await fetch(
       `${baseUrl}/mpesa/stkpush/v1/processrequest`,
@@ -199,7 +214,7 @@ export class MpesaService {
       );
     }
 
-    const stkData = await stkResponse.json();
+    const stkData = (await stkResponse.json()) as Record<string, unknown>;
     console.log('STK Push response:', JSON.stringify(stkData, null, 2));
     return stkData;
   }
@@ -212,7 +227,7 @@ export class MpesaService {
     merchantRequestId?: string;
     checkoutRequestID?: string;
     message?: string;
-    saleData?: any;
+    saleData?: unknown;
     tenantId: string;
   }) {
     // Remove userId if undefined (Prisma expects it to be present or omitted)

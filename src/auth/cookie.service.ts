@@ -3,7 +3,6 @@ import { Response } from 'express';
 import {
   AUTH_COOKIE_NAMES,
   ACCESS_TOKEN_TTL_SEC,
-  REFRESH_TOKEN_TTL_SEC,
   COOKIE_SECURE,
   COOKIE_DOMAIN,
   COOKIE_SAME_SITE_ACCESS,
@@ -46,6 +45,9 @@ export class CookieService {
       ...(COOKIE_DOMAIN && { domain: COOKIE_DOMAIN }),
     };
     res.cookie(AUTH_COOKIE_NAMES.ACCESS_TOKEN, '', opts);
-    res.cookie(AUTH_COOKIE_NAMES.REFRESH_TOKEN, '', { ...opts, sameSite: COOKIE_SAME_SITE_REFRESH });
+    res.cookie(AUTH_COOKIE_NAMES.REFRESH_TOKEN, '', {
+      ...opts,
+      sameSite: COOKIE_SAME_SITE_REFRESH,
+    });
   }
 }

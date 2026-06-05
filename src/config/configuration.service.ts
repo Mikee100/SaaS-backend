@@ -16,26 +16,39 @@ export class ConfigurationService {
   private readonly logger = new Logger(ConfigurationService.name);
   private readonly encryptionKey: string;
 
+  private toCategory(value: string): ConfigurationItem['category'] {
+    const allowed: ConfigurationItem['category'][] = [
+      'security',
+      'api',
+      'external_services',
+      'email',
+      'general',
+    ];
+    return allowed.includes(value as ConfigurationItem['category'])
+      ? (value as ConfigurationItem['category'])
+      : 'general';
+  }
+
   constructor(private readonly prisma: PrismaService) {
     // Require encryption key - fail if not set
     if (!process.env.CONFIG_ENCRYPTION_KEY) {
       this.logger.error(
         'CONFIG_ENCRYPTION_KEY environment variable is required but not set. ' +
-        'Please set it in your environment variables before starting the application.'
+          'Please set it in your environment variables before starting the application.',
       );
       throw new Error(
         'CONFIG_ENCRYPTION_KEY environment variable is required. ' +
-        'Application cannot start without a valid encryption key.'
+          'Application cannot start without a valid encryption key.',
       );
     }
 
     // Validate encryption key length (minimum 32 characters for AES-256)
     if (process.env.CONFIG_ENCRYPTION_KEY.length < 32) {
       this.logger.error(
-        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long for AES-256 encryption.'
+        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long for AES-256 encryption.',
       );
       throw new Error(
-        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long.'
+        'CONFIG_ENCRYPTION_KEY must be at least 32 characters long.',
       );
     }
 
@@ -140,7 +153,7 @@ export class ConfigurationService {
         key: config.key,
         value: config.isEncrypted ? '[ENCRYPTED]' : config.value,
         description: config.description || undefined,
-        category: config.category as any,
+        category: this.toCategory(config.category),
         isEncrypted: config.isEncrypted,
         isPublic: config.isPublic,
       }));

@@ -11,31 +11,48 @@ import {
   Req,
   ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { BranchService } from './branch.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
+import { AuthenticatedRequest } from '../auth/request.types';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('branches')
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
 
-  @Post()
-  @Permissions('manage_branches')
-  async createBranch(@Body() data: any, @Req() req: any) {
-    // Inject tenantId from authenticated user (JWT)
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
       throw new NotFoundException('Authenticated user does not have tenantId');
     }
+    return req.user.tenantId;
+  }
+
+  private getUserId(req: AuthenticatedRequest): string {
+    const userId = req.user?.userId ?? req.user?.sub;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated');
+    }
+    return userId;
+  }
+
+  @Post()
+  @Permissions('manage_branches')
+  async createBranch(
+    @Body() data: Prisma.BranchUncheckedCreateInput,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    // Inject tenantId from authenticated user (JWT)
+    const tenantId = this.getTenantId(req);
     return this.branchService.createBranch({ ...data, tenantId });
   }
 
   @Get()
   @Permissions('view_branches')
-  async getAllBranches(@Req() req: any) {
+  async getAllBranches(@Req() req: AuthenticatedRequest) {
     // If user is authenticated, filter by tenantId
     const tenantId = req.user?.tenantId;
     if (tenantId) {
@@ -55,17 +72,20 @@ export class BranchController {
 
   @Put(':id')
   @Permissions('manage_branches')
-  async updateBranch(@Param('id') id: string, @Body() data: any) {
+  async updateBranch(
+    @Param('id') id: string,
+    @Body() data: Prisma.BranchUncheckedUpdateInput,
+  ) {
     return this.branchService.updateBranch(id, data);
   }
 
   @Post(':id/restore')
   @Permissions('manage_branches')
-  async restoreBranch(@Param('id') id: string, @Req() req: any) {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      throw new NotFoundException('Authenticated user does not have tenantId');
-    }
+  async restoreBranch(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const tenantId = this.getTenantId(req);
     return this.branchService.restoreBranch(id, tenantId);
   }
 
@@ -78,13 +98,16 @@ export class BranchController {
   @Post('switch/:branchId')
   @UseGuards(PermissionsGuard)
   @Permissions('manage_branches')
-  async switchBranch(@Param('branchId') branchId: string, @Req() req: any) {
-    const userId = req.user?.id || req.user?.sub;
-    const userRoles = Array.isArray(req.user?.roles) ? req.user.roles : [];
-
-    if (!userId) {
-      throw new ForbiddenException('User not authenticated');
-    }
+  async switchBranch(
+    @Param('branchId') branchId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.getUserId(req);
+    const userRoles = Array.isArray(req.user?.roles)
+      ? req.user.roles.filter(
+          (role): role is string => typeof role === 'string',
+        )
+      : [];
 
     // Verify the branch exists and user has access to it
     const branch = await this.branchService.getBranchById(branchId);

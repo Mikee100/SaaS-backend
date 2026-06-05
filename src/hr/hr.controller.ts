@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequireModules } from '../auth/module-access.decorator';
+import { AuthenticatedRequest, AuthenticatedUser } from '../auth/request.types';
 import { HrService } from './hr.service';
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
@@ -23,31 +24,61 @@ import { HrService } from './hr.service';
 export class HrController {
   constructor(private readonly hrService: HrService) {}
 
-  private getNormalizedRoleNames(user: any): string[] {
-    const roles: any[] = [];
-
-    if (Array.isArray(user?.roles)) {
-      roles.push(...user.roles);
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException(
+        'User context is missing or invalid. Authentication required.',
+      );
     }
-
-    if (user?.role) {
-      roles.push(user.role);
-    }
-
-    return roles
-      .map((role: any) =>
-        typeof role === 'string' ? role.toLowerCase() : String(role?.name || '').toLowerCase(),
-      )
-      .filter(Boolean);
+    return req.user.tenantId;
   }
 
-  private resolveBranchScope(req: any): string | undefined {
-    const roles = this.getNormalizedRoleNames(req?.user);
-    const assignedBranchId = req?.user?.branchId as string | undefined;
-    const requestedBranchId =
-      (req?.headers?.['x-branch-id'] as string | undefined) ||
-      (req?.query?.branchId as string | undefined);
-    const isBranchScopedRole = roles.includes('manager') || roles.includes('cashier');
+  private getUserId(req: AuthenticatedRequest): string {
+    if (!req.user?.userId) {
+      throw new BadRequestException(
+        'User context is missing or invalid. Authentication required.',
+      );
+    }
+    return req.user.userId;
+  }
+
+  private getNormalizedRoleNames(
+    user: AuthenticatedUser | undefined,
+  ): string[] {
+    const roles: string[] = [];
+
+    if (Array.isArray(user?.roles)) {
+      for (const role of user.roles) {
+        if (typeof role === 'string' && role.trim()) {
+          roles.push(role.toLowerCase());
+        }
+      }
+    }
+
+    if (typeof user?.role === 'string' && user.role.trim()) {
+      roles.push(user.role.toLowerCase());
+    }
+
+    return roles;
+  }
+
+  private getHeaderBranchId(req: AuthenticatedRequest): string | undefined {
+    const headerValue = req.headers['x-branch-id'];
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    return undefined;
+  }
+
+  private resolveBranchScope(
+    req: AuthenticatedRequest,
+    queryBranchId?: string,
+  ): string | undefined {
+    const roles = this.getNormalizedRoleNames(req.user);
+    const assignedBranchId = req.user?.branchId;
+    const requestedBranchId = this.getHeaderBranchId(req) || queryBranchId;
+    const isBranchScopedRole =
+      roles.includes('manager') || roles.includes('cashier');
 
     if (isBranchScopedRole) {
       if (!assignedBranchId) {
@@ -67,68 +98,136 @@ export class HrController {
 
   @Get('employees')
   @Permissions('view_sales')
-  async listEmployees(@Req() req, @Query('branchId') branchId?: string, @Query('search') search?: string) {
-    const employees = await this.hrService.listEmployees(req.user.tenantId, branchId, search);
+  async listEmployees(
+    @Req() req: AuthenticatedRequest,
+    @Query('branchId') branchId?: string,
+    @Query('search') search?: string,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const employees = await this.hrService.listEmployees(
+      tenantId,
+      branchId,
+      search,
+    );
     return { success: true, data: employees };
   }
 
   @Post('employees')
   @Permissions('create_sales')
-  async createEmployee(@Req() req, @Body() body: any) {
-    const employee = await this.hrService.createEmployee(req.user.tenantId, body || {});
-    return { success: true, data: employee, message: 'Employee profile created' };
+  async createEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const employee = await this.hrService.createEmployee(tenantId, body || {});
+    return {
+      success: true,
+      data: employee,
+      message: 'Employee profile created',
+    };
   }
 
   @Put('employees/:id')
   @Permissions('create_sales')
-  async updateEmployee(@Req() req, @Param('id') id: string, @Body() body: any) {
-    const employee = await this.hrService.updateEmployee(req.user.tenantId, id, body || {});
-    return { success: true, data: employee, message: 'Employee profile updated' };
+  async updateEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const employee = await this.hrService.updateEmployee(
+      tenantId,
+      id,
+      body || {},
+    );
+    return {
+      success: true,
+      data: employee,
+      message: 'Employee profile updated',
+    };
   }
 
   @Delete('employees/:id')
   @Permissions('create_sales')
-  async deleteEmployee(@Req() req, @Param('id') id: string) {
-    await this.hrService.deleteEmployee(req.user.tenantId, id);
+  async deleteEmployee(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.hrService.deleteEmployee(this.getTenantId(req), id);
     return { success: true, message: 'Employee profile deleted' };
   }
 
   @Get('payroll-templates')
   @Permissions('view_sales')
-  async listTemplates(@Req() req, @Query('active') active?: string) {
+  async listTemplates(
+    @Req() req: AuthenticatedRequest,
+    @Query('active') active?: string,
+  ) {
+    const tenantId = this.getTenantId(req);
     const onlyActive = active === '1' || active === 'true';
-    const templates = await this.hrService.listPayrollTemplates(req.user.tenantId, onlyActive);
+    const templates = await this.hrService.listPayrollTemplates(
+      tenantId,
+      onlyActive,
+    );
     return { success: true, data: templates };
   }
 
   @Post('payroll-templates')
   @Permissions('create_sales')
-  async createTemplate(@Req() req, @Body() body: any) {
-    const template = await this.hrService.createPayrollTemplate(req.user.tenantId, body || {});
-    return { success: true, data: template, message: 'Payroll template created' };
+  async createTemplate(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const template = await this.hrService.createPayrollTemplate(
+      tenantId,
+      body || {},
+    );
+    return {
+      success: true,
+      data: template,
+      message: 'Payroll template created',
+    };
   }
 
   @Put('payroll-templates/:id')
   @Permissions('create_sales')
-  async updateTemplate(@Req() req, @Param('id') id: string, @Body() body: any) {
-    const template = await this.hrService.updatePayrollTemplate(req.user.tenantId, id, body || {});
-    return { success: true, data: template, message: 'Payroll template updated' };
+  async updateTemplate(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const tenantId = this.getTenantId(req);
+    const template = await this.hrService.updatePayrollTemplate(
+      tenantId,
+      id,
+      body || {},
+    );
+    return {
+      success: true,
+      data: template,
+      message: 'Payroll template updated',
+    };
   }
 
   @Delete('payroll-templates/:id')
   @Permissions('create_sales')
-  async deleteTemplate(@Req() req, @Param('id') id: string) {
-    await this.hrService.deletePayrollTemplate(req.user.tenantId, id);
+  async deleteTemplate(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    await this.hrService.deletePayrollTemplate(this.getTenantId(req), id);
     return { success: true, message: 'Payroll template deleted' };
   }
 
   @Get('payroll-runs')
   @Permissions('view_sales')
   async listPayrollRuns(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('month') month?: string,
     @Query('year') year?: string,
     @Query('status') status?: string,
+    @Query('branchId') branchId?: string,
   ) {
     const monthNum = month ? Number(month) : undefined;
     const yearNum = year ? Number(year) : undefined;
@@ -141,9 +240,10 @@ export class HrController {
       throw new BadRequestException('Year must be between 1900 and 2100');
     }
 
-    const effectiveBranchId = this.resolveBranchScope(req);
+    const effectiveBranchId = this.resolveBranchScope(req, branchId);
+    const tenantId = this.getTenantId(req);
     const runs = await this.hrService.listPayrollRuns(
-      req.user.tenantId,
+      tenantId,
       monthNum,
       yearNum,
       effectiveBranchId,
@@ -154,25 +254,42 @@ export class HrController {
 
   @Get('payroll-runs/:id')
   @Permissions('view_sales')
-  async getPayrollRun(@Req() req, @Param('id') id: string) {
-    const run = await this.hrService.getPayrollRunById(req.user.tenantId, id);
+  async getPayrollRun(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const run = await this.hrService.getPayrollRunById(
+      this.getTenantId(req),
+      id,
+    );
     return { success: true, data: run };
   }
 
   @Post('payroll-runs/:id/approve')
   @Permissions('create_sales')
-  async approvePayrollRun(@Req() req, @Param('id') id: string) {
-    const run = await this.hrService.approvePayrollRun(req.user.tenantId, id, req.user.userId);
+  async approvePayrollRun(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const run = await this.hrService.approvePayrollRun(
+      this.getTenantId(req),
+      id,
+      this.getUserId(req),
+    );
     return { success: true, data: run, message: 'Payroll run approved' };
   }
 
   @Post('payroll-runs/:id/cancel')
   @Permissions('create_sales')
-  async cancelPayrollRun(@Req() req, @Param('id') id: string, @Body() body: any) {
+  async cancelPayrollRun(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
     const run = await this.hrService.cancelPayrollRun(
-      req.user.tenantId,
+      this.getTenantId(req),
       id,
-      req.user.userId,
+      this.getUserId(req),
       body?.reason,
     );
     return { success: true, data: run, message: 'Payroll draft cancelled' };
@@ -180,7 +297,7 @@ export class HrController {
 
   @Post('payroll-runs/:id/reverse')
   @Permissions('create_sales')
-  async reversePayrollRun() {
+  reversePayrollRun() {
     throw new BadRequestException(
       'Use POST /salary-schemes/payroll-runs/:id/reverse for financial reversal',
     );
@@ -188,26 +305,44 @@ export class HrController {
 
   @Get('payroll-period-locks')
   @Permissions('view_sales')
-  async getPayrollPeriodLocks(@Req() req) {
-    const locks = await this.hrService.listPayrollPeriodLocks(req.user.tenantId);
+  async getPayrollPeriodLocks(@Req() req: AuthenticatedRequest) {
+    const locks = await this.hrService.listPayrollPeriodLocks(
+      this.getTenantId(req),
+    );
     return { success: true, data: locks };
   }
 
   @Post('payroll-period-locks')
   @Permissions('create_sales')
-  async lockPayrollPeriod(@Req() req, @Body() body: any) {
+  async lockPayrollPeriod(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      month?: string | number;
+      year?: string | number;
+      branchId?: string;
+      reason?: string;
+    },
+  ) {
     const month = Number(body?.month);
     const year = Number(body?.year);
-    if (!month || month < 1 || month > 12 || !year || year < 1900 || year > 2100) {
+    if (
+      !month ||
+      month < 1 ||
+      month > 12 ||
+      !year ||
+      year < 1900 ||
+      year > 2100
+    ) {
       throw new BadRequestException('Valid month and year are required');
     }
 
-    const lock = await this.hrService.lockPayrollPeriod(req.user.tenantId, {
+    const lock = await this.hrService.lockPayrollPeriod(this.getTenantId(req), {
       month,
       year,
       branchId: body?.branchId,
       reason: body?.reason,
-      lockedBy: req.user.userId,
+      lockedBy: this.getUserId(req),
     });
 
     return { success: true, data: lock, message: 'Payroll period locked' };
@@ -215,14 +350,29 @@ export class HrController {
 
   @Delete('payroll-period-locks')
   @Permissions('create_sales')
-  async unlockPayrollPeriod(@Req() req, @Body() body: any) {
+  async unlockPayrollPeriod(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      month?: string | number;
+      year?: string | number;
+      branchId?: string;
+    },
+  ) {
     const month = Number(body?.month);
     const year = Number(body?.year);
-    if (!month || month < 1 || month > 12 || !year || year < 1900 || year > 2100) {
+    if (
+      !month ||
+      month < 1 ||
+      month > 12 ||
+      !year ||
+      year < 1900 ||
+      year > 2100
+    ) {
       throw new BadRequestException('Valid month and year are required');
     }
 
-    await this.hrService.unlockPayrollPeriod(req.user.tenantId, {
+    await this.hrService.unlockPayrollPeriod(this.getTenantId(req), {
       month,
       year,
       branchId: body?.branchId,
@@ -233,14 +383,29 @@ export class HrController {
 
   @Post('payroll-period-locks/unlock')
   @Permissions('create_sales')
-  async unlockPayrollPeriodPost(@Req() req, @Body() body: any) {
+  async unlockPayrollPeriodPost(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      month?: string | number;
+      year?: string | number;
+      branchId?: string;
+    },
+  ) {
     const month = Number(body?.month);
     const year = Number(body?.year);
-    if (!month || month < 1 || month > 12 || !year || year < 1900 || year > 2100) {
+    if (
+      !month ||
+      month < 1 ||
+      month > 12 ||
+      !year ||
+      year < 1900 ||
+      year > 2100
+    ) {
       throw new BadRequestException('Valid month and year are required');
     }
 
-    await this.hrService.unlockPayrollPeriod(req.user.tenantId, {
+    await this.hrService.unlockPayrollPeriod(this.getTenantId(req), {
       month,
       year,
       branchId: body?.branchId,
@@ -251,38 +416,64 @@ export class HrController {
 
   @Get('payroll-settings')
   @Permissions('view_sales')
-  async getPayrollSettings(@Req() req) {
-    const settings = await this.hrService.getPayrollSettings(req.user.tenantId);
+  async getPayrollSettings(@Req() req: AuthenticatedRequest) {
+    const settings = await this.hrService.getPayrollSettings(
+      this.getTenantId(req),
+    );
     return { success: true, data: settings };
   }
 
   @Put('payroll-settings')
   @Permissions('create_sales')
-  async updatePayrollSettings(@Req() req, @Body() body: any) {
-    const settings = await this.hrService.updatePayrollSettings(req.user.tenantId, body || {});
-    return { success: true, data: settings, message: 'Payroll settings updated' };
+  async updatePayrollSettings(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const settings = await this.hrService.updatePayrollSettings(
+      this.getTenantId(req),
+      body || {},
+    );
+    return {
+      success: true,
+      data: settings,
+      message: 'Payroll settings updated',
+    };
   }
 
   @Get('payroll-tax-presets')
   @Permissions('view_sales')
-  async getTaxPresets() {
+  getTaxPresets() {
     return { success: true, data: this.hrService.listKenyaTaxPresets() };
   }
 
   @Post('payroll-tax-presets/apply')
   @Permissions('create_sales')
-  async applyTaxPreset(@Req() req, @Body() body: any) {
+  async applyTaxPreset(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { presetId?: string },
+  ) {
     if (!body?.presetId) {
       throw new BadRequestException('presetId is required');
     }
 
-    const result = await this.hrService.applyKenyaTaxPreset(req.user.tenantId, body.presetId);
-    return { success: true, data: result, message: 'Tax preset applied successfully' };
+    const result = await this.hrService.applyKenyaTaxPreset(
+      this.getTenantId(req),
+      body.presetId,
+    );
+    return {
+      success: true,
+      data: result,
+      message: 'Tax preset applied successfully',
+    };
   }
 
   @Get('reports/p10')
   @Permissions('view_sales')
-  async getP10(@Req() req, @Query('month') month: string, @Query('year') year: string) {
+  async getP10(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month: string,
+    @Query('year') year: string,
+  ) {
     const monthNum = Number(month);
     const yearNum = Number(year);
     if (!monthNum || monthNum < 1 || monthNum > 12) {
@@ -292,26 +483,33 @@ export class HrController {
       throw new BadRequestException('Valid year is required');
     }
 
-    const report = await this.hrService.buildP10Report(req.user.tenantId, monthNum, yearNum);
+    const report = await this.hrService.buildP10Report(
+      this.getTenantId(req),
+      monthNum,
+      yearNum,
+    );
     return { success: true, data: report };
   }
 
   @Get('reports/p9')
   @Permissions('view_sales')
-  async getP9(@Req() req, @Query('year') year: string) {
+  async getP9(@Req() req: AuthenticatedRequest, @Query('year') year: string) {
     const yearNum = Number(year);
     if (!yearNum || yearNum < 1900 || yearNum > 2100) {
       throw new BadRequestException('Valid year is required');
     }
 
-    const report = await this.hrService.buildP9Report(req.user.tenantId, yearNum);
+    const report = await this.hrService.buildP9Report(
+      this.getTenantId(req),
+      yearNum,
+    );
     return { success: true, data: report };
   }
 
   @Get('payslip')
   @Permissions('view_sales')
   async getPayslip(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('runId') runId?: string,
     @Query('salarySchemeId') salarySchemeId?: string,
     @Query('employeeName') employeeName?: string,
@@ -319,7 +517,9 @@ export class HrController {
     @Query('year') year?: string,
   ) {
     if (!salarySchemeId && !employeeName) {
-      throw new BadRequestException('salarySchemeId or employeeName is required');
+      throw new BadRequestException(
+        'salarySchemeId or employeeName is required',
+      );
     }
 
     const payslip = await this.hrService.generatePayslip(req.user.tenantId, {

@@ -11,41 +11,137 @@ export interface ContextNeeds {
 }
 
 const SALES_KEYWORDS = [
-  'sale', 'sales', 'revenue', 'income', 'earn', 'profit', 'turnover',
-  'transaction', 'order', 'sold', 'sell', 'money', 'cash', 'payment',
-  'receipt', 'invoice', 'billing', 'total', 'amount', 'performance',
-  'trend', 'growth', 'report', 'export', 'download', 'chart', 'graph',
-  'visual', 'comparison', 'compare', 'vs', 'versus', 'best',
+  'sale',
+  'sales',
+  'revenue',
+  'income',
+  'earn',
+  'profit',
+  'turnover',
+  'transaction',
+  'order',
+  'sold',
+  'sell',
+  'money',
+  'cash',
+  'payment',
+  'receipt',
+  'invoice',
+  'billing',
+  'total',
+  'amount',
+  'performance',
+  'trend',
+  'growth',
+  'report',
+  'export',
+  'download',
+  'chart',
+  'graph',
+  'visual',
+  'comparison',
+  'compare',
+  'vs',
+  'versus',
+  'best',
 ];
 
 const INVENTORY_KEYWORDS = [
-  'inventory', 'stock', 'restock', 'low stock', 'out of stock', 'quantity',
-  'units', 'warehouse', 'storage', 'available', 'level', 'replenish',
-  'shortage', 'overstock', 'count',
+  'inventory',
+  'stock',
+  'restock',
+  'low stock',
+  'out of stock',
+  'quantity',
+  'units',
+  'warehouse',
+  'storage',
+  'available',
+  'level',
+  'replenish',
+  'shortage',
+  'overstock',
+  'count',
 ];
 
 const PRODUCT_KEYWORDS = [
-  'product', 'item', 'sku', 'variant', 'variation', 'catalog', 'price',
-  'category', 'brand', 'model', 'color', 'size', 'type', 'collection',
+  'product',
+  'item',
+  'sku',
+  'variant',
+  'variation',
+  'catalog',
+  'price',
+  'category',
+  'brand',
+  'model',
+  'color',
+  'size',
+  'type',
+  'collection',
 ];
 
 const CUSTOMER_KEYWORDS = [
-  'customer', 'client', 'buyer', 'retention', 'loyalty', 'user',
-  'member', 'account', 'returning', 'new customer', 'top buyer',
+  'customer',
+  'client',
+  'buyer',
+  'retention',
+  'loyalty',
+  'user',
+  'member',
+  'account',
+  'returning',
+  'new customer',
+  'top buyer',
 ];
 
 const CREDITOR_KEYWORDS = [
-  'creditor', 'creditors', 'supplier', 'suppliers', 'vendor', 'vendors',
-  'accounts payable', 'payable', 'owe', 'owing', 'debt', 'debtor', 'debtors',
-  'credit', 'credits', 'outstanding', 'overdue', 'loan', 'payoff',
-  'who do we owe', 'who owes', 'money owed', 'unpaid',
+  'creditor',
+  'creditors',
+  'supplier',
+  'suppliers',
+  'vendor',
+  'vendors',
+  'accounts payable',
+  'payable',
+  'owe',
+  'owing',
+  'debt',
+  'debtor',
+  'debtors',
+  'credit',
+  'credits',
+  'outstanding',
+  'overdue',
+  'loan',
+  'payoff',
+  'who do we owe',
+  'who owes',
+  'money owed',
+  'unpaid',
 ];
 
 const EXPENSE_KEYWORDS = [
-  'expense', 'expenses', 'cost', 'costs', 'spending', 'overhead',
-  'salary', 'salaries', 'payroll', 'rent', 'utilities', 'bills',
-  'operational', 'outgoing', 'outgoings', 'spend', 'expenditure',
-  'recurring', 'one-time', 'budget',
+  'expense',
+  'expenses',
+  'cost',
+  'costs',
+  'spending',
+  'overhead',
+  'salary',
+  'salaries',
+  'payroll',
+  'rent',
+  'utilities',
+  'bills',
+  'operational',
+  'outgoing',
+  'outgoings',
+  'spend',
+  'expenditure',
+  'recurring',
+  'one-time',
+  'budget',
 ];
 
 const PERIOD_MAP: Record<string, ContextNeeds['period']> = {
@@ -67,7 +163,7 @@ export class ContextSelectorService {
   /**
    * Classify message intent to determine which data slices to fetch.
    * Falls back to a summary-only context if no domain keywords match.
-   * 
+   *
    * @param message - The user's current message
    * @param lastAiResponse - Optional last AI response for follow-up intent carryover
    */
@@ -84,14 +180,24 @@ export class ContextSelectorService {
     };
 
     // Handle affirmative follow-ups: carry over context from last AI response
-    const isAffirmative = ['yes', 'yeah', 'do it', 'ok', 'okay', 'sure', 'please', 'go ahead'].some(
-      (p) => lower === p || lower.startsWith(p + ' '),
-    );
+    const isAffirmative = [
+      'yes',
+      'yeah',
+      'do it',
+      'ok',
+      'okay',
+      'sure',
+      'please',
+      'go ahead',
+    ].some((p) => lower === p || lower.startsWith(p + ' '));
 
     if (isAffirmative && lastAiResponse && !this.hasAnyNeed(needs)) {
       const lastLower = lastAiResponse.toLowerCase();
       needs.needsSales = this.matchesKeywords(lastLower, SALES_KEYWORDS);
-      needs.needsInventory = this.matchesKeywords(lastLower, INVENTORY_KEYWORDS);
+      needs.needsInventory = this.matchesKeywords(
+        lastLower,
+        INVENTORY_KEYWORDS,
+      );
       needs.needsProducts = this.matchesKeywords(lastLower, PRODUCT_KEYWORDS);
       needs.needsCustomers = this.matchesKeywords(lastLower, CUSTOMER_KEYWORDS);
       needs.needsCreditors = this.matchesKeywords(lastLower, CREDITOR_KEYWORDS);
@@ -114,7 +220,14 @@ export class ContextSelectorService {
   }
 
   private hasAnyNeed(needs: ContextNeeds): boolean {
-    return needs.needsSales || needs.needsInventory || needs.needsProducts || needs.needsCustomers || needs.needsCreditors || needs.needsExpenses;
+    return (
+      needs.needsSales ||
+      needs.needsInventory ||
+      needs.needsProducts ||
+      needs.needsCustomers ||
+      needs.needsCreditors ||
+      needs.needsExpenses
+    );
   }
 
   private detectPeriod(lower: string): ContextNeeds['period'] | undefined {

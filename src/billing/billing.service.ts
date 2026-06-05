@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { NotFoundException } from '@nestjs/common';
 
@@ -19,6 +20,20 @@ export interface InvoiceWithSubscription {
   createdAt: Date;
   subscription: SubscriptionDetails | null;
 }
+
+type AdminSubscriptionListItem = Prisma.SubscriptionGetPayload<{
+  include: {
+    Plan: true;
+    Tenant: {
+      select: {
+        id: true;
+        name: true;
+        contactEmail: true;
+      };
+    };
+    ScheduledPlan: true;
+  };
+}>;
 
 @Injectable()
 export class BillingService {
@@ -186,9 +201,10 @@ export class BillingService {
     });
 
     return extensions.reduce((sum, extension) => {
-      const data = extension.data as
-        | { days?: number; subscriptionId?: string }
-        | null;
+      const data = extension.data as {
+        days?: number;
+        subscriptionId?: string;
+      } | null;
       if (!data) {
         return sum;
       }
@@ -455,69 +471,63 @@ export class BillingService {
   }
 
   async getPlanLimits(tenantId: string) {
-    try {
-      // ...existing code...
+    const subscription = await this.prisma.subscription.findFirst({
+      where: { tenantId },
+      include: {
+        Plan: true,
+      },
+      orderBy: {
+        currentPeriodStart: 'desc',
+      },
+    });
 
-      const subscription = await this.prisma.subscription.findFirst({
-        where: { tenantId },
-        include: {
-          Plan: true,
-        },
-        orderBy: {
-          currentPeriodStart: 'desc',
-        },
-      });
-
-      if (!subscription || !subscription.Plan) {
-        return {
-          maxUsers: 3,
-          maxProducts: 100,
-          maxSalesPerMonth: 200,
-          analyticsEnabled: false,
-          advancedReports: false,
-          prioritySupport: false,
-          customBranding: false,
-          apiAccess: false,
-          // New granular features
-          bulkOperations: false,
-          dataExport: false,
-          customFields: false,
-          advancedSecurity: false,
-          whiteLabel: false,
-          dedicatedSupport: false,
-          ssoEnabled: false,
-          auditLogs: false,
-          backupRestore: false,
-          customIntegrations: false,
-        };
-      }
-
-      const plan = subscription.Plan;
-
+    if (!subscription || !subscription.Plan) {
       return {
-        maxUsers: plan.maxUsers,
-        maxProducts: plan.maxProducts,
-        maxSalesPerMonth: plan.maxSalesPerMonth,
-        analyticsEnabled: plan.analyticsEnabled,
-        advancedReports: plan.advancedReports,
-        prioritySupport: plan.prioritySupport,
-        customBranding: plan.customBranding,
-        apiAccess: plan.apiAccess,
+        maxUsers: 3,
+        maxProducts: 100,
+        maxSalesPerMonth: 200,
+        analyticsEnabled: false,
+        advancedReports: false,
+        prioritySupport: false,
+        customBranding: false,
+        apiAccess: false,
         // New granular features
-        bulkOperations: plan.bulkOperations || false,
-        dataExport: plan.dataExport || false,
-        customFields: plan.customFields || false,
-        advancedSecurity: plan.advancedSecurity || false,
-        whiteLabel: plan.whiteLabel || false,
-        dedicatedSupport: plan.dedicatedSupport || false,
-        ssoEnabled: plan.ssoEnabled || false,
-        auditLogs: plan.auditLogs || false,
-        backupRestore: plan.backupRestore || false,
-        customIntegrations: plan.customIntegrations || false,
+        bulkOperations: false,
+        dataExport: false,
+        customFields: false,
+        advancedSecurity: false,
+        whiteLabel: false,
+        dedicatedSupport: false,
+        ssoEnabled: false,
+        auditLogs: false,
+        backupRestore: false,
+        customIntegrations: false,
       };
-    } catch (error) {
-      throw error;
     }
+
+    const plan = subscription.Plan;
+
+    return {
+      maxUsers: plan.maxUsers,
+      maxProducts: plan.maxProducts,
+      maxSalesPerMonth: plan.maxSalesPerMonth,
+      analyticsEnabled: plan.analyticsEnabled,
+      advancedReports: plan.advancedReports,
+      prioritySupport: plan.prioritySupport,
+      customBranding: plan.customBranding,
+      apiAccess: plan.apiAccess,
+      // New granular features
+      bulkOperations: plan.bulkOperations || false,
+      dataExport: plan.dataExport || false,
+      customFields: plan.customFields || false,
+      advancedSecurity: plan.advancedSecurity || false,
+      whiteLabel: plan.whiteLabel || false,
+      dedicatedSupport: plan.dedicatedSupport || false,
+      ssoEnabled: plan.ssoEnabled || false,
+      auditLogs: plan.auditLogs || false,
+      backupRestore: plan.backupRestore || false,
+      customIntegrations: plan.customIntegrations || false,
+    };
   }
 
   async checkLimit(
@@ -539,15 +549,17 @@ export class BillingService {
         limit = limits.maxProducts || 100;
         break;
       case 'sales':
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        current = await this.prisma.sale.count({
-          where: {
-            tenantId,
-            createdAt: { gte: startOfMonth },
-          },
-        });
-        limit = limits.maxSalesPerMonth || 200;
+        {
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          current = await this.prisma.sale.count({
+            where: {
+              tenantId,
+              createdAt: { gte: startOfMonth },
+            },
+          });
+          limit = limits.maxSalesPerMonth || 200;
+        }
         break;
     }
 
@@ -787,7 +799,7 @@ export class BillingService {
   }) {
     const { status, planId, tenantId, page = 1, limit = 50 } = filters || {};
 
-    const where: any = {};
+    const where: Prisma.SubscriptionWhereInput = {};
     if (status) where.status = status;
     if (planId) where.planId = planId;
     if (tenantId) where.tenantId = tenantId;
@@ -813,7 +825,7 @@ export class BillingService {
     });
 
     return {
-      subscriptions: subscriptions.map((sub: any) => ({
+      subscriptions: subscriptions.map((sub: AdminSubscriptionListItem) => ({
         id: sub.id,
         tenantId: sub.tenantId,
         tenantName: sub.Tenant?.name,

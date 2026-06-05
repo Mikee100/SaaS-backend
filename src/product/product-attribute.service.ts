@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { v4 as uuidv4 } from 'uuid';
 import {
   CreateProductAttributeDto,
   UpdateProductAttributeDto,
   AddAttributeValueDto,
-  CreateAttributeValueDto,
 } from './dto/product-attribute.dto';
 import { Prisma } from '@prisma/client';
 
@@ -77,23 +80,28 @@ export class ProductAttributeService {
           data: {
             isActive: true,
             deletedAt: null,
-            displayName: dto.displayName || existing.displayName || existing.name,
+            displayName:
+              dto.displayName || existing.displayName || existing.name,
             type: dto.type || existing.type,
           },
         });
       }
 
       if (Array.isArray(dto.values) && dto.values.length > 0) {
-        const existingValues = await this.prisma.productAttributeValue.findMany({
-          where: { attributeId: existing.id },
-        });
+        const existingValues = await this.prisma.productAttributeValue.findMany(
+          {
+            where: { attributeId: existing.id },
+          },
+        );
 
         for (const val of dto.values) {
           const normalizedValue = String(val?.value || '').trim();
           if (!normalizedValue) continue;
 
           const matched = existingValues.find(
-            (v) => String(v.value || '').toLowerCase() === normalizedValue.toLowerCase(),
+            (v) =>
+              String(v.value || '').toLowerCase() ===
+              normalizedValue.toLowerCase(),
           );
 
           if (matched) {
@@ -103,7 +111,8 @@ export class ProductAttributeService {
                 data: {
                   isActive: true,
                   deletedAt: null,
-                  displayName: val.displayName || matched.displayName || matched.value,
+                  displayName:
+                    val.displayName || matched.displayName || matched.value,
                   color: val.color ?? matched.color,
                   image: val.image ?? matched.image,
                 },
@@ -315,12 +324,26 @@ export class ProductAttributeService {
   // Get or create common attributes (helper for quick setup)
   async getOrCreateCommonAttributes(tenantId: string) {
     const commonAttributes = [
-      { name: 'Color', type: 'color', values: ['Black', 'White', 'Grey', 'Red', 'Blue'] },
-      { name: 'Size', type: 'text', values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'] },
-      { name: 'Storage', type: 'text', values: ['64GB', '128GB', '256GB', '512GB', '1TB'] },
+      {
+        name: 'Color',
+        type: 'color',
+        values: ['Black', 'White', 'Grey', 'Red', 'Blue'],
+      },
+      {
+        name: 'Size',
+        type: 'text',
+        values: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      },
+      {
+        name: 'Storage',
+        type: 'text',
+        values: ['64GB', '128GB', '256GB', '512GB', '1TB'],
+      },
     ];
 
-    const results: any[] = [];
+    const results: Awaited<
+      ReturnType<typeof this.prisma.productAttribute.findFirst>
+    >[] = [];
 
     for (const attr of commonAttributes) {
       let attribute = await this.prisma.productAttribute.findFirst({

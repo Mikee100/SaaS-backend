@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -26,7 +26,11 @@ export class SalesTargetService {
     };
   }
 
-  async createTargets(tenantId: string, targets: { daily: number; weekly: number; monthly: number }) {
+  createTargets(
+    tenantId: string,
+    targets: { daily: number; weekly: number; monthly: number },
+  ) {
+    void tenantId;
     return {
       daily: targets.daily,
       weekly: targets.weekly,
@@ -34,7 +38,10 @@ export class SalesTargetService {
     };
   }
 
-  async updateTargets(tenantId: string, targets: { daily: number; weekly: number; monthly: number }) {
+  async updateTargets(
+    tenantId: string,
+    targets: { daily: number; weekly: number; monthly: number },
+  ) {
     const existing = await this.prisma.salesTarget.findFirst({
       where: { tenantId },
     });

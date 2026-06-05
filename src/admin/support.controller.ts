@@ -13,11 +13,40 @@ import { AuthGuard } from '@nestjs/passport';
 import { SuperadminGuard } from './superadmin.guard';
 import { TrialGuard } from '../auth/trial.guard';
 import { SupportService } from './support.service';
+import {
+  TicketCategory,
+  TicketPriority,
+  TicketStatus,
+} from './support.service';
 
 @Controller('admin/support')
 @UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
+
+  private asStatus(value?: string): TicketStatus | undefined {
+    return ['open', 'in_progress', 'resolved', 'closed'].includes(value ?? '')
+      ? (value as TicketStatus)
+      : undefined;
+  }
+
+  private asPriority(value?: string): TicketPriority | undefined {
+    return ['low', 'medium', 'high', 'critical'].includes(value ?? '')
+      ? (value as TicketPriority)
+      : undefined;
+  }
+
+  private asCategory(value?: string): TicketCategory | undefined {
+    return [
+      'technical',
+      'billing',
+      'feature_request',
+      'bug_report',
+      'general',
+    ].includes(value ?? '')
+      ? (value as TicketCategory)
+      : undefined;
+  }
 
   @Get('tickets')
   async getTickets(
@@ -38,8 +67,8 @@ export class SupportController {
     @Body() body: { status?: string; priority?: string },
   ) {
     return this.supportService.updateTicket(ticketId, {
-      status: body.status as any,
-      priority: body.priority as any,
+      status: this.asStatus(body.status),
+      priority: this.asPriority(body.priority),
     });
   }
 
@@ -78,8 +107,8 @@ export class SupportController {
       userId: body.userId,
       subject: body.subject,
       description: body.description,
-      priority: body.priority as any,
-      category: body.category as any,
+      priority: this.asPriority(body.priority),
+      category: this.asCategory(body.category),
     });
   }
 }

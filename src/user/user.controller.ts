@@ -3,7 +3,6 @@ import {
   Post,
   Body,
   Get,
-  Query,
   UseGuards,
   Req,
   Put,
@@ -28,6 +27,27 @@ import {
   getDefaultCrmEntitlements,
   normalizeCrmEntitlements,
 } from '../auth/crm-entitlements.constants';
+import { AuthenticatedRequest } from '../auth/request.types';
+
+interface UserRoleLike {
+  tenantId?: string | null;
+  role?: { id?: string; name?: string | null } | null;
+}
+
+interface UserPermissionLike {
+  permission?: string;
+}
+
+interface UserListItemLike {
+  id: string;
+  tenantId?: string | null;
+  preferences?: unknown;
+  userPermissions?: UserPermissionLike[];
+  [key: string]: unknown;
+}
+
+const getActorUserId = (req: AuthenticatedRequest): string | undefined =>
+  req.user.userId ?? req.user.sub;
 
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 @Controller('user')
@@ -38,7 +58,7 @@ export class UserController {
   ) {}
 
   @Get('me')
-  async getMe(@Req() req) {
+  async getMe(@Req() req: AuthenticatedRequest) {
     const user = req.user;
     const tenantId = user?.tenantId ? String(user.tenantId) : null;
     // Get effective permissions and full user record for preferences
@@ -47,7 +67,9 @@ export class UserController {
         user.userId || user.sub,
         tenantId,
       ),
-      this.userService.findById(user.userId || user.sub, { include: undefined }),
+      this.userService.findById(user.userId || user.sub, {
+        include: undefined,
+      }),
     ]);
 
     const [moduleConfig, crmConfig] = tenantId
@@ -75,7 +97,9 @@ export class UserController {
 
     let parsedModules: unknown;
     try {
-      parsedModules = moduleConfig?.value ? JSON.parse(moduleConfig.value) : undefined;
+      parsedModules = moduleConfig?.value
+        ? JSON.parse(moduleConfig.value)
+        : undefined;
     } catch {
       parsedModules = undefined;
     }
@@ -87,7 +111,9 @@ export class UserController {
     } catch {
       parsedCrm = undefined;
     }
-    const crmEntitlements = normalizeCrmEntitlements(parsedCrm || getDefaultCrmEntitlements());
+    const crmEntitlements = normalizeCrmEntitlements(
+      parsedCrm || getDefaultCrmEntitlements(),
+    );
 
     const prefs = (dbUser?.preferences as Record<string, unknown>) || {};
     return {
@@ -115,18 +141,25 @@ export class UserController {
   @Put(':id/permissions')
   @Permissions('edit_users')
   async updateUserPermissions(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { permissions: string[] },
   ) {
     // Only allow owners to update permissions for users in their tenant
 
-    const actorUser = await this.userService.findById(req.user.userId);
+    const actorUserId = getActorUserId(req);
+    if (!actorUserId || !req.user.tenantId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
+
+    const actorUser = await this.userService.findById(actorUserId);
+    const actorRoles = Array.isArray(actorUser?.userRoles)
+      ? (actorUser.userRoles as UserRoleLike[])
+      : [];
     const isOwner =
-      actorUser &&
-      actorUser.userRoles &&
-      actorUser.userRoles.some(
-        (ur: any) => ur.role?.name === 'owner' && ur.tenantId === req.user.tenantId,
+      !!actorUser &&
+      actorRoles.some(
+        (ur) => ur.role?.name === 'owner' && ur.tenantId === req.user.tenantId,
       );
     if (!isOwner)
       throw new ForbiddenException('Only owners can update user permissions');
@@ -136,15 +169,15 @@ export class UserController {
     if (!sameTenant)
       throw new ForbiddenException('Can only update users in your tenant');
 
-    const isTenantUser =
-      targetUser &&
-      Array.isArray(targetUser.userRoles) &&
-      targetUser.userRoles.some(
-        (ur: any) =>
-          ur.tenantId === req.user.tenantId &&
-          (ur.role?.name?.toLowerCase() === 'owner' ||
-            ur.role?.name?.toLowerCase() === 'admin'),
-      );
+    const targetRoles = Array.isArray(targetUser?.userRoles)
+      ? (targetUser.userRoles as UserRoleLike[])
+      : [];
+    const isTenantUser = targetRoles.some(
+      (ur) =>
+        ur.tenantId === req.user.tenantId &&
+        (ur.role?.name?.toLowerCase() === 'owner' ||
+          ur.role?.name?.toLowerCase() === 'admin'),
+    );
     if (isTenantUser)
       throw new ForbiddenException(
         'This is the tenant and permissions cannot be edited.',
@@ -154,33 +187,40 @@ export class UserController {
       id,
       body.permissions,
       req.user.tenantId,
-      req.user.userId,
+      actorUserId,
       req.ip,
     );
   }
 
   @Post()
   @Permissions('edit_users')
-  async createUser(@Body() body: any, @Req() req) {
+  async createUser(
+    @Body() body: Record<string, unknown>,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const actorUserId = getActorUserId(req);
+    if (!req.user.tenantId || !actorUserId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
     // Use the current tenant from JWT
     return this.userService.createUser(
       { ...body, tenantId: req.user.tenantId },
-      req.user.userId,
+      actorUserId,
       req.ip,
     );
   }
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
-  async getUsers(@Req() req: any) {
-    const isSuperadmin = req.user.isSuperadmin;
-    let tenantId = req.user.tenantId;
-    const normalizePermissions = async (users: any[]) =>
+  async getUsers(@Req() req: AuthenticatedRequest) {
+    const isSuperadmin = req.user.isSuperadmin === true;
+    const tenantId = req.user.tenantId;
+    const normalizePermissions = async (users: UserListItemLike[]) =>
       Promise.all(
         users.map(async (u) => {
           const directPermissions = Array.isArray(u.userPermissions)
             ? u.userPermissions
-                .map((up: any) => up?.permission)
+                .map((up) => up?.permission)
                 .filter(
                   (perm: unknown): perm is string =>
                     typeof perm === 'string' && perm.length > 0,
@@ -194,17 +234,26 @@ export class UserController {
             )
           )
             .map((p) => p.name)
-            .filter((perm): perm is string => typeof perm === 'string' && perm.length > 0);
+            .filter(
+              (perm): perm is string =>
+                typeof perm === 'string' && perm.length > 0,
+            );
 
           const inheritedPermissions = effectivePermissions.filter(
             (perm) => !directPermissions.includes(perm),
           );
 
           const rawPreferences =
-            u?.preferences && typeof u.preferences === 'object' && !Array.isArray(u.preferences)
+            u?.preferences &&
+            typeof u.preferences === 'object' &&
+            !Array.isArray(u.preferences)
               ? { ...(u.preferences as Record<string, unknown>) }
               : undefined;
-          const hasPosPin = Boolean(rawPreferences && typeof rawPreferences.posPinHash === 'string' && rawPreferences.posPinHash.length > 0);
+          const hasPosPin = Boolean(
+            rawPreferences &&
+              typeof rawPreferences.posPinHash === 'string' &&
+              rawPreferences.posPinHash.length > 0,
+          );
           if (rawPreferences && 'posPinHash' in rawPreferences) {
             delete rawPreferences.posPinHash;
           }
@@ -223,38 +272,39 @@ export class UserController {
     if (isSuperadmin) {
       // Return all users for superadmin
       const users = await this.userService.findAll();
-      return await normalizePermissions(users as any[]);
+      return await normalizePermissions(users as UserListItemLike[]);
+    }
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
     }
     // Return users for tenant
     const users = await this.userService.findAllByTenant(tenantId);
-    return await normalizePermissions(users as any[]);
+    return await normalizePermissions(users as UserListItemLike[]);
   }
 
   @Get('protected')
-  getProtected(@Req() req) {
+  getProtected(@Req() req: AuthenticatedRequest) {
     return { message: 'You are authenticated!', user: req.user };
   }
 
   @Put(':id')
   @Permissions('edit_users')
   async updateUser(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { name?: string; role?: string },
   ) {
     const tenantId = req.user.tenantId;
-    return this.userService.updateUser(
-      id,
-      body,
-      tenantId,
-      req.user.userId,
-      req.ip,
-    );
+    const actorUserId = getActorUserId(req);
+    if (!tenantId || !actorUserId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
+    return this.userService.updateUser(id, body, tenantId, actorUserId, req.ip);
   }
 
   @Put('me/preferences')
   async updatePreferences(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body()
     body: {
       notificationPreferences?: any;
@@ -266,17 +316,17 @@ export class UserController {
       dashboardPreferences?: Record<string, unknown>;
     },
   ) {
-    const userId = req.user?.userId ?? req.user?.sub;
+    const userId = getActorUserId(req);
     if (!userId) throw new NotFoundException('User not found');
     return this.userService.updateUserPreferences(userId, body);
   }
 
   @Put('me/password')
   async changePassword(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: { currentPassword: string; newPassword: string },
   ) {
-    const userId = req.user?.userId ?? req.user?.sub;
+    const userId = getActorUserId(req);
     if (!userId) throw new NotFoundException('User not found');
     const { currentPassword, newPassword } = body;
     return this.userService.changePassword(
@@ -288,11 +338,11 @@ export class UserController {
 
   @Post('me/contact-admin')
   async contactAdmin(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body()
     body: { subject: string; message: string; isUrgent?: boolean },
   ) {
-    const userId = req.user?.userId ?? req.user?.sub;
+    const userId = getActorUserId(req);
     if (!userId) throw new NotFoundException('User not found');
     const { subject, message, isUrgent = false } = body;
     if (!subject?.trim() || !message?.trim()) {
@@ -300,7 +350,7 @@ export class UserController {
     }
     return this.userService.contactAdmin(
       userId,
-      req.user?.tenantId ?? null,
+      req.user.tenantId ?? null,
       subject.trim(),
       message.trim(),
       Boolean(isUrgent),
@@ -309,40 +359,57 @@ export class UserController {
 
   @Delete(':id')
   @Permissions('edit_users')
-  async deleteUser(@Req() req, @Param('id') id: string) {
+  async deleteUser(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ): Promise<unknown> {
+    const actorUserId = getActorUserId(req);
     const tenantId = req.user.tenantId;
-    return this.userService.deleteUser(id, tenantId, req.user.userId, req.ip);
+    if (!tenantId || !actorUserId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
+    return this.userService.deleteUser(id, tenantId, actorUserId, req.ip);
   }
 
   @Put(':id/pos-pin')
   @Permissions('edit_users')
   async setUserPosPin(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Body() body: { pin: string },
   ) {
+    const actorUserId = getActorUserId(req);
     const tenantId = req.user.tenantId;
+    if (!tenantId || !actorUserId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
     return this.userService.setUserPosPin(
       id,
       tenantId,
       body.pin,
-      req.user.userId,
+      actorUserId,
       req.ip,
     );
   }
 
   @Post('verify-pos-pin')
   async verifyUserPosPin(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() body: { userId: string; pin: string },
   ) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
     return this.userService.verifyUserPosPin(body.userId, tenantId, body.pin);
   }
 
   @Get('me/plan-limits')
-  async getPlanLimits(@Req() req) {
+  async getPlanLimits(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
 
     const result = await this.userService.getPlanLimits(tenantId);
 

@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateInventoryDto } from './create-inventory.dto';
 import { UpdateInventoryDto } from './update-inventory.dto';
 import { AuditLogService } from '../audit-log.service';
 import { RealtimeGateway } from '../realtime.gateway';
+
+type InventoryAlertInput = Prisma.InventoryAlertCreateInput;
+type InventoryForAlert = {
+  productId: string;
+  reorderPoint: number | null;
+  maxStock: number | null;
+  product: {
+    name: string;
+  } | null;
+};
 
 @Injectable()
 export class InventoryService {
@@ -36,50 +47,64 @@ export class InventoryService {
     ip?: string,
   ) {
     // Use a transaction to update both inventory and product stock
-    const result = await this.prisma.$transaction(async (prisma) => {
-      // Check if inventory record already exists
-      const existingInventory = await prisma.inventory.findFirst({
-        where: {
-          productId: dto.productId,
-          tenantId: tenantId,
-          branchId: dto.branchId,
-        },
-      });
-
-      let inventory;
-      if (existingInventory) {
-        // Update existing inventory record
-        inventory = await prisma.inventory.update({
-          where: { id: existingInventory.id },
-          data: { quantity: dto.quantity, branchId: dto.branchId },
-        });
-      } else {
-        // Create new inventory record
-        inventory = await prisma.inventory.create({
-          data: {
-            id: `inv_${Date.now()}`,
+    const result = await this.prisma.$transaction(
+      async (prisma: Prisma.TransactionClient) => {
+        // Check if inventory record already exists
+        const existingInventory = await prisma.inventory.findFirst({
+          where: {
             productId: dto.productId,
-            quantity: dto.quantity,
-            tenantId,
+            tenantId: tenantId,
             branchId: dto.branchId,
-            updatedAt: new Date(),
           },
         });
-      }
 
-      // Update the product's stock field to match inventory
-      await prisma.product.updateMany({
-        where: {
-          id: dto.productId,
-          tenantId: tenantId,
-        },
-        data: {
-          stock: dto.quantity,
-        },
-      });
+        if (existingInventory) {
+          // Update existing inventory record
+          const inventory = await prisma.inventory.update({
+            where: { id: existingInventory.id },
+            data: { quantity: dto.quantity, branchId: dto.branchId },
+          });
 
-      return inventory;
-    });
+          // Update the product's stock field to match inventory
+          await prisma.product.updateMany({
+            where: {
+              id: dto.productId,
+              tenantId: tenantId,
+            },
+            data: {
+              stock: dto.quantity,
+            },
+          });
+
+          return inventory;
+        } else {
+          // Create new inventory record
+          const inventory = await prisma.inventory.create({
+            data: {
+              id: `inv_${Date.now()}`,
+              productId: dto.productId,
+              quantity: dto.quantity,
+              tenantId,
+              branchId: dto.branchId,
+              updatedAt: new Date(),
+            },
+          });
+
+          // Update the product's stock field to match inventory
+          await prisma.product.updateMany({
+            where: {
+              id: dto.productId,
+              tenantId: tenantId,
+            },
+            data: {
+              stock: dto.quantity,
+            },
+          });
+
+          return inventory;
+        }
+      },
+    );
 
     if (this.auditLogService) {
       await this.auditLogService.log(
@@ -105,36 +130,38 @@ export class InventoryService {
     ip?: string,
   ) {
     // Use a transaction to update both inventory and product stock
-    const result = await this.prisma.$transaction(async (prisma) => {
-      // Update inventory record
-      const inventory = await prisma.inventory.updateMany({
-        where: { id, tenantId },
-        data: {
-          quantity: dto.quantity,
-          branchId: dto.branchId,
-        },
-      });
-
-      // Get the inventory record to find the product ID
-      const inventoryRecord = await prisma.inventory.findFirst({
-        where: { id, tenantId },
-      });
-
-      if (inventoryRecord && dto.quantity !== undefined) {
-        // Update the product's stock field to match inventory
-        await prisma.product.updateMany({
-          where: {
-            id: inventoryRecord.productId,
-            tenantId: tenantId,
-          },
+    const result = await this.prisma.$transaction(
+      async (prisma: Prisma.TransactionClient) => {
+        // Update inventory record
+        const inventory = await prisma.inventory.updateMany({
+          where: { id, tenantId },
           data: {
-            stock: dto.quantity,
+            quantity: dto.quantity,
+            branchId: dto.branchId,
           },
         });
-      }
 
-      return inventory;
-    });
+        // Get the inventory record to find the product ID
+        const inventoryRecord = await prisma.inventory.findFirst({
+          where: { id, tenantId },
+        });
+
+        if (inventoryRecord && dto.quantity !== undefined) {
+          // Update the product's stock field to match inventory
+          await prisma.product.updateMany({
+            where: {
+              id: inventoryRecord.productId,
+              tenantId: tenantId,
+            },
+            data: {
+              stock: dto.quantity,
+            },
+          });
+        }
+
+        return inventory;
+      },
+    );
 
     if (this.auditLogService) {
       await this.auditLogService.log(
@@ -292,6 +319,13 @@ export class InventoryService {
         tenantId,
         branchId: dto.branchId,
       },
+      include: {
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
 
     if (!currentInventory) {
@@ -372,36 +406,40 @@ export class InventoryService {
   }
 
   private async checkAndCreateAlerts(
-    inventory: any,
+    inventory: InventoryForAlert,
     newQuantity: number,
     tenantId: string,
     branchId?: string,
   ) {
-    const alerts: any[] = [];
+    const alerts: InventoryAlertInput[] = [];
+
+    const productName = inventory.product?.name || 'Unknown product';
+    const reorderPoint = inventory.reorderPoint ?? 0;
+    const maxStock = inventory.maxStock ?? Number.POSITIVE_INFINITY;
 
     if (newQuantity === 0) {
       alerts.push({
         productId: inventory.productId,
         type: 'out_of_stock',
-        message: `Product ${inventory.product?.name} is out of stock`,
+        message: `Product ${productName} is out of stock`,
         severity: 'critical',
         branchId,
         tenantId,
       });
-    } else if (newQuantity <= inventory.reorderPoint) {
+    } else if (newQuantity <= reorderPoint) {
       alerts.push({
         productId: inventory.productId,
         type: 'low_stock',
-        message: `Product ${inventory.product?.name} is low on stock (${newQuantity} remaining)`,
+        message: `Product ${productName} is low on stock (${newQuantity} remaining)`,
         severity: 'medium',
         branchId,
         tenantId,
       });
-    } else if (newQuantity > inventory.maxStock) {
+    } else if (newQuantity > maxStock) {
       alerts.push({
         productId: inventory.productId,
         type: 'over_stock',
-        message: `Product ${inventory.product?.name} is over stocked (${newQuantity} > ${inventory.maxStock})`,
+        message: `Product ${productName} is over stocked (${newQuantity} > ${maxStock})`,
         severity: 'low',
         branchId,
         tenantId,

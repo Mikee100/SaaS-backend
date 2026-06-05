@@ -110,40 +110,48 @@ export class MonitoringService {
 
   async getDatabaseMetrics(): Promise<DatabaseMetrics> {
     try {
-      const startTime = Date.now();
-
       // Get connection info from Prisma
-      const connectionInfo = await this.prisma.$queryRaw`
+      const connectionInfo = await this.prisma.$queryRaw<
+        Array<{ active_connections?: string; max_connections?: string }>
+      >`
         SELECT
           count(*) as active_connections,
           (SELECT setting FROM pg_settings WHERE name = 'max_connections') as max_connections
         FROM pg_stat_activity
         WHERE state = 'active'
-      ` as any[];
+      `;
 
-      const activeConnections = parseInt(connectionInfo[0]?.active_connections || '0');
-      const maxConnections = parseInt(connectionInfo[0]?.max_connections || '100');
+      const activeConnections = parseInt(
+        connectionInfo[0]?.active_connections || '0',
+      );
+      const maxConnections = parseInt(
+        connectionInfo[0]?.max_connections || '100',
+      );
 
       // Get query performance metrics
-      const queryMetrics = await this.prisma.$queryRaw`
+      const queryMetrics = await this.prisma.$queryRaw<
+        Array<{ total_queries?: string; avg_query_time?: string }>
+      >`
         SELECT
           count(*) as total_queries,
           avg(extract(epoch from (now() - query_start))) * 1000 as avg_query_time
         FROM pg_stat_activity
         WHERE state = 'active' AND query_start IS NOT NULL
-      ` as any[];
+      `;
 
       const totalQueries = parseInt(queryMetrics[0]?.total_queries || '0');
       const avgQueryTime = parseFloat(queryMetrics[0]?.avg_query_time || '0');
 
       // Get slow queries (queries taking more than 1 second)
-      const slowQueries = await this.prisma.$queryRaw`
+      const slowQueries = await this.prisma.$queryRaw<
+        Array<{ slow_queries?: string }>
+      >`
         SELECT count(*) as slow_queries
         FROM pg_stat_activity
         WHERE state = 'active'
           AND query_start IS NOT NULL
           AND extract(epoch from (now() - query_start)) > 1
-      ` as any[];
+      `;
 
       const slowQueryCount = parseInt(slowQueries[0]?.slow_queries || '0');
 
@@ -178,12 +186,16 @@ export class MonitoringService {
       const dbResponseTime = Date.now() - dbStartTime;
 
       // Get active connections
-      const connectionInfo = await this.prisma.$queryRaw`
+      const connectionInfo = await this.prisma.$queryRaw<
+        Array<{ active_connections?: string }>
+      >`
         SELECT count(*) as active_connections
         FROM pg_stat_activity
         WHERE state = 'active'
-      ` as any[];
-      const activeConnections = parseInt(connectionInfo[0]?.active_connections || '0');
+      `;
+      const activeConnections = parseInt(
+        connectionInfo[0]?.active_connections || '0',
+      );
 
       // System metrics
       const [cpu, mem, disk] = await Promise.all([
@@ -195,7 +207,7 @@ export class MonitoringService {
       const cpuUsage = Math.round(cpu.currentLoad);
       const memoryUsage = Math.round((mem.used / mem.total) * 100);
       const diskUsage = Math.round(
-        disk.reduce((acc, d) => acc + (d.used / d.size) * 100, 0) / disk.length
+        disk.reduce((acc, d) => acc + (d.used / d.size) * 100, 0) / disk.length,
       );
 
       const result: HealthCheckResult = {
@@ -216,9 +228,19 @@ export class MonitoringService {
       };
 
       // Determine overall status
-      if (cpuUsage > 90 || memoryUsage > 90 || diskUsage > 95 || dbResponseTime > 5000) {
+      if (
+        cpuUsage > 90 ||
+        memoryUsage > 90 ||
+        diskUsage > 95 ||
+        dbResponseTime > 5000
+      ) {
         result.status = 'unhealthy';
-      } else if (cpuUsage > 80 || memoryUsage > 80 || diskUsage > 85 || dbResponseTime > 2000) {
+      } else if (
+        cpuUsage > 80 ||
+        memoryUsage > 80 ||
+        diskUsage > 85 ||
+        dbResponseTime > 2000
+      ) {
         result.status = 'degraded';
       }
 
@@ -261,18 +283,21 @@ export class MonitoringService {
     }
   }
 
-  async getHealthHistory(limit: number = 50): Promise<HealthCheckResult[]> {
+  getHealthHistory(limit: number = 50): HealthCheckResult[] {
     return this.healthHistory.slice(0, limit);
   }
 
-  async getAlertConfigs(): Promise<AlertConfig[]> {
+  getAlertConfigs(): AlertConfig[] {
     return this.alertConfigs;
   }
 
-  async updateAlertConfig(alertId: string, config: Partial<AlertConfig>): Promise<void> {
-    const alertIndex = this.alertConfigs.findIndex(a => a.id === alertId);
+  updateAlertConfig(alertId: string, config: Partial<AlertConfig>): void {
+    const alertIndex = this.alertConfigs.findIndex((a) => a.id === alertId);
     if (alertIndex !== -1) {
-      this.alertConfigs[alertIndex] = { ...this.alertConfigs[alertIndex], ...config };
+      this.alertConfigs[alertIndex] = {
+        ...this.alertConfigs[alertIndex],
+        ...config,
+      };
     }
   }
 
@@ -289,22 +314,26 @@ export class MonitoringService {
           if (alert.id === 'db-connection-high') {
             currentValue = healthResult.database.activeConnections;
             metricName = 'Database Active Connections';
-            shouldTrigger = alert.condition === 'above' && currentValue > alert.threshold;
+            shouldTrigger =
+              alert.condition === 'above' && currentValue > alert.threshold;
           }
           break;
         case 'system':
           if (alert.id === 'cpu-high') {
             currentValue = healthResult.system.cpu;
             metricName = 'CPU Usage';
-            shouldTrigger = alert.condition === 'above' && currentValue > alert.threshold;
+            shouldTrigger =
+              alert.condition === 'above' && currentValue > alert.threshold;
           } else if (alert.id === 'memory-high') {
             currentValue = healthResult.system.memory;
             metricName = 'Memory Usage';
-            shouldTrigger = alert.condition === 'above' && currentValue > alert.threshold;
+            shouldTrigger =
+              alert.condition === 'above' && currentValue > alert.threshold;
           } else if (alert.id === 'disk-high') {
             currentValue = healthResult.system.disk;
             metricName = 'Disk Usage';
-            shouldTrigger = alert.condition === 'above' && currentValue > alert.threshold;
+            shouldTrigger =
+              alert.condition === 'above' && currentValue > alert.threshold;
           }
           break;
       }
@@ -315,8 +344,14 @@ export class MonitoringService {
     }
   }
 
-  private async triggerAlert(alert: AlertConfig, currentValue: number, metricName: string): Promise<void> {
-    this.logger.warn(`Alert triggered: ${alert.name} - ${metricName}: ${currentValue}`);
+  private async triggerAlert(
+    alert: AlertConfig,
+    currentValue: number,
+    metricName: string,
+  ): Promise<void> {
+    this.logger.warn(
+      `Alert triggered: ${alert.name} - ${metricName}: ${currentValue}`,
+    );
 
     // Send email notification using EmailService method
     let status: 'sent' | 'failed' = 'failed';
@@ -349,7 +384,11 @@ export class MonitoringService {
     }
   }
 
-  private async sendAlertEmail(alert: AlertConfig, currentValue: number, metricName: string): Promise<void> {
+  private async sendAlertEmail(
+    alert: AlertConfig,
+    currentValue: number,
+    metricName: string,
+  ): Promise<void> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #dc3545;">🚨 System Alert</h2>
@@ -367,12 +406,14 @@ export class MonitoringService {
       await this.emailService.sendPaymentConfirmationEmail(
         process.env.ADMIN_EMAIL || 'admin@saasplatform.com',
         `🚨 Alert: ${alert.name}`,
-        html
+        html,
       );
     } catch (error) {
       this.logger.error('Failed to send alert email:', error);
       // Fallback: log the alert
-      this.logger.warn(`ALERT: ${alert.name} - ${metricName}: ${currentValue} (threshold: ${alert.threshold})`);
+      this.logger.warn(
+        `ALERT: ${alert.name} - ${metricName}: ${currentValue} (threshold: ${alert.threshold})`,
+      );
     }
   }
 
@@ -399,14 +440,14 @@ export class MonitoringService {
           free: mem.free,
           usagePercent: Math.round((mem.used / mem.total) * 100),
         },
-        disk: disk.map(d => ({
+        disk: disk.map((d) => ({
           filesystem: d.fs,
           size: d.size,
           used: d.used,
           available: d.available,
           usagePercent: Math.round((d.used / d.size) * 100),
         })),
-        network: network.map(n => ({
+        network: network.map((n) => ({
           interface: n.iface,
           rxBytes: n.rx_bytes,
           txBytes: n.tx_bytes,
@@ -429,7 +470,7 @@ export class MonitoringService {
         lastBackupAt: null,
         lastBackupDuration: null,
         lastBackupSize: null,
-        lastError: error.message,
+        lastError: error instanceof Error ? error.message : 'Unknown error',
         nextBackupAt: null,
         totalBackups: 0,
         diskSpaceUsed: 0,
@@ -437,7 +478,7 @@ export class MonitoringService {
     }
   }
 
-  async getNotificationHistory(limit: number = 50): Promise<NotificationHistory[]> {
+  getNotificationHistory(limit: number = 50): NotificationHistory[] {
     return this.notificationHistory.slice(0, limit);
   }
 }

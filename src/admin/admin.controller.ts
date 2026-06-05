@@ -13,6 +13,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Request as ExpressRequest } from 'express';
 import { AdminService } from './admin.service';
 import { SuperadminGuard } from './superadmin.guard';
 import { SubscriptionService } from '../billing/subscription.service';
@@ -34,7 +35,6 @@ import {
   CRM_ENTITLEMENTS_CONFIG_KEY,
   CRM_PACKAGES,
   CrmAllowedProviders,
-  CrmCapabilityKey,
   CrmEntitlements,
   CrmLimits,
   getDefaultCrmEntitlements,
@@ -72,6 +72,36 @@ interface CreateTenantDto {
   [key: string]: any;
 }
 
+type UpdateTenantBusinessDto = Partial<{
+  name: string;
+  businessType: string;
+  contactEmail: string;
+  contactPhone: string | null;
+  address: string | null;
+  country: string | null;
+  kraEnabled: boolean;
+  kraPin: string | null;
+  vatNumber: string | null;
+  etimsQrUrl: string | null;
+  restaurantFeaturesEnabled: boolean;
+}>;
+
+type CreatePlanDto = {
+  name: string;
+  description: string;
+  price: number;
+  interval: string;
+  maxUsers?: number;
+  maxProducts?: number;
+  maxSalesPerMonth?: number;
+  maxBranches?: number;
+  isActive?: boolean;
+  stripePriceId?: string;
+  featureIds: string[];
+};
+
+type UpdatePlanDto = Partial<CreatePlanDto>;
+
 const MODULE_PERMISSION_REQUIREMENTS: Array<{
   module: (typeof AVAILABLE_MODULES)[number];
   requiredPermissions: string[];
@@ -80,7 +110,10 @@ const MODULE_PERMISSION_REQUIREMENTS: Array<{
   { module: 'payroll', requiredPermissions: ['view_sales'] },
   { module: 'sales', requiredPermissions: ['view_sales'] },
   { module: 'credits', requiredPermissions: ['view_users'] },
-  { module: 'inventory', requiredPermissions: ['view_products', 'view_inventory'] },
+  {
+    module: 'inventory',
+    requiredPermissions: ['view_products', 'view_inventory'],
+  },
   { module: 'accounts', requiredPermissions: [] },
   { module: 'analytics', requiredPermissions: ['view_analytics'] },
   { module: 'reports', requiredPermissions: ['view_reports'] },
@@ -105,6 +138,27 @@ export class AdminController {
     private readonly prisma: PrismaService,
   ) {}
 
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asString(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+  }
+
+  private getActorUserId(req: ExpressRequest): string | null {
+    const user = this.asObject(
+      (req as ExpressRequest & { user?: unknown }).user,
+    );
+    return this.asString(user?.userId) || this.asString(user?.sub) || null;
+  }
+
+  private getRequestIp(req: ExpressRequest): string | undefined {
+    return typeof req.ip === 'string' ? req.ip : undefined;
+  }
+
   @Get('stats')
   async getPlatformStats() {
     this.logger.log('AdminController: getPlatformStats called');
@@ -112,18 +166,14 @@ export class AdminController {
   }
 
   @Get('stats/revenue-history')
-  async getRevenueHistory(
-    @Query('months') months?: string,
-  ) {
+  async getRevenueHistory(@Query('months') months?: string) {
     this.logger.log('AdminController: getRevenueHistory called');
     const monthsNum = months ? Number(months) : 12;
     return this.adminService.getRevenueHistory(monthsNum);
   }
 
   @Get('stats/tenant-growth')
-  async getTenantGrowth(
-    @Query('months') months?: string,
-  ) {
+  async getTenantGrowth(@Query('months') months?: string) {
     this.logger.log('AdminController: getTenantGrowth called');
     const monthsNum = months ? Number(months) : 12;
     return this.adminService.getTenantGrowth(monthsNum);
@@ -186,7 +236,10 @@ export class AdminController {
     this.logger.log(
       `AdminController: updateTenant called with tenantId: ${tenantId}`,
     );
-    return this.adminService.updateTenantBusiness(tenantId, body as any);
+    return this.adminService.updateTenantBusiness(
+      tenantId,
+      body as UpdateTenantBusinessDto,
+    );
   }
 
   @Get('tenants/:id/products')
@@ -215,10 +268,11 @@ export class AdminController {
 
   @Get('tenants/:id/modules')
   async getTenantModules(@Param('id') tenantId: string) {
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
 
     let parsed: unknown;
     try {
@@ -248,12 +302,13 @@ export class AdminController {
   async updateTenantModules(
     @Param('id') tenantId: string,
     @Body() body: { enabledModules?: string[] },
-    @Req() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
     let previousParsed: unknown;
     try {
       previousParsed = configured ? JSON.parse(configured) : undefined;
@@ -275,15 +330,16 @@ export class AdminController {
       },
     );
 
+    const actorUserId = this.getActorUserId(req);
     await this.auditLogService.log(
-      req.user?.userId || req.user?.sub || null,
+      actorUserId,
       'platform_tenant_modules_updated',
       {
         tenantId,
         previousModules,
         enabledModules,
       },
-      req.ip,
+      this.getRequestIp(req),
     );
 
     return {
@@ -298,17 +354,18 @@ export class AdminController {
   async applyTenantModulePreset(
     @Param('id') tenantId: string,
     @Body() body: { presetKey?: string },
-    @Req() req: any,
+    @Req() req: ExpressRequest,
   ) {
     const preset = getModulePreset(body?.presetKey);
     if (!preset) {
       throw new BadRequestException('Invalid module preset key');
     }
 
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
     let previousParsed: unknown;
     try {
       previousParsed = configured ? JSON.parse(configured) : undefined;
@@ -330,8 +387,9 @@ export class AdminController {
       },
     );
 
+    const actorUserId = this.getActorUserId(req);
     await this.auditLogService.log(
-      req.user?.userId || req.user?.sub || null,
+      actorUserId,
       'platform_tenant_module_preset_applied',
       {
         tenantId,
@@ -339,7 +397,7 @@ export class AdminController {
         previousModules,
         enabledModules,
       },
-      req.ip,
+      this.getRequestIp(req),
     );
 
     return {
@@ -353,10 +411,11 @@ export class AdminController {
 
   @Get('tenants/:id/module-permission-matrix')
   async getTenantModulePermissionMatrix(@Param('id') tenantId: string) {
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      MODULES_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      );
 
     let parsed: unknown;
     try {
@@ -387,7 +446,9 @@ export class AdminController {
 
     const rolePermissions = new Map<string, Set<string>>();
     for (const userRole of userRoles) {
-      const roleName = String(userRole.role?.name || '').toLowerCase().trim();
+      const roleName = String(userRole.role?.name || '')
+        .toLowerCase()
+        .trim();
       if (!roleName) continue;
 
       if (!rolePermissions.has(roleName)) {
@@ -441,10 +502,11 @@ export class AdminController {
 
   @Get('tenants/:id/crm-entitlements')
   async getTenantCrmEntitlements(@Param('id') tenantId: string) {
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      CRM_ENTITLEMENTS_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_ENTITLEMENTS_CONFIG_KEY,
+      );
 
     let parsed: unknown;
     try {
@@ -453,7 +515,9 @@ export class AdminController {
       parsed = undefined;
     }
 
-    const entitlements = normalizeCrmEntitlements(parsed || getDefaultCrmEntitlements());
+    const entitlements = normalizeCrmEntitlements(
+      parsed || getDefaultCrmEntitlements(),
+    );
 
     return {
       tenantId,
@@ -468,12 +532,13 @@ export class AdminController {
   async updateTenantCrmEntitlements(
     @Param('id') tenantId: string,
     @Body() body: UpdateCrmEntitlementsDto,
-    @Req() req: any,
+    @Req() req: ExpressRequest,
   ) {
-    const configured = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      CRM_ENTITLEMENTS_CONFIG_KEY,
-    );
+    const configured =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_ENTITLEMENTS_CONFIG_KEY,
+      );
 
     let previousParsed: unknown;
     try {
@@ -482,7 +547,9 @@ export class AdminController {
       previousParsed = undefined;
     }
 
-    const previous = normalizeCrmEntitlements(previousParsed || getDefaultCrmEntitlements());
+    const previous = normalizeCrmEntitlements(
+      previousParsed || getDefaultCrmEntitlements(),
+    );
     const base = body?.packageKey
       ? getCrmPackageTemplate(normalizeCrmPackageKey(body.packageKey))
       : previous;
@@ -490,11 +557,13 @@ export class AdminController {
     const nextCapabilitiesRaw = body?.enabledCapabilities
       ? normalizeCrmCapabilities(body.enabledCapabilities)
       : base.enabledCapabilities;
-    const nextCapabilities = (nextCapabilitiesRaw.length > 0
-      ? nextCapabilitiesRaw
-      : base.enabledCapabilities) as CrmCapabilityKey[];
+    const nextCapabilities =
+      nextCapabilitiesRaw.length > 0
+        ? nextCapabilitiesRaw
+        : base.enabledCapabilities;
 
-    const dependencyErrors = validateCrmCapabilityDependencies(nextCapabilities);
+    const dependencyErrors =
+      validateCrmCapabilityDependencies(nextCapabilities);
     if (dependencyErrors.length > 0) {
       throw new BadRequestException({
         message: 'Invalid CRM capability combination',
@@ -506,7 +575,10 @@ export class AdminController {
       packageKey: base.packageKey,
       enabledCapabilities: nextCapabilities,
       limits: normalizeCrmLimits(body?.limits, base.limits),
-      allowedProviders: normalizeCrmAllowedProviders(body?.allowedProviders, base.allowedProviders),
+      allowedProviders: normalizeCrmAllowedProviders(
+        body?.allowedProviders,
+        base.allowedProviders,
+      ),
     };
 
     await this.tenantConfigurationService.setTenantConfiguration(
@@ -521,7 +593,7 @@ export class AdminController {
       },
     );
 
-    const actorUserId = req.user?.userId || req.user?.sub || null;
+    const actorUserId = this.getActorUserId(req);
     await this.auditLogService.log(
       actorUserId,
       'platform_tenant_crm_entitlements_updated',
@@ -535,7 +607,7 @@ export class AdminController {
         previous,
         next,
       },
-      req.ip,
+      this.getRequestIp(req),
     );
 
     return {
@@ -594,13 +666,16 @@ export class AdminController {
   }
 
   @Post('plans')
-  async createPlan(@Body() planData: any) {
+  async createPlan(@Body() planData: CreatePlanDto) {
     this.logger.log('AdminController: createPlan called');
     return this.adminService.createPlan(planData);
   }
 
   @Put('plans/:id')
-  async updatePlan(@Param('id') planId: string, @Body() planData: any) {
+  async updatePlan(
+    @Param('id') planId: string,
+    @Body() planData: UpdatePlanDto,
+  ) {
     this.logger.log(
       `AdminController: updatePlan called with planId: ${planId}`,
     );
@@ -622,19 +697,28 @@ export class AdminController {
   }
 
   @Post('tenants')
-  async createTenant(@Body() tenantData: CreateTenantDto, @Req() req: any) {
+  async createTenant(
+    @Body() tenantData: CreateTenantDto,
+    @Req() req: ExpressRequest,
+  ) {
     this.logger.log('AdminController: createTenant called');
-    const packageFromRequest = tenantData?.crmEntitlements?.packageKey || tenantData?.crmPackageKey;
-    const defaultTemplate = getCrmPackageTemplate(normalizeCrmPackageKey(packageFromRequest));
+    const packageFromRequest =
+      tenantData?.crmEntitlements?.packageKey || tenantData?.crmPackageKey;
+    const defaultTemplate = getCrmPackageTemplate(
+      normalizeCrmPackageKey(packageFromRequest),
+    );
 
-    const requestedCapabilities = tenantData?.crmEntitlements?.enabledCapabilities
+    const requestedCapabilities = tenantData?.crmEntitlements
+      ?.enabledCapabilities
       ? normalizeCrmCapabilities(tenantData.crmEntitlements.enabledCapabilities)
       : defaultTemplate.enabledCapabilities;
-    const enabledCapabilities = requestedCapabilities.length > 0
-      ? requestedCapabilities
-      : defaultTemplate.enabledCapabilities;
+    const enabledCapabilities =
+      requestedCapabilities.length > 0
+        ? requestedCapabilities
+        : defaultTemplate.enabledCapabilities;
 
-    const dependencyErrors = validateCrmCapabilityDependencies(enabledCapabilities);
+    const dependencyErrors =
+      validateCrmCapabilityDependencies(enabledCapabilities);
     if (dependencyErrors.length > 0) {
       throw new BadRequestException({
         message: 'Invalid CRM capability combination for tenant creation',
@@ -647,7 +731,10 @@ export class AdminController {
     const next: CrmEntitlements = {
       packageKey: defaultTemplate.packageKey,
       enabledCapabilities,
-      limits: normalizeCrmLimits(tenantData?.crmEntitlements?.limits, defaultTemplate.limits),
+      limits: normalizeCrmLimits(
+        tenantData?.crmEntitlements?.limits,
+        defaultTemplate.limits,
+      ),
       allowedProviders: normalizeCrmAllowedProviders(
         tenantData?.crmEntitlements?.allowedProviders,
         defaultTemplate.allowedProviders,
@@ -667,7 +754,8 @@ export class AdminController {
     );
 
     const selectedPreset =
-      getModulePreset(tenantData?.modulePresetKey) || getModulePreset('full_suite');
+      getModulePreset(tenantData?.modulePresetKey) ||
+      getModulePreset('full_suite');
     const enabledModules = normalizeEnabledModules(
       selectedPreset?.enabledModules || DEFAULT_ENABLED_MODULES,
     );
@@ -684,7 +772,7 @@ export class AdminController {
       },
     );
 
-    const actorUserId = req.user?.userId || req.user?.sub || null;
+    const actorUserId = this.getActorUserId(req);
     await this.auditLogService.log(
       actorUserId,
       'platform_tenant_crm_entitlements_updated',
@@ -698,7 +786,7 @@ export class AdminController {
         previous: null,
         next,
       },
-      req.ip,
+      this.getRequestIp(req),
     );
 
     await this.auditLogService.log(
@@ -712,7 +800,7 @@ export class AdminController {
         previousModules: [],
         enabledModules,
       },
-      req.ip,
+      this.getRequestIp(req),
     );
 
     return created;
@@ -723,18 +811,22 @@ export class AdminController {
     @Param('id') tenantId: string,
     @Query('limit') limit?: string,
   ) {
-    const limitNum = Number.isFinite(Number(limit)) ? Math.min(Math.max(Number(limit), 1), 200) : 50;
+    const limitNum = Number.isFinite(Number(limit))
+      ? Math.min(Math.max(Number(limit), 1), 200)
+      : 50;
     const logs = await this.auditLogService.getLogs(500);
 
     const filtered = logs
-      .filter((log) => log.action === 'platform_tenant_crm_entitlements_updated')
+      .filter(
+        (log) => log.action === 'platform_tenant_crm_entitlements_updated',
+      )
       .filter((log) => {
-        const details = (log.details || {}) as any;
+        const details = this.asObject(log.details) ?? {};
         return details?.tenantId === tenantId;
       })
       .slice(0, limitNum)
       .map((log) => {
-        const details = (log.details || {}) as any;
+        const details = this.asObject(log.details) ?? {};
         return {
           id: log.id,
           action: log.action,
@@ -747,9 +839,9 @@ export class AdminController {
                 email: log.User.email,
               }
             : null,
-          source: details?.source || null,
-          reason: details?.reason || null,
-          effectiveFrom: details?.effectiveFrom || null,
+          source: this.asString(details.source) || null,
+          reason: this.asString(details.reason) || null,
+          effectiveFrom: this.asString(details.effectiveFrom) || null,
           effectiveTo: details?.effectiveTo ?? null,
           previous: details?.previous || null,
           next: details?.next || null,
@@ -809,9 +901,7 @@ export class AdminController {
 
   @Post('users/:id/logout-all')
   async logoutAllSessions(@Param('id') userId: string) {
-    this.logger.log(
-      `AdminController: logout-all called for userId: ${userId}`,
-    );
+    this.logger.log(`AdminController: logout-all called for userId: ${userId}`);
     const count = await this.authService.revokeAllSessionsForUser(userId);
     return { revoked: count };
   }
@@ -821,7 +911,9 @@ export class AdminController {
     @Param('id') userId: string,
     @Query('limit') limit: string,
   ) {
-    this.logger.log(`AdminController: getUserActivity called for userId: ${userId}`);
+    this.logger.log(
+      `AdminController: getUserActivity called for userId: ${userId}`,
+    );
     const limitNum = limit ? Number(limit) : 50;
     return this.adminService.getUserActivity(userId, limitNum);
   }

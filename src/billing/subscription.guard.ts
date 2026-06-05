@@ -5,13 +5,19 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { AuthenticatedRequest } from '../auth/request.types';
+
+type ActiveSubscription = {
+  status: string;
+  currentPeriodEnd: Date;
+};
 
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const tenantId = request.user?.tenantId;
 
     if (!tenantId) {
@@ -19,17 +25,18 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     // Fetch active subscription for tenant
-    const subscription = await this.prisma.subscription.findFirst({
+    const subscription = (await this.prisma.subscription.findFirst({
       where: {
         tenantId,
         status: {
           in: ['active', 'trialing', 'past_due'],
         },
       },
-      include: {
-        Plan: true,
+      select: {
+        status: true,
+        currentPeriodEnd: true,
       },
-    });
+    })) as ActiveSubscription | null;
 
     if (!subscription) {
       throw new ForbiddenException('No active or trial subscription found');
@@ -42,8 +49,6 @@ export class SubscriptionGuard implements CanActivate {
     ) {
       throw new ForbiddenException('Subscription payment is overdue');
     }
-
-    const plan = subscription.Plan;
 
     // Example enforcement: check maxUsers limit
     // This is a placeholder, actual enforcement logic depends on the resource being accessed

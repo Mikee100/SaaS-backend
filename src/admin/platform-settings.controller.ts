@@ -33,7 +33,9 @@ export class PlatformSettingsController {
       this.configurationService.getConfiguration(PLATFORM_KEYS.platformName),
       this.configurationService.getConfiguration(PLATFORM_KEYS.supportEmail),
       this.configurationService.getConfiguration(PLATFORM_KEYS.defaultPlan),
-      this.configurationService.getConfiguration(PLATFORM_KEYS.requireEmailVerification),
+      this.configurationService.getConfiguration(
+        PLATFORM_KEYS.requireEmailVerification,
+      ),
       this.configurationService.getConfiguration(PLATFORM_KEYS.twoFactorAuth),
       this.configurationService.getConfiguration(PLATFORM_KEYS.currency),
       this.configurationService.getConfiguration(PLATFORM_KEYS.trialPeriodDays),

@@ -12,9 +12,21 @@ export class SuperadminGuard implements CanActivate {
 
   constructor(private prisma: PrismaService) {}
 
+  private asObject(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private asString(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const request = context.switchToHttp().getRequest<{
+      user?: Record<string, unknown>;
+    }>();
+    const user = this.asObject(request.user);
 
     this.logger.log(`SuperadminGuard: Checking user: ${JSON.stringify(user)}`);
 
@@ -24,15 +36,18 @@ export class SuperadminGuard implements CanActivate {
     }
 
     // Check JWT payload first for isSuperadmin flag
-    if (user.isSuperadmin === true) {
+    if (user?.isSuperadmin === true) {
       this.logger.log(
-        `SuperadminGuard: User ${user.email} is superadmin from JWT`,
+        `SuperadminGuard: User ${this.asString(user.email)} is superadmin from JWT`,
       );
       return true;
     }
 
     // Fallback: Check database if JWT doesn't have the flag
-    const userId = user.userId || user.sub || user.id;
+    const userId =
+      this.asString(user?.userId) ||
+      this.asString(user?.sub) ||
+      this.asString(user?.id);
     if (!userId) {
       this.logger.warn('SuperadminGuard: User has no userId, sub, or id field');
       return false;
@@ -50,7 +65,7 @@ export class SuperadminGuard implements CanActivate {
 
     const isSuperadmin = dbUser?.isSuperadmin === true;
     this.logger.log(
-      `SuperadminGuard: User ${user.email} isSuperadmin: ${isSuperadmin}`,
+      `SuperadminGuard: User ${this.asString(user?.email)} isSuperadmin: ${isSuperadmin}`,
     );
 
     return isSuperadmin;

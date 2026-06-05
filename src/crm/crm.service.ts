@@ -58,8 +58,15 @@ export class CrmService {
     private readonly tenantConfigurationService: TenantConfigurationService,
   ) {}
 
-  private async readJson<T>(tenantId: string, key: string, fallback: T): Promise<T> {
-    const raw = await this.tenantConfigurationService.getTenantConfiguration(tenantId, key);
+  private async readJson<T>(
+    tenantId: string,
+    key: string,
+    fallback: T,
+  ): Promise<T> {
+    const raw = await this.tenantConfigurationService.getTenantConfiguration(
+      tenantId,
+      key,
+    );
     if (!raw) return fallback;
 
     try {
@@ -69,7 +76,12 @@ export class CrmService {
     }
   }
 
-  private async writeJson<T>(tenantId: string, key: string, value: T, description: string): Promise<void> {
+  private async writeJson<T>(
+    tenantId: string,
+    key: string,
+    value: T,
+    description: string,
+  ): Promise<void> {
     await this.tenantConfigurationService.setTenantConfiguration(
       tenantId,
       key,
@@ -86,9 +98,24 @@ export class CrmService {
   private buildDefaultStages(): CrmPipelineStage[] {
     return [
       { id: `stage-${Date.now()}-1`, name: 'Lead', order: 1, color: '#0ea5e9' },
-      { id: `stage-${Date.now()}-2`, name: 'Qualified', order: 2, color: '#f59e0b' },
-      { id: `stage-${Date.now()}-3`, name: 'Proposal', order: 3, color: '#8b5cf6' },
-      { id: `stage-${Date.now()}-4`, name: 'Negotiation', order: 4, color: '#6366f1' },
+      {
+        id: `stage-${Date.now()}-2`,
+        name: 'Qualified',
+        order: 2,
+        color: '#f59e0b',
+      },
+      {
+        id: `stage-${Date.now()}-3`,
+        name: 'Proposal',
+        order: 3,
+        color: '#8b5cf6',
+      },
+      {
+        id: `stage-${Date.now()}-4`,
+        name: 'Negotiation',
+        order: 4,
+        color: '#6366f1',
+      },
       { id: `stage-${Date.now()}-5`, name: 'Won', order: 5, color: '#10b981' },
     ];
   }
@@ -108,7 +135,12 @@ export class CrmService {
         createdAt: now,
         updatedAt: now,
       };
-      await this.writeJson(tenantId, CRM_PIPELINES_KEY, [defaultPipeline], 'CRM pipelines');
+      await this.writeJson(
+        tenantId,
+        CRM_PIPELINES_KEY,
+        [defaultPipeline],
+        'CRM pipelines',
+      );
       await this.syncUsage(tenantId, [defaultPipeline]);
       return {
         pipelines: [defaultPipeline],
@@ -123,15 +155,26 @@ export class CrmService {
     };
   }
 
-  async createPipeline(tenantId: string, body: { name: string; stages?: Array<{ name: string; color?: string }> }) {
-    const pipelines = await this.readJson<CrmPipeline[]>(tenantId, CRM_PIPELINES_KEY, []);
+  async createPipeline(
+    tenantId: string,
+    body: { name: string; stages?: Array<{ name: string; color?: string }> },
+  ) {
+    const pipelines = await this.readJson<CrmPipeline[]>(
+      tenantId,
+      CRM_PIPELINES_KEY,
+      [],
+    );
     const now = new Date().toISOString();
     const pipeline: CrmPipeline = {
       id: `pipeline-${Date.now()}`,
       name: body.name,
       stages: (Array.isArray(body.stages) && body.stages.length > 0
         ? body.stages
-        : this.buildDefaultStages().map((s) => ({ name: s.name, color: s.color }))).map((stage, index) => ({
+        : this.buildDefaultStages().map((s) => ({
+            name: s.name,
+            color: s.color,
+          }))
+      ).map((stage, index) => ({
         id: `stage-${Date.now()}-${index + 1}`,
         name: stage.name,
         order: index + 1,
@@ -149,7 +192,14 @@ export class CrmService {
 
   async createDeal(
     tenantId: string,
-    body: { title: string; value?: number; currency?: string; pipelineId: string; stageId: string; contactName?: string },
+    body: {
+      title: string;
+      value?: number;
+      currency?: string;
+      pipelineId: string;
+      stageId: string;
+      contactName?: string;
+    },
   ) {
     const deals = await this.readJson<CrmDeal[]>(tenantId, CRM_DEALS_KEY, []);
     const now = new Date().toISOString();
@@ -166,7 +216,12 @@ export class CrmService {
       updatedAt: now,
     };
 
-    await this.writeJson(tenantId, CRM_DEALS_KEY, [...deals, deal], 'CRM deals');
+    await this.writeJson(
+      tenantId,
+      CRM_DEALS_KEY,
+      [...deals, deal],
+      'CRM deals',
+    );
     return deal;
   }
 
@@ -187,7 +242,13 @@ export class CrmService {
 
   async createTask(
     tenantId: string,
-    body: { title: string; priority?: 'low' | 'medium' | 'high'; dueDate?: string; dealId?: string; assignedTo?: string },
+    body: {
+      title: string;
+      priority?: 'low' | 'medium' | 'high';
+      dueDate?: string;
+      dealId?: string;
+      assignedTo?: string;
+    },
   ) {
     const tasks = await this.readJson<CrmTask[]>(tenantId, CRM_TASKS_KEY, []);
     const now = new Date().toISOString();
@@ -202,11 +263,20 @@ export class CrmService {
       createdAt: now,
       updatedAt: now,
     };
-    await this.writeJson(tenantId, CRM_TASKS_KEY, [...tasks, task], 'CRM tasks');
+    await this.writeJson(
+      tenantId,
+      CRM_TASKS_KEY,
+      [...tasks, task],
+      'CRM tasks',
+    );
     return task;
   }
 
-  async updateTaskStatus(tenantId: string, taskId: string, status: CrmTask['status']) {
+  async updateTaskStatus(
+    tenantId: string,
+    taskId: string,
+    status: CrmTask['status'],
+  ) {
     const tasks = await this.readJson<CrmTask[]>(tenantId, CRM_TASKS_KEY, []);
     const now = new Date().toISOString();
     const next = tasks.map((task) =>
@@ -245,22 +315,28 @@ export class CrmService {
       done: tasks.filter((t) => t.status === 'done').length,
     };
 
-    const entitlementsRaw = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      CRM_ENTITLEMENTS_CONFIG_KEY,
-    );
+    const entitlementsRaw =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_ENTITLEMENTS_CONFIG_KEY,
+      );
     let parsedEntitlements: unknown;
     try {
-      parsedEntitlements = entitlementsRaw ? JSON.parse(entitlementsRaw) : undefined;
+      parsedEntitlements = entitlementsRaw
+        ? JSON.parse(entitlementsRaw)
+        : undefined;
     } catch {
       parsedEntitlements = undefined;
     }
-    const entitlements = normalizeCrmEntitlements(parsedEntitlements || getDefaultCrmEntitlements());
-
-    const usageRaw = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      CRM_USAGE_CONFIG_KEY,
+    const entitlements = normalizeCrmEntitlements(
+      parsedEntitlements || getDefaultCrmEntitlements(),
     );
+
+    const usageRaw =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_USAGE_CONFIG_KEY,
+      );
     let parsedUsage: unknown;
     try {
       parsedUsage = usageRaw ? JSON.parse(usageRaw) : undefined;
@@ -284,10 +360,11 @@ export class CrmService {
   }
 
   private async syncUsage(tenantId: string, pipelines: CrmPipeline[]) {
-    const usageRaw = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      CRM_USAGE_CONFIG_KEY,
-    );
+    const usageRaw =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        CRM_USAGE_CONFIG_KEY,
+      );
 
     let parsedUsage: unknown;
     try {
@@ -302,6 +379,11 @@ export class CrmService {
       pipelines: pipelines.length,
     };
 
-    await this.writeJson(tenantId, CRM_USAGE_CONFIG_KEY, next, 'CRM usage counters');
+    await this.writeJson(
+      tenantId,
+      CRM_USAGE_CONFIG_KEY,
+      next,
+      'CRM usage counters',
+    );
   }
 }

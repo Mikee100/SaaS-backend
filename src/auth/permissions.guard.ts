@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserService } from '../user/user.service';
 import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
+import { AuthenticatedRequest } from './request.types';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -21,7 +18,7 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user as {
       isSuperadmin?: boolean;
       roles?: Array<string | { name?: string }>;
@@ -55,17 +52,17 @@ export class PermissionsGuard implements CanActivate {
 
     const userPermissions = new Set(
       Array.isArray(user.permissions)
-        ? user.permissions.filter((perm): perm is string => typeof perm === 'string')
+        ? user.permissions.filter(
+            (perm): perm is string => typeof perm === 'string',
+          )
         : [],
     );
 
     // If JWT claims are stale/incomplete, load effective permissions from DB.
     const userId = user.userId || user.sub;
     if (userId && userPermissions.size === 0) {
-      const effectivePermissions = await this.userService.getEffectivePermissions(
-        userId,
-        user.tenantId,
-      );
+      const effectivePermissions =
+        await this.userService.getEffectivePermissions(userId, user.tenantId);
       for (const perm of effectivePermissions) {
         if (perm?.name) {
           userPermissions.add(perm.name);

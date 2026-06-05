@@ -14,6 +14,7 @@ import {
 import { ProductAttributeService } from './product-attribute.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from '../auth/permissions.decorator';
+import { AuthenticatedRequest } from '../auth/request.types';
 import {
   CreateProductAttributeDto,
   UpdateProductAttributeDto,
@@ -22,52 +23,42 @@ import {
 
 @Controller('product-attributes')
 export class ProductAttributeController {
-  constructor(
-    private readonly attributeService: ProductAttributeService,
-  ) {}
+  constructor(private readonly attributeService: ProductAttributeService) {}
+
+  private getTenantId(req: AuthenticatedRequest): string {
+    if (!req.user?.tenantId) {
+      throw new BadRequestException(
+        'User context is missing or invalid. Authentication required.',
+      );
+    }
+    return req.user.tenantId;
+  }
 
   @Get()
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
   async findAll(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('includeValues') includeValues?: string,
   ) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.findAll(
-      req.user.tenantId,
-      includeValues === 'true',
-    );
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.findAll(tenantId, includeValues === 'true');
   }
 
   @Get('common')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
-  async getOrCreateCommon(@Req() req) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.getOrCreateCommonAttributes(
-      req.user.tenantId,
-    );
+  async getOrCreateCommon(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.getOrCreateCommonAttributes(tenantId);
   }
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
-  async findOne(@Param('id') id: string, @Req() req) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.findOne(id, req.user.tenantId);
+  async findOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.findOne(id, tenantId);
   }
 
   @Post()
@@ -75,14 +66,10 @@ export class ProductAttributeController {
   @Permissions('create_products')
   async create(
     @Body() dto: CreateProductAttributeDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.create(req.user.tenantId, dto);
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.create(tenantId, dto);
   }
 
   @Put(':id')
@@ -91,26 +78,18 @@ export class ProductAttributeController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateProductAttributeDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.update(id, req.user.tenantId, dto);
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.update(id, tenantId, dto);
   }
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('delete_products')
-  async delete(@Param('id') id: string, @Req() req) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.delete(id, req.user.tenantId);
+  async delete(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.delete(id, tenantId);
   }
 
   @Post(':id/values')
@@ -119,14 +98,10 @@ export class ProductAttributeController {
   async addValue(
     @Param('id') id: string,
     @Body() dto: AddAttributeValueDto,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.addValue(id, req.user.tenantId, dto);
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.addValue(id, tenantId, dto);
   }
 
   @Put('values/:valueId')
@@ -135,25 +110,20 @@ export class ProductAttributeController {
   async updateValue(
     @Param('valueId') valueId: string,
     @Body() dto: Partial<AddAttributeValueDto>,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.updateValue(valueId, req.user.tenantId, dto);
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.updateValue(valueId, tenantId, dto);
   }
 
   @Delete('values/:valueId')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('delete_products')
-  async deleteValue(@Param('valueId') valueId: string, @Req() req) {
-    if (!req.user || !req.user.tenantId) {
-      throw new BadRequestException(
-        'User context is missing or invalid. Authentication required.',
-      );
-    }
-    return this.attributeService.deleteValue(valueId, req.user.tenantId);
+  async deleteValue(
+    @Param('valueId') valueId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const tenantId = this.getTenantId(req);
+    return this.attributeService.deleteValue(valueId, tenantId);
   }
 }
