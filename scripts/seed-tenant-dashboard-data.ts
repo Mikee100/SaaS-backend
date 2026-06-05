@@ -201,6 +201,55 @@ async function ensureInventoryRows(
   return { attempted, updated, created, failed };
 }
 
+async function createSaleItemsResilient(
+  prisma: PrismaClient,
+  saleId: string,
+  saleItems: Array<{ productId: string; quantity: number; price: number }>,
+) {
+  try {
+    await prisma.saleItem.createMany({
+      data: saleItems.map((it) => ({
+        id: randomUUID(),
+        saleId,
+        productId: it.productId,
+        quantity: it.quantity,
+        price: it.price,
+      })),
+    });
+
+    return { created: saleItems.length, failed: 0 };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[seed] saleItem.createMany failed for sale ${saleId}, falling back to single inserts: ${message}`);
+
+    let created = 0;
+    let failed = 0;
+
+    for (const it of saleItems) {
+      try {
+        await prisma.saleItem.create({
+          data: {
+            id: randomUUID(),
+            saleId,
+            productId: it.productId,
+            quantity: it.quantity,
+            price: it.price,
+          },
+        });
+        created += 1;
+      } catch (singleError) {
+        failed += 1;
+        if (failed <= 3) {
+          const singleMessage = singleError instanceof Error ? singleError.message : String(singleError);
+          console.warn(`[seed] Skipping sale item for sale ${saleId}: ${singleMessage}`);
+        }
+      }
+    }
+
+    return { created, failed };
+  }
+}
+
 async function main() {
   const prisma = new PrismaClient();
 
@@ -272,6 +321,7 @@ async function main() {
 
     let createdSales = 0;
     let createdSaleItems = 0;
+    let failedSaleItems = 0;
     let createdExpenses = 0;
     let createdJournalEntries = 0;
     const customers = ['Walk-in Customer', 'Amina', 'Otieno', 'Wanjiku', 'Kamau', 'Njeri', 'Maina'];
@@ -327,15 +377,9 @@ async function main() {
             },
           });
 
-          await prisma.saleItem.createMany({
-            data: saleItems.map((it) => ({
-              id: randomUUID(),
-              saleId,
-              productId: it.productId,
-              quantity: it.quantity,
-              price: it.price,
-            })),
-          });
+          const saleItemsResult = await createSaleItemsResilient(prisma, saleId, saleItems);
+          createdSaleItems += saleItemsResult.created;
+          failedSaleItems += saleItemsResult.failed;
 
           const debitAccountId = paymentType === 'cash'
             ? accountsBySubtype.get('cash')
@@ -399,7 +443,9 @@ async function main() {
         }
 
         createdSales += 1;
-        createdSaleItems += saleItems.length;
+        if (dryRun) {
+          createdSaleItems += saleItems.length;
+        }
       }
 
       if (day % 7 === 0) {
@@ -486,6 +532,7 @@ async function main() {
       skipInventory,
       createdSales,
       createdSaleItems,
+      failedSaleItems,
       createdExpenses,
       createdJournalEntries,
       inventory: inventoryResult,
