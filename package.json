@@ -24,7 +24,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "create-superadmin": "ts-node scripts/create-superadmin.ts",
     "seed:restaurant-bom": "ts-node scripts/seed-restaurant-bom.ts",
-    "seed:crm-entitlements": "ts-node scripts/seed-crm-entitlements.ts"
+    "seed:crm-entitlements": "ts-node scripts/seed-crm-entitlements.ts",
+    "seed:tenant-dashboard": "ts-node scripts/seed-tenant-dashboard-data.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
