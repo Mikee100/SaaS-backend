@@ -466,10 +466,21 @@ export class LedgerService {
   }
 
   async getAccounts(tenantId: string) {
-    return this.prisma.account.findMany({
+    let accounts = await this.prisma.account.findMany({
       where: { tenantId, isActive: true },
       orderBy: { code: 'asc' },
     });
+
+    // Self-heal tenants that never initialized COA so ledger screens are not blank.
+    if (accounts.length === 0) {
+      await this.initializeCOA(tenantId);
+      accounts = await this.prisma.account.findMany({
+        where: { tenantId, isActive: true },
+        orderBy: { code: 'asc' },
+      });
+    }
+
+    return accounts;
   }
 
   async createJournalEntry(
@@ -1480,36 +1491,101 @@ export class LedgerService {
       journalWhere.date = dateFilter;
     }
 
-    if (branchId) {
-      journalWhere.reference = {
-        startsWith: `BRANCH:${branchId}:`,
-      };
-    }
-
-    const rows = await this.prisma.ledgerEntry.findMany({
-      where: {
-        accountId,
-        journalEntry: journalWhere,
-      },
-      include: {
-        journalEntry: {
-          select: {
-            id: true,
-            date: true,
-            reference: true,
-            type: true,
-            description: true,
-            user: { select: { name: true } },
+    const buildRowsQuery = (cursor?: string) =>
+      this.prisma.ledgerEntry.findMany({
+        where: {
+          accountId,
+          journalEntry: journalWhere,
+        },
+        include: {
+          journalEntry: {
+            select: {
+              id: true,
+              date: true,
+              reference: true,
+              type: true,
+              description: true,
+              user: { select: { name: true } },
+            },
           },
         },
-      },
-      orderBy: [{ journalEntry: { date: 'desc' } }, { id: 'desc' }],
-      ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
-      take: limit + 1,
-    });
+        orderBy: [{ journalEntry: { date: 'desc' } }, { id: 'desc' }],
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        take: limit + 1,
+      });
 
-    const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    let scopedRows: Array<
+      Prisma.LedgerEntryGetPayload<{
+        include: {
+          journalEntry: {
+            select: {
+              id: true;
+              date: true;
+              reference: true;
+              type: true;
+              description: true;
+              user: { select: { name: true } };
+            };
+          };
+        };
+      }>
+    > = [];
+
+    if (!branchId) {
+      scopedRows = await buildRowsQuery(options?.cursor);
+    } else {
+      let cursor = options?.cursor;
+      let reachedEnd = false;
+
+      while (!reachedEnd && scopedRows.length < limit + 1) {
+        const batch = await buildRowsQuery(cursor);
+        if (batch.length === 0) {
+          break;
+        }
+
+        const uniqueJournalEntryIds = Array.from(
+          new Set(batch.map((row) => row.journalEntry.id)),
+        );
+
+        const batchJournalEntries = uniqueJournalEntryIds.length
+          ? await this.prisma.journalEntry.findMany({
+              where: {
+                id: { in: uniqueJournalEntryIds },
+                tenantId,
+              },
+              include: {
+                user: true,
+                ledgerEntries: {
+                  include: { account: true },
+                },
+              },
+            })
+          : [];
+
+        const allowedJournalEntries = await this.filterJournalEntriesByBranch(
+          tenantId,
+          branchId,
+          batchJournalEntries,
+        );
+
+        const allowedIds = new Set(
+          allowedJournalEntries.map((entry) => entry.id),
+        );
+
+        scopedRows.push(
+          ...batch.filter((row) => allowedIds.has(row.journalEntry.id)),
+        );
+
+        if (batch.length < limit + 1) {
+          reachedEnd = true;
+        } else {
+          cursor = batch[batch.length - 1].id;
+        }
+      }
+    }
+
+    const hasMore = scopedRows.length > limit;
+    const pageRows = hasMore ? scopedRows.slice(0, limit) : scopedRows;
 
     const items = pageRows.map((row) => ({
       id: row.id,

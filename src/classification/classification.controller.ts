@@ -80,6 +80,7 @@ export class ClassificationController {
   // ─── Superadmin: full CRUD ──────────────────────────────────────────────────
 
   /** GET /admin/classifications */
+  @Get('api/admin/classifications')
   @Get('admin/classifications')
   @UseGuards(AuthGuard('jwt'))
   async listAll(@Query('includeInactive') includeInactive?: string) {
@@ -89,6 +90,7 @@ export class ClassificationController {
   }
 
   /** GET /admin/classifications/:id */
+  @Get('api/admin/classifications/:id')
   @Get('admin/classifications/:id')
   @UseGuards(AuthGuard('jwt'))
   async getOne(@Param('id') id: string) {
@@ -96,6 +98,7 @@ export class ClassificationController {
   }
 
   /** POST /admin/classifications */
+  @Post('api/admin/classifications')
   @Post('admin/classifications')
   @UseGuards(AuthGuard('jwt'))
   async create(@Body() dto: CreateClassificationDto) {
@@ -103,6 +106,7 @@ export class ClassificationController {
   }
 
   /** PUT /admin/classifications/:id */
+  @Put('api/admin/classifications/:id')
   @Put('admin/classifications/:id')
   @UseGuards(AuthGuard('jwt'))
   async update(@Param('id') id: string, @Body() dto: UpdateClassificationDto) {
@@ -110,6 +114,7 @@ export class ClassificationController {
   }
 
   /** DELETE /admin/classifications/:id */
+  @Delete('api/admin/classifications/:id')
   @Delete('admin/classifications/:id')
   @UseGuards(AuthGuard('jwt'))
   async delete(@Param('id') id: string) {
@@ -119,6 +124,7 @@ export class ClassificationController {
   // ─── Measurement Units ──────────────────────────────────────────────────────
 
   /** GET /admin/classifications/:id/units */
+  @Get('api/admin/classifications/:id/units')
   @Get('admin/classifications/:id/units')
   @UseGuards(AuthGuard('jwt'))
   async getUnits(@Param('id') id: string) {
@@ -126,6 +132,7 @@ export class ClassificationController {
   }
 
   /** POST /admin/classifications/:id/units */
+  @Post('api/admin/classifications/:id/units')
   @Post('admin/classifications/:id/units')
   @UseGuards(AuthGuard('jwt'))
   async createUnit(
@@ -136,6 +143,7 @@ export class ClassificationController {
   }
 
   /** PUT /admin/classifications/units/:unitId */
+  @Put('api/admin/classifications/units/:unitId')
   @Put('admin/classifications/units/:unitId')
   @UseGuards(AuthGuard('jwt'))
   async updateUnit(
@@ -146,6 +154,7 @@ export class ClassificationController {
   }
 
   /** DELETE /admin/classifications/units/:unitId — soft deactivate */
+  @Delete('api/admin/classifications/units/:unitId')
   @Delete('admin/classifications/units/:unitId')
   @UseGuards(AuthGuard('jwt'))
   async deactivateUnit(@Param('unitId') unitId: string) {
@@ -155,6 +164,7 @@ export class ClassificationController {
   // ─── Superadmin assign classification to any tenant ────────────────────────
 
   /** POST /admin/tenants/:tenantId/classification */
+  @Post('api/admin/tenants/:tenantId/classification')
   @Post('admin/tenants/:tenantId/classification')
   @UseGuards(AuthGuard('jwt'))
   async assignForTenant(
@@ -171,6 +181,7 @@ export class ClassificationController {
   }
 
   /** POST /admin/tenants/:tenantId/classification/provision-defaults */
+  @Post('api/admin/tenants/:tenantId/classification/provision-defaults')
   @Post('admin/tenants/:tenantId/classification/provision-defaults')
   @UseGuards(AuthGuard('jwt'))
   async provisionDefaultsForSpecificTenant(
