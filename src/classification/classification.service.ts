@@ -19,9 +19,382 @@ type AttributeTemplate = {
   values: string[];
 };
 
+type DefaultUnitTemplate = {
+  name: string;
+  abbreviation: string;
+  type: string;
+  isBaseUnit: boolean;
+  baseUnit?: string;
+  conversionFactor?: number;
+  sortOrder: number;
+};
+
+type DefaultClassificationTemplate = {
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  color: string;
+  units: DefaultUnitTemplate[];
+};
+
 @Injectable()
 export class ClassificationService {
   constructor(private prisma: PrismaService) {}
+
+  private readonly defaultClassificationTemplates: DefaultClassificationTemplate[] = [
+    {
+      name: 'Butchery & Meat',
+      slug: 'butchery',
+      description:
+        'Meat, poultry, seafood and related products sold by weight',
+      icon: '🥩',
+      color: '#ef4444',
+      units: [
+        {
+          name: 'Gram',
+          abbreviation: 'g',
+          type: 'weight',
+          isBaseUnit: true,
+          baseUnit: 'g',
+          conversionFactor: 1,
+          sortOrder: 0,
+        },
+        {
+          name: 'Kilogram',
+          abbreviation: 'kg',
+          type: 'weight',
+          isBaseUnit: false,
+          baseUnit: 'g',
+          conversionFactor: 1000,
+          sortOrder: 1,
+        },
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: false,
+          sortOrder: 2,
+        },
+      ],
+    },
+    {
+      name: 'Dairy & Beverages',
+      slug: 'dairy',
+      description:
+        'Milk, juices, water and other liquid products sold by volume',
+      icon: '🥛',
+      color: '#3b82f6',
+      units: [
+        {
+          name: 'Millilitre',
+          abbreviation: 'ml',
+          type: 'volume',
+          isBaseUnit: true,
+          baseUnit: 'ml',
+          conversionFactor: 1,
+          sortOrder: 0,
+        },
+        {
+          name: 'Litre',
+          abbreviation: 'L',
+          type: 'volume',
+          isBaseUnit: false,
+          baseUnit: 'ml',
+          conversionFactor: 1000,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Clothing & Apparel',
+      slug: 'clothing',
+      description: 'Clothes, shirts, trousers and garments sold by size',
+      icon: '👕',
+      color: '#8b5cf6',
+      units: [
+        {
+          name: 'Medium',
+          abbreviation: 'M',
+          type: 'size_clothing',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Large',
+          abbreviation: 'L',
+          type: 'size_clothing',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Footwear',
+      slug: 'footwear',
+      description: 'Shoes, boots, sandals and other footwear sold by shoe size',
+      icon: '👟',
+      color: '#f59e0b',
+      units: [
+        {
+          name: 'Size 40',
+          abbreviation: '40',
+          type: 'size_footwear',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Size 41',
+          abbreviation: '41',
+          type: 'size_footwear',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Electronics & Tech',
+      slug: 'electronics',
+      description:
+        'Phones, computers, accessories and electronics sold by unit',
+      icon: '📱',
+      color: '#06b6d4',
+      units: [
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+      ],
+    },
+    {
+      name: 'Pharmacy & Health',
+      slug: 'pharmacy',
+      description: 'Medicines, supplements and health products',
+      icon: '💊',
+      color: '#10b981',
+      units: [
+        {
+          name: 'Tablet',
+          abbreviation: 'tab',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Capsule',
+          abbreviation: 'cap',
+          type: 'count',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Grocery & General',
+      slug: 'grocery',
+      description: 'Supermarkets, general stores with mixed product types',
+      icon: '🛒',
+      color: '#84cc16',
+      units: [
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Kilogram',
+          abbreviation: 'kg',
+          type: 'weight',
+          isBaseUnit: false,
+          baseUnit: 'g',
+          conversionFactor: 1000,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Restaurant & Hospitality',
+      slug: 'restaurant-hospitality',
+      description:
+        'Restaurants, cafes, bars, hotels and hospitality operations',
+      icon: '🍽️',
+      color: '#f97316',
+      units: [
+        {
+          name: 'Item',
+          abbreviation: 'item',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Plate',
+          abbreviation: 'plate',
+          type: 'count',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Hardware & Tools',
+      slug: 'hardware',
+      description:
+        'Building materials, tools, pipes, wires and hardware products',
+      icon: '🔧',
+      color: '#6b7280',
+      units: [
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Metre',
+          abbreviation: 'm',
+          type: 'length',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+    {
+      name: 'Furniture & Home',
+      slug: 'furniture',
+      description: 'Furniture, home appliances and household goods',
+      icon: '🛋️',
+      color: '#d97706',
+      units: [
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+      ],
+    },
+    {
+      name: 'General / Custom',
+      slug: 'general',
+      description:
+        "Businesses that don't fit specific categories or use custom units",
+      icon: '🏪',
+      color: '#64748b',
+      units: [
+        {
+          name: 'Unit',
+          abbreviation: 'unit',
+          type: 'count',
+          isBaseUnit: true,
+          sortOrder: 0,
+        },
+        {
+          name: 'Piece',
+          abbreviation: 'pc',
+          type: 'count',
+          isBaseUnit: false,
+          sortOrder: 1,
+        },
+      ],
+    },
+  ];
+
+  private async ensureDefaultClassifications() {
+    let createdClassifications = 0;
+    let createdUnits = 0;
+    let updatedClassifications = 0;
+
+    for (const template of this.defaultClassificationTemplates) {
+      const { units, ...classificationData } = template;
+
+      const existingClassification =
+        await this.prisma.businessClassification.findUnique({
+          where: { slug: classificationData.slug },
+          select: { id: true },
+        });
+
+      const classification = await this.prisma.businessClassification.upsert({
+        where: { slug: classificationData.slug },
+        update: {
+          name: classificationData.name,
+          description: classificationData.description,
+          icon: classificationData.icon,
+          color: classificationData.color,
+          isSystem: true,
+          isActive: true,
+        },
+        create: {
+          ...classificationData,
+          isSystem: true,
+          isActive: true,
+        },
+      });
+      if (existingClassification) {
+        updatedClassifications += 1;
+      } else {
+        createdClassifications += 1;
+      }
+
+      for (const unit of units) {
+        const existingUnit = await this.prisma.measurementUnit.findUnique({
+          where: {
+            classificationId_abbreviation: {
+              classificationId: classification.id,
+              abbreviation: unit.abbreviation,
+            },
+          },
+          select: { id: true },
+        });
+
+        await this.prisma.measurementUnit.upsert({
+          where: {
+            classificationId_abbreviation: {
+              classificationId: classification.id,
+              abbreviation: unit.abbreviation,
+            },
+          },
+          update: {
+            name: unit.name,
+            type: unit.type,
+            isBaseUnit: unit.isBaseUnit,
+            baseUnit: unit.baseUnit ?? null,
+            conversionFactor: unit.conversionFactor ?? null,
+            sortOrder: unit.sortOrder,
+            isActive: true,
+          },
+          create: {
+            ...unit,
+            baseUnit: unit.baseUnit ?? null,
+            conversionFactor: unit.conversionFactor ?? null,
+            classificationId: classification.id,
+            isActive: true,
+          },
+        });
+        if (!existingUnit) {
+          createdUnits += 1;
+        }
+      }
+    }
+
+    return {
+      createdClassifications,
+      updatedClassifications,
+      createdUnits,
+      skipped: false,
+    };
+  }
+
+  async bootstrapDefaultClassifications() {
+    return this.ensureDefaultClassifications();
+  }
 
   private readonly fallbackVariantTemplates: AttributeTemplate[] = [
     {
@@ -380,6 +753,8 @@ export class ClassificationService {
   // ─── Classifications ─────────────────────────────────────────
 
   async findAllClassifications(includeInactive = false) {
+    await this.ensureDefaultClassifications();
+
     return this.prisma.businessClassification.findMany({
       where: includeInactive ? {} : { isActive: true },
       include: {

@@ -89,6 +89,14 @@ export class ClassificationController {
     );
   }
 
+  /** POST /admin/classifications/bootstrap-defaults */
+  @Post('api/admin/classifications/bootstrap-defaults')
+  @Post('admin/classifications/bootstrap-defaults')
+  @UseGuards(AuthGuard('jwt'))
+  async bootstrapDefaults() {
+    return this.classificationService.bootstrapDefaultClassifications();
+  }
+
   /** GET /admin/classifications/:id */
   @Get('api/admin/classifications/:id')
   @Get('admin/classifications/:id')
