@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as crypto from 'crypto';
 import { CacheService } from '../cache/cache.service';
@@ -36,6 +36,12 @@ export class TenantConfigurationService {
     private readonly cache: CacheService,
   ) {}
 
+  private validateTenantId(tenantId: string): void {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+  }
+
   private encryptValue(value: string): string {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(
@@ -65,6 +71,7 @@ export class TenantConfigurationService {
     tenantId: string,
     key: string,
   ): Promise<string | null> {
+    this.validateTenantId(tenantId);
     try {
       const cacheKey = `tenant_config:${tenantId}:${key}`;
       const cached = this.cache.get<string>(cacheKey);
@@ -107,6 +114,7 @@ export class TenantConfigurationService {
     value: string,
     options: Partial<TenantConfigurationItem> = {},
   ): Promise<void> {
+    this.validateTenantId(tenantId);
     try {
       const {
         description = '',
@@ -165,6 +173,7 @@ export class TenantConfigurationService {
     tenantId: string,
     category?: string,
   ): Promise<TenantConfigurationItem[]> {
+    this.validateTenantId(tenantId);
     try {
       const listCacheKey = `tenant_config_all:${tenantId}:${category || 'all'}`;
       const cached = this.cache.get<TenantConfigurationItem[]>(listCacheKey);
@@ -203,6 +212,7 @@ export class TenantConfigurationService {
     tenantId: string,
     key: string,
   ): Promise<void> {
+    this.validateTenantId(tenantId);
     try {
       await this.prisma.tenantConfiguration.delete({
         where: {

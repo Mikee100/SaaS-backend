@@ -22,6 +22,15 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // If a previous handler already wrote the response, avoid writing again.
+    if (response.headersSent) {
+      this.logger.warn(
+        `Skipping ValidationExceptionFilter response because headers were already sent for ${request.method} ${request.url}`,
+      );
+      return;
+    }
+
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse() as BadRequestPayload;
 

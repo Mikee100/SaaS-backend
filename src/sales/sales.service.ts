@@ -136,6 +136,12 @@ export class SalesService {
     private ledgerService: LedgerService,
   ) {}
 
+  private ensureTenantId(tenantId: string): void {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+  }
+
   async createSale(
     dto: CreateSaleDto & {
       mpesaTransactionId?: string;
@@ -144,6 +150,10 @@ export class SalesService {
     tenantId: string,
     userId: string,
   ): Promise<SaleReceiptDto> {
+    this.ensureTenantId(tenantId);
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
     if (!dto.idempotencyKey)
       throw new BadRequestException('Missing idempotency key');
     // Fetch tenant info for the receipt
@@ -1631,6 +1641,7 @@ export class SalesService {
   }
 
   async getTenantInfo(tenantId: string): Promise<TenantReceiptInfo | null> {
+    this.ensureTenantId(tenantId);
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -1730,6 +1741,7 @@ export class SalesService {
 
   // Credit management methods
   async getCredits(tenantId: string, branchId?: string) {
+    this.ensureTenantId(tenantId);
     return this.prisma.credit.findMany({
       where: {
         tenantId,
@@ -1769,6 +1781,7 @@ export class SalesService {
   }
 
   async getCreditById(id: string, tenantId: string, branchId?: string) {
+    this.ensureTenantId(tenantId);
     return this.prisma.credit.findFirst({
       where: {
         id,
@@ -1808,6 +1821,10 @@ export class SalesService {
     userId: string,
     notes?: string,
   ) {
+    this.ensureTenantId(tenantId);
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
     const paymentResult = await this.prisma.$transaction(async (prisma) => {
       // Get current credit
       const credit = await prisma.credit.findFirst({
@@ -1881,6 +1898,7 @@ export class SalesService {
     customerName: string,
     customerPhone?: string,
   ) {
+    this.ensureTenantId(tenantId);
     const credits = await this.prisma.credit.findMany({
       where: {
         tenantId,
@@ -1933,6 +1951,7 @@ export class SalesService {
     customerPhone?: string,
     branchId?: string,
   ) {
+    this.ensureTenantId(tenantId);
     this.logger.debug('calculateCustomerCreditScore called', {
       tenantId,
       customerName,
@@ -2074,6 +2093,7 @@ export class SalesService {
     maxCreditPerCustomer: number,
     maxOverdueDays: number = 30,
   ) {
+    this.ensureTenantId(tenantId);
     // Store in configuration service
     await this.configurationService.setConfiguration(
       `credit_policy_${tenantId}`,
@@ -2093,6 +2113,7 @@ export class SalesService {
   }
 
   async getTenantCreditPolicy(tenantId: string) {
+    this.ensureTenantId(tenantId);
     const policyStr = await this.configurationService.getConfiguration(
       `credit_policy_${tenantId}`,
     );
@@ -2116,6 +2137,7 @@ export class SalesService {
     customerPhone?: string,
     branchId?: string,
   ) {
+    this.ensureTenantId(tenantId);
     this.logger.debug('checkCreditEligibility called', {
       tenantId,
       customerName,
@@ -2220,6 +2242,7 @@ export class SalesService {
     endDate?: Date,
     branchId?: string,
   ) {
+    this.ensureTenantId(tenantId);
     this.logger.debug('getCreditAnalytics called', {
       tenantId,
       startDate,
@@ -2399,6 +2422,7 @@ export class SalesService {
     customerPhone?: string,
     branchId?: string,
   ) {
+    this.ensureTenantId(tenantId);
     this.logger.debug('getCustomerCreditHistory called', {
       tenantId,
       customerName,
@@ -2542,6 +2566,7 @@ export class SalesService {
 
   // Credit Aging Analysis
   async getCreditAgingAnalysis(tenantId: string, branchId?: string) {
+    this.ensureTenantId(tenantId);
     this.logger.debug('getCreditAgingAnalysis called', { tenantId });
 
     const credits = await this.prisma.credit.findMany({

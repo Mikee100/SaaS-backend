@@ -6,6 +6,7 @@ import {
   Body,
   Req,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { SalesTargetService } from './sales-target.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -23,7 +24,7 @@ export class SalesTargetController {
   @Permissions('view_sales')
   getTargets(@Req() req: AuthenticatedRequest) {
     if (!req.user.tenantId) {
-      throw new Error('Tenant context is required');
+      throw new UnauthorizedException('Tenant context is required');
     }
     return this.salesTargetService.getTargets(req.user.tenantId);
   }
@@ -35,7 +36,7 @@ export class SalesTargetController {
     @Req() req: AuthenticatedRequest,
   ) {
     if (!req.user.tenantId) {
-      throw new Error('Tenant context is required');
+      throw new UnauthorizedException('Tenant context is required');
     }
     return this.salesTargetService.createTargets(req.user.tenantId, body);
   }
@@ -47,7 +48,7 @@ export class SalesTargetController {
     @Req() req: AuthenticatedRequest,
   ) {
     if (!req.user.tenantId) {
-      throw new Error('Tenant context is required');
+      throw new UnauthorizedException('Tenant context is required');
     }
     return this.salesTargetService.updateTargets(req.user.tenantId, body);
   }

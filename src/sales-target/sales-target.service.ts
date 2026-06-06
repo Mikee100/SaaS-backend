@@ -1,11 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class SalesTargetService {
   constructor(private prisma: PrismaService) {}
 
+  private ensureTenantId(tenantId: string): void {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required');
+    }
+  }
+
   async getTargets(tenantId: string) {
+    this.ensureTenantId(tenantId);
     const targets = await this.prisma.salesTarget.findFirst({
       where: { tenantId },
     });
@@ -30,7 +37,7 @@ export class SalesTargetService {
     tenantId: string,
     targets: { daily: number; weekly: number; monthly: number },
   ) {
-    void tenantId;
+    this.ensureTenantId(tenantId);
     return {
       daily: targets.daily,
       weekly: targets.weekly,
@@ -42,6 +49,7 @@ export class SalesTargetService {
     tenantId: string,
     targets: { daily: number; weekly: number; monthly: number },
   ) {
+    this.ensureTenantId(tenantId);
     const existing = await this.prisma.salesTarget.findFirst({
       where: { tenantId },
     });

@@ -1,5 +1,13 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
-import { ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Req,
+  ForbiddenException,
+  HttpException,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
 import { TrialGuard } from '../auth/trial.guard';
@@ -79,9 +87,16 @@ export class AnalyticsController {
   private requireTenantId(req: AuthenticatedRequest): string {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
-      throw new Error('Tenant ID not found in user session');
+      throw new UnauthorizedException('Tenant ID not found in user session');
     }
     return tenantId;
+  }
+
+  private rethrowKnownOrInternal(error: unknown, fallbackMessage: string): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+    throw new InternalServerErrorException(fallbackMessage);
   }
 
   @Get('/analytics/basic')
@@ -176,7 +191,7 @@ export class AnalyticsController {
       };
     } catch (error) {
       console.error('Error fetching basic analytics:', error);
-      throw new Error('Failed to fetch basic analytics');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch basic analytics');
     }
   }
 
@@ -194,7 +209,7 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching dashboard analytics:', error);
-      throw new Error('Failed to fetch dashboard data');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch dashboard data');
     }
   }
 
@@ -215,7 +230,7 @@ export class AnalyticsController {
       };
     } catch (error) {
       console.error('Error fetching advanced analytics:', error);
-      throw new Error('Failed to fetch advanced analytics');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch advanced analytics');
     }
   }
 
@@ -236,7 +251,10 @@ export class AnalyticsController {
       };
     } catch (error) {
       console.error('Error fetching enterprise analytics:', error);
-      throw new Error('Failed to fetch enterprise analytics');
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch enterprise analytics',
+      );
     }
   }
 
@@ -253,7 +271,7 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching daily sales:', error);
-      throw new Error('Failed to fetch daily sales');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch daily sales');
     }
   }
 
@@ -270,7 +288,7 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching weekly sales:', error);
-      throw new Error('Failed to fetch weekly sales');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch weekly sales');
     }
   }
 
@@ -287,7 +305,7 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching yearly sales:', error);
-      throw new Error('Failed to fetch yearly sales');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch yearly sales');
     }
   }
 
@@ -304,7 +322,10 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching stockout lost sales report:', error);
-      throw new Error('Failed to fetch stockout lost sales report');
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch stockout lost sales report',
+      );
     }
   }
 
@@ -331,7 +352,7 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching branch sales:', error);
-      throw new Error('Failed to fetch branch sales data');
+      this.rethrowKnownOrInternal(error, 'Failed to fetch branch sales data');
     }
   }
 
@@ -358,7 +379,10 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching branch comparison time series:', error);
-      throw new Error('Failed to fetch branch comparison time series data');
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch branch comparison time series data',
+      );
     }
   }
 
@@ -385,7 +409,10 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching branch product comparison:', error);
-      throw new Error('Failed to fetch branch product comparison data');
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch branch product comparison data',
+      );
     }
   }
 
@@ -406,7 +433,10 @@ export class AnalyticsController {
       );
     } catch (error) {
       console.error('Error fetching branch monthly sales comparison:', error);
-      throw new Error('Failed to fetch branch monthly sales comparison data');
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch branch monthly sales comparison data',
+      );
     }
   }
 }
