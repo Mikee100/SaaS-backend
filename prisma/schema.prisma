@@ -45,6 +45,7 @@ model User {
   supportTicketResponses  SupportTicketResponse[]
   JournalEntry            JournalEntry[]
   RestaurantOrder         RestaurantOrder[]
+  restaurantActivityEvents RestaurantActivityEvent[]
   bomRecipesCreated       BomRecipe[]              @relation("BomRecipeCreatedBy")
 
   @@index([email])
@@ -210,6 +211,7 @@ model Tenant {
   journalEntries      JournalEntry[]
   DiningTable         DiningTable[]
   RestaurantOrder     RestaurantOrder[]
+  restaurantActivityEvents RestaurantActivityEvent[]
   ModifierGroup       ModifierGroup[]
   bomRecipes          BomRecipe[]
 
@@ -262,6 +264,7 @@ model Branch {
   salarySchemes      SalaryScheme[] // New
   DiningTable        DiningTable[]
   RestaurantOrder    RestaurantOrder[]
+  restaurantActivityEvents RestaurantActivityEvent[]
   bomRecipes         BomRecipe[]
 
   @@index([tenantId])
@@ -1231,10 +1234,34 @@ model RestaurantOrder {
   waiter User?                 @relation(fields: [waiterId], references: [id])
   items  RestaurantOrderItem[]
   sale   Sale? // Relation to Sale is defined on Sale model
+  activityEvents RestaurantActivityEvent[]
 
   @@index([tenantId])
   @@index([branchId])
   @@index([tableId])
+}
+
+model RestaurantActivityEvent {
+  id             String   @id @default(uuid())
+  tenantId       String
+  branchId       String
+  orderId        String?
+  actorUserId    String?
+  actionType     String
+  fromStatus     String?
+  toStatus       String?
+  details        Json?
+  createdAt      DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+  order  RestaurantOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  actor  User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, branchId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model RestaurantOrderItem {

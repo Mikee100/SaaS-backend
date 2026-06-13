@@ -99,6 +99,45 @@ export class RestaurantController {
     return actorUserId;
   }
 
+  private getActorContext(req: AuthenticatedRequest): {
+    userId: string;
+    name?: string;
+    roles: string[];
+  } {
+    const userId = this.getActorUserId(req);
+    const roles = Array.isArray(req.user.roles)
+      ? req.user.roles.map((role) => String(role).toLowerCase())
+      : req.user.role
+        ? [String(req.user.role).toLowerCase()]
+        : [];
+
+    return {
+      userId,
+      name: req.user.name,
+      roles,
+    };
+  }
+
+  private assertCanViewRestaurantActivity(req: AuthenticatedRequest) {
+    if (req.user.isSuperadmin) return;
+
+    const roles = Array.isArray(req.user.roles)
+      ? req.user.roles.map((role) => String(role).toLowerCase())
+      : req.user.role
+        ? [String(req.user.role).toLowerCase()]
+        : [];
+
+    const canView = roles.some((role) =>
+      ['owner', 'admin', 'manager'].includes(role),
+    );
+
+    if (!canView) {
+      throw new ForbiddenException(
+        'Only owner/admin accounts can view restaurant activity logs',
+      );
+    }
+  }
+
   private resolveBranchId(req: AuthenticatedRequest): string {
     const branchId = req.headers['x-branch-id'] || req.user?.branchId;
     if (!branchId || typeof branchId !== 'string') {
@@ -225,6 +264,40 @@ export class RestaurantController {
     });
   }
 
+  @Get('activity')
+  async getRestaurantActivity(
+    @Req() req: AuthenticatedRequest,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('actorUserId') actorUserId?: string,
+    @Query('actionType') actionType?: string,
+    @Query('orderId') orderId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const tenantId = this.getTenantId(req);
+    await this.assertRestaurantEnabled(tenantId);
+    this.assertCanViewRestaurantActivity(req);
+    const branchId = this.resolveBranchId(req);
+
+    const parsedFrom = from ? new Date(from) : undefined;
+    const parsedTo = to ? new Date(to) : undefined;
+    const safeFrom =
+      parsedFrom && !Number.isNaN(parsedFrom.getTime())
+        ? parsedFrom
+        : undefined;
+    const safeTo =
+      parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : undefined;
+
+    return this.orderService.findActivity(tenantId, branchId, {
+      from: safeFrom,
+      to: safeTo,
+      actorUserId: actorUserId || undefined,
+      actionType: actionType || undefined,
+      orderId: orderId || undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Post('orders')
   async createOrder(
     @Req() req: AuthenticatedRequest,
@@ -235,7 +308,12 @@ export class RestaurantController {
     const branchId = this.resolveBranchId(req);
     const actorUserId = this.getActorUserId(req);
     const waiterId = data?.waiterId || actorUserId;
-    return this.orderService.create(tenantId, branchId, { ...data, waiterId });
+    return this.orderService.create(
+      tenantId,
+      branchId,
+      { ...data, waiterId },
+      this.getActorContext(req),
+    );
   }
 
   @Post('orders/:id/items')
@@ -246,7 +324,12 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
-    return this.orderService.addItems(id, tenantId, data.items || []);
+    return this.orderService.addItems(
+      id,
+      tenantId,
+      data.items || [],
+      this.getActorContext(req),
+    );
   }
 
   @Put('orders/:id/status')
@@ -258,13 +341,13 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
-    const actorUserId = this.getActorUserId(req);
+    const actor = this.getActorContext(req);
     return this.orderService.updateStatus(
       id,
       tenantId,
       data.status,
       data.isManagerOverride,
-      actorUserId,
+      actor,
       data.voidReason,
     );
   }
@@ -277,8 +360,14 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
-    const actorUserId = this.getActorUserId(req);
+    const actor = this.getActorContext(req);
 
-    return this.orderService.checkoutToSale(id, tenantId, actorUserId, data);
+    return this.orderService.checkoutToSale(
+      id,
+      tenantId,
+      actor.userId,
+      data,
+      actor,
+    );
   }
 }

@@ -37,6 +37,12 @@ interface BomDeductionLine {
   appliedQuantity?: unknown;
 }
 
+interface ActivityActorContext {
+  userId?: string;
+  name?: string;
+  roles?: string[];
+}
+
 @Injectable()
 export class RestaurantOrderService {
   constructor(
@@ -46,6 +52,39 @@ export class RestaurantOrderService {
 
   private createAuditId() {
     return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private async logRestaurantActivity(
+    db: TxClient | PrismaService,
+    payload: {
+      tenantId: string;
+      branchId: string;
+      orderId?: string | null;
+      actionType: string;
+      fromStatus?: string | null;
+      toStatus?: string | null;
+      actor?: ActivityActorContext;
+      details?: Prisma.InputJsonValue;
+    },
+  ) {
+    await db.restaurantActivityEvent.create({
+      data: {
+        tenantId: payload.tenantId,
+        branchId: payload.branchId,
+        orderId: payload.orderId || null,
+        actorUserId: payload.actor?.userId || null,
+        actionType: payload.actionType,
+        fromStatus: payload.fromStatus || null,
+        toStatus: payload.toStatus || null,
+        details: {
+          ...(typeof payload.details === 'object' && payload.details !== null
+            ? (payload.details as Record<string, unknown>)
+            : {}),
+          actorName: payload.actor?.name || null,
+          actorRoles: payload.actor?.roles || [],
+        },
+      },
+    });
   }
 
   private async applyBomConsumptionIfNeeded(
@@ -382,6 +421,58 @@ export class RestaurantOrderService {
     });
   }
 
+  async findActivity(
+    tenantId: string,
+    branchId?: string,
+    filters?: {
+      from?: Date;
+      to?: Date;
+      actorUserId?: string;
+      actionType?: string;
+      orderId?: string;
+      limit?: number;
+    },
+  ) {
+    const where: Prisma.RestaurantActivityEventWhereInput = {
+      tenantId,
+      ...(branchId ? { branchId } : {}),
+      ...(filters?.actorUserId ? { actorUserId: filters.actorUserId } : {}),
+      ...(filters?.actionType ? { actionType: filters.actionType } : {}),
+      ...(filters?.orderId ? { orderId: filters.orderId } : {}),
+      ...(filters?.from || filters?.to
+        ? {
+            createdAt: {
+              ...(filters?.from ? { gte: filters.from } : {}),
+              ...(filters?.to ? { lte: filters.to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    return this.prisma.restaurantActivityEvent.findMany({
+      where,
+      include: {
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            tableId: true,
+            total: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(filters?.limit ?? 100, 1), 500),
+    });
+  }
+
   async findOne(id: string, tenantId: string) {
     const order = await this.prisma.restaurantOrder.findUnique({
       where: { id },
@@ -411,6 +502,7 @@ export class RestaurantOrderService {
       total: number;
       items: RestaurantOrderItemInput[];
     },
+    actor?: ActivityActorContext,
   ) {
     // Basic idempotency: handled by the controller/client passing idempotency key if needed,
     // but for order creation it's simpler.
@@ -463,6 +555,21 @@ export class RestaurantOrderService {
         });
       }
 
+      await this.logRestaurantActivity(prisma, {
+        tenantId,
+        branchId,
+        orderId: order.id,
+        actionType: 'order_created',
+        toStatus: 'Open',
+        actor,
+        details: {
+          tableId: data.tableId || null,
+          waiterId: data.waiterId || null,
+          total: Number(data.total || 0),
+          itemsCount: data.items.length,
+        },
+      });
+
       return order;
     });
   }
@@ -472,10 +579,11 @@ export class RestaurantOrderService {
     tenantId: string,
     newStatus: string,
     isManagerOverride: boolean = false,
-    actorUserId?: string,
+    actor?: ActivityActorContext,
     voidReason?: string,
   ) {
     const order = await this.findOne(id, tenantId);
+    const actorUserId = actor?.userId;
 
     if (!isManagerOverride) {
       const allowedNextStates = VALID_TRANSITIONS[order.status] || [];
@@ -523,6 +631,22 @@ export class RestaurantOrderService {
         });
       }
 
+      await this.logRestaurantActivity(prisma, {
+        tenantId,
+        branchId: order.branchId,
+        orderId: id,
+        actionType: 'order_status_changed',
+        fromStatus: order.status,
+        toStatus: newStatus,
+        actor,
+        details: {
+          isManagerOverride: !!isManagerOverride,
+          voidReason: voidReason?.trim() || null,
+          tableId: order.tableId || null,
+          total: Number(order.total || 0),
+        },
+      });
+
       // Free table if closed or voided
       if (
         (newStatus === 'Closed' || newStatus === 'Voided') &&
@@ -548,6 +672,7 @@ export class RestaurantOrderService {
       notes?: string;
       modifierSelections?: unknown;
     }>,
+    actor?: ActivityActorContext,
   ) {
     const order = await this.findOne(id, tenantId);
 
@@ -597,6 +722,26 @@ export class RestaurantOrderService {
         },
       });
 
+      await this.logRestaurantActivity(tx, {
+        tenantId,
+        branchId: order.branchId,
+        orderId: id,
+        actionType: 'order_items_added',
+        fromStatus: order.status,
+        toStatus: order.status,
+        actor,
+        details: {
+          addedItemsCount: items.length,
+          addedTotal,
+          items: items.map((item) => ({
+            productId: item.productId,
+            quantity: Number(item.quantity || 0),
+            price: Number(item.price || 0),
+            notes: item.notes || null,
+          })),
+        },
+      });
+
       return { order: updated, createdItems };
     });
   }
@@ -622,6 +767,7 @@ export class RestaurantOrderService {
         creditNotes?: string;
       }>;
     },
+    actor?: ActivityActorContext,
   ) {
     const order = await this.findOne(orderId, tenantId);
 
@@ -693,6 +839,28 @@ export class RestaurantOrderService {
           data: { status: 'open' },
         });
       }
+
+      await this.logRestaurantActivity(tx, {
+        tenantId,
+        branchId: order.branchId,
+        orderId,
+        actionType: 'order_checkout_completed',
+        fromStatus: order.status,
+        toStatus: 'Closed',
+        actor,
+        details: {
+          paymentMethod: payload.paymentMethod,
+          amountReceived:
+            typeof payload.amountReceived === 'number'
+              ? payload.amountReceived
+              : null,
+          splitPaymentsCount: Array.isArray(payload.splitPayments)
+            ? payload.splitPayments.length
+            : 0,
+          customerName: payload.customerName || order.customerName || null,
+          customerPhone: payload.customerPhone || order.customerPhone || null,
+        },
+      });
     });
 
     return receipt;
