@@ -22,6 +22,7 @@ import { AuditLogService } from '../audit-log.service';
 import { AuthService } from '../auth/auth.services';
 import { TenantConfigurationService } from '../config/tenant-configuration.service';
 import { PrismaService } from '../prisma.service';
+import { ClassificationService } from '../classification/classification.service';
 import {
   AVAILABLE_MODULES,
   DEFAULT_ENABLED_MODULES,
@@ -136,6 +137,7 @@ export class AdminController {
     private readonly authService: AuthService,
     private readonly tenantConfigurationService: TenantConfigurationService,
     private readonly prisma: PrismaService,
+    private readonly classificationService: ClassificationService,
   ) {}
 
   private asObject(value: unknown): Record<string, unknown> | null {
@@ -264,6 +266,67 @@ export class AdminController {
       `AdminController: getTenantBranches called with tenantId: ${tenantId}`,
     );
     return this.adminService.getTenantBranches(tenantId);
+  }
+
+  @Get('classifications')
+  async getClassifications(@Query('includeInactive') includeInactive?: string) {
+    return this.classificationService.findAllClassifications(
+      includeInactive === 'true',
+    );
+  }
+
+  @Post('classifications/bootstrap-defaults')
+  async bootstrapClassifications() {
+    return this.classificationService.bootstrapDefaultClassifications();
+  }
+
+  @Get('classifications/:id')
+  async getClassificationById(@Param('id') id: string) {
+    return this.classificationService.findClassificationById(id);
+  }
+
+  @Post('classifications')
+  async createClassification(@Body() body: Record<string, unknown>) {
+    return this.classificationService.createClassification(body as any);
+  }
+
+  @Put('classifications/:id')
+  async updateClassification(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.classificationService.updateClassification(id, body as any);
+  }
+
+  @Delete('classifications/:id')
+  async deleteClassification(@Param('id') id: string) {
+    return this.classificationService.deleteClassification(id);
+  }
+
+  @Get('classifications/:id/units')
+  async getClassificationUnits(@Param('id') id: string) {
+    return this.classificationService.findUnitsByClassification(id);
+  }
+
+  @Post('classifications/:id/units')
+  async createClassificationUnit(
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.classificationService.createUnit(id, body as any);
+  }
+
+  @Put('classifications/units/:unitId')
+  async updateClassificationUnit(
+    @Param('unitId') unitId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.classificationService.updateUnit(unitId, body as any);
+  }
+
+  @Delete('classifications/units/:unitId')
+  async deleteClassificationUnit(@Param('unitId') unitId: string) {
+    return this.classificationService.deactivateUnit(unitId);
   }
 
   @Get('tenants/:id/modules')

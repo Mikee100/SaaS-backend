@@ -23,6 +23,7 @@ import { MonitoringModule } from '../monitoring/monitoring.module';
 import { AdminHealthController } from './admin-health.controller';
 import { PlatformSettingsController } from './platform-settings.controller';
 import { ImpersonationController } from './impersonation.controller';
+import { ClassificationModule } from '../classification/classification.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ImpersonationController } from './impersonation.controller';
     TenantModule,
     TenantConfigurationModule,
     MonitoringModule,
+    ClassificationModule,
   ],
   controllers: [
     AdminController,
