@@ -592,7 +592,7 @@ export class MpesaController {
   @Get('status/:checkoutRequestId')
   async getStatus(@Param('checkoutRequestId') checkoutRequestId: string) {
     console.log('Getting status for checkoutRequestId:', checkoutRequestId);
-    const transaction =
+    let transaction =
       await this.mpesaService.prisma.mpesaTransaction.findFirst({
         where: { checkoutRequestID: checkoutRequestId },
       });
@@ -605,7 +605,60 @@ export class MpesaController {
       return { success: false, error: 'Transaction not found' };
     }
 
+    if (transaction.status === 'pending' && transaction.tenantId) {
+      try {
+        const stkQuery = await this.mpesaService.queryStkPushStatus(
+          transaction.tenantId,
+          checkoutRequestId,
+        );
+
+        const resultCodeRaw =
+          typeof stkQuery.ResultCode === 'string' ||
+          typeof stkQuery.ResultCode === 'number'
+            ? String(stkQuery.ResultCode)
+            : undefined;
+        const resultDesc =
+          typeof stkQuery.ResultDesc === 'string'
+            ? stkQuery.ResultDesc
+            : typeof stkQuery.ResponseDescription === 'string'
+              ? stkQuery.ResponseDescription
+              : undefined;
+
+        if (resultCodeRaw === '0') {
+          await this.mpesaService.updateTransaction(checkoutRequestId, {
+            status: 'success',
+            responseCode: resultCodeRaw,
+            responseDesc: resultDesc,
+            message: resultDesc,
+          });
+        } else if (resultCodeRaw && resultCodeRaw !== '1037') {
+          // 1037 often means the request is still being processed by M-Pesa.
+          await this.mpesaService.updateTransaction(checkoutRequestId, {
+            status: 'failed',
+            responseCode: resultCodeRaw,
+            responseDesc: resultDesc,
+            message: resultDesc,
+          });
+        }
+
+        transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst({
+          where: { checkoutRequestID: checkoutRequestId },
+        });
+      } catch (error) {
+        console.warn(
+          'STK status reconciliation failed for checkoutRequestId:',
+          checkoutRequestId,
+          error,
+        );
+      }
+    }
+
     console.log('Found transaction:', JSON.stringify(transaction, null, 2));
+
+    if (!transaction) {
+      return { success: false, error: 'Transaction not found' };
+    }
+
     return {
       success: true,
       data: {

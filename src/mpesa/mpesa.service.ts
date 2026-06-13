@@ -249,6 +249,92 @@ export class MpesaService {
     return this.prisma.mpesaTransaction.create({ data: createData });
   }
 
+  async queryStkPushStatus(tenantId: string, checkoutRequestId: string) {
+    if (!checkoutRequestId) {
+      throw new BadRequestException('Checkout request ID is required');
+    }
+
+    const config = await this.getTenantMpesaConfig(tenantId, false);
+    const now = new Date();
+    const timestamp = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+      String(now.getHours()).padStart(2, '0'),
+      String(now.getMinutes()).padStart(2, '0'),
+      String(now.getSeconds()).padStart(2, '0'),
+    ].join('');
+
+    const password = Buffer.from(
+      `${config.shortCode}${config.passkey}${timestamp}`,
+    ).toString('base64');
+
+    const baseUrl =
+      config.environment === 'production'
+        ? 'https://api.safaricom.co.ke'
+        : 'https://sandbox.safaricom.co.ke';
+
+    const tokenResponse = await fetch(
+      `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${config.consumerKey}:${config.consumerSecret}`).toString('base64')}`,
+        },
+      },
+    );
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new BadRequestException(
+        `Failed to authenticate with M-Pesa status API: ${errorText}`,
+      );
+    }
+
+    const tokenData = (await tokenResponse.json()) as {
+      access_token?: string;
+    };
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      throw new BadRequestException(
+        'M-Pesa authentication token not received for status query',
+      );
+    }
+
+    const stkQueryResponse = await fetch(
+      `${baseUrl}/mpesa/stkpushquery/v1/query`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          BusinessShortCode: config.shortCode,
+          Password: password,
+          Timestamp: timestamp,
+          CheckoutRequestID: checkoutRequestId,
+        }),
+      },
+    );
+
+    const rawText = await stkQueryResponse.text();
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = rawText ? (JSON.parse(rawText) as Record<string, unknown>) : {};
+    } catch {
+      payload = { raw: rawText };
+    }
+
+    if (!stkQueryResponse.ok) {
+      throw new BadRequestException(
+        `M-Pesa STK query failed: ${rawText || stkQueryResponse.statusText}`,
+      );
+    }
+
+    return payload;
+  }
+
   async updateTransaction(
     checkoutRequestId: string,
     update: Partial<{
