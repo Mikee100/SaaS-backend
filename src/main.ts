@@ -4,7 +4,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { pathToFileURL } from 'url';
 import compression from 'compression';
 // Swagger documentation will be added when @nestjs/swagger is installed
@@ -266,13 +266,35 @@ async function bootstrap() {
 
     // CORS is already configured above
 
-    // Serve uploads statically
-    const uploadsPath = join(process.cwd(), 'uploads');
-    app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
+    // Resolve paths from backend root instead of process CWD so production services
+    // still serve files when started from a different working directory.
+    const backendRootPath = existsSync(join(__dirname, '..', 'package.json'))
+      ? join(__dirname, '..')
+      : process.cwd();
 
-    // Serve POS updates statically
-    const posUpdatesPath = join(process.cwd(), 'uploads', 'pos-updates');
+    const uploadsPath = process.env.UPLOADS_DIR
+      ? process.env.UPLOADS_DIR
+      : join(backendRootPath, 'uploads');
+
+    const posUpdatesPath = process.env.POS_UPDATES_DIR
+      ? process.env.POS_UPDATES_DIR
+      : join(uploadsPath, 'pos-updates');
+
+    if (!existsSync(uploadsPath)) {
+      mkdirSync(uploadsPath, { recursive: true });
+    }
+
+    if (!existsSync(posUpdatesPath)) {
+      mkdirSync(posUpdatesPath, { recursive: true });
+    }
+
+    logger.log(`Serving uploads from: ${uploadsPath}`);
+    logger.log(`Serving POS updates from: ${posUpdatesPath}`);
+
+    app.useStaticAssets(uploadsPath, { prefix: '/uploads/' });
     app.useStaticAssets(posUpdatesPath, { prefix: '/updates/pos/' });
+    // Alias path useful for direct diagnostics and manual file checks.
+    app.useStaticAssets(posUpdatesPath, { prefix: '/uploads/pos-updates/' });
 
     // API documentation endpoint will be available when @nestjs/swagger is installed
     if (!isProduction) {

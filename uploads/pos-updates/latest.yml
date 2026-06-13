@@ -1,0 +1,8 @@
+version: 1.0.5
+files:
+  - url: AdeeraPOS-1.0.5-Setup.exe
+    sha512: Sk6H+mQNBiArmNyPyEtcQTXpmbiQKcbZFRWK+09oKxXt8NhIK/1/uPRDQB4ujReE+vb0c2xh89ulXupSmoSO6Q==
+    size: 78883466
+path: AdeeraPOS-1.0.5-Setup.exe
+sha512: Sk6H+mQNBiArmNyPyEtcQTXpmbiQKcbZFRWK+09oKxXt8NhIK/1/uPRDQB4ujReE+vb0c2xh89ulXupSmoSO6Q==
+releaseDate: '2026-06-13T22:16:36.401Z'
