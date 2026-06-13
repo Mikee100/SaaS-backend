@@ -57,6 +57,19 @@ export class AppController {
     }
   }
 
+  @Get('__build')
+  getBuildInfo() {
+    return {
+      service: 'backend',
+      nodeEnv: process.env.NODE_ENV || 'unknown',
+      renderServiceId: process.env.RENDER_SERVICE_ID || null,
+      renderGitCommit: process.env.RENDER_GIT_COMMIT || null,
+      renderGitBranch: process.env.RENDER_GIT_BRANCH || null,
+      renderInstanceId: process.env.RENDER_INSTANCE_ID || null,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @UseGuards(AuthGuard('jwt'), TrialGuard)
   @Get('dashboard/stats')
   async getDashboardStats(@Req() req: AuthenticatedRequest) {
