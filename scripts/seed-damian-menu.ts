@@ -11,51 +11,63 @@ type SeedItem = {
 const prisma = new PrismaClient();
 
 const TARGET_TENANT = {
-  name: 'Damian Ltd',
-  email: 'damian@gmail.com',
-  phone: '+254721840962',
+  name: process.env.MENU_TENANT_NAME || 'Damian Ltd',
+  email: process.env.MENU_TENANT_EMAIL || 'damian@gmail.com',
+  phone: process.env.MENU_TENANT_PHONE || '+254721840962',
 };
+
+const MENU_SKU_PREFIX = (process.env.MENU_SKU_PREFIX || 'DAM').toUpperCase();
 
 const CATEGORY_ITEMS: Record<string, SeedItem[]> = {
   Bar: [
-    { name: 'Tusker Lager', sku: 'DAM-BAR-001', price: 350, cost: 210 },
-    { name: 'Guinness Pint', sku: 'DAM-BAR-002', price: 420, cost: 250 },
-    { name: 'Smirnoff Vodka Shot', sku: 'DAM-BAR-003', price: 300, cost: 170 },
-    { name: 'Captain Morgan Rum Shot', sku: 'DAM-BAR-004', price: 320, cost: 185 },
-    { name: 'Gilbeys Gin Shot', sku: 'DAM-BAR-005', price: 280, cost: 160 },
-    { name: 'Jagermeister Shot', sku: 'DAM-BAR-006', price: 420, cost: 260 },
-    { name: 'House Whisky Single', sku: 'DAM-BAR-007', price: 450, cost: 280 },
-    { name: 'Savanna Dry Cider', sku: 'DAM-BAR-008', price: 500, cost: 320 },
+    { name: 'Tusker Lager', sku: `${MENU_SKU_PREFIX}-BAR-001`, price: 350, cost: 210 },
+    { name: 'Guinness Pint', sku: `${MENU_SKU_PREFIX}-BAR-002`, price: 420, cost: 250 },
+    { name: 'Smirnoff Vodka Shot', sku: `${MENU_SKU_PREFIX}-BAR-003`, price: 300, cost: 170 },
+    { name: 'Captain Morgan Rum Shot', sku: `${MENU_SKU_PREFIX}-BAR-004`, price: 320, cost: 185 },
+    { name: 'Gilbeys Gin Shot', sku: `${MENU_SKU_PREFIX}-BAR-005`, price: 280, cost: 160 },
+    { name: 'Jagermeister Shot', sku: `${MENU_SKU_PREFIX}-BAR-006`, price: 420, cost: 260 },
+    { name: 'House Whisky Single', sku: `${MENU_SKU_PREFIX}-BAR-007`, price: 450, cost: 280 },
+    { name: 'Savanna Dry Cider', sku: `${MENU_SKU_PREFIX}-BAR-008`, price: 500, cost: 320 },
+  ],
+  Appetizers: [
+    { name: 'Chicken Wings Basket', sku: `${MENU_SKU_PREFIX}-APP-001`, price: 650, cost: 340 },
+    { name: 'Samosa Trio', sku: `${MENU_SKU_PREFIX}-APP-002`, price: 420, cost: 200 },
+    { name: 'Spring Rolls Plate', sku: `${MENU_SKU_PREFIX}-APP-003`, price: 480, cost: 230 },
+    { name: 'Chips Masala Bowl', sku: `${MENU_SKU_PREFIX}-APP-004`, price: 450, cost: 210 },
+    { name: 'Beef Skewers', sku: `${MENU_SKU_PREFIX}-APP-005`, price: 700, cost: 360 },
+    { name: 'Nachos with Salsa', sku: `${MENU_SKU_PREFIX}-APP-006`, price: 620, cost: 300 },
+    { name: 'Onion Rings', sku: `${MENU_SKU_PREFIX}-APP-007`, price: 380, cost: 170 },
+    { name: 'Mozzarella Sticks', sku: `${MENU_SKU_PREFIX}-APP-008`, price: 680, cost: 340 },
   ],
   Desserts: [
-    { name: 'Chocolate Fudge Cake Slice', sku: 'DAM-DES-001', price: 450, cost: 220 },
-    { name: 'Vanilla Ice Cream Bowl', sku: 'DAM-DES-002', price: 300, cost: 130 },
-    { name: 'Strawberry Cheesecake Slice', sku: 'DAM-DES-003', price: 500, cost: 250 },
-    { name: 'Caramel Pudding', sku: 'DAM-DES-004', price: 320, cost: 150 },
-    { name: 'Fruit Salad Bowl', sku: 'DAM-DES-005', price: 350, cost: 180 },
-    { name: 'Brownie with Ice Cream', sku: 'DAM-DES-006', price: 480, cost: 240 },
-    { name: 'Tiramisu Cup', sku: 'DAM-DES-007', price: 520, cost: 270 },
-    { name: 'Lemon Tart Slice', sku: 'DAM-DES-008', price: 430, cost: 210 },
+    { name: 'Chocolate Fudge Cake Slice', sku: `${MENU_SKU_PREFIX}-DES-001`, price: 450, cost: 220 },
+    { name: 'Vanilla Ice Cream Bowl', sku: `${MENU_SKU_PREFIX}-DES-002`, price: 300, cost: 130 },
+    { name: 'Strawberry Cheesecake Slice', sku: `${MENU_SKU_PREFIX}-DES-003`, price: 500, cost: 250 },
+    { name: 'Caramel Pudding', sku: `${MENU_SKU_PREFIX}-DES-004`, price: 320, cost: 150 },
+    { name: 'Fruit Salad Bowl', sku: `${MENU_SKU_PREFIX}-DES-005`, price: 350, cost: 180 },
+    { name: 'Brownie with Ice Cream', sku: `${MENU_SKU_PREFIX}-DES-006`, price: 480, cost: 240 },
+    { name: 'Tiramisu Cup', sku: `${MENU_SKU_PREFIX}-DES-007`, price: 520, cost: 270 },
+    { name: 'Lemon Tart Slice', sku: `${MENU_SKU_PREFIX}-DES-008`, price: 430, cost: 210 },
   ],
   Drinks: [
-    { name: 'Coca-Cola 300ml', sku: 'DAM-DRK-001', price: 180, cost: 90 },
-    { name: 'Fanta Orange 300ml', sku: 'DAM-DRK-002', price: 180, cost: 90 },
-    { name: 'Sprite 300ml', sku: 'DAM-DRK-003', price: 180, cost: 90 },
-    { name: 'Minute Maid Mango', sku: 'DAM-DRK-004', price: 250, cost: 130 },
-    { name: 'Fresh Passion Juice', sku: 'DAM-DRK-005', price: 300, cost: 150 },
-    { name: 'Sparkling Water 500ml', sku: 'DAM-DRK-006', price: 220, cost: 110 },
-    { name: 'Mineral Water 500ml', sku: 'DAM-DRK-007', price: 120, cost: 50 },
-    { name: 'Iced Lemon Tea', sku: 'DAM-DRK-008', price: 280, cost: 140 },
+    { name: 'Coca-Cola 300ml', sku: `${MENU_SKU_PREFIX}-DRK-001`, price: 180, cost: 90 },
+    { name: 'Fanta Orange 300ml', sku: `${MENU_SKU_PREFIX}-DRK-002`, price: 180, cost: 90 },
+    { name: 'Sprite 300ml', sku: `${MENU_SKU_PREFIX}-DRK-003`, price: 180, cost: 90 },
+    { name: 'Minute Maid Mango', sku: `${MENU_SKU_PREFIX}-DRK-004`, price: 250, cost: 130 },
+    { name: 'Fresh Passion Juice', sku: `${MENU_SKU_PREFIX}-DRK-005`, price: 300, cost: 150 },
+    { name: 'Sparkling Water 500ml', sku: `${MENU_SKU_PREFIX}-DRK-006`, price: 220, cost: 110 },
+    { name: 'Mineral Water 500ml', sku: `${MENU_SKU_PREFIX}-DRK-007`, price: 120, cost: 50 },
+    { name: 'Iced Lemon Tea', sku: `${MENU_SKU_PREFIX}-DRK-008`, price: 280, cost: 140 },
   ],
   Meals: [
-    { name: 'Nyama Choma Platter', sku: 'DAM-MEA-001', price: 1200, cost: 650 },
-    { name: 'Chicken Biryani', sku: 'DAM-MEA-002', price: 950, cost: 520 },
-    { name: 'Beef Pilau', sku: 'DAM-MEA-003', price: 800, cost: 430 },
-    { name: 'Grilled Tilapia with Ugali', sku: 'DAM-MEA-004', price: 1100, cost: 600 },
-    { name: 'Chicken Burger with Fries', sku: 'DAM-MEA-005', price: 900, cost: 480 },
-    { name: 'Chapati Beef Stew Combo', sku: 'DAM-MEA-006', price: 750, cost: 390 },
-    { name: 'Vegetable Stir Fry Rice', sku: 'DAM-MEA-007', price: 700, cost: 340 },
-    { name: 'Goat Fry with Kachumbari', sku: 'DAM-MEA-008', price: 1300, cost: 730 },
+    { name: 'Nyama Choma Platter', sku: `${MENU_SKU_PREFIX}-MEA-001`, price: 1200, cost: 650 },
+    { name: 'Chicken Biryani', sku: `${MENU_SKU_PREFIX}-MEA-002`, price: 950, cost: 520 },
+    { name: 'Beef Pilau', sku: `${MENU_SKU_PREFIX}-MEA-003`, price: 800, cost: 430 },
+    { name: 'Grilled Tilapia with Ugali', sku: `${MENU_SKU_PREFIX}-MEA-004`, price: 1100, cost: 600 },
+    { name: 'Chicken Burger with Fries', sku: `${MENU_SKU_PREFIX}-MEA-005`, price: 900, cost: 480 },
+    { name: 'Chapati Beef Stew Combo', sku: `${MENU_SKU_PREFIX}-MEA-006`, price: 750, cost: 390 },
+    { name: 'Vegetable Stir Fry Rice', sku: `${MENU_SKU_PREFIX}-MEA-007`, price: 700, cost: 340 },
+    { name: 'Goat Fry with Kachumbari', sku: `${MENU_SKU_PREFIX}-MEA-008`, price: 1300, cost: 730 },
   ],
 };
 
@@ -223,7 +235,7 @@ async function seedProducts(tenantId: string, branchId: string) {
 }
 
 async function main() {
-  console.log('🌱 Seeding Damian Ltd restaurant menu products...');
+  console.log(`🌱 Seeding restaurant menu products for ${TARGET_TENANT.name}...`);
 
   const tenant = await resolveTenant();
   if (!tenant) {
