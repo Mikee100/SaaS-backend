@@ -104,11 +104,20 @@ export class RestaurantOrderService {
     } catch (error: unknown) {
       // Some production databases may be missing this optional table.
       // Never block order flow on activity logging if the table is absent.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2021' &&
-        `${(error.meta as Record<string, unknown> | undefined)?.table || ''}`.includes('RestaurantActivityEvent')
-      ) {
+      const errorLike = error as
+        | {
+            code?: unknown;
+            meta?: Record<string, unknown>;
+          }
+        | undefined;
+      const isMissingActivityTableError =
+        String(errorLike?.code || '') === 'P2021' &&
+        (
+          `${errorLike?.meta?.table || ''}`.includes('RestaurantActivityEvent') ||
+          `${errorLike?.meta?.modelName || ''}`.includes('RestaurantActivityEvent')
+        );
+
+      if (isMissingActivityTableError) {
         this.logger.warn(
           'Skipping restaurant activity log because RestaurantActivityEvent table is missing in current database.',
         );
