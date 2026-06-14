@@ -16,6 +16,19 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { TrialGuard } from '../auth/trial.guard';
 import { AuthenticatedRequest } from '../auth/request.types';
 
+type CreateSupplierBody = {
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
+  website?: string;
+  notes?: string;
+};
+
 const getActorUserId = (req: AuthenticatedRequest): string | undefined =>
   req.user.userId ?? req.user.sub;
 
@@ -67,7 +80,7 @@ export class SupplierController {
   @Post()
   @Permissions('manage_suppliers')
   async create(
-    @Body() data: Record<string, unknown>,
+    @Body() data: CreateSupplierBody,
     @Req() req: AuthenticatedRequest,
   ) {
     const tenantId = req.user.tenantId;

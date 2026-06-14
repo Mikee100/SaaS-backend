@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { BillingService } from '../billing/billing.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma.service';
@@ -726,10 +727,12 @@ export class AdminService {
         stripePriceId: planData.stripePriceId,
         PlanFeatureOnPlan: {
           create: planData.featureIds.map((featureId) => ({
+            id: randomUUID(),
             PlanFeature: {
               connect: { id: featureId },
             },
             isEnabled: true,
+            updatedAt: new Date(),
           })),
         },
       },
@@ -840,10 +843,12 @@ export class AdminService {
       // Add new features
       updateData.PlanFeatureOnPlan = {
         create: planData.featureIds.map((featureId) => ({
+          id: randomUUID(),
           PlanFeature: {
             connect: { id: featureId },
           },
           isEnabled: true,
+          updatedAt: new Date(),
         })),
       };
     }
@@ -1008,12 +1013,14 @@ export class AdminService {
         password: defaultPassword, // Use default password instead of provided one
       },
     })) as {
-      tenant: { id: string; name: string };
+      tenant: { id: string; name?: string };
       user: { email: string };
     };
 
+    const tenantName = result.tenant.name ?? tenantData.name;
+
     this.logger.log(
-      `AdminService: Created tenant ${result.tenant.name} with id ${result.tenant.id}`,
+      `AdminService: Created tenant ${tenantName} with id ${result.tenant.id}`,
     );
 
     // Send welcome email with login credentials
@@ -1024,7 +1031,7 @@ export class AdminService {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Welcome to SaaS Platform!</h2>
           <p>Your business account has been created successfully.</p>
-          <p><strong>Business:</strong> ${result.tenant.name}</p>
+          <p><strong>Business:</strong> ${tenantName}</p>
           <p><strong>Email:</strong> ${result.user.email}</p>
           <p><strong>Temporary Password:</strong> ${defaultPassword}</p>
           <p>You can now log in to your account. We recommend changing your password after your first login for security.</p>

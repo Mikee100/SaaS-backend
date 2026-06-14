@@ -8,7 +8,11 @@ import {
   Res,
   BadRequestException,
 } from '@nestjs/common';
-import { Request as ExpressRequest, Response } from 'express';
+import {
+  Request as ExpressRequest,
+  Response,
+  type CookieOptions,
+} from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { SuperadminGuard } from './superadmin.guard';
 import { TrialGuard } from '../auth/trial.guard';
@@ -19,7 +23,7 @@ import {
   IMPERSONATION_COOKIE_TENANT_NAME,
 } from './impersonation.interceptor';
 
-const COOKIE_OPTS = {
+const COOKIE_OPTS: CookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',

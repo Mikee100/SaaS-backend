@@ -46,6 +46,14 @@ interface UserListItemLike {
   [key: string]: unknown;
 }
 
+type CreateUserBody = {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+  branchId?: string;
+};
+
 const getActorUserId = (req: AuthenticatedRequest): string | undefined =>
   req.user.userId ?? req.user.sub;
 
@@ -60,14 +68,18 @@ export class UserController {
   @Get('me')
   async getMe(@Req() req: AuthenticatedRequest) {
     const user = req.user;
+    const actorUserId = user.userId ?? user.sub;
+    if (!actorUserId) {
+      throw new ForbiddenException('Missing authenticated user context');
+    }
     const tenantId = user?.tenantId ? String(user.tenantId) : null;
     // Get effective permissions and full user record for preferences
     const [permissions, dbUser] = await Promise.all([
       this.userService.getEffectivePermissions(
-        user.userId || user.sub,
+        actorUserId,
         tenantId,
       ),
-      this.userService.findById(user.userId || user.sub, {
+      this.userService.findById(actorUserId, {
         include: undefined,
       }),
     ]);
@@ -117,7 +129,7 @@ export class UserController {
 
     const prefs = (dbUser?.preferences as Record<string, unknown>) || {};
     return {
-      id: user.userId || user.sub,
+      id: actorUserId,
       email: user.email,
       name: user.name,
       roles: user.roles || [],
@@ -195,7 +207,7 @@ export class UserController {
   @Post()
   @Permissions('edit_users')
   async createUser(
-    @Body() body: Record<string, unknown>,
+    @Body() body: CreateUserBody,
     @Req() req: AuthenticatedRequest,
   ) {
     const actorUserId = getActorUserId(req);

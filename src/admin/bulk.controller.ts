@@ -20,7 +20,7 @@ export class BulkController {
   constructor(private readonly bulkService: BulkService) {}
 
   @Get('operations')
-  getOperations(): Promise<BulkOperation[]> {
+  getOperations(): BulkOperation[] {
     return this.bulkService.getOperations();
   }
 

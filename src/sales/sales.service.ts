@@ -244,6 +244,10 @@ export class SalesService {
       price: number;
       quantity: number;
     }[] = [];
+    const isRestaurantCheckoutSale =
+      typeof dto.restaurantOrderId === 'string' &&
+      dto.restaurantOrderId.trim().length > 0;
+
     // Validate items and build receipt items
     for (const item of dto.items) {
       // Try to find product, including soft-deleted ones to give better error message
@@ -328,7 +332,7 @@ export class SalesService {
               `Invalid variation: ${item.variationId}`,
             );
           }
-          if (variation.stock < item.quantity) {
+          if (!isRestaurantCheckoutSale && variation.stock < item.quantity) {
             throw new BadRequestException(
               `Insufficient stock for variation ${variation.sku}. Available: ${variation.stock}, Requested: ${item.quantity}`,
             );
@@ -482,9 +486,19 @@ export class SalesService {
       };
     }
 
+    if (isRestaurantCheckoutSale) {
+      this.logger.log(
+        `[RESTAURANT_CHECKOUT] Stock decrement skipped for sale ${saleId} because restaurant order ${dto.restaurantOrderId} was already served.`,
+      );
+    }
+
     // Transaction: update stock, create sale and sale items, handle credit if applicable
     await this.prisma.$transaction(async (prisma) => {
       for (const item of dto.items) {
+        if (isRestaurantCheckoutSale) {
+          continue;
+        }
+
         try {
           if (item.variationId) {
             // Verify variation exists and is active before updating

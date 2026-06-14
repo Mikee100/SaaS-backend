@@ -82,24 +82,50 @@ export class RestaurantOrderService {
       return;
     }
 
-    await delegate.create({
-      data: {
-        tenantId: payload.tenantId,
-        branchId: payload.branchId,
-        orderId: payload.orderId || null,
-        actorUserId: payload.actor?.userId || null,
-        actionType: payload.actionType,
-        fromStatus: payload.fromStatus || null,
-        toStatus: payload.toStatus || null,
-        details: {
-          ...(typeof payload.details === 'object' && payload.details !== null
-            ? (payload.details as Record<string, unknown>)
-            : {}),
-          actorName: payload.actor?.name || null,
-          actorRoles: payload.actor?.roles || [],
+    try {
+      await delegate.create({
+        data: {
+          tenantId: payload.tenantId,
+          branchId: payload.branchId,
+          orderId: payload.orderId || null,
+          actorUserId: payload.actor?.userId || null,
+          actionType: payload.actionType,
+          fromStatus: payload.fromStatus || null,
+          toStatus: payload.toStatus || null,
+          details: {
+            ...(typeof payload.details === 'object' && payload.details !== null
+              ? (payload.details as Record<string, unknown>)
+              : {}),
+            actorName: payload.actor?.name || null,
+            actorRoles: payload.actor?.roles || [],
+          },
         },
-      },
-    });
+      });
+    } catch (error: unknown) {
+      // Some production databases may be missing this optional table.
+      // Never block order flow on activity logging if the table is absent.
+      const errorLike = error as
+        | {
+            code?: unknown;
+            meta?: Record<string, unknown>;
+          }
+        | undefined;
+      const isMissingActivityTableError =
+        String(errorLike?.code || '') === 'P2021' &&
+        (
+          `${errorLike?.meta?.table || ''}`.includes('RestaurantActivityEvent') ||
+          `${errorLike?.meta?.modelName || ''}`.includes('RestaurantActivityEvent')
+        );
+
+      if (isMissingActivityTableError) {
+        this.logger.warn(
+          'Skipping restaurant activity log because RestaurantActivityEvent table is missing in current database.',
+        );
+        return;
+      }
+
+      throw error;
+    }
   }
 
   private async applyBomConsumptionIfNeeded(
