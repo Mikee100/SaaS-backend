@@ -182,9 +182,13 @@ export class UserService {
   async getUserRoles(tenantId: string) {
     return this.prisma.role.findMany({
       where: { tenantId },
-      include: { 
-        rolePermissions: true,
-        tenant: true
+      include: {
+        rolePermissions: {
+          include: {
+            permission: true,
+          },
+        },
+        tenant: true,
       },
     });
   }
