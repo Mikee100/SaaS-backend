@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma.service';
@@ -45,6 +46,8 @@ interface ActivityActorContext {
 
 @Injectable()
 export class RestaurantOrderService {
+  private readonly logger = new Logger(RestaurantOrderService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly salesService: SalesService,
@@ -67,7 +70,19 @@ export class RestaurantOrderService {
       details?: Prisma.InputJsonValue;
     },
   ) {
-    await db.restaurantActivityEvent.create({
+    const delegate =
+      (db as any)?.restaurantActivityEvent ||
+      (db as any)?.restaurantActivityEvents ||
+      (this.prisma as any)?.restaurantActivityEvent;
+
+    if (!delegate?.create) {
+      this.logger.warn(
+        'Skipping restaurant activity log because restaurantActivityEvent delegate is unavailable',
+      );
+      return;
+    }
+
+    await delegate.create({
       data: {
         tenantId: payload.tenantId,
         branchId: payload.branchId,
@@ -433,6 +448,17 @@ export class RestaurantOrderService {
       limit?: number;
     },
   ) {
+    const activityDelegate =
+      (this.prisma as any)?.restaurantActivityEvent ||
+      (this.prisma as any)?.restaurantActivityEvents;
+
+    if (!activityDelegate?.findMany) {
+      this.logger.warn(
+        'Restaurant activity delegate is unavailable; returning empty activity list',
+      );
+      return [];
+    }
+
     const where: Prisma.RestaurantActivityEventWhereInput = {
       tenantId,
       ...(branchId ? { branchId } : {}),
@@ -449,7 +475,7 @@ export class RestaurantOrderService {
         : {}),
     };
 
-    return this.prisma.restaurantActivityEvent.findMany({
+    return activityDelegate.findMany({
       where,
       include: {
         actor: {
