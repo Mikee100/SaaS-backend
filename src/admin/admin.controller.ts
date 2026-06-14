@@ -47,6 +47,7 @@ import {
   normalizeCrmPackageKey,
   validateCrmCapabilityDependencies,
 } from '../auth/crm-entitlements.constants';
+import type { Prisma } from '@prisma/client';
 
 interface UpdateCrmEntitlementsDto {
   packageKey?: string;
@@ -669,7 +670,7 @@ export class AdminController {
         effectiveTo: body?.effectiveTo ?? null,
         previous,
         next,
-      },
+      } as unknown as Prisma.InputJsonValue,
       this.getRequestIp(req),
     );
 
@@ -848,7 +849,7 @@ export class AdminController {
         effectiveTo: null,
         previous: null,
         next,
-      },
+      } as unknown as Prisma.InputJsonValue,
       this.getRequestIp(req),
     );
 

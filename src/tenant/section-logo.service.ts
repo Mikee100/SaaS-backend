@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { LogoService } from './logo.service';
 
@@ -261,7 +262,9 @@ export class SectionLogoService {
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
-      data: { logoSettings: currentSettings },
+      data: {
+        logoSettings: currentSettings as unknown as Prisma.InputJsonValue,
+      },
     });
 
     return this.getSectionLogoConfig(
@@ -365,7 +368,7 @@ export class SectionLogoService {
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        logoSettings: currentSettings,
+        logoSettings: currentSettings as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -402,7 +405,7 @@ export class SectionLogoService {
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        logoSettings: currentSettings,
+        logoSettings: currentSettings as unknown as Prisma.InputJsonValue,
       },
     });
 

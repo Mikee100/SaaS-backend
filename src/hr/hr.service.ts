@@ -175,7 +175,7 @@ interface PayrollRunItem {
   statutory?: Partial<KenyaStatutoryResult>;
 }
 
-interface PayrollPeriodLock {
+export interface PayrollPeriodLock {
   month: number;
   year: number;
   branchId?: string;
