@@ -176,7 +176,7 @@ export class AuthController {
   @Post('logout')
   async logout(
     @Req() req: AuthRequest,
-    @Res({ passthrough: true }) res: Response,
+    @Res() res: Response,
     @Body() body?: { refreshToken?: string },
   ) {
     const refreshToken = this.getRefreshToken(req, body);
@@ -190,7 +190,7 @@ export class AuthController {
       this.logger.warn('Logout revoke failed', e);
     }
     this.cookieService.clearAuthCookies(res);
-    res.status(204).send();
+    return res.status(204).send();
   }
 
   @UseGuards(AuthGuard('jwt'))
