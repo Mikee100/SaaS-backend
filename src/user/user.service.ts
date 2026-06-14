@@ -236,7 +236,7 @@ export class UserService {
           include: {
             role: {
               include: {
-                permissions: {
+                rolePermissions: {
                   include: {
                     permission: true,
                   },
@@ -318,7 +318,11 @@ export class UserService {
     return this.prisma.role.findMany({
       where: { tenantId },
       include: {
-        permissions: true,
+        rolePermissions: {
+          include: {
+            permission: true,
+          },
+        },
         tenant: true,
       },
     });
