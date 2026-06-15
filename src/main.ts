@@ -7,7 +7,7 @@ import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { pathToFileURL } from 'url';
 import compression from 'compression';
-// Swagger documentation will be added when @nestjs/swagger is installed
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded, type Request } from 'express';
@@ -296,10 +296,59 @@ async function bootstrap() {
     // Alias path useful for direct diagnostics and manual file checks.
     app.useStaticAssets(posUpdatesPath, { prefix: '/uploads/pos-updates/' });
 
-    // API documentation endpoint will be available when @nestjs/swagger is installed
-    if (!isProduction) {
+    const swaggerEnabled =
+      !isProduction || process.env.SWAGGER_ENABLED === 'true';
+    const swaggerPath = (process.env.SWAGGER_PATH || 'api').replace(
+      /^\/+|\/+$/g,
+      '',
+    );
+
+    if (swaggerEnabled) {
+      const apiUrl =
+        process.env.PUBLIC_API_URL || 'https://saas-business.duckdns.org';
+
+      const swaggerConfig = new DocumentBuilder()
+        .setTitle('SaaS Platform API')
+        .setDescription(
+          'OpenAPI documentation for SaaS Platform backend endpoints.',
+        )
+        .setVersion(process.env.npm_package_version || '1.0.0')
+        .addServer(`http://localhost:${port}`, 'Local')
+        .addServer(apiUrl, 'Production')
+        .addBearerAuth(
+          {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            in: 'header',
+          },
+          'bearerAuth',
+        )
+        .addCookieAuth('access_token', {
+          type: 'apiKey',
+          in: 'cookie',
+        })
+        .build();
+
+      const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig, {
+        deepScanRoutes: true,
+      });
+
+      SwaggerModule.setup(swaggerPath, app, swaggerDocument, {
+        customSiteTitle: 'SaaS Platform API Docs',
+        swaggerOptions: {
+          persistAuthorization: true,
+          tagsSorter: 'alpha',
+          operationsSorter: 'alpha',
+        },
+      });
+
       logger.log(
-        'API documentation will be available at /api when @nestjs/swagger is installed',
+        `📚 API docs: http://localhost:${port}/${swaggerPath} | OpenAPI JSON: http://localhost:${port}/${swaggerPath}-json`,
+      );
+    } else {
+      logger.log(
+        'Swagger/OpenAPI docs disabled in production. Set SWAGGER_ENABLED=true to enable.',
       );
     }
 
