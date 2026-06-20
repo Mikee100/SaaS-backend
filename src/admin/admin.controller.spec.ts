@@ -25,6 +25,10 @@ describe('AdminController blueprint rollout controls', () => {
     resolveEffectiveManifest: jest.fn(),
   };
 
+  const blueprintMigrationHelperService = {
+    generateTenantDryRunReport: jest.fn(),
+  };
+
   let configStore: Record<string, string | null>;
 
   const tenantConfigurationService = {
@@ -64,6 +68,40 @@ describe('AdminController blueprint rollout controls', () => {
       source: { fallbackFromEnabledModules: false },
     });
 
+    blueprintMigrationHelperService.generateTenantDryRunReport.mockResolvedValue(
+      {
+        tenantId: 'tenant-1',
+        current: {
+          businessType: 'restaurant',
+          blueprintKey: '',
+          blueprintVersion: 'v1',
+          enabledModules: ['dashboard', 'sales'],
+        },
+        recommendation: {
+          businessType: 'restaurant',
+          blueprintKey: 'restaurant-standard',
+          blueprintVersion: 'v1',
+          confidence: 0.8,
+          rationale: ['test rationale'],
+          suggestedEnabledModules: ['dashboard', 'sales'],
+          suggestedInstalledApps: ['delivery'],
+          suggestedFeatureFlags: {},
+        },
+        changes: {
+          blueprintWillChange: true,
+          modulesToAdd: [],
+          modulesToRemove: [],
+        },
+      },
+    );
+
+    (adminService as any).getAllTenants = jest
+      .fn()
+      .mockResolvedValue([
+        { id: 'tenant-1', businessType: 'restaurant' },
+        { id: 'tenant-2', businessType: 'fashion' },
+      ]);
+
     controller = new AdminController(
       adminService as any,
       subscriptionService as any,
@@ -73,7 +111,30 @@ describe('AdminController blueprint rollout controls', () => {
       prisma as any,
       classificationService as any,
       blueprintManifestService as any,
+      blueprintMigrationHelperService as any,
     );
+  });
+
+  it('returns tenant migration dry-run report', async () => {
+    const response = await controller.getTenantBlueprintMigrationDryRun(
+      'tenant-1',
+    );
+
+    expect(response.mode).toBe('dry-run');
+    expect(response.report.tenantId).toBe('tenant-1');
+    expect(
+      blueprintMigrationHelperService.generateTenantDryRunReport,
+    ).toHaveBeenCalledWith('tenant-1');
+  });
+
+  it('returns batch migration dry-run reports with limit', async () => {
+    const response = await controller.getBlueprintMigrationDryRun('1');
+
+    expect(response.mode).toBe('dry-run');
+    expect(response.analyzedTenants).toBe(1);
+    expect(
+      blueprintMigrationHelperService.generateTenantDryRunReport,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('builds a dry-run preview without persisting tenant configuration', async () => {
