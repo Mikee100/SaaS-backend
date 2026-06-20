@@ -209,9 +209,9 @@ export class SalesService {
         saleId: existing.id,
         date: existing.createdAt,
         items: [], // In a real scenario, we might want to fetch these
-        subtotal: (existing.total ?? 0) - (existing.vatAmount ?? 0),
+        subtotal: existing.total ?? 0,
         total: existing.total,
-        vatAmount: existing.vatAmount ?? 0,
+        vatAmount: 0,
         paymentMethod: existing.paymentType,
         amountReceived: dto.amountReceived ?? 0,
         change: (dto.amountReceived ?? 0) - existing.total,
@@ -426,16 +426,14 @@ export class SalesService {
       this.logger.debug('[BRANCH_CHECK] No branchId provided in payload.');
     }
 
-    // Apply discount (optional): cap at subtotal, then VAT on discounted subtotal
+    // Apply discount (optional): cap at subtotal
     const discountAmount = Math.max(
       0,
       Math.min(dto.discountAmount ?? 0, subtotal),
     );
     const subtotalAfterDiscount = subtotal - discountAmount;
-    // Calculate VAT (16%) on discounted subtotal
-    const vatRate = 0.16; // 16% VAT rate
-    const vatAmount = Math.round(subtotalAfterDiscount * vatRate * 100) / 100;
-    const total = Math.round((subtotalAfterDiscount + vatAmount) * 100) / 100;
+    const vatAmount = 0;
+    const total = Math.round(subtotalAfterDiscount * 100) / 100;
 
     // Handle split payments (declare outside transaction so it's accessible in return statement)
     let paymentType = dto.paymentMethod;
@@ -781,10 +779,8 @@ export class SalesService {
       refundSubtotal += item.unitPrice * item.quantity;
     }
 
-    // Use same VAT logic as createSale
-    const vatRate = 0.16;
-    const refundVat = Math.round(refundSubtotal * vatRate * 100) / 100;
-    const refundTotal = Math.round((refundSubtotal + refundVat) * 100) / 100;
+    const refundVat = 0;
+    const refundTotal = Math.round(refundSubtotal * 100) / 100;
 
     const returnId = uuidv4();
     const now = new Date();
@@ -833,7 +829,7 @@ export class SalesService {
           tenantId,
           userId,
           total: -refundTotal,
-          vatAmount: -refundVat,
+          vatAmount: 0,
           paymentType: refundMethod || 'refund',
           createdAt: now,
           customerName: originalSale.customerName,
