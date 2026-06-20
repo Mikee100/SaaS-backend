@@ -7,6 +7,7 @@ import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
 import { CacheModule } from '../cache/cache.module';
 import { AuditLogService } from '../audit-log.service';
+import { BlueprintManifestService } from '../blueprints/blueprint-manifest.service';
 
 @Module({
   imports: [UserModule, CacheModule],
@@ -16,6 +17,7 @@ import { AuditLogService } from '../audit-log.service';
     SubscriptionService,
     BillingService,
     AuditLogService,
+    BlueprintManifestService,
   ],
   controllers: [TenantConfigurationController],
   exports: [TenantConfigurationService],

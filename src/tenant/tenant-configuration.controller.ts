@@ -32,6 +32,7 @@ import {
   normalizeCrmUsage,
 } from '../auth/crm-entitlements.constants';
 import { AuthenticatedRequest } from '../auth/request.types';
+import { BlueprintManifestService } from '../blueprints/blueprint-manifest.service';
 
 interface StripeServiceLike {
   createStripeProductsAndPrices(tenantId: string): Promise<unknown>;
@@ -102,7 +103,18 @@ export class TenantConfigurationController {
   constructor(
     private readonly tenantConfigurationService: TenantConfigurationService,
     private readonly auditLogService: AuditLogService,
+    private readonly blueprintManifestService: BlueprintManifestService,
   ) {}
+
+  @Get('manifest/effective')
+  async getEffectiveManifest(@Req() req: AuthenticatedRequest) {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
+    return this.blueprintManifestService.resolveEffectiveManifest(tenantId);
+  }
 
   @Get('modules')
   @Permissions('view_settings')
