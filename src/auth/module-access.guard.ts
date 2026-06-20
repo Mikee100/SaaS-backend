@@ -7,12 +7,14 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { PrismaService } from '../prisma.service';
+import { UserService } from '../user/user.service';
 import {
   AppModuleKey,
   MODULES_CONFIG_KEY,
   normalizeEnabledModules,
 } from './module-access.constants';
 import { MODULE_ACCESS_KEY } from './module-access.decorator';
+import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
 import {
   CRM_USAGE_CONFIG_KEY,
   CRM_ENTITLEMENTS_CONFIG_KEY,
@@ -27,10 +29,71 @@ import { AuthenticatedRequest } from './request.types';
 
 @Injectable()
 export class ModuleAccessGuard implements CanActivate {
+  private readonly permissionAliases: Record<string, string[]> = {
+    // Compatibility aliases for tenants still using sales-centric permissions.
+    view_reports: ['view_sales'],
+    view_branches: ['view_sales'],
+  };
+
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    private readonly userService: UserService,
   ) {}
+
+  private getUserRoles(user: AuthenticatedRequest['user']): string[] {
+    if (!user || !Array.isArray(user.roles)) {
+      return [];
+    }
+
+    return user.roles
+      .map((entry) =>
+        typeof entry === 'string'
+          ? entry
+          : String(entry?.name || ''),
+      )
+      .map((entry) => entry.trim().toLowerCase())
+      .filter((entry) => entry.length > 0);
+  }
+
+  private async resolveUserPermissions(
+    user: AuthenticatedRequest['user'],
+  ): Promise<Set<string>> {
+    const permissions = new Set(
+      Array.isArray(user?.permissions)
+        ? user.permissions.filter(
+            (perm): perm is string => typeof perm === 'string',
+          )
+        : [],
+    );
+
+    const userId = String(user?.userId || user?.sub || '').trim();
+    if (userId && permissions.size === 0) {
+      const effective = await this.userService.getEffectivePermissions(
+        userId,
+        user?.tenantId,
+      );
+      for (const entry of effective) {
+        if (entry?.name) {
+          permissions.add(entry.name);
+        }
+      }
+    }
+
+    return permissions;
+  }
+
+  private hasPermissionOrAlias(
+    userPermissions: Set<string>,
+    permission: string,
+  ): boolean {
+    if (userPermissions.has(permission)) {
+      return true;
+    }
+
+    const aliases = this.permissionAliases[permission] || [];
+    return aliases.some((alias) => userPermissions.has(alias));
+  }
 
   private inferRequiredModulesFromPath(path: string): AppModuleKey[] {
     const normalizedPath = String(path || '').toLowerCase();
@@ -197,6 +260,10 @@ export class ModuleAccessGuard implements CanActivate {
       MODULE_ACCESS_KEY,
       [context.getHandler(), context.getClass()],
     );
+    const requiredCapabilities = this.reflector.getAllAndOverride<string[]>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
     const metadataCrmCapabilities = this.reflector.getAllAndOverride<
       CrmCapabilityKey[]
     >(CRM_CAPABILITY_ACCESS_KEY, [context.getHandler(), context.getClass()]);
@@ -226,6 +293,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     if (
       (!requiredModules || requiredModules.length === 0) &&
+      (!requiredCapabilities || requiredCapabilities.length === 0) &&
       (!requiredCrmCapabilities || requiredCrmCapabilities.length === 0) &&
       !inferredCrmProvider &&
       !inferredCrmLimit
@@ -241,6 +309,27 @@ export class ModuleAccessGuard implements CanActivate {
 
     if (user.isSuperadmin) {
       return true;
+    }
+
+    const userRoles = this.getUserRoles(user);
+    if (userRoles.includes('owner') || userRoles.includes('admin')) {
+      return true;
+    }
+
+    if (requiredCapabilities && requiredCapabilities.length > 0) {
+      const userPermissions = await this.resolveUserPermissions(user);
+      const missingCapabilities = requiredCapabilities.filter(
+        (capability) =>
+          !this.hasPermissionOrAlias(userPermissions, capability),
+      );
+
+      if (missingCapabilities.length > 0) {
+        throw new ForbiddenException({
+          code: 'CAPABILITY_ACCESS_DENIED',
+          message: `Missing capabilities: ${missingCapabilities.join(', ')}`,
+          missingCapabilities,
+        });
+      }
     }
 
     const config = await this.prisma.tenantConfiguration.findUnique({
@@ -266,9 +355,11 @@ export class ModuleAccessGuard implements CanActivate {
     );
 
     if (missing.length > 0) {
-      throw new ForbiddenException(
-        `Module disabled for this tenant: ${missing.join(', ')}`,
-      );
+      throw new ForbiddenException({
+        code: 'MODULE_ACCESS_DENIED',
+        message: `Module disabled for this tenant: ${missing.join(', ')}`,
+        missingModules: missing,
+      });
     }
 
     if (requiredCrmCapabilities && requiredCrmCapabilities.length > 0) {
@@ -296,18 +387,22 @@ export class ModuleAccessGuard implements CanActivate {
       );
 
       if (missingCrmCapabilities.length > 0) {
-        throw new ForbiddenException(
-          `CRM capability disabled for this tenant: ${missingCrmCapabilities.join(', ')}`,
-        );
+        throw new ForbiddenException({
+          code: 'CRM_CAPABILITY_ACCESS_DENIED',
+          message: `CRM capability disabled for this tenant: ${missingCrmCapabilities.join(', ')}`,
+          missingCrmCapabilities,
+        });
       }
 
       if (inferredCrmProvider) {
         const providers =
           crmEntitlements.allowedProviders[inferredCrmProvider.group] || [];
         if (!providers.includes(inferredCrmProvider.provider)) {
-          throw new ForbiddenException(
-            `CRM provider disabled for this tenant: ${inferredCrmProvider.provider}`,
-          );
+          throw new ForbiddenException({
+            code: 'CRM_PROVIDER_ACCESS_DENIED',
+            message: `CRM provider disabled for this tenant: ${inferredCrmProvider.provider}`,
+            provider: inferredCrmProvider.provider,
+          });
         }
       }
 
@@ -347,9 +442,13 @@ export class ModuleAccessGuard implements CanActivate {
         }
 
         if (limitState.blocked) {
-          throw new ForbiddenException(
-            `CRM limit reached for ${limitState.key}: ${limitState.usage}/${limitState.limit}`,
-          );
+          throw new ForbiddenException({
+            code: 'CRM_LIMIT_REACHED',
+            message: `CRM limit reached for ${limitState.key}: ${limitState.usage}/${limitState.limit}`,
+            limitKey: limitState.key,
+            usage: limitState.usage,
+            limit: limitState.limit,
+          });
         }
       }
     }
