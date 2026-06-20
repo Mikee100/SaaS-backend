@@ -88,7 +88,7 @@ export class CreateSaleDto {
   @IsString()
   creditNotes?: string; // Notes for credit sale
 
-  /** Optional discount amount (fixed amount in same currency as sale). Applied to subtotal before VAT. */
+  /** Optional discount amount (fixed amount in same currency as sale). Applied to subtotal. */
   @IsNumber()
   @IsOptional()
   @Min(0)

@@ -35,6 +35,10 @@ export class ModuleAccessGuard implements CanActivate {
   private inferRequiredModulesFromPath(path: string): AppModuleKey[] {
     const normalizedPath = String(path || '').toLowerCase();
 
+    if (normalizedPath.startsWith('/tenant/configurations/manifest/effective')) {
+      return [];
+    }
+
     if (normalizedPath.startsWith('/tenant/configurations/modules')) {
       return [];
     }

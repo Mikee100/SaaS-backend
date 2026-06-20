@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adeera.app/schemas/blueprint-manifest.v1.schema.json",
+  "title": "Adeera Blueprint Manifest v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "businessType",
+    "blueprintKey",
+    "blueprintVersion",
+    "displayName",
+    "description",
+    "enabledModules",
+    "navigation",
+    "dashboard",
+    "quickActions",
+    "settings",
+    "reports",
+    "entities",
+    "permissions",
+    "features",
+    "apps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "businessType": {
+      "type": "string",
+      "enum": ["fashion", "restaurant", "spa_barber"]
+    },
+    "blueprintKey": { "type": "string", "minLength": 1 },
+    "blueprintVersion": { "type": "string", "const": "v1" },
+    "displayName": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "enabledModules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "dashboard",
+          "payroll",
+          "sales",
+          "credits",
+          "inventory",
+          "accounts",
+          "analytics",
+          "reports",
+          "expenses",
+          "crm",
+          "ai",
+          "settings",
+          "billing"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "navigation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "path"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "icon": { "type": "string" },
+          "order": { "type": "integer", "minimum": 0 },
+          "requiredModule": { "type": "string" },
+          "requiredPermission": { "type": "string" },
+          "section": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "dashboard": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "widgetType"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "widgetType": { "type": "string", "minLength": 1 },
+          "order": { "type": "integer", "minimum": 0 },
+          "requiredModule": { "type": "string" },
+          "requiredPermission": { "type": "string" },
+          "config": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "quickActions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "actionType"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "actionType": {
+            "type": "string",
+            "enum": ["navigate", "modal", "api"]
+          },
+          "path": { "type": "string" },
+          "order": { "type": "integer", "minimum": 0 },
+          "requiredModule": { "type": "string" },
+          "requiredPermission": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "settings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "path"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "category": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label", "engine"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "engine": { "type": "string", "minLength": 1 },
+          "attributes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "features": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "label"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "enabledByDefault": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "featureFlags": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}
