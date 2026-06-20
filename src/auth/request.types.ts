@@ -5,8 +5,9 @@ export interface AuthenticatedUser {
   sub?: string;
   email?: string;
   name?: string;
-  roles?: string[];
+  roles?: Array<string | { name?: string }>;
   role?: string;
+  permissions?: string[];
   tenantId?: string;
   branchId?: string;
   isSuperadmin?: boolean;
