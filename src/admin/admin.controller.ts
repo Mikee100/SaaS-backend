@@ -670,6 +670,65 @@ export class AdminController {
     };
   }
 
+  @Get('blueprints/migration-dry-run/summary')
+  async getBlueprintMigrationDryRunSummary(@Query('limit') limit?: string) {
+    const parsedLimit = Number(limit || 200);
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(2000, Math.floor(parsedLimit)))
+      : 200;
+
+    const tenants = await this.adminService.getAllTenants();
+    const selectedTenants = Array.isArray(tenants)
+      ? tenants.slice(0, safeLimit)
+      : [];
+
+    const reports = await Promise.all(
+      selectedTenants.map((tenant: { id: string; businessType?: string }) =>
+        this.blueprintMigrationHelperService.generateTenantDryRunReport(
+          tenant.id,
+          this.normalizeBusinessType(tenant.businessType),
+        ),
+      ),
+    );
+
+    const byBlueprint = reports.reduce(
+      (acc, report) => {
+        const key = report.recommendation.blueprintKey;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const byConfidenceBand = reports.reduce(
+      (acc, report) => {
+        const confidence = report.recommendation.confidence;
+        const band =
+          confidence >= 0.8
+            ? 'high'
+            : confidence >= 0.5
+              ? 'medium'
+              : 'low';
+        acc[band] = (acc[band] || 0) + 1;
+        return acc;
+      },
+      { high: 0, medium: 0, low: 0 } as Record<'high' | 'medium' | 'low', number>,
+    );
+
+    const withBlueprintChange = reports.filter(
+      (report) => report.changes.blueprintWillChange,
+    ).length;
+
+    return {
+      mode: 'dry-run-summary',
+      analyzedTenants: reports.length,
+      byBlueprint,
+      byConfidenceBand,
+      withBlueprintChange,
+      withoutBlueprintChange: reports.length - withBlueprintChange,
+    };
+  }
+
   @Put('tenants/:id/blueprint')
   async updateTenantBlueprint(
     @Param('id') tenantId: string,

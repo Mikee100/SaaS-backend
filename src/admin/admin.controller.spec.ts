@@ -137,6 +137,69 @@ describe('AdminController blueprint rollout controls', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
+  it('returns migration dry-run summary aggregation', async () => {
+    blueprintMigrationHelperService.generateTenantDryRunReport
+      .mockResolvedValueOnce({
+        tenantId: 'tenant-1',
+        current: {
+          businessType: 'restaurant',
+          blueprintKey: '',
+          blueprintVersion: 'v1',
+          enabledModules: ['dashboard', 'sales'],
+        },
+        recommendation: {
+          businessType: 'restaurant',
+          blueprintKey: 'restaurant-standard',
+          blueprintVersion: 'v1',
+          confidence: 0.85,
+          rationale: ['high confidence'],
+          suggestedEnabledModules: ['dashboard', 'sales'],
+          suggestedInstalledApps: ['delivery'],
+          suggestedFeatureFlags: {},
+        },
+        changes: {
+          blueprintWillChange: true,
+          modulesToAdd: [],
+          modulesToRemove: [],
+        },
+      })
+      .mockResolvedValueOnce({
+        tenantId: 'tenant-2',
+        current: {
+          businessType: 'fashion',
+          blueprintKey: 'fashion-standard',
+          blueprintVersion: 'v1',
+          enabledModules: ['dashboard', 'inventory'],
+        },
+        recommendation: {
+          businessType: 'fashion',
+          blueprintKey: 'fashion-standard',
+          blueprintVersion: 'v1',
+          confidence: 0.45,
+          rationale: ['low confidence'],
+          suggestedEnabledModules: ['dashboard', 'inventory'],
+          suggestedInstalledApps: ['supplier_portal'],
+          suggestedFeatureFlags: {},
+        },
+        changes: {
+          blueprintWillChange: false,
+          modulesToAdd: [],
+          modulesToRemove: [],
+        },
+      });
+
+    const response = await controller.getBlueprintMigrationDryRunSummary('2');
+
+    expect(response.mode).toBe('dry-run-summary');
+    expect(response.analyzedTenants).toBe(2);
+    expect(response.byBlueprint['restaurant-standard']).toBe(1);
+    expect(response.byBlueprint['fashion-standard']).toBe(1);
+    expect(response.byConfidenceBand.high).toBe(1);
+    expect(response.byConfidenceBand.low).toBe(1);
+    expect(response.withBlueprintChange).toBe(1);
+    expect(response.withoutBlueprintChange).toBe(1);
+  });
+
   it('builds a dry-run preview without persisting tenant configuration', async () => {
     const response = await controller.previewTenantBlueprint('tenant-1', {
       businessType: 'restaurant',
