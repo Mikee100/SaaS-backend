@@ -48,6 +48,18 @@ import {
   validateCrmCapabilityDependencies,
 } from '../auth/crm-entitlements.constants';
 import type { Prisma } from '@prisma/client';
+import { BlueprintManifestService } from '../blueprints/blueprint-manifest.service';
+import {
+  BLUEPRINT_KEY_CONFIG_KEY,
+  BLUEPRINT_VERSION_CONFIG_KEY,
+  BUSINESS_TYPE_CONFIG_KEY,
+  FEATURE_FLAGS_CONFIG_KEY,
+  INSTALLED_APPS_CONFIG_KEY,
+} from '../blueprints/blueprint-manifest.constants';
+import {
+  BLUEPRINT_MANIFESTS_V1,
+  getBlueprintManifestV1,
+} from '../blueprints/blueprint-manifest.definitions';
 
 interface UpdateCrmEntitlementsDto {
   packageKey?: string;
@@ -104,6 +116,19 @@ type CreatePlanDto = {
 
 type UpdatePlanDto = Partial<CreatePlanDto>;
 
+interface UpdateTenantBlueprintDto {
+  businessType?: string;
+  blueprintKey?: string;
+  blueprintVersion?: string;
+  installedApps?: string[];
+  featureFlags?: Record<string, boolean>;
+  enabledModules?: string[];
+}
+
+interface RollbackTenantBlueprintDto {
+  auditLogId?: string;
+}
+
 const MODULE_PERMISSION_REQUIREMENTS: Array<{
   module: (typeof AVAILABLE_MODULES)[number];
   requiredPermissions: string[];
@@ -139,7 +164,49 @@ export class AdminController {
     private readonly tenantConfigurationService: TenantConfigurationService,
     private readonly prisma: PrismaService,
     private readonly classificationService: ClassificationService,
+    private readonly blueprintManifestService: BlueprintManifestService,
   ) {}
+
+  private normalizeBusinessType(value: unknown): string {
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
+    if (
+      normalized === 'fashion' ||
+      normalized === 'restaurant' ||
+      normalized === 'spa_barber'
+    ) {
+      return normalized;
+    }
+    return '';
+  }
+
+  private normalizeInstalledApps(input: unknown): string[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        input
+          .map((entry) => String(entry || '').trim().toLowerCase())
+          .filter((entry) => entry.length > 0),
+      ),
+    );
+  }
+
+  private normalizeFeatureFlags(
+    input: unknown,
+  ): Record<string, boolean> {
+    if (!input || typeof input !== 'object') {
+      return {};
+    }
+
+    const entries = Object.entries(input as Record<string, unknown>).filter(
+      ([key, value]) =>
+        String(key || '').trim().length > 0 && typeof value === 'boolean',
+    );
+    return Object.fromEntries(entries) as Record<string, boolean>;
+  }
 
   private asObject(value: unknown): Record<string, unknown> | null {
     return value && typeof value === 'object'
@@ -160,6 +227,105 @@ export class AdminController {
 
   private getRequestIp(req: ExpressRequest): string | undefined {
     return typeof req.ip === 'string' ? req.ip : undefined;
+  }
+
+  private async persistTenantBlueprintConfiguration(
+    tenantId: string,
+    input: {
+      businessType: string;
+      blueprintKey: string;
+      blueprintVersion: string;
+      installedApps: string[];
+      featureFlags: Record<string, boolean>;
+      enabledModules: string[];
+    },
+  ): Promise<void> {
+    await Promise.all([
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+        input.businessType,
+        {
+          description: 'Tenant business type (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        BLUEPRINT_KEY_CONFIG_KEY,
+        input.blueprintKey,
+        {
+          description: 'Tenant blueprint key (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        BLUEPRINT_VERSION_CONFIG_KEY,
+        input.blueprintVersion,
+        {
+          description: 'Tenant blueprint version (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        INSTALLED_APPS_CONFIG_KEY,
+        JSON.stringify(input.installedApps),
+        {
+          description: 'Tenant installed apps (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        FEATURE_FLAGS_CONFIG_KEY,
+        JSON.stringify(input.featureFlags),
+        {
+          description: 'Tenant feature flags (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+        JSON.stringify(input.enabledModules),
+        {
+          description: 'Tenant module entitlements (blueprint sync)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
+    ]);
+  }
+
+  private extractBlueprintConfigSnapshot(
+    input: unknown,
+  ): UpdateTenantBlueprintDto | null {
+    const obj = this.asObject(input);
+    if (!obj) {
+      return null;
+    }
+
+    return {
+      businessType: this.asString(obj.businessType),
+      blueprintKey: this.asString(obj.blueprintKey),
+      blueprintVersion: this.asString(obj.blueprintVersion),
+      installedApps: this.normalizeInstalledApps(obj.installedApps),
+      featureFlags: this.normalizeFeatureFlags(obj.featureFlags),
+      enabledModules: normalizeEnabledModules(obj.enabledModules),
+    };
   }
 
   @Get('stats')
@@ -359,6 +525,381 @@ export class AdminController {
   getModulePresets() {
     return {
       presets: MODULE_PRESETS,
+    };
+  }
+
+  @Get('blueprints')
+  getBlueprints() {
+    const blueprints = BLUEPRINT_MANIFESTS_V1.map((entry) => ({
+      businessType: entry.businessType,
+      blueprintKey: entry.blueprintKey,
+      blueprintVersion: entry.blueprintVersion,
+      displayName: entry.displayName,
+      description: entry.description,
+      enabledModules: entry.enabledModules,
+      apps: entry.apps,
+      features: entry.features,
+    }));
+
+    return {
+      version: 'v1',
+      total: blueprints.length,
+      blueprints,
+    };
+  }
+
+  @Get('tenants/:id/blueprint')
+  async getTenantBlueprint(@Param('id') tenantId: string) {
+    const [
+      configuredBlueprintKey,
+      configuredBlueprintVersion,
+      configuredBusinessType,
+      configuredInstalledApps,
+      configuredFeatureFlags,
+      configuredModules,
+      effective,
+    ] = await Promise.all([
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BLUEPRINT_KEY_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BLUEPRINT_VERSION_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        INSTALLED_APPS_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        FEATURE_FLAGS_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      ),
+      this.blueprintManifestService.resolveEffectiveManifest(tenantId),
+    ]);
+
+    let modulesParsed: unknown;
+    try {
+      modulesParsed = configuredModules ? JSON.parse(configuredModules) : undefined;
+    } catch {
+      modulesParsed = undefined;
+    }
+
+    let installedAppsParsed: unknown;
+    try {
+      installedAppsParsed = configuredInstalledApps
+        ? JSON.parse(configuredInstalledApps)
+        : undefined;
+    } catch {
+      installedAppsParsed = undefined;
+    }
+
+    let featureFlagsParsed: unknown;
+    try {
+      featureFlagsParsed = configuredFeatureFlags
+        ? JSON.parse(configuredFeatureFlags)
+        : undefined;
+    } catch {
+      featureFlagsParsed = undefined;
+    }
+
+    return {
+      tenantId,
+      configured: {
+        businessType: this.normalizeBusinessType(configuredBusinessType),
+        blueprintKey: String(configuredBlueprintKey || '').trim().toLowerCase(),
+        blueprintVersion: String(configuredBlueprintVersion || 'v1')
+          .trim()
+          .toLowerCase(),
+        installedApps: this.normalizeInstalledApps(installedAppsParsed),
+        featureFlags: this.normalizeFeatureFlags(featureFlagsParsed),
+        enabledModules: normalizeEnabledModules(modulesParsed),
+      },
+      effective,
+    };
+  }
+
+  @Put('tenants/:id/blueprint')
+  async updateTenantBlueprint(
+    @Param('id') tenantId: string,
+    @Body() body: UpdateTenantBlueprintDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const normalizedBlueprintKey = String(body?.blueprintKey || '')
+      .trim()
+      .toLowerCase();
+
+    const blueprint = getBlueprintManifestV1(normalizedBlueprintKey);
+    if (!blueprint) {
+      throw new BadRequestException('Invalid blueprint key');
+    }
+
+    const normalizedBlueprintVersion = String(
+      body?.blueprintVersion || blueprint.blueprintVersion || 'v1',
+    )
+      .trim()
+      .toLowerCase();
+
+    if (normalizedBlueprintVersion !== 'v1') {
+      throw new BadRequestException('Invalid blueprint version');
+    }
+
+    const normalizedBusinessType =
+      this.normalizeBusinessType(body?.businessType) || blueprint.businessType;
+
+    const normalizedInstalledApps = this.normalizeInstalledApps(
+      body?.installedApps || [],
+    );
+    const normalizedFeatureFlags = this.normalizeFeatureFlags(
+      body?.featureFlags || {},
+    );
+    const normalizedModules = normalizeEnabledModules(
+      body?.enabledModules || blueprint.enabledModules,
+    );
+
+    const previous = await this.getTenantBlueprint(tenantId);
+
+    await this.persistTenantBlueprintConfiguration(tenantId, {
+      businessType: normalizedBusinessType,
+      blueprintKey: normalizedBlueprintKey,
+      blueprintVersion: normalizedBlueprintVersion,
+      installedApps: normalizedInstalledApps,
+      featureFlags: normalizedFeatureFlags,
+      enabledModules: normalizedModules,
+    });
+
+    const actorUserId = this.getActorUserId(req);
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_blueprint_updated',
+      {
+        tenantId,
+        previousConfigured: previous.configured,
+        nextConfigured: {
+          businessType: normalizedBusinessType,
+          blueprintKey: normalizedBlueprintKey,
+          blueprintVersion: normalizedBlueprintVersion,
+          installedApps: normalizedInstalledApps,
+          featureFlags: normalizedFeatureFlags,
+          enabledModules: normalizedModules,
+        },
+      } as unknown as Prisma.InputJsonValue,
+      this.getRequestIp(req),
+    );
+
+    const updated = await this.getTenantBlueprint(tenantId);
+    return {
+      message: 'Tenant blueprint updated successfully',
+      ...updated,
+    };
+  }
+
+  @Post('tenants/:id/blueprint/preview')
+  async previewTenantBlueprint(
+    @Param('id') tenantId: string,
+    @Body() body: UpdateTenantBlueprintDto,
+  ) {
+    const normalizedBlueprintKey = String(body?.blueprintKey || '')
+      .trim()
+      .toLowerCase();
+
+    const blueprint = getBlueprintManifestV1(normalizedBlueprintKey);
+    if (!blueprint) {
+      throw new BadRequestException('Invalid blueprint key');
+    }
+
+    const normalizedBlueprintVersion = String(
+      body?.blueprintVersion || blueprint.blueprintVersion || 'v1',
+    )
+      .trim()
+      .toLowerCase();
+
+    if (normalizedBlueprintVersion !== 'v1') {
+      throw new BadRequestException('Invalid blueprint version');
+    }
+
+    const normalizedBusinessType =
+      this.normalizeBusinessType(body?.businessType) || blueprint.businessType;
+
+    const normalizedInstalledApps = this.normalizeInstalledApps(
+      body?.installedApps || [],
+    );
+    const normalizedFeatureFlags = this.normalizeFeatureFlags(
+      body?.featureFlags || {},
+    );
+    const normalizedModules = normalizeEnabledModules(
+      body?.enabledModules || blueprint.enabledModules,
+    );
+
+    const current = await this.getTenantBlueprint(tenantId);
+
+    const effectivePreview = {
+      manifest: {
+        ...blueprint,
+        businessType: normalizedBusinessType,
+        enabledModules: normalizedModules,
+        apps: (blueprint.apps || []).map((app) => ({
+          ...app,
+          enabledByDefault:
+            Boolean(app.enabledByDefault) ||
+            normalizedInstalledApps.includes(app.key),
+        })),
+        featureFlags: {
+          ...(blueprint.featureFlags || {}),
+          ...normalizedFeatureFlags,
+        },
+      },
+      source: {
+        blueprintKey: normalizedBlueprintKey,
+        blueprintVersion: normalizedBlueprintVersion,
+        businessType: normalizedBusinessType,
+        fallbackFromEnabledModules: false,
+      },
+    };
+
+    return {
+      tenantId,
+      mode: 'preview',
+      current: current.configured,
+      proposed: {
+        businessType: normalizedBusinessType,
+        blueprintKey: normalizedBlueprintKey,
+        blueprintVersion: normalizedBlueprintVersion,
+        installedApps: normalizedInstalledApps,
+        featureFlags: normalizedFeatureFlags,
+        enabledModules: normalizedModules,
+      },
+      effectivePreview,
+    };
+  }
+
+  @Post('tenants/:id/blueprint/rollback')
+  async rollbackTenantBlueprint(
+    @Param('id') tenantId: string,
+    @Body() body: RollbackTenantBlueprintDto,
+    @Req() req: ExpressRequest,
+  ) {
+    const previous = await this.getTenantBlueprint(tenantId);
+
+    const candidateEvents = body?.auditLogId
+      ? await this.prisma.auditLog.findMany({
+          where: {
+            id: String(body.auditLogId),
+            action: 'platform_tenant_blueprint_updated',
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        })
+      : await this.prisma.auditLog.findMany({
+          where: {
+            action: 'platform_tenant_blueprint_updated',
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+        });
+
+    let rollbackSnapshot: UpdateTenantBlueprintDto | null = null;
+    let rollbackEventId: string | null = null;
+
+    for (const event of candidateEvents) {
+      const details = this.asObject(event.details);
+      if (!details) {
+        continue;
+      }
+
+      const eventTenantId = this.asString(details.tenantId);
+      if (eventTenantId !== tenantId) {
+        continue;
+      }
+
+      const snapshot = this.extractBlueprintConfigSnapshot(
+        details.previousConfigured,
+      );
+      if (!snapshot) {
+        continue;
+      }
+
+      rollbackSnapshot = snapshot;
+      rollbackEventId = event.id;
+      break;
+    }
+
+    if (!rollbackSnapshot?.blueprintKey) {
+      throw new BadRequestException(
+        'No rollback snapshot found for tenant blueprint',
+      );
+    }
+
+    const rollbackBlueprint = getBlueprintManifestV1(rollbackSnapshot.blueprintKey);
+    if (!rollbackBlueprint) {
+      throw new BadRequestException(
+        'Rollback target blueprint is no longer available',
+      );
+    }
+
+    const normalizedBusinessType =
+      this.normalizeBusinessType(rollbackSnapshot.businessType) ||
+      rollbackBlueprint.businessType;
+    const normalizedBlueprintKey = String(rollbackSnapshot.blueprintKey)
+      .trim()
+      .toLowerCase();
+    const normalizedBlueprintVersion = String(
+      rollbackSnapshot.blueprintVersion || rollbackBlueprint.blueprintVersion || 'v1',
+    )
+      .trim()
+      .toLowerCase();
+    const normalizedInstalledApps = this.normalizeInstalledApps(
+      rollbackSnapshot.installedApps || [],
+    );
+    const normalizedFeatureFlags = this.normalizeFeatureFlags(
+      rollbackSnapshot.featureFlags || {},
+    );
+    const normalizedModules = normalizeEnabledModules(
+      rollbackSnapshot.enabledModules || rollbackBlueprint.enabledModules,
+    );
+
+    await this.persistTenantBlueprintConfiguration(tenantId, {
+      businessType: normalizedBusinessType,
+      blueprintKey: normalizedBlueprintKey,
+      blueprintVersion: normalizedBlueprintVersion,
+      installedApps: normalizedInstalledApps,
+      featureFlags: normalizedFeatureFlags,
+      enabledModules: normalizedModules,
+    });
+
+    const actorUserId = this.getActorUserId(req);
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_blueprint_rolled_back',
+      {
+        tenantId,
+        rollbackSourceEventId: rollbackEventId,
+        previousConfigured: previous.configured,
+        restoredConfigured: {
+          businessType: normalizedBusinessType,
+          blueprintKey: normalizedBlueprintKey,
+          blueprintVersion: normalizedBlueprintVersion,
+          installedApps: normalizedInstalledApps,
+          featureFlags: normalizedFeatureFlags,
+          enabledModules: normalizedModules,
+        },
+      } as unknown as Prisma.InputJsonValue,
+      this.getRequestIp(req),
+    );
+
+    const updated = await this.getTenantBlueprint(tenantId);
+    return {
+      message: 'Tenant blueprint rollback completed successfully',
+      rollbackSourceEventId: rollbackEventId,
+      ...updated,
     };
   }
 

@@ -20,6 +20,6 @@ import { BlueprintManifestService } from '../blueprints/blueprint-manifest.servi
     BlueprintManifestService,
   ],
   controllers: [TenantConfigurationController],
-  exports: [TenantConfigurationService],
+  exports: [TenantConfigurationService, BlueprintManifestService],
 })
 export class TenantConfigurationModule {}
