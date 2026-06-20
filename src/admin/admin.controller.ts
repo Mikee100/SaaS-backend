@@ -49,6 +49,7 @@ import {
 } from '../auth/crm-entitlements.constants';
 import type { Prisma } from '@prisma/client';
 import { BlueprintManifestService } from '../blueprints/blueprint-manifest.service';
+import { BlueprintMigrationHelperService } from '../blueprints/blueprint-migration-helper.service';
 import {
   BLUEPRINT_KEY_CONFIG_KEY,
   BLUEPRINT_VERSION_CONFIG_KEY,
@@ -165,6 +166,7 @@ export class AdminController {
     private readonly prisma: PrismaService,
     private readonly classificationService: ClassificationService,
     private readonly blueprintManifestService: BlueprintManifestService,
+    private readonly blueprintMigrationHelperService: BlueprintMigrationHelperService,
   ) {}
 
   private normalizeBusinessType(value: unknown): string {
@@ -624,6 +626,47 @@ export class AdminController {
         enabledModules: normalizeEnabledModules(modulesParsed),
       },
       effective,
+    };
+  }
+
+  @Get('tenants/:id/blueprint/migration-dry-run')
+  async getTenantBlueprintMigrationDryRun(@Param('id') tenantId: string) {
+    const report =
+      await this.blueprintMigrationHelperService.generateTenantDryRunReport(
+        tenantId,
+      );
+
+    return {
+      mode: 'dry-run',
+      report,
+    };
+  }
+
+  @Get('blueprints/migration-dry-run')
+  async getBlueprintMigrationDryRun(@Query('limit') limit?: string) {
+    const parsedLimit = Number(limit || 50);
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(500, Math.floor(parsedLimit)))
+      : 50;
+
+    const tenants = await this.adminService.getAllTenants();
+    const selectedTenants = Array.isArray(tenants)
+      ? tenants.slice(0, safeLimit)
+      : [];
+
+    const reports = await Promise.all(
+      selectedTenants.map((tenant: { id: string; businessType?: string }) =>
+        this.blueprintMigrationHelperService.generateTenantDryRunReport(
+          tenant.id,
+          this.normalizeBusinessType(tenant.businessType),
+        ),
+      ),
+    );
+
+    return {
+      mode: 'dry-run',
+      analyzedTenants: reports.length,
+      reports,
     };
   }
 

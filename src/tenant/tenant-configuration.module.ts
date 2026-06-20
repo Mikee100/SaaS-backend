@@ -8,6 +8,7 @@ import { BillingService } from '../billing/billing.service';
 import { CacheModule } from '../cache/cache.module';
 import { AuditLogService } from '../audit-log.service';
 import { BlueprintManifestService } from '../blueprints/blueprint-manifest.service';
+import { BlueprintMigrationHelperService } from '../blueprints/blueprint-migration-helper.service';
 
 @Module({
   imports: [UserModule, CacheModule],
@@ -18,8 +19,13 @@ import { BlueprintManifestService } from '../blueprints/blueprint-manifest.servi
     BillingService,
     AuditLogService,
     BlueprintManifestService,
+    BlueprintMigrationHelperService,
   ],
   controllers: [TenantConfigurationController],
-  exports: [TenantConfigurationService, BlueprintManifestService],
+  exports: [
+    TenantConfigurationService,
+    BlueprintManifestService,
+    BlueprintMigrationHelperService,
+  ],
 })
 export class TenantConfigurationModule {}
