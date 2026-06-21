@@ -84,7 +84,7 @@ export class UserController {
       }),
     ]);
 
-    const [moduleConfig, crmConfig] = tenantId
+    const [moduleConfig, crmConfig, tenant] = tenantId
       ? await Promise.all([
           this.prisma.tenantConfiguration.findUnique({
             where: {
@@ -104,8 +104,12 @@ export class UserController {
             },
             select: { value: true },
           }),
+          this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { restaurantFeaturesEnabled: true },
+          }),
         ])
-      : [null, null];
+      : [null, null, null];
 
     let parsedModules: unknown;
     try {
@@ -147,6 +151,7 @@ export class UserController {
       dashboardPreferences: prefs.dashboardPreferences ?? undefined,
       enabledModules,
       crmEntitlements,
+      restaurantFeaturesEnabled: tenant?.restaurantFeaturesEnabled ?? false,
     };
   }
 
