@@ -56,9 +56,12 @@ import {
   BUSINESS_TYPE_CONFIG_KEY,
   FEATURE_FLAGS_CONFIG_KEY,
   INSTALLED_APPS_CONFIG_KEY,
+  NAVIGATION_KEYS_CONFIG_KEY,
+  UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
 } from '../blueprints/blueprint-manifest.constants';
 import {
   BLUEPRINT_MANIFESTS_V1,
+  getBlueprintNavigationCatalogV1,
   getBlueprintManifestV1,
 } from '../blueprints/blueprint-manifest.definitions';
 
@@ -124,10 +127,46 @@ interface UpdateTenantBlueprintDto {
   installedApps?: string[];
   featureFlags?: Record<string, boolean>;
   enabledModules?: string[];
+  navigationKeys?: string[];
 }
 
 interface RollbackTenantBlueprintDto {
   auditLogId?: string;
+}
+
+interface UnifiedProductsDisplaySectionGlobal {
+  showWorkflowPanel: boolean;
+  showDescription: boolean;
+  showImages: boolean;
+  showCategory: boolean;
+}
+
+interface UnifiedProductsDisplaySectionRestaurant {
+  showAllergens: boolean;
+  showPrepStation: boolean;
+  showTaxClass: boolean;
+}
+
+interface UnifiedProductsDisplaySectionFashion {
+  showBrand: boolean;
+  showSeason: boolean;
+  showSupplier: boolean;
+  enableVariationTypeSelector: boolean;
+}
+
+interface UnifiedProductsDisplaySectionSpa {
+  showDurationMinutes: boolean;
+  showStaffSkillLevel: boolean;
+  showCommissionProfile: boolean;
+  showConsumables: boolean;
+}
+
+interface UnifiedProductsDisplayConfig {
+  version: 'v1';
+  global: UnifiedProductsDisplaySectionGlobal;
+  restaurant: UnifiedProductsDisplaySectionRestaurant;
+  fashion: UnifiedProductsDisplaySectionFashion;
+  spa: UnifiedProductsDisplaySectionSpa;
 }
 
 const MODULE_PERMISSION_REQUIREMENTS: Array<{
@@ -183,6 +222,118 @@ export class AdminController {
     return '';
   }
 
+  private defaultUnifiedProductsDisplayConfig(): UnifiedProductsDisplayConfig {
+    return {
+      version: 'v1',
+      global: {
+        showWorkflowPanel: true,
+        showDescription: true,
+        showImages: true,
+        showCategory: true,
+      },
+      restaurant: {
+        showAllergens: true,
+        showPrepStation: true,
+        showTaxClass: true,
+      },
+      fashion: {
+        showBrand: true,
+        showSeason: true,
+        showSupplier: true,
+        enableVariationTypeSelector: true,
+      },
+      spa: {
+        showDurationMinutes: true,
+        showStaffSkillLevel: true,
+        showCommissionProfile: true,
+        showConsumables: true,
+      },
+    };
+  }
+
+  private normalizeUnifiedProductsDisplayConfig(
+    input: unknown,
+  ): UnifiedProductsDisplayConfig {
+    const defaults = this.defaultUnifiedProductsDisplayConfig();
+    const root = this.asObject(input);
+    const global = this.asObject(root?.global);
+    const restaurant = this.asObject(root?.restaurant);
+    const fashion = this.asObject(root?.fashion);
+    const spa = this.asObject(root?.spa);
+
+    return {
+      version: 'v1',
+      global: {
+        showWorkflowPanel:
+          typeof global?.showWorkflowPanel === 'boolean'
+            ? global.showWorkflowPanel
+            : defaults.global.showWorkflowPanel,
+        showDescription:
+          typeof global?.showDescription === 'boolean'
+            ? global.showDescription
+            : defaults.global.showDescription,
+        showImages:
+          typeof global?.showImages === 'boolean'
+            ? global.showImages
+            : defaults.global.showImages,
+        showCategory:
+          typeof global?.showCategory === 'boolean'
+            ? global.showCategory
+            : defaults.global.showCategory,
+      },
+      restaurant: {
+        showAllergens:
+          typeof restaurant?.showAllergens === 'boolean'
+            ? restaurant.showAllergens
+            : defaults.restaurant.showAllergens,
+        showPrepStation:
+          typeof restaurant?.showPrepStation === 'boolean'
+            ? restaurant.showPrepStation
+            : defaults.restaurant.showPrepStation,
+        showTaxClass:
+          typeof restaurant?.showTaxClass === 'boolean'
+            ? restaurant.showTaxClass
+            : defaults.restaurant.showTaxClass,
+      },
+      fashion: {
+        showBrand:
+          typeof fashion?.showBrand === 'boolean'
+            ? fashion.showBrand
+            : defaults.fashion.showBrand,
+        showSeason:
+          typeof fashion?.showSeason === 'boolean'
+            ? fashion.showSeason
+            : defaults.fashion.showSeason,
+        showSupplier:
+          typeof fashion?.showSupplier === 'boolean'
+            ? fashion.showSupplier
+            : defaults.fashion.showSupplier,
+        enableVariationTypeSelector:
+          typeof fashion?.enableVariationTypeSelector === 'boolean'
+            ? fashion.enableVariationTypeSelector
+            : defaults.fashion.enableVariationTypeSelector,
+      },
+      spa: {
+        showDurationMinutes:
+          typeof spa?.showDurationMinutes === 'boolean'
+            ? spa.showDurationMinutes
+            : defaults.spa.showDurationMinutes,
+        showStaffSkillLevel:
+          typeof spa?.showStaffSkillLevel === 'boolean'
+            ? spa.showStaffSkillLevel
+            : defaults.spa.showStaffSkillLevel,
+        showCommissionProfile:
+          typeof spa?.showCommissionProfile === 'boolean'
+            ? spa.showCommissionProfile
+            : defaults.spa.showCommissionProfile,
+        showConsumables:
+          typeof spa?.showConsumables === 'boolean'
+            ? spa.showConsumables
+            : defaults.spa.showConsumables,
+      },
+    };
+  }
+
   private normalizeInstalledApps(input: unknown): string[] {
     if (!Array.isArray(input)) {
       return [];
@@ -208,6 +359,43 @@ export class AdminController {
         String(key || '').trim().length > 0 && typeof value === 'boolean',
     );
     return Object.fromEntries(entries) as Record<string, boolean>;
+  }
+
+  private normalizeNavigationKeys(
+    input: unknown,
+    availableNavigationKeys: string[],
+  ): string[] {
+    if (!Array.isArray(input)) {
+      return [...availableNavigationKeys];
+    }
+
+    const allowed = new Set(
+      availableNavigationKeys
+        .map((entry) => String(entry || '').trim().toLowerCase())
+        .filter((entry) => entry.length > 0),
+    );
+
+    return Array.from(
+      new Set(
+        input
+          .map((entry) => String(entry || '').trim().toLowerCase())
+          .filter((entry) => entry.length > 0 && allowed.has(entry)),
+      ),
+    );
+  }
+
+  private parseConfiguredNavigationKeys(input: unknown): string[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        input
+          .map((entry) => String(entry || '').trim().toLowerCase())
+          .filter((entry) => entry.length > 0),
+      ),
+    );
   }
 
   private asObject(value: unknown): Record<string, unknown> | null {
@@ -240,6 +428,7 @@ export class AdminController {
       installedApps: string[];
       featureFlags: Record<string, boolean>;
       enabledModules: string[];
+      navigationKeys: string[];
     },
   ): Promise<void> {
     await Promise.all([
@@ -309,6 +498,17 @@ export class AdminController {
           isPublic: false,
         },
       ),
+      this.tenantConfigurationService.setTenantConfiguration(
+        tenantId,
+        NAVIGATION_KEYS_CONFIG_KEY,
+        JSON.stringify(input.navigationKeys),
+        {
+          description: 'Tenant blueprint navigation keys (platform admin)',
+          category: 'general',
+          isEncrypted: false,
+          isPublic: false,
+        },
+      ),
     ]);
   }
 
@@ -327,6 +527,7 @@ export class AdminController {
       installedApps: this.normalizeInstalledApps(obj.installedApps),
       featureFlags: this.normalizeFeatureFlags(obj.featureFlags),
       enabledModules: normalizeEnabledModules(obj.enabledModules),
+      navigationKeys: this.parseConfiguredNavigationKeys(obj.navigationKeys),
     };
   }
 
@@ -532,6 +733,7 @@ export class AdminController {
 
   @Get('blueprints')
   getBlueprints() {
+    const navigationCatalog = getBlueprintNavigationCatalogV1();
     const blueprints = BLUEPRINT_MANIFESTS_V1.map((entry) => ({
       businessType: entry.businessType,
       blueprintKey: entry.blueprintKey,
@@ -539,6 +741,7 @@ export class AdminController {
       displayName: entry.displayName,
       description: entry.description,
       enabledModules: entry.enabledModules,
+      navigation: entry.navigation,
       apps: entry.apps,
       features: entry.features,
     }));
@@ -547,6 +750,7 @@ export class AdminController {
       version: 'v1',
       total: blueprints.length,
       blueprints,
+      navigationCatalog,
     };
   }
 
@@ -559,6 +763,7 @@ export class AdminController {
       configuredInstalledApps,
       configuredFeatureFlags,
       configuredModules,
+      configuredNavigationKeys,
       effective,
     ] = await Promise.all([
       this.tenantConfigurationService.getTenantConfiguration(
@@ -584,6 +789,10 @@ export class AdminController {
       this.tenantConfigurationService.getTenantConfiguration(
         tenantId,
         MODULES_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        NAVIGATION_KEYS_CONFIG_KEY,
       ),
       this.blueprintManifestService.resolveEffectiveManifest(tenantId),
     ]);
@@ -613,8 +822,18 @@ export class AdminController {
       featureFlagsParsed = undefined;
     }
 
+    let navigationKeysParsed: unknown;
+    try {
+      navigationKeysParsed = configuredNavigationKeys
+        ? JSON.parse(configuredNavigationKeys)
+        : undefined;
+    } catch {
+      navigationKeysParsed = undefined;
+    }
+
     return {
       tenantId,
+      configuredNavigationKeysSet: configuredNavigationKeys !== null,
       configured: {
         businessType: this.normalizeBusinessType(configuredBusinessType),
         blueprintKey: String(configuredBlueprintKey || '').trim().toLowerCase(),
@@ -624,8 +843,82 @@ export class AdminController {
         installedApps: this.normalizeInstalledApps(installedAppsParsed),
         featureFlags: this.normalizeFeatureFlags(featureFlagsParsed),
         enabledModules: normalizeEnabledModules(modulesParsed),
+        navigationKeys: this.parseConfiguredNavigationKeys(navigationKeysParsed),
       },
       effective,
+    };
+  }
+
+  @Get('tenants/:id/unified-products-display')
+  async getTenantUnifiedProductsDisplay(@Param('id') tenantId: string) {
+    const [configuredRaw, configuredBusinessType] = await Promise.all([
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+      ),
+    ]);
+
+    let parsed: unknown;
+    try {
+      parsed = configuredRaw ? JSON.parse(configuredRaw) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    return {
+      tenantId,
+      key: UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      businessType: this.normalizeBusinessType(configuredBusinessType) || 'fashion',
+      config: this.normalizeUnifiedProductsDisplayConfig(parsed),
+    };
+  }
+
+  @Put('tenants/:id/unified-products-display')
+  async updateTenantUnifiedProductsDisplay(
+    @Param('id') tenantId: string,
+    @Body() body: { config?: unknown },
+    @Req() req: ExpressRequest,
+  ) {
+    const before = await this.getTenantUnifiedProductsDisplay(tenantId);
+    const normalizedConfig = this.normalizeUnifiedProductsDisplayConfig(
+      body?.config,
+    );
+
+    await this.tenantConfigurationService.setTenantConfiguration(
+      tenantId,
+      UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      JSON.stringify(normalizedConfig),
+      {
+        description:
+          'Tenant unified products page display configuration (platform admin)',
+        category: 'general',
+        isEncrypted: false,
+        isPublic: false,
+      },
+    );
+
+    const actorUserId = this.getActorUserId(req);
+    await this.auditLogService.log(
+      actorUserId,
+      'platform_tenant_unified_products_display_updated',
+      {
+        tenantId,
+        key: UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+        previous: before.config,
+        next: normalizedConfig,
+      } as unknown as Prisma.InputJsonValue,
+      this.getRequestIp(req),
+    );
+
+    return {
+      message: 'Tenant unified products display updated successfully',
+      tenantId,
+      key: UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      config: normalizedConfig,
     };
   }
 
@@ -766,6 +1059,13 @@ export class AdminController {
     const normalizedModules = normalizeEnabledModules(
       body?.enabledModules || blueprint.enabledModules,
     );
+    const defaultNavigationKeys = getBlueprintNavigationCatalogV1()
+      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .filter((item) => item.length > 0);
+    const normalizedNavigationKeys = this.normalizeNavigationKeys(
+      body?.navigationKeys,
+      defaultNavigationKeys,
+    );
 
     const previous = await this.getTenantBlueprint(tenantId);
 
@@ -776,6 +1076,7 @@ export class AdminController {
       installedApps: normalizedInstalledApps,
       featureFlags: normalizedFeatureFlags,
       enabledModules: normalizedModules,
+      navigationKeys: normalizedNavigationKeys,
     });
 
     const actorUserId = this.getActorUserId(req);
@@ -792,6 +1093,7 @@ export class AdminController {
           installedApps: normalizedInstalledApps,
           featureFlags: normalizedFeatureFlags,
           enabledModules: normalizedModules,
+          navigationKeys: normalizedNavigationKeys,
         },
       } as unknown as Prisma.InputJsonValue,
       this.getRequestIp(req),
@@ -840,6 +1142,20 @@ export class AdminController {
     const normalizedModules = normalizeEnabledModules(
       body?.enabledModules || blueprint.enabledModules,
     );
+    const navigationCatalog = getBlueprintNavigationCatalogV1();
+    const defaultNavigationKeys = navigationCatalog
+      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .filter((item) => item.length > 0);
+    const normalizedNavigationKeys = this.normalizeNavigationKeys(
+      body?.navigationKeys,
+      defaultNavigationKeys,
+    );
+    const navigationByKey = new Map(
+      navigationCatalog.map((item) => [
+        String(item?.key || '').trim().toLowerCase(),
+        item,
+      ]),
+    );
 
     const current = await this.getTenantBlueprint(tenantId);
 
@@ -848,6 +1164,9 @@ export class AdminController {
         ...blueprint,
         businessType: normalizedBusinessType,
         enabledModules: normalizedModules,
+        navigation: normalizedNavigationKeys
+          .map((key) => navigationByKey.get(key))
+          .filter((entry) => Boolean(entry)),
         apps: (blueprint.apps || []).map((app) => ({
           ...app,
           enabledByDefault:
@@ -878,6 +1197,7 @@ export class AdminController {
         installedApps: normalizedInstalledApps,
         featureFlags: normalizedFeatureFlags,
         enabledModules: normalizedModules,
+        navigationKeys: normalizedNavigationKeys,
       },
       effectivePreview,
     };
@@ -967,6 +1287,13 @@ export class AdminController {
     const normalizedModules = normalizeEnabledModules(
       rollbackSnapshot.enabledModules || rollbackBlueprint.enabledModules,
     );
+    const defaultNavigationKeys = getBlueprintNavigationCatalogV1()
+      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .filter((item) => item.length > 0);
+    const normalizedNavigationKeys = this.normalizeNavigationKeys(
+      rollbackSnapshot.navigationKeys,
+      defaultNavigationKeys,
+    );
 
     await this.persistTenantBlueprintConfiguration(tenantId, {
       businessType: normalizedBusinessType,
@@ -975,6 +1302,7 @@ export class AdminController {
       installedApps: normalizedInstalledApps,
       featureFlags: normalizedFeatureFlags,
       enabledModules: normalizedModules,
+      navigationKeys: normalizedNavigationKeys,
     });
 
     const actorUserId = this.getActorUserId(req);
@@ -992,6 +1320,7 @@ export class AdminController {
           installedApps: normalizedInstalledApps,
           featureFlags: normalizedFeatureFlags,
           enabledModules: normalizedModules,
+          navigationKeys: normalizedNavigationKeys,
         },
       } as unknown as Prisma.InputJsonValue,
       this.getRequestIp(req),

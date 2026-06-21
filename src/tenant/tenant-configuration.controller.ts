@@ -23,6 +23,8 @@ import {
 } from '../auth/module-access.constants';
 import { AuditLogService } from '../audit-log.service';
 import {
+  BUSINESS_TYPE_CONFIG_KEY,
+  UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
   CRM_ENTITLEMENTS_CONFIG_KEY,
   CRM_USAGE_CONFIG_KEY,
   CrmLimitKey,
@@ -97,6 +99,33 @@ interface StripeConfigurationDto {
   };
 }
 
+interface UnifiedProductsDisplayConfig {
+  version: 'v1';
+  global: {
+    showWorkflowPanel: boolean;
+    showDescription: boolean;
+    showImages: boolean;
+    showCategory: boolean;
+  };
+  restaurant: {
+    showAllergens: boolean;
+    showPrepStation: boolean;
+    showTaxClass: boolean;
+  };
+  fashion: {
+    showBrand: boolean;
+    showSeason: boolean;
+    showSupplier: boolean;
+    enableVariationTypeSelector: boolean;
+  };
+  spa: {
+    showDurationMinutes: boolean;
+    showStaffSkillLevel: boolean;
+    showCommissionProfile: boolean;
+    showConsumables: boolean;
+  };
+}
+
 @Controller('tenant/configurations')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard, TrialGuard)
 export class TenantConfigurationController {
@@ -106,6 +135,137 @@ export class TenantConfigurationController {
     private readonly blueprintManifestService: BlueprintManifestService,
   ) {}
 
+  private defaultUnifiedProductsDisplayConfig(): UnifiedProductsDisplayConfig {
+    return {
+      version: 'v1',
+      global: {
+        showWorkflowPanel: true,
+        showDescription: true,
+        showImages: true,
+        showCategory: true,
+      },
+      restaurant: {
+        showAllergens: true,
+        showPrepStation: true,
+        showTaxClass: true,
+      },
+      fashion: {
+        showBrand: true,
+        showSeason: true,
+        showSupplier: true,
+        enableVariationTypeSelector: true,
+      },
+      spa: {
+        showDurationMinutes: true,
+        showStaffSkillLevel: true,
+        showCommissionProfile: true,
+        showConsumables: true,
+      },
+    };
+  }
+
+  private normalizeBusinessType(value: unknown): 'fashion' | 'restaurant' | 'spa_barber' {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'restaurant') return 'restaurant';
+    if (normalized === 'spa_barber') return 'spa_barber';
+    return 'fashion';
+  }
+
+  private normalizeUnifiedProductsDisplayConfig(
+    input: unknown,
+  ): UnifiedProductsDisplayConfig {
+    const defaults = this.defaultUnifiedProductsDisplayConfig();
+    const root = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+    const global =
+      typeof root.global === 'object' && root.global !== null
+        ? (root.global as Record<string, unknown>)
+        : {};
+    const restaurant =
+      typeof root.restaurant === 'object' && root.restaurant !== null
+        ? (root.restaurant as Record<string, unknown>)
+        : {};
+    const fashion =
+      typeof root.fashion === 'object' && root.fashion !== null
+        ? (root.fashion as Record<string, unknown>)
+        : {};
+    const spa =
+      typeof root.spa === 'object' && root.spa !== null
+        ? (root.spa as Record<string, unknown>)
+        : {};
+
+    return {
+      version: 'v1',
+      global: {
+        showWorkflowPanel:
+          typeof global.showWorkflowPanel === 'boolean'
+            ? global.showWorkflowPanel
+            : defaults.global.showWorkflowPanel,
+        showDescription:
+          typeof global.showDescription === 'boolean'
+            ? global.showDescription
+            : defaults.global.showDescription,
+        showImages:
+          typeof global.showImages === 'boolean'
+            ? global.showImages
+            : defaults.global.showImages,
+        showCategory:
+          typeof global.showCategory === 'boolean'
+            ? global.showCategory
+            : defaults.global.showCategory,
+      },
+      restaurant: {
+        showAllergens:
+          typeof restaurant.showAllergens === 'boolean'
+            ? restaurant.showAllergens
+            : defaults.restaurant.showAllergens,
+        showPrepStation:
+          typeof restaurant.showPrepStation === 'boolean'
+            ? restaurant.showPrepStation
+            : defaults.restaurant.showPrepStation,
+        showTaxClass:
+          typeof restaurant.showTaxClass === 'boolean'
+            ? restaurant.showTaxClass
+            : defaults.restaurant.showTaxClass,
+      },
+      fashion: {
+        showBrand:
+          typeof fashion.showBrand === 'boolean'
+            ? fashion.showBrand
+            : defaults.fashion.showBrand,
+        showSeason:
+          typeof fashion.showSeason === 'boolean'
+            ? fashion.showSeason
+            : defaults.fashion.showSeason,
+        showSupplier:
+          typeof fashion.showSupplier === 'boolean'
+            ? fashion.showSupplier
+            : defaults.fashion.showSupplier,
+        enableVariationTypeSelector:
+          typeof fashion.enableVariationTypeSelector === 'boolean'
+            ? fashion.enableVariationTypeSelector
+            : defaults.fashion.enableVariationTypeSelector,
+      },
+      spa: {
+        showDurationMinutes:
+          typeof spa.showDurationMinutes === 'boolean'
+            ? spa.showDurationMinutes
+            : defaults.spa.showDurationMinutes,
+        showStaffSkillLevel:
+          typeof spa.showStaffSkillLevel === 'boolean'
+            ? spa.showStaffSkillLevel
+            : defaults.spa.showStaffSkillLevel,
+        showCommissionProfile:
+          typeof spa.showCommissionProfile === 'boolean'
+            ? spa.showCommissionProfile
+            : defaults.spa.showCommissionProfile,
+        showConsumables:
+          typeof spa.showConsumables === 'boolean'
+            ? spa.showConsumables
+            : defaults.spa.showConsumables,
+      },
+    };
+  }
+
   @Get('manifest/effective')
   async getEffectiveManifest(@Req() req: AuthenticatedRequest) {
     const tenantId = req.user.tenantId;
@@ -114,6 +274,38 @@ export class TenantConfigurationController {
     }
 
     return this.blueprintManifestService.resolveEffectiveManifest(tenantId);
+  }
+
+  @Get('unified-products-display/effective')
+  async getEffectiveUnifiedProductsDisplay(@Req() req: AuthenticatedRequest) {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context is required');
+    }
+
+    const [configuredRaw, configuredBusinessType] = await Promise.all([
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+      ),
+    ]);
+
+    let parsed: unknown;
+    try {
+      parsed = configuredRaw ? JSON.parse(configuredRaw) : undefined;
+    } catch {
+      parsed = undefined;
+    }
+
+    return {
+      key: UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
+      businessType: this.normalizeBusinessType(configuredBusinessType),
+      config: this.normalizeUnifiedProductsDisplayConfig(parsed),
+    };
   }
 
   @Get('modules')
