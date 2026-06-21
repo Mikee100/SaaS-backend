@@ -106,6 +106,14 @@ export class ModuleAccessGuard implements CanActivate {
       return [];
     }
 
+    if (
+      normalizedPath.startsWith(
+        '/tenant/configurations/unified-products-display/effective',
+      )
+    ) {
+      return [];
+    }
+
     const routeModuleMap: Array<{ prefixes: string[]; module: AppModuleKey }> =
       [
         { prefixes: ['/hr', '/salary-schemes', '/payroll'], module: 'payroll' },
