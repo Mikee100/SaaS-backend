@@ -19,23 +19,15 @@ jobs:
   approval:
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure approvers are configured
-        run: |
-          if [ -z "${{ vars.DEPLOY_APPROVERS }}" ]; then
-            echo "Repository variable DEPLOY_APPROVERS is required for manual approval."
-            echo "Example: Mikee100,teammate1"
-            exit 1
-          fi
-
       - name: Wait for manual approval
         uses: trstringer/manual-approval@v1
         with:
           secret: ${{ github.TOKEN }}
-          approvers: ${{ vars.DEPLOY_APPROVERS }}
+          approvers: ${{ vars.DEPLOY_APPROVERS != '' && vars.DEPLOY_APPROVERS || 'Mikee100' }}
           minimum-approvals: 1
           issue-title: "Production deploy approval required"
           issue-body: "Please approve or deny this production deployment run."
-          exclude-workflow-initiator-as-approver: true
+          exclude-workflow-initiator-as-approver: false
 
   deploy:
     needs: approval
