@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 COMPOSE_FILE="docker-compose.prod.yml"
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-master}"
 
 # Function to log messages
 log() {
@@ -71,8 +72,10 @@ deploy() {
 
     # Pull latest changes (if using git)
     if [ -d ".git" ]; then
-        log "Pulling latest changes from git..."
-        git pull origin main
+        log "Pulling latest changes from git (branch: $DEPLOY_BRANCH)..."
+        git fetch origin "$DEPLOY_BRANCH"
+        git checkout "$DEPLOY_BRANCH"
+        git pull origin "$DEPLOY_BRANCH"
     fi
 
     # Build the images

@@ -1,0 +1,48 @@
+name: Auto Deploy Backend
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        required: true
+        default: master
+
+concurrency:
+  group: backend-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROD_HOST: 34.56.248.152
+      PROD_USER: adeeraunitech
+      PROD_PORT: "22"
+      PROD_APP_DIR: /home/adeeraunitech/SaaS-backend
+    steps:
+      - name: Deploy to production server over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.PROD_HOST }}
+          username: ${{ env.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ env.PROD_PORT }}
+          script_stop: true
+          command_timeout: 60m
+          script: |
+            set -e
+            APP_DIR="${{ env.PROD_APP_DIR }}"
+            BRANCH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref_name }}"
+
+            if [ -z "$APP_DIR" ]; then
+              echo "PROD_APP_DIR secret is not set"
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+            chmod +x deploy.sh
+            DEPLOY_BRANCH="$BRANCH" ./deploy.sh
