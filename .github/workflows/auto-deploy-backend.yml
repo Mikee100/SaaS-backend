@@ -16,7 +16,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure approvers are configured
+        run: |
+          if [ -z "${{ vars.DEPLOY_APPROVERS }}" ]; then
+            echo "Repository variable DEPLOY_APPROVERS is required for manual approval."
+            echo "Example: Mikee100,teammate1"
+            exit 1
+          fi
+
+      - name: Wait for manual approval
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ vars.DEPLOY_APPROVERS }}
+          minimum-approvals: 1
+          issue-title: "Production deploy approval required"
+          issue-body: "Please approve or deny this production deployment run."
+          exclude-workflow-initiator-as-approver: true
+
   deploy:
+    needs: approval
     runs-on: ubuntu-latest
     env:
       PROD_HOST: 34.56.248.152
@@ -39,10 +61,96 @@ jobs:
             BRANCH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref_name }}"
 
             if [ -z "$APP_DIR" ]; then
-              echo "PROD_APP_DIR secret is not set"
+              echo "PROD_APP_DIR is not set"
               exit 1
             fi
 
             cd "$APP_DIR"
             chmod +x deploy.sh
             DEPLOY_BRANCH="$BRANCH" ./deploy.sh
+
+  notify-success:
+    needs: deploy
+    if: success()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      DEPLOY_NOTIFY_EMAIL_TO: ${{ secrets.DEPLOY_NOTIFY_EMAIL_TO }}
+      DEPLOY_NOTIFY_EMAIL_FROM: ${{ secrets.DEPLOY_NOTIFY_EMAIL_FROM }}
+    steps:
+      - name: Send Slack success notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          payload=$(cat <<'JSON'
+          {
+            "text": "Backend production deploy succeeded.\nRepo: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          JSON
+          )
+          curl -sS -X POST -H "Content-type: application/json" --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Send email success notification
+        if: env.SMTP_SERVER != '' && env.SMTP_USERNAME != '' && env.SMTP_PASSWORD != '' && env.DEPLOY_NOTIFY_EMAIL_TO != '' && env.DEPLOY_NOTIFY_EMAIL_FROM != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.SMTP_SERVER }}
+          server_port: ${{ env.SMTP_PORT != '' && env.SMTP_PORT || '587' }}
+          username: ${{ env.SMTP_USERNAME }}
+          password: ${{ env.SMTP_PASSWORD }}
+          subject: "Backend deploy success - ${{ github.ref_name }}"
+          to: ${{ env.DEPLOY_NOTIFY_EMAIL_TO }}
+          from: ${{ env.DEPLOY_NOTIFY_EMAIL_FROM }}
+          body: |
+            Production deploy succeeded.
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+  notify-failure:
+    needs: deploy
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      DEPLOY_NOTIFY_EMAIL_TO: ${{ secrets.DEPLOY_NOTIFY_EMAIL_TO }}
+      DEPLOY_NOTIFY_EMAIL_FROM: ${{ secrets.DEPLOY_NOTIFY_EMAIL_FROM }}
+    steps:
+      - name: Send Slack failure notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          payload=$(cat <<'JSON'
+          {
+            "text": "Backend production deploy failed.\nRepo: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          JSON
+          )
+          curl -sS -X POST -H "Content-type: application/json" --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Send email failure notification
+        if: env.SMTP_SERVER != '' && env.SMTP_USERNAME != '' && env.SMTP_PASSWORD != '' && env.DEPLOY_NOTIFY_EMAIL_TO != '' && env.DEPLOY_NOTIFY_EMAIL_FROM != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ env.SMTP_SERVER }}
+          server_port: ${{ env.SMTP_PORT != '' && env.SMTP_PORT || '587' }}
+          username: ${{ env.SMTP_USERNAME }}
+          password: ${{ env.SMTP_PASSWORD }}
+          subject: "Backend deploy failed - ${{ github.ref_name }}"
+          to: ${{ env.DEPLOY_NOTIFY_EMAIL_TO }}
+          from: ${{ env.DEPLOY_NOTIFY_EMAIL_FROM }}
+          body: |
+            Production deploy failed.
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
