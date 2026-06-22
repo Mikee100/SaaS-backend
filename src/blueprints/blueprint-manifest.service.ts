@@ -11,9 +11,11 @@ import {
   BUSINESS_TYPE_CONFIG_KEY,
   FEATURE_FLAGS_CONFIG_KEY,
   INSTALLED_APPS_CONFIG_KEY,
+  NAVIGATION_KEYS_CONFIG_KEY,
 } from './blueprint-manifest.constants';
 import {
   createLegacyFallbackManifest,
+  getBlueprintNavigationCatalogV1,
   getBlueprintManifestV1,
 } from './blueprint-manifest.definitions';
 import { BlueprintManifestV1 } from './blueprint-manifest.types';
@@ -72,12 +74,27 @@ export class BlueprintManifestService {
     return Object.fromEntries(entries) as Record<string, boolean>;
   }
 
+  private parseNavigationKeys(input: unknown): string[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        input
+          .map((entry) => String(entry || '').trim().toLowerCase())
+          .filter((entry) => entry.length > 0),
+      ),
+    );
+  }
+
   private mergeManifestWithTenantState(
     baseManifest: BlueprintManifestV1,
     enabledModules: AppModuleKey[] | null,
     installedApps: string[],
     featureFlags: Record<string, boolean>,
     configuredBusinessType: string | null,
+    navigationKeysOverride: string[] | null,
   ): BlueprintManifestV1 {
     const baseApps = baseManifest.apps || [];
     const mergedApps = baseApps.map((app) => ({
@@ -85,6 +102,22 @@ export class BlueprintManifestService {
       enabledByDefault:
         Boolean(app.enabledByDefault) || installedApps.includes(app.key),
     }));
+
+    const baseNavigation = Array.isArray(baseManifest.navigation)
+      ? baseManifest.navigation
+      : [];
+    const navigationCatalog = getBlueprintNavigationCatalogV1();
+    const navigationByKey = new Map(
+      [...navigationCatalog, ...baseNavigation].map((item) => [
+        String(item.key || '').trim().toLowerCase(),
+        item,
+      ]),
+    );
+    const mergedNavigation = Array.isArray(navigationKeysOverride)
+      ? navigationKeysOverride
+          .map((key) => navigationByKey.get(String(key || '').trim().toLowerCase()))
+          .filter((item): item is BlueprintManifestV1['navigation'][number] => Boolean(item))
+      : baseNavigation;
 
     return {
       ...baseManifest,
@@ -98,6 +131,7 @@ export class BlueprintManifestService {
         Array.isArray(enabledModules) && enabledModules.length > 0
           ? enabledModules
           : baseManifest.enabledModules,
+      navigation: mergedNavigation,
       apps: mergedApps,
       featureFlags: {
         ...(baseManifest.featureFlags || {}),
@@ -114,6 +148,7 @@ export class BlueprintManifestService {
       configuredInstalledApps,
       configuredFeatureFlags,
       configuredModules,
+      configuredNavigationKeys,
     ] = await Promise.all([
       this.tenantConfigurationService.getTenantConfiguration(
         tenantId,
@@ -139,6 +174,10 @@ export class BlueprintManifestService {
         tenantId,
         MODULES_CONFIG_KEY,
       ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        NAVIGATION_KEYS_CONFIG_KEY,
+      ),
     ]);
 
     const normalizedBlueprintKey = String(configuredBlueprintKey || '')
@@ -156,6 +195,9 @@ export class BlueprintManifestService {
     );
     const parsedFeatureFlags = this.parseFeatureFlags(
       this.parseJson(configuredFeatureFlags),
+    );
+    const parsedNavigationKeys = this.parseNavigationKeys(
+      this.parseJson(configuredNavigationKeys),
     );
 
     const parsedModules = this.parseJson(configuredModules);
@@ -195,6 +237,7 @@ export class BlueprintManifestService {
       parsedInstalledApps,
       parsedFeatureFlags,
       normalizedBusinessType || null,
+      configuredNavigationKeys !== null ? parsedNavigationKeys : null,
     );
 
     return {

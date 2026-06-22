@@ -13,6 +13,9 @@ import { PrismaService } from '../prisma.service';
 type JwtPayload = {
   sub: string;
   email?: string;
+  tenantId?: string | null;
+  branchId?: string | null;
+  isSuperadmin?: boolean;
   [key: string]: unknown;
 };
 
@@ -79,7 +82,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    const user = { userId: payload.sub, email: payload.email, ...payload };
+    const user = {
+      userId: payload.sub,
+      email: payload.email,
+      tenantId:
+        typeof payload.tenantId === 'string'
+          ? payload.tenantId
+          : (dbUser.tenantId ?? null),
+      branchId:
+        typeof payload.branchId === 'string' ? payload.branchId : null,
+      isSuperadmin:
+        typeof payload.isSuperadmin === 'boolean'
+          ? payload.isSuperadmin
+          : Boolean(dbUser.isSuperadmin),
+      ...payload,
+    };
     return user;
   }
 

@@ -118,6 +118,115 @@ export class RestaurantController {
     };
   }
 
+  private getNormalizedRoles(req: AuthenticatedRequest): string[] {
+    return Array.isArray(req.user.roles)
+      ? req.user.roles.map((role) => String(role).toLowerCase())
+      : req.user.role
+        ? [String(req.user.role).toLowerCase()]
+        : [];
+  }
+
+  private hasAnyRole(req: AuthenticatedRequest, acceptedRoles: string[]): boolean {
+    if (req.user.isSuperadmin) return true;
+    const roles = this.getNormalizedRoles(req);
+    return roles.some((role) => acceptedRoles.includes(role));
+  }
+
+  private isOwnerLike(req: AuthenticatedRequest): boolean {
+    return this.hasAnyRole(req, ['owner', 'admin', 'manager']);
+  }
+
+  private isKitchenOnly(req: AuthenticatedRequest): boolean {
+    const roles = this.getNormalizedRoles(req);
+    const hasKitchenRole = roles.some((role) => ['kitchen', 'chef'].includes(role));
+    return hasKitchenRole && !this.isOwnerLike(req);
+  }
+
+  private assertAnyRole(
+    req: AuthenticatedRequest,
+    acceptedRoles: string[],
+    message: string,
+  ) {
+    if (this.hasAnyRole(req, acceptedRoles)) return;
+    throw new ForbiddenException(message);
+  }
+
+  private assertCanAccessOrders(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager', 'waiter', 'cashier', 'kitchen', 'chef'],
+      'You do not have access to restaurant orders',
+    );
+  }
+
+  private assertCanManageTables(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager'],
+      'Only owner/admin/manager can manage tables',
+    );
+  }
+
+  private assertCanManageBom(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager'],
+      'Only owner/admin/manager can manage menu recipes and inventory mappings',
+    );
+  }
+
+  private assertCanCreateOrder(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager', 'waiter', 'cashier'],
+      'Only waiter/cashier/owner/admin/manager can create orders',
+    );
+  }
+
+  private assertCanAddOrderItems(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager', 'waiter', 'cashier'],
+      'Only waiter/cashier/owner/admin/manager can add order items',
+    );
+  }
+
+  private assertCanCheckout(req: AuthenticatedRequest) {
+    this.assertAnyRole(
+      req,
+      ['owner', 'admin', 'manager', 'waiter', 'cashier'],
+      'Only waiter/cashier/owner/admin/manager can checkout orders',
+    );
+  }
+
+  private assertCanTransitionToStatus(
+    req: AuthenticatedRequest,
+    status: string,
+  ) {
+    const next = String(status || '').trim();
+    const isOwner = this.isOwnerLike(req);
+    const isWaiter = this.hasAnyRole(req, ['waiter', 'cashier']);
+    const isKitchen = this.hasAnyRole(req, ['kitchen', 'chef']);
+
+    if (isOwner) return;
+
+    if (next === 'SentToKitchen') {
+      if (isWaiter) return;
+      throw new ForbiddenException('Only waiter/cashier can send orders to kitchen');
+    }
+
+    if (next === 'Served') {
+      if (isKitchen) return;
+      throw new ForbiddenException('Only kitchen/chef can mark orders as served');
+    }
+
+    if (next === 'Closed' || next === 'Voided') {
+      throw new ForbiddenException('Only owner/admin/manager can close or void orders directly');
+    }
+
+    throw new ForbiddenException('Unsupported status transition request');
+  }
+
   private assertCanViewRestaurantActivity(req: AuthenticatedRequest) {
     if (req.user.isSuperadmin) return;
 
@@ -164,6 +273,7 @@ export class RestaurantController {
   async getTables(@Req() req: AuthenticatedRequest) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanAccessOrders(req);
     const branchId = this.resolveBranchId(req);
     return this.tableService.findAll(tenantId, branchId);
   }
@@ -175,6 +285,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanManageTables(req);
     const branchId = this.resolveBranchId(req);
     return this.tableService.create(tenantId, branchId, data);
   }
@@ -187,6 +298,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanManageTables(req);
     return this.tableService.updateDetails(id, tenantId, data);
   }
 
@@ -194,14 +306,20 @@ export class RestaurantController {
   async getActiveOrders(@Req() req: AuthenticatedRequest) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanAccessOrders(req);
     const branchId = this.resolveBranchId(req);
-    return this.orderService.findAllActive(tenantId, branchId);
+    const orders = await this.orderService.findAllActive(tenantId, branchId);
+    if (this.isKitchenOnly(req)) {
+      return orders.filter((order) => order.status === 'SentToKitchen');
+    }
+    return orders;
   }
 
   @Get('bom/recipes')
   async getBomRecipes(@Req() req: AuthenticatedRequest) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanManageBom(req);
     const branchId = this.resolveBranchId(req);
     return this.bomService.findAllActive(tenantId, branchId);
   }
@@ -213,6 +331,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanManageBom(req);
     const branchId = this.resolveBranchId(req);
     return this.bomService.findActiveByProduct(tenantId, branchId, productId);
   }
@@ -230,6 +349,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanManageBom(req);
     const branchId = this.resolveBranchId(req);
     const actorUserId = this.getActorUserId(req);
     return this.bomService.saveRecipe(tenantId, branchId, actorUserId, data);
@@ -245,6 +365,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanAccessOrders(req);
     const branchId = this.resolveBranchId(req);
 
     const parsedFrom = from ? new Date(from) : undefined;
@@ -256,12 +377,18 @@ export class RestaurantController {
     const safeTo =
       parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : undefined;
 
-    return this.orderService.findAll(tenantId, branchId, {
+    const orders = await this.orderService.findAll(tenantId, branchId, {
       from: safeFrom,
       to: safeTo,
       waiterId: waiterId || undefined,
       status: status || undefined,
     });
+
+    if (this.isKitchenOnly(req)) {
+      return orders.filter((order) => order.status === 'SentToKitchen');
+    }
+
+    return orders;
   }
 
   @Get('activity')
@@ -305,6 +432,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanCreateOrder(req);
     const branchId = this.resolveBranchId(req);
     const actorUserId = this.getActorUserId(req);
     const waiterId = data?.waiterId || actorUserId;
@@ -324,6 +452,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanAddOrderItems(req);
     return this.orderService.addItems(
       id,
       tenantId,
@@ -341,6 +470,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanTransitionToStatus(req, data.status);
     const actor = this.getActorContext(req);
     return this.orderService.updateStatus(
       id,
@@ -360,6 +490,7 @@ export class RestaurantController {
   ) {
     const tenantId = this.getTenantId(req);
     await this.assertRestaurantEnabled(tenantId);
+    this.assertCanCheckout(req);
     const actor = this.getActorContext(req);
 
     return this.orderService.checkoutToSale(

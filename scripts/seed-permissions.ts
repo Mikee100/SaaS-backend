@@ -34,7 +34,14 @@ const permissions = [
   { name: 'manage_suppliers', description: 'Manage supplier records' },
   { name: 'view_expenses', description: 'View expenses' },
   { name: 'manage_expenses', description: 'Create and manage expenses' },
-  { name: 'view_audit_log', description: 'View system audit logs' }
+  { name: 'view_audit_log', description: 'View system audit logs' },
+  { name: 'restaurant_view', description: 'View restaurant POS data and tickets' },
+  { name: 'restaurant_orders_manage', description: 'Create and update restaurant orders' },
+  { name: 'restaurant_kitchen_manage', description: 'Manage kitchen order workflow' },
+  { name: 'restaurant_checkout', description: 'Checkout and close restaurant orders' },
+  { name: 'restaurant_tables_manage', description: 'Manage restaurant tables and floor setup' },
+  { name: 'restaurant_bom_manage', description: 'Manage restaurant BOM recipes and ingredient mappings' },
+  { name: 'restaurant_activity_view', description: 'View restaurant activity and audit timeline' }
 ];
 
 export async function seedPermissions() {
