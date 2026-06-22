@@ -112,7 +112,7 @@ check_health() {
     attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -f http://localhost/admin/monitoring/health &>/dev/null; then
+        if curl -f http://localhost:4000/health &>/dev/null; then
             log "Backend is healthy"
             break
         else
@@ -218,7 +218,7 @@ main() {
         log "🎉 Application is now running with load balancing"
         log "   - Backend: http://localhost"
         log "   - Health Check: http://localhost/health"
-        log "   - Admin Monitoring: http://localhost/admin/monitoring/health"
+        log "   - Admin Monitoring: requires auth at /admin/monitoring/*"
     else
         error "❌ Deployment failed!"
         dump_diagnostics
