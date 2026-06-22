@@ -108,7 +108,7 @@ check_health() {
     log "Checking service health..."
 
     # Check backend health
-    max_attempts=10
+    max_attempts=18
     attempt=1
 
     while [ $attempt -le $max_attempts ]; do
@@ -197,6 +197,14 @@ rollback() {
     return 1
 }
 
+# Print useful diagnostics for failed deployments
+dump_diagnostics() {
+    warn "Collecting Docker Compose diagnostics..."
+    docker-compose -f $COMPOSE_FILE ps || true
+    docker-compose -f $COMPOSE_FILE logs --tail=200 backend || true
+    docker-compose -f $COMPOSE_FILE logs --tail=100 nginx || true
+}
+
 # Main deployment process
 main() {
     log "Starting deployment process..."
@@ -213,6 +221,7 @@ main() {
         log "   - Admin Monitoring: http://localhost/admin/monitoring/health"
     else
         error "❌ Deployment failed!"
+        dump_diagnostics
         rollback
         exit 1
     fi
