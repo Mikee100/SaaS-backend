@@ -5,6 +5,7 @@ import {
   BUSINESS_TYPE_CONFIG_KEY,
   FEATURE_FLAGS_CONFIG_KEY,
   INSTALLED_APPS_CONFIG_KEY,
+  NAVIGATION_KEYS_CONFIG_KEY,
 } from './blueprint-manifest.constants';
 import { BlueprintManifestService } from './blueprint-manifest.service';
 
@@ -33,6 +34,11 @@ describe('BlueprintManifestService', () => {
         'dashboard',
         'sales',
         'inventory',
+        'reports',
+      ]),
+      [NAVIGATION_KEYS_CONFIG_KEY]: JSON.stringify([
+        'dashboard',
+        'orders',
         'reports',
       ]),
     };
@@ -86,5 +92,16 @@ describe('BlueprintManifestService', () => {
     expect(result.manifest.featureFlags?.appointment_reminders_enabled).toBe(
       false,
     );
+  });
+
+  it('applies tenant navigation key overrides for matched blueprints', async () => {
+    const result = await service.resolveEffectiveManifest('tenant-restaurant-2');
+
+    expect(result.source.blueprintKey).toBe('restaurant-standard');
+    expect(result.manifest.navigation.map((item) => item.key)).toEqual([
+      'dashboard',
+      'orders',
+      'reports',
+    ]);
   });
 });

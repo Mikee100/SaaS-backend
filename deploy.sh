@@ -17,6 +17,9 @@ NC='\033[0m' # No Color
 COMPOSE_FILE="docker-compose.prod.yml"
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-master}"
+PRE_DEPLOY_COMMIT=""
+PRE_DEPLOY_BRANCH=""
 
 # Function to log messages
 log() {
@@ -71,8 +74,13 @@ deploy() {
 
     # Pull latest changes (if using git)
     if [ -d ".git" ]; then
-        log "Pulling latest changes from git..."
-        git pull origin main
+        PRE_DEPLOY_COMMIT=$(git rev-parse HEAD 2>/dev/null || true)
+        PRE_DEPLOY_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+
+        log "Pulling latest changes from git (branch: $DEPLOY_BRANCH)..."
+        git fetch origin "$DEPLOY_BRANCH"
+        git checkout "$DEPLOY_BRANCH"
+        git pull origin "$DEPLOY_BRANCH"
     fi
 
     # Build the images
@@ -100,11 +108,11 @@ check_health() {
     log "Checking service health..."
 
     # Check backend health
-    max_attempts=10
+    max_attempts=18
     attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -f http://localhost/admin/monitoring/health &>/dev/null; then
+        if curl -f http://localhost:4000/health &>/dev/null; then
             log "Backend is healthy"
             break
         else
@@ -116,7 +124,7 @@ check_health() {
 
     if [ $attempt -gt $max_attempts ]; then
         error "Backend failed to become healthy"
-        exit 1
+        return 1
     fi
 
     # Check nginx
@@ -124,8 +132,10 @@ check_health() {
         log "Nginx load balancer is healthy"
     else
         error "Nginx load balancer is not responding"
-        exit 1
+        return 1
     fi
+
+    return 0
 }
 
 # Clean up old images and containers
@@ -149,11 +159,50 @@ rollback() {
     error "Deployment failed. Attempting rollback..."
 
     # Stop current deployment
-    docker-compose -f $COMPOSE_FILE down
+    docker-compose -f $COMPOSE_FILE down || true
 
-    # If you have a previous version, you could start it here
-    # For now, we'll just log the issue
-    error "Rollback completed. Manual intervention may be required."
+    # Restore previous git revision if available
+    if [ -d ".git" ] && [ -n "$PRE_DEPLOY_COMMIT" ]; then
+        warn "Reverting to previous commit: $PRE_DEPLOY_COMMIT"
+        git checkout "$PRE_DEPLOY_COMMIT" || {
+            error "Failed to checkout previous commit"
+            return 1
+        }
+
+        warn "Rebuilding previous release"
+        docker-compose -f $COMPOSE_FILE build --no-cache || {
+            error "Rollback build failed"
+            return 1
+        }
+
+        docker-compose -f $COMPOSE_FILE up -d || {
+            error "Rollback start failed"
+            return 1
+        }
+
+        sleep 20
+        if check_health; then
+            log "✅ Rollback successful. Service restored on previous commit."
+            if [ -n "$PRE_DEPLOY_BRANCH" ] && [ "$PRE_DEPLOY_BRANCH" != "HEAD" ]; then
+                git checkout "$PRE_DEPLOY_BRANCH" >/dev/null 2>&1 || true
+            fi
+            return 0
+        fi
+
+        error "Rollback health checks failed"
+        return 1
+    fi
+
+    error "No previous git commit available for automatic rollback. Manual intervention required."
+    return 1
+}
+
+# Print useful diagnostics for failed deployments
+dump_diagnostics() {
+    warn "Collecting Docker Compose diagnostics..."
+    docker-compose -f $COMPOSE_FILE ps || true
+    docker-compose -f $COMPOSE_FILE logs --tail=200 backend || true
+    docker-compose -f $COMPOSE_FILE logs --tail=100 nginx || true
 }
 
 # Main deployment process
@@ -169,9 +218,10 @@ main() {
         log "🎉 Application is now running with load balancing"
         log "   - Backend: http://localhost"
         log "   - Health Check: http://localhost/health"
-        log "   - Admin Monitoring: http://localhost/admin/monitoring/health"
+        log "   - Admin Monitoring: requires auth at /admin/monitoring/*"
     else
         error "❌ Deployment failed!"
+        dump_diagnostics
         rollback
         exit 1
     fi

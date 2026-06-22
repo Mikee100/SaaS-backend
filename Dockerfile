@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy Prisma schema before npm install so postinstall can run prisma generate
+COPY prisma ./prisma
+
 # Install all dependencies (including dev dependencies for building)
 RUN npm ci
 
@@ -25,6 +28,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy Prisma schema before npm install so postinstall can run prisma generate
+COPY prisma ./prisma
+
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
 
@@ -32,7 +38,6 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Copy other necessary files
-COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/uploads ./uploads
 
 # Create uploads directory if it doesn't exist

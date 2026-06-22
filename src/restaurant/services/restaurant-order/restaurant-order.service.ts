@@ -44,6 +44,12 @@ interface ActivityActorContext {
   roles?: string[];
 }
 
+interface ResolvedActivityActor {
+  userId?: string;
+  name?: string;
+  roles?: string[];
+}
+
 @Injectable()
 export class RestaurantOrderService {
   private readonly logger = new Logger(RestaurantOrderService.name);
@@ -55,6 +61,56 @@ export class RestaurantOrderService {
 
   private createAuditId() {
     return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private async resolveActivityActorForOrderCreate(
+    tenantId: string,
+    waiterId?: string,
+    fallback?: ActivityActorContext,
+  ): Promise<ResolvedActivityActor | undefined> {
+    const trimmedWaiterId = String(waiterId || '').trim();
+    if (!trimmedWaiterId) {
+      return fallback;
+    }
+
+    try {
+      const waiterUser = await this.prisma.user.findFirst({
+        where: {
+          id: trimmedWaiterId,
+          userRoles: {
+            some: { tenantId },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          userRoles: {
+            where: { tenantId },
+            select: {
+              role: {
+                select: { name: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!waiterUser) {
+        return fallback;
+      }
+
+      const roles = waiterUser.userRoles
+        .map((userRole) => String(userRole.role?.name || '').toLowerCase())
+        .filter(Boolean);
+
+      return {
+        userId: waiterUser.id,
+        name: waiterUser.name || fallback?.name,
+        roles: roles.length > 0 ? roles : (fallback?.roles || []),
+      };
+    } catch {
+      return fallback;
+    }
   }
 
   private async logRestaurantActivity(
@@ -576,6 +632,12 @@ export class RestaurantOrderService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
+      const activityActor = await this.resolveActivityActorForOrderCreate(
+        tenantId,
+        data.waiterId,
+        actor,
+      );
+
       const order = await prisma.restaurantOrder.create({
         data: {
           tenantId,
@@ -613,7 +675,7 @@ export class RestaurantOrderService {
         orderId: order.id,
         actionType: 'order_created',
         toStatus: 'Open',
-        actor,
+        actor: activityActor,
         details: {
           tableId: data.tableId || null,
           waiterId: data.waiterId || null,

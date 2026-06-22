@@ -1,4 +1,4 @@
-import { BlueprintManifestV1 } from './blueprint-manifest.types';
+import { BlueprintManifestV1, BlueprintNavItem } from './blueprint-manifest.types';
 import { assertValidBlueprintManifest } from './blueprint-manifest.validator';
 import { AppModuleKey } from '../auth/module-access.constants';
 
@@ -195,6 +195,35 @@ export const BLUEPRINT_MANIFESTS_V1: BlueprintManifestV1[] = [
   spaStandardV1,
 ];
 
+const ADMIN_NAVIGATION_CATALOG_V1: BlueprintNavItem[] = [
+  { key: 'dashboard', label: 'Dashboard', path: '/dashboard', requiredModule: 'dashboard', order: 10 },
+  { key: 'ai_assistant', label: 'AI Assistant', path: '/ai-assistant', requiredModule: 'ai', order: 20 },
+  { key: 'accounts_ledgers', label: 'Accounts Ledgers', path: '/accounts/ledgers', requiredModule: 'accounts', order: 30 },
+  { key: 'accounts_balance_sheet', label: 'Balance Sheet', path: '/accounts/balance-sheet', requiredModule: 'accounts', order: 40 },
+  { key: 'accounts_trial_balance', label: 'Trial Balance', path: '/accounts/trial-balance', requiredModule: 'accounts', order: 50 },
+  { key: 'accounts_capital', label: 'Capital', path: '/accounts/capital', requiredModule: 'accounts', order: 60 },
+  { key: 'accounts_revenue', label: 'Revenue', path: '/accounts/revenue', requiredModule: 'accounts', order: 70 },
+  { key: 'accounts_profit_loss', label: 'Profit & Loss', path: '/accounts/profit-loss', requiredModule: 'accounts', order: 80 },
+  { key: 'accounts_inventory', label: 'Inventory', path: '/accounts/inventory', requiredModule: 'accounts', order: 90 },
+  { key: 'products_unified', label: 'Unified Management', path: '/products/unified', requiredModule: 'inventory', order: 100 },
+  { key: 'inventory_suppliers', label: 'Suppliers', path: '/inventory/suppliers', requiredModule: 'inventory', order: 110 },
+  { key: 'reports_product_sales', label: 'Product Sales Report', path: '/products/reports/product-sales', requiredModule: 'reports', order: 120 },
+  { key: 'reports_inventory_levels', label: 'Inventory Levels Report', path: '/products/reports/inventory-levels', requiredModule: 'reports', order: 130 },
+  { key: 'reports_low_stock_alerts', label: 'Low Stock Alerts', path: '/products/reports/low-stock-alerts', requiredModule: 'reports', order: 140 },
+  { key: 'sales_history', label: 'Sales History', path: '/sales/history', requiredModule: 'sales', order: 150 },
+  { key: 'restaurant_activity', label: 'Restaurant Activity', path: '/restaurant/activity', requiredModule: 'sales', order: 160 },
+  { key: 'mpesa_transactions', label: 'M-Pesa Transactions', path: '/mpesa-transactions', requiredModule: 'sales', order: 170 },
+  { key: 'sales_targets', label: 'Sales Target', path: '/sales/targets', requiredModule: 'sales', order: 180 },
+  { key: 'analytics', label: 'Analytics', path: '/analytics', requiredModule: 'analytics', order: 190 },
+  { key: 'reports', label: 'Reports', path: '/reports', requiredModule: 'reports', order: 200 },
+  { key: 'credit', label: 'Credit', path: '/credit', requiredModule: 'credits', order: 210 },
+  { key: 'hr_employees', label: 'HR Employees', path: '/hr/employees', requiredModule: 'payroll', order: 220 },
+  { key: 'payroll', label: 'Payroll', path: '/payroll', requiredModule: 'payroll', order: 230 },
+  { key: 'expenses', label: 'Expenses', path: '/expenses', requiredModule: 'expenses', order: 240 },
+  { key: 'settings', label: 'Settings', path: '/settings', requiredModule: 'settings', order: 250 },
+  { key: 'billing_subscription', label: 'Billing & Subscription', path: '/account/billing', requiredModule: 'billing', order: 260 },
+];
+
 for (const manifest of BLUEPRINT_MANIFESTS_V1) {
   assertValidBlueprintManifest(manifest);
 }
@@ -206,6 +235,30 @@ export function getBlueprintManifestV1(
   return BLUEPRINT_MANIFESTS_V1.find(
     (entry) => entry.blueprintKey === normalized,
   );
+}
+
+export function getBlueprintNavigationCatalogV1(): BlueprintNavItem[] {
+  const byKey = new Map<string, BlueprintNavItem>();
+
+  for (const item of ADMIN_NAVIGATION_CATALOG_V1) {
+    const key = String(item?.key || '').trim().toLowerCase();
+    if (!key || byKey.has(key)) {
+      continue;
+    }
+    byKey.set(key, { ...item, key });
+  }
+
+  for (const manifest of BLUEPRINT_MANIFESTS_V1) {
+    for (const item of manifest.navigation || []) {
+      const key = String(item?.key || '').trim().toLowerCase();
+      if (!key || byKey.has(key)) {
+        continue;
+      }
+      byKey.set(key, { ...item, key });
+    }
+  }
+
+  return Array.from(byKey.values());
 }
 
 const LEGACY_MODULE_ROUTE_MAP: Record<AppModuleKey, { label: string; path: string }> = {

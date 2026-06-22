@@ -42,6 +42,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RawBodyMiddleware } from './middleware/raw-body.middleware';
 import { RestaurantModule } from './restaurant/restaurant.module';
 import { CrmModule } from './crm/crm.module';
+import { PlatformModule } from './platform/platform.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { CrmModule } from './crm/crm.module';
     LedgerModule,
     RestaurantModule,
     CrmModule,
+    PlatformModule,
   ],
   controllers: [AppController],
   providers: [
