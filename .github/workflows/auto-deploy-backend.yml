@@ -45,6 +45,9 @@ jobs:
             fi
 
             cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git pull origin "$BRANCH"
             chmod +x deploy.sh
             DEPLOY_BRANCH="$BRANCH" ./deploy.sh
 
