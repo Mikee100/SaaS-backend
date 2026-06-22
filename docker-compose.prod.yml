@@ -3,8 +3,8 @@ version: '3.8'
 services:
   backend:
     build: .
-    ports:
-      - "4000:4000"
+    expose:
+      - "4000"
     environment:
       - NODE_ENV=production
     restart: unless-stopped
