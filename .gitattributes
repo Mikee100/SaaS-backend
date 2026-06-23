@@ -1,0 +1,2 @@
+uploads/pos-updates/*.exe filter=lfs diff=lfs merge=lfs -text
+uploads/pos-updates/*.exe.blockmap filter=lfs diff=lfs merge=lfs -text
