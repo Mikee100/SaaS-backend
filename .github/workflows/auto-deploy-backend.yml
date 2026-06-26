@@ -31,6 +31,7 @@ jobs:
           host: ${{ env.PROD_HOST }}
           username: ${{ env.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          passphrase: ${{ secrets.PROD_SSH_PASSPHRASE }}
           port: ${{ env.PROD_PORT }}
           script_stop: true
           command_timeout: 60m
