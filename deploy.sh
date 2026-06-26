@@ -34,6 +34,23 @@ warn() {
     echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
 }
 
+# Ensure Git LFS files are materialized before deployment.
+hydrate_lfs_assets() {
+    if ! command -v git &> /dev/null; then
+        warn "git is not available; skipping Git LFS hydration"
+        return 0
+    fi
+
+    if ! command -v git-lfs &> /dev/null; then
+        warn "git-lfs is not installed on server; LFS-tracked artifacts may remain pointers"
+        return 0
+    fi
+
+    log "Hydrating Git LFS assets..."
+    git lfs install --local
+    git lfs pull origin "$DEPLOY_BRANCH"
+}
+
 # Check if Docker is installed
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -81,6 +98,7 @@ deploy() {
         git fetch origin "$DEPLOY_BRANCH"
         git checkout "$DEPLOY_BRANCH"
         git pull origin "$DEPLOY_BRANCH"
+        hydrate_lfs_assets
     fi
 
     # Build the images
