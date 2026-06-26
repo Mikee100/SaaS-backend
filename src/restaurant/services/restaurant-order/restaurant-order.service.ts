@@ -885,9 +885,13 @@ export class RestaurantOrderService {
   ) {
     const order = await this.findOne(orderId, tenantId);
 
-    if (!payload.isManagerOverride && order.status !== 'Served') {
+    if (
+      !payload.isManagerOverride &&
+      order.status !== 'Served' &&
+      order.status !== 'SentToKitchen'
+    ) {
       throw new BadRequestException(
-        `Order must be in Served state before checkout. Current state: ${order.status}`,
+        `Order must be in Served or SentToKitchen state before checkout. Current state: ${order.status}`,
       );
     }
 
