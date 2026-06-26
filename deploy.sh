@@ -34,6 +34,42 @@ warn() {
     echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
 }
 
+# Validate POS update artifacts so production never serves Git LFS pointer files.
+validate_pos_update_artifacts() {
+    local updates_dir="uploads/pos-updates"
+    local latest_file="$updates_dir/latest.yml"
+
+    if [ ! -f "$latest_file" ]; then
+        warn "POS updates manifest not found at $latest_file; skipping POS artifact validation."
+        return 0
+    fi
+
+    local installer_name
+    installer_name=$(awk '/^path:/{print $2; exit}' "$latest_file")
+
+    if [ -z "$installer_name" ]; then
+        error "Could not parse installer path from $latest_file"
+        return 1
+    fi
+
+    local installer_path="$updates_dir/$installer_name"
+    if [ ! -f "$installer_path" ]; then
+        error "Installer referenced by latest.yml does not exist: $installer_path"
+        return 1
+    fi
+
+    local first_line
+    first_line=$(head -n 1 "$installer_path" || true)
+
+    if [ "$first_line" = "version https://git-lfs.github.com/spec/v1" ]; then
+        error "Detected Git LFS pointer instead of real installer binary at $installer_path"
+        return 1
+    fi
+
+    log "POS update artifacts validated: $installer_name"
+    return 0
+}
+
 # Check if Docker is installed
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -81,6 +117,9 @@ deploy() {
         git fetch origin "$DEPLOY_BRANCH"
         git checkout "$DEPLOY_BRANCH"
         git pull origin "$DEPLOY_BRANCH"
+
+        # Fail fast if the deployed POS installer is an LFS pointer file.
+        validate_pos_update_artifacts
     fi
 
     # Build the images
