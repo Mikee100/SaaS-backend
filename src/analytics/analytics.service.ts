@@ -68,6 +68,8 @@ export class AnalyticsService {
       branchTopProducts,
       inventoryAnalytics,
       forecastData,
+      grossProfitTrend,
+      salesByHourHeatmap,
     ] = await Promise.all([
       // Total Sales (count of sales in the last 30 days)
 
@@ -148,6 +150,12 @@ export class AnalyticsService {
 
       // Sales forecasting
       this.generateSalesForecast(tenantId, branchId),
+
+      // Gross profit trend (daily)
+      this.getGrossProfitTrend(tenantId, branchId),
+
+      // Hour-of-day heatmap buckets
+      this.getSalesByHourHeatmap(tenantId, branchId),
     ]);
 
     // Calculate customer retention (simplified)
@@ -181,6 +189,8 @@ export class AnalyticsService {
         retentionRate: parseFloat(retentionRate.toFixed(2)),
       },
       inventoryAnalytics,
+      grossProfitTrend,
+      salesByHourHeatmap,
       performanceMetrics,
       realTimeData: await this.getRealTimeData(tenantId),
       forecast: forecastData,
@@ -226,6 +236,120 @@ export class AnalyticsService {
     // This endpoint is read-heavy and can tolerate slight staleness.
     this.cache.set(cacheKey, result, 60);
     return result;
+  }
+
+  private async getGrossProfitTrend(tenantId: string, branchId?: string) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 14);
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{ day: string; revenue: string | number | bigint; cost: string | number | bigint }>
+    >(Prisma.sql`
+      SELECT
+        TO_CHAR(s."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') as day,
+        COALESCE(SUM(si.quantity * si.price), 0) as revenue,
+        COALESCE(SUM(COALESCE(p.cost, 0) * si.quantity), 0) as cost
+      FROM "SaleItem" si
+      INNER JOIN "Sale" s ON s.id = si."saleId"
+      LEFT JOIN "Product" p ON p.id = si."productId"
+      WHERE s."tenantId" = ${tenantId}
+        AND s."createdAt" >= ${startDate}
+        ${branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty}
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+
+    const trend = rows.map((row) => {
+      const revenue = this.toNumber(row.revenue);
+      const cost = this.toNumber(row.cost);
+      const profit = revenue - cost;
+      return {
+        day: row.day,
+        revenue: Number(revenue.toFixed(2)),
+        cost: Number(cost.toFixed(2)),
+        profit: Number(profit.toFixed(2)),
+      };
+    });
+
+    return trend;
+  }
+
+  private async getSalesByHourHeatmap(tenantId: string, branchId?: string) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 90);
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true },
+    });
+
+    const businessTimezone = tenant?.timezone || 'Africa/Nairobi';
+
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: startDate },
+        ...(branchId ? { branchId } : {}),
+      },
+      select: {
+        createdAt: true,
+        total: true,
+      },
+    });
+
+    const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: businessTimezone,
+      weekday: 'short',
+    });
+    const hourFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: businessTimezone,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    });
+
+    const dowMap: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+
+    const buckets = new Map<string, { dow: number; hour: number; orders: number; revenue: number }>();
+
+    for (const sale of sales) {
+      const dayShort = weekdayFormatter.format(sale.createdAt);
+      const hourText = hourFormatter.format(sale.createdAt);
+      const dow = dowMap[dayShort];
+      const hour = Number.parseInt(hourText, 10);
+
+      if (!Number.isFinite(dow) || !Number.isFinite(hour)) {
+        continue;
+      }
+
+      const key = `${dow}-${hour}`;
+      const existing = buckets.get(key) || {
+        dow,
+        hour,
+        orders: 0,
+        revenue: 0,
+      };
+
+      existing.orders += 1;
+      existing.revenue += Number(sale.total || 0);
+      buckets.set(key, existing);
+    }
+
+    return Array.from(buckets.values())
+      .sort((a, b) => (a.dow - b.dow) || (a.hour - b.hour))
+      .map((row) => ({
+        dow: row.dow,
+        hour: row.hour,
+        orders: row.orders,
+        revenue: Number(row.revenue.toFixed(2)),
+      }));
   }
 
   private async getSalesByTimePeriod(
@@ -509,52 +633,42 @@ export class AnalyticsService {
     limit: number,
     branchId?: string,
   ) {
-    const topProducts = await this.prisma.saleItem.groupBy({
-      by: ['productId'],
-      where: {
-        sale: {
-          tenantId,
-          ...(branchId ? { branchId } : {}),
-        },
-      },
-      _sum: {
-        quantity: true,
-        price: true,
-      },
-      _count: true,
-      orderBy: {
-        _sum: {
-          price: 'desc',
-        },
-      },
-      take: limit,
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        name: string;
+        sales: number | string | bigint;
+        revenue: number | string | bigint;
+        cost: number | string | bigint;
+      }>
+    >(Prisma.sql`
+      SELECT
+        COALESCE(p.name, 'Unknown Product') as name,
+        COALESCE(SUM(si.quantity), 0) as sales,
+        COALESCE(SUM(si.quantity * si.price), 0) as revenue,
+        COALESCE(SUM(COALESCE(p.cost, 0) * si.quantity), 0) as cost
+      FROM "SaleItem" si
+      INNER JOIN "Sale" s ON s.id = si."saleId"
+      LEFT JOIN "Product" p ON p.id = si."productId"
+      WHERE s."tenantId" = ${tenantId}
+      ${branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty}
+      GROUP BY p.id, p.name
+      ORDER BY revenue DESC
+      LIMIT ${limit}
+    `);
+
+    return rows.map((row) => {
+      const revenue = this.toNumber(row.revenue);
+      const cost = this.toNumber(row.cost);
+      const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
+
+      return {
+        name: row.name || 'Unknown Product',
+        sales: this.toNumber(row.sales),
+        revenue: Number(revenue.toFixed(2)),
+        margin: Number(margin.toFixed(2)),
+        cost: Number(cost.toFixed(2)),
+      };
     });
-
-    // Get product details
-    const productDetails = await Promise.all(
-      topProducts.map(async (item) => {
-        const product = await this.prisma.product.findUnique({
-          where: { id: item.productId },
-        });
-
-        const revenue = item._sum.price
-          ? parseFloat(item._sum.price.toString())
-          : 0;
-        const quantity = item._sum.quantity || 0;
-        const cost = product ? product.cost * quantity : 0;
-        const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
-
-        return {
-          name: product?.name || 'Unknown Product',
-          sales: item._sum.quantity,
-          revenue: revenue,
-          margin: parseFloat(margin.toFixed(2)),
-          cost: parseFloat(cost.toFixed(2)),
-        };
-      }),
-    );
-
-    return productDetails;
   }
 
   private async getBranchTopProducts(tenantId: string) {
@@ -577,52 +691,42 @@ export class AnalyticsService {
 
     // For each branch, get top 3 products
     for (const branch of branches) {
-      const topProducts = await this.prisma.saleItem.groupBy({
-        by: ['productId'],
-        where: {
-          sale: {
-            tenantId,
-            branchId: branch.id,
-          },
-        },
-        _sum: {
-          quantity: true,
-          price: true,
-        },
-        _count: true,
-        orderBy: {
-          _sum: {
-            price: 'desc',
-          },
-        },
-        take: 3,
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          name: string;
+          sales: number | string | bigint;
+          revenue: number | string | bigint;
+          cost: number | string | bigint;
+        }>
+      >(Prisma.sql`
+        SELECT
+          COALESCE(p.name, 'Unknown Product') as name,
+          COALESCE(SUM(si.quantity), 0) as sales,
+          COALESCE(SUM(si.quantity * si.price), 0) as revenue,
+          COALESCE(SUM(COALESCE(p.cost, 0) * si.quantity), 0) as cost
+        FROM "SaleItem" si
+        INNER JOIN "Sale" s ON s.id = si."saleId"
+        LEFT JOIN "Product" p ON p.id = si."productId"
+        WHERE s."tenantId" = ${tenantId}
+          AND s."branchId" = ${branch.id}
+        GROUP BY p.id, p.name
+        ORDER BY revenue DESC
+        LIMIT 3
+      `);
+
+      branchTopProducts[branch.id] = rows.map((row) => {
+        const revenue = this.toNumber(row.revenue);
+        const cost = this.toNumber(row.cost);
+        const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
+
+        return {
+          name: row.name || 'Unknown Product',
+          sales: this.toNumber(row.sales),
+          revenue: Number(revenue.toFixed(2)),
+          margin: Number(margin.toFixed(2)),
+          cost: Number(cost.toFixed(2)),
+        };
       });
-
-      // Get product details
-      const productDetails = await Promise.all(
-        topProducts.map(async (item) => {
-          const product = await this.prisma.product.findUnique({
-            where: { id: item.productId },
-          });
-
-          const revenue = item._sum.price
-            ? parseFloat(item._sum.price.toString())
-            : 0;
-          const quantity = item._sum.quantity || 0;
-          const cost = product ? product.cost * quantity : 0;
-          const margin = revenue > 0 ? (revenue - cost) / revenue : 0;
-
-          return {
-            name: product?.name || 'Unknown Product',
-            sales: item._sum.quantity || 0,
-            revenue: revenue,
-            margin: parseFloat(margin.toFixed(2)),
-            cost: parseFloat(cost.toFixed(2)),
-          };
-        }),
-      );
-
-      branchTopProducts[branch.id] = productDetails;
     }
 
     return branchTopProducts;

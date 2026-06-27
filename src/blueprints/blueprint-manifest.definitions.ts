@@ -37,7 +37,6 @@ const fashionStandardV1: BlueprintManifestV1 = {
     { key: 'stock_alerts', title: 'Stock Alerts', widgetType: 'list.stock_alerts', order: 30, requiredModule: 'inventory' },
   ],
   quickActions: [
-    { key: 'new_sale', label: 'New Sale', actionType: 'navigate', path: '/sales', order: 10, requiredModule: 'sales' },
     { key: 'add_product', label: 'Add Product', actionType: 'navigate', path: '/products', order: 20, requiredModule: 'inventory' },
   ],
   settings: [

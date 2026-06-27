@@ -29,6 +29,15 @@ export class SalesTargetController {
     return this.salesTargetService.getTargets(req.user.tenantId);
   }
 
+  @Get('branch-targets')
+  @Permissions('view_sales')
+  getBranchTargets(@Req() req: AuthenticatedRequest) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Tenant context is required');
+    }
+    return this.salesTargetService.getBranchTargets(req.user.tenantId);
+  }
+
   @Post()
   @Permissions('create_sales')
   createTargets(
@@ -51,5 +60,25 @@ export class SalesTargetController {
       throw new UnauthorizedException('Tenant context is required');
     }
     return this.salesTargetService.updateTargets(req.user.tenantId, body);
+  }
+
+  @Put('branch-targets')
+  @Permissions('create_sales')
+  updateBranchTargets(
+    @Body()
+    body: {
+      targets: Array<{
+        branchId: string;
+        daily: number;
+        weekly: number;
+        monthly: number;
+      }>;
+    },
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!req.user.tenantId) {
+      throw new UnauthorizedException('Tenant context is required');
+    }
+    return this.salesTargetService.updateBranchTargets(req.user.tenantId, body);
   }
 }
