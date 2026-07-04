@@ -8,6 +8,14 @@ export interface SplitPaymentReceipt {
   creditNotes?: string;
 }
 
+export interface ManagerOverrideReceipt {
+  approvedByUserId: string;
+  approvedByName?: string | null;
+  approvalReason: string;
+  approvedAt: Date;
+  discountAmount?: number | null;
+}
+
 export class SaleReceiptDto {
   saleId: string;
   date: Date;
@@ -22,6 +30,7 @@ export class SaleReceiptDto {
   customerPhone?: string;
   isSplitPayment?: boolean;
   splitPayments?: SplitPaymentReceipt[];
+  managerOverride?: ManagerOverrideReceipt | null;
   branch?: { id: string; name: string; address?: string | null } | null;
   businessInfo?: {
     name: string;

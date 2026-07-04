@@ -43,6 +43,11 @@ interface RawSaleResult {
   mpesaTransactionId: string | null;
   idempotencyKey: string | null;
   vatAmount: number | null;
+  managerOverrideApprovedByUserId: string | null;
+  managerOverrideApprovedByName: string | null;
+  managerOverrideReason: string | null;
+  managerOverrideApprovedAt: Date | null;
+  managerOverrideDiscountAmount: number | null;
   branchId: string | null;
   userName: string | null;
   userEmail: string | null;
@@ -77,6 +82,13 @@ export interface TransformedSale
     id: string;
     name: string;
     address: string | null;
+  } | null;
+  managerOverride: {
+    approvedByUserId: string;
+    approvedByName: string | null;
+    approvalReason: string;
+    approvedAt: Date;
+    discountAmount: number | null;
   } | null;
 }
 import { AuditLogService } from '../audit-log.service';
@@ -140,6 +152,19 @@ export class SalesService {
     if (!tenantId) {
       throw new BadRequestException('Tenant ID is required');
     }
+  }
+
+  private isManagerOverridePersistenceError(error: unknown): boolean {
+    const message =
+      error instanceof Error ? error.message : String(error || '');
+
+    return (
+      message.includes('Unknown argument `managerOverrideApprovedByUserId`') ||
+      message.includes('managerOverrideApprovedByUserId') ||
+      message.includes('managerOverrideApprovedAt') ||
+      message.includes('managerOverrideDiscountAmount') ||
+      message.includes('The column')
+    );
   }
 
   async createSale(
@@ -431,6 +456,18 @@ export class SalesService {
       0,
       Math.min(dto.discountAmount ?? 0, subtotal),
     );
+    const managerOverrideMetadata =
+      dto.managerOverride?.approvedByUserId && dto.managerOverride.approvalReason
+        ? {
+            managerOverrideApprovedByUserId:
+              dto.managerOverride.approvedByUserId,
+            managerOverrideApprovedByName:
+              dto.managerOverride.approvedByName ?? null,
+            managerOverrideReason: dto.managerOverride.approvalReason,
+            managerOverrideApprovedAt: now,
+            managerOverrideDiscountAmount: discountAmount,
+          }
+        : null;
     const subtotalAfterDiscount = subtotal - discountAmount;
     const vatAmount = 0;
     const total = Math.round(subtotalAfterDiscount * 100) / 100;
@@ -593,9 +630,27 @@ export class SalesService {
           : {}),
       };
 
-      await prisma.sale.create({
-        data: saleData as Prisma.SaleCreateInput,
-      });
+      const saleDataWithManagerOverride = {
+        ...saleData,
+        ...(managerOverrideMetadata ?? {}),
+      };
+
+      try {
+        await prisma.sale.create({
+          data: saleDataWithManagerOverride as Prisma.SaleCreateInput,
+        });
+      } catch (error) {
+        if (managerOverrideMetadata && this.isManagerOverridePersistenceError(error)) {
+          this.logger.warn(
+            'Manager override metadata could not be persisted because Prisma client/schema is not aligned yet. Falling back to sale creation without persistence fields.',
+          );
+          await prisma.sale.create({
+            data: saleData as Prisma.SaleCreateInput,
+          });
+        } else {
+          throw error;
+        }
+      }
 
       // Create sale items separately
       for (const item of dto.items) {
@@ -699,6 +754,18 @@ export class SalesService {
       customerPhone: dto.customerPhone,
       isSplitPayment: dto.isSplitPayment || false,
       splitPayments: dto.splitPayments || undefined,
+      managerOverride: managerOverrideMetadata
+        ? {
+            approvedByUserId:
+              managerOverrideMetadata.managerOverrideApprovedByUserId,
+            approvedByName:
+              managerOverrideMetadata.managerOverrideApprovedByName,
+            approvalReason: managerOverrideMetadata.managerOverrideReason,
+            approvedAt: managerOverrideMetadata.managerOverrideApprovedAt,
+            discountAmount:
+              managerOverrideMetadata.managerOverrideDiscountAmount,
+          }
+        : null,
       branch: validBranch,
       businessInfo,
     };
@@ -1007,6 +1074,15 @@ export class SalesService {
               status: sale.credit.status,
             }
           : null,
+        managerOverride: sale.managerOverrideApprovedByUserId
+          ? {
+              approvedByUserId: sale.managerOverrideApprovedByUserId,
+              approvedByName: sale.managerOverrideApprovedByName,
+              approvalReason: sale.managerOverrideReason,
+              approvedAt: sale.managerOverrideApprovedAt,
+              discountAmount: sale.managerOverrideDiscountAmount,
+            }
+          : null,
       };
 
       return result;
@@ -1130,6 +1206,15 @@ export class SalesService {
             address: sale.Branch.address || '',
           }
         : null,
+      managerOverride: sale.managerOverrideApprovedByUserId
+        ? {
+            approvedByUserId: sale.managerOverrideApprovedByUserId,
+            approvedByName: sale.managerOverrideApprovedByName,
+            approvalReason: sale.managerOverrideReason,
+            approvedAt: sale.managerOverrideApprovedAt,
+            discountAmount: sale.managerOverrideDiscountAmount,
+          }
+        : null,
     };
 
     if (type === 'merchant') {
@@ -1177,6 +1262,11 @@ export class SalesService {
       mpesaTransactionId: string | null;
       idempotencyKey: string | null;
       vatAmount: number | null;
+      managerOverrideApprovedByUserId: string | null;
+      managerOverrideApprovedByName: string | null;
+      managerOverrideReason: string | null;
+      managerOverrideApprovedAt: Date | null;
+      managerOverrideDiscountAmount: number | null;
       branchId: string | null;
       userName: string | null;
       userEmail: string | null;
@@ -1253,6 +1343,15 @@ export class SalesService {
       return {
         ...sale,
         cashier: sale.userName || null,
+        managerOverride: sale.managerOverrideApprovedByUserId
+          ? {
+              approvedByUserId: sale.managerOverrideApprovedByUserId,
+              approvedByName: sale.managerOverrideApprovedByName,
+              approvalReason: sale.managerOverrideReason,
+              approvedAt: sale.managerOverrideApprovedAt,
+              discountAmount: sale.managerOverrideDiscountAmount,
+            }
+          : null,
         mpesaTransaction: mpesaTransaction
           ? {
               phoneNumber: mpesaTransaction.phoneNumber,
@@ -1378,6 +1477,15 @@ export class SalesService {
               id: sale.Branch.id,
               name: sale.Branch.name,
               address: sale.Branch.address,
+            }
+          : null,
+        managerOverride: sale.managerOverrideApprovedByUserId
+          ? {
+              approvedByUserId: sale.managerOverrideApprovedByUserId,
+              approvedByName: sale.managerOverrideApprovedByName,
+              approvalReason: sale.managerOverrideReason,
+              approvedAt: sale.managerOverrideApprovedAt,
+              discountAmount: sale.managerOverrideDiscountAmount,
             }
           : null,
         isSplitPayment,

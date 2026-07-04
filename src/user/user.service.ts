@@ -595,7 +595,12 @@ export class UserService {
     return { success: true };
   }
 
-  async verifyUserPosPin(userId: string, tenantId: string, pin: string) {
+  async verifyUserPosPin(
+    userId: string,
+    tenantId: string,
+    pin: string,
+    requireManagerRole = false,
+  ) {
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
@@ -609,6 +614,16 @@ export class UserService {
         email: true,
         branchId: true,
         preferences: true,
+        userRoles: {
+          where: { tenantId },
+          select: {
+            role: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -633,6 +648,26 @@ export class UserService {
       return { success: false, reason: 'Invalid PIN' };
     }
 
+    const roleNames = Array.isArray(user.userRoles)
+      ? user.userRoles
+          .map((ur) => String(ur?.role?.name || '').toLowerCase())
+          .filter((name): name is string => name.length > 0)
+      : [];
+
+    if (requireManagerRole) {
+      const managerLike =
+        roleNames.includes('owner') ||
+        roleNames.includes('admin') ||
+        roleNames.includes('manager') ||
+        roleNames.includes('superadmin');
+      if (!managerLike) {
+        return {
+          success: false,
+          reason: 'Selected user is not authorized for manager approval',
+        };
+      }
+    }
+
     return {
       success: true,
       waiter: {
@@ -640,6 +675,7 @@ export class UserService {
         name: user.name,
         email: user.email,
         branchId: user.branchId,
+        roles: roleNames,
       },
     };
   }

@@ -26,6 +26,52 @@ class SaleItemDto {
   variationId?: string;
 }
 
+class SplitPaymentDto {
+  @IsString()
+  method: 'cash' | 'mpesa' | 'credit';
+
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  amountReceived?: number; // For cash payments
+
+  @IsString()
+  @IsOptional()
+  mpesaTransactionId?: string; // For M-Pesa payments
+
+  @IsString()
+  @IsOptional()
+  mpesaReceipt?: string; // For M-Pesa payments
+
+  @IsString()
+  @IsOptional()
+  creditDueDate?: string; // For credit payments
+
+  @IsString()
+  @IsOptional()
+  creditNotes?: string; // For credit payments
+}
+
+class ManagerOverrideDto {
+  @IsString()
+  approvedByUserId: string;
+
+  @IsString()
+  @IsOptional()
+  approvedByName?: string;
+
+  @IsString()
+  approvalReason: string;
+
+  @IsString()
+  @IsOptional()
+  approvalPin?: string;
+}
+
 export class CreateSaleDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -105,34 +151,10 @@ export class CreateSaleDto {
   @ValidateNested({ each: true })
   @Type(() => SplitPaymentDto)
   splitPayments?: SplitPaymentDto[];
-}
 
-class SplitPaymentDto {
-  @IsString()
-  method: 'cash' | 'mpesa' | 'credit';
-
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
-
-  @IsNumber()
+  /** Optional manager override approval details for discounted sales */
   @IsOptional()
-  @Min(0)
-  amountReceived?: number; // For cash payments
-
-  @IsString()
-  @IsOptional()
-  mpesaTransactionId?: string; // For M-Pesa payments
-
-  @IsString()
-  @IsOptional()
-  mpesaReceipt?: string; // For M-Pesa payments
-
-  @IsString()
-  @IsOptional()
-  creditDueDate?: string; // For credit payments
-
-  @IsString()
-  @IsOptional()
-  creditNotes?: string; // For credit payments
+  @ValidateNested()
+  @Type(() => ManagerOverrideDto)
+  managerOverride?: ManagerOverrideDto;
 }
