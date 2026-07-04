@@ -94,6 +94,119 @@ export class ProductService {
     return Number.isFinite(parsed) ? parsed : defaultValue;
   }
 
+  private normalizeBarcode(value: string): string {
+    return value.trim();
+  }
+
+  private normalizeBarcodeList(values?: string[]): string[] {
+    if (!Array.isArray(values)) return [];
+
+    const normalized = values
+      .map((value) => this.normalizeBarcode(String(value ?? '')))
+      .filter((value) => value.length > 0);
+
+    return Array.from(new Set(normalized));
+  }
+
+  private validateBarcodeOrThrow(value: string): void {
+    if (value.length < 3 || value.length > 64) {
+      throw new BadRequestException(
+        'Barcode must be between 3 and 64 characters',
+      );
+    }
+  }
+
+  private async syncVariationBarcodes(
+    tx: Prisma.TransactionClient,
+    params: {
+      variationId: string;
+      tenantId: string;
+      primaryBarcode?: string | null;
+      alternateBarcodes?: string[];
+    },
+  ): Promise<void> {
+    const normalizedPrimary =
+      typeof params.primaryBarcode === 'string'
+        ? this.normalizeBarcode(params.primaryBarcode)
+        : '';
+
+    if (normalizedPrimary) {
+      this.validateBarcodeOrThrow(normalizedPrimary);
+    }
+
+    const alternates = this.normalizeBarcodeList(params.alternateBarcodes)
+      .filter((code) => code !== normalizedPrimary)
+      .filter((code) => {
+        this.validateBarcodeOrThrow(code);
+        return true;
+      });
+
+    const desiredCodes = normalizedPrimary
+      ? [normalizedPrimary, ...alternates]
+      : alternates;
+
+    const existing = await tx.productVariationBarcode.findMany({
+      where: { variationId: params.variationId },
+      select: { id: true, code: true, isPrimary: true, isActive: true },
+    });
+
+    const existingByCode = new Map(existing.map((item) => [item.code, item]));
+
+    const conflicts = await tx.productVariationBarcode.findMany({
+      where: {
+        tenantId: params.tenantId,
+        code: { in: desiredCodes },
+        variationId: { not: params.variationId },
+      },
+      select: { code: true },
+    });
+
+    if (conflicts.length > 0) {
+      throw new BadRequestException(
+        `Barcode already assigned: ${conflicts[0].code}`,
+      );
+    }
+
+    for (const code of desiredCodes) {
+      const existingEntry = existingByCode.get(code);
+
+      if (existingEntry) {
+        await tx.productVariationBarcode.update({
+          where: { id: existingEntry.id },
+          data: {
+            isPrimary: code === normalizedPrimary,
+            isActive: true,
+            deletedAt: null,
+          },
+        });
+      } else {
+        await tx.productVariationBarcode.create({
+          data: {
+            id: uuidv4(),
+            tenantId: params.tenantId,
+            variationId: params.variationId,
+            code,
+            type: 'CODE128',
+            isPrimary: code === normalizedPrimary,
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    const stale = existing.filter((entry) => !desiredCodes.includes(entry.code));
+    if (stale.length > 0) {
+      await tx.productVariationBarcode.updateMany({
+        where: { id: { in: stale.map((entry) => entry.id) } },
+        data: {
+          isActive: false,
+          isPrimary: false,
+          deletedAt: new Date(),
+        },
+      });
+    }
+  }
+
   private normalizeCategoryName(input: unknown): string {
     return this.toStringValue(input).trim().replace(/\s+/g, ' ');
   }
@@ -424,10 +537,21 @@ export class ProductService {
         select: {
           id: true,
           sku: true,
+          barcode: true,
           price: true,
           stock: true,
           attributes: true,
           images: true,
+          barcodes: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              code: true,
+              isPrimary: true,
+              type: true,
+            },
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+          },
         },
       };
     }
@@ -1094,54 +1218,102 @@ export class ProductService {
     cost?: number;
     stock: number;
     attributes: unknown;
+    barcode?: string;
+    alternateBarcodes?: string[];
     tenantId: string;
     branchId?: string;
   }) {
-    const variationData: Prisma.ProductVariationUncheckedCreateInput = {
-      id: uuidv4(),
-      productId: data.productId,
-      sku: data.sku,
-      price: data.price ?? 0,
-      cost: data.cost ?? 0,
-      stock: data.stock,
-      attributes: (data.attributes ?? {}) as Prisma.InputJsonValue,
-      tenantId: data.tenantId,
-      branchId: data.branchId ?? null,
-    };
+    const normalizedPrimaryBarcode = data.barcode
+      ? this.normalizeBarcode(data.barcode)
+      : '';
 
-    const variation = await this.prisma.productVariation.create({
-      data: variationData,
-    });
-
-    // --- Automated Accounting Entry ---
-    if (variation.stock > 0 && variation.cost && variation.cost > 0) {
-      try {
-        // Fetch product name for better description
-        const product = await this.prisma.product.findUnique({
-          where: { id: variation.productId },
-          select: { name: true },
-        });
-        await this.ledgerService.recordInitialCapital(data.tenantId, 'system', {
-          productId: variation.id,
-          sku: variation.sku,
-          name: `${product?.name || 'Product'} (Variation: ${variation.sku})`,
-          quantity: variation.stock,
-          cost: variation.cost,
-        });
-      } catch (accError) {
-        console.error(
-          'Failed to create automated accounting entry for variation capital:',
-          accError,
-        );
-      }
+    if (normalizedPrimaryBarcode) {
+      this.validateBarcodeOrThrow(normalizedPrimaryBarcode);
     }
 
-    return variation;
+    try {
+      const variation = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.productVariation.create({
+          data: {
+            id: uuidv4(),
+            productId: data.productId,
+            sku: data.sku,
+            price: data.price ?? 0,
+            cost: data.cost ?? 0,
+            stock: data.stock,
+            attributes: (data.attributes ?? {}) as Prisma.InputJsonValue,
+            tenantId: data.tenantId,
+            branchId: data.branchId ?? null,
+            barcode: normalizedPrimaryBarcode || null,
+          },
+        });
+
+        await this.syncVariationBarcodes(tx, {
+          variationId: created.id,
+          tenantId: data.tenantId,
+          primaryBarcode: normalizedPrimaryBarcode || null,
+          alternateBarcodes: data.alternateBarcodes,
+        });
+
+        return tx.productVariation.findUniqueOrThrow({
+          where: { id: created.id },
+          include: {
+            barcodes: {
+              where: { isActive: true },
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+            },
+          },
+        });
+      });
+
+      // --- Automated Accounting Entry ---
+      if (variation.stock > 0 && variation.cost && variation.cost > 0) {
+        try {
+          // Fetch product name for better description
+          const product = await this.prisma.product.findUnique({
+            where: { id: variation.productId },
+            select: { name: true },
+          });
+          await this.ledgerService.recordInitialCapital(
+            data.tenantId,
+            'system',
+            {
+              productId: variation.id,
+              sku: variation.sku,
+              name: `${product?.name || 'Product'} (Variation: ${variation.sku})`,
+              quantity: variation.stock,
+              cost: variation.cost,
+            },
+          );
+        } catch (accError) {
+          console.error(
+            'Failed to create automated accounting entry for variation capital:',
+            accError,
+          );
+        }
+      }
+
+      return variation;
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new BadRequestException('Barcode or SKU already exists');
+      }
+      throw error;
+    }
   }
 
   async getVariationsByProduct(productId: string, tenantId: string) {
     return this.prisma.productVariation.findMany({
       where: { productId, tenantId, isActive: true },
+      include: {
+        barcodes: {
+          where: { isActive: true },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -1154,6 +1326,8 @@ export class ProductService {
       cost: number;
       stock: number;
       attributes: unknown;
+      barcode: string;
+      alternateBarcodes: string[];
       isActive: boolean;
       images: string[];
     }>,
@@ -1169,11 +1343,138 @@ export class ProductService {
     if (data.attributes !== undefined) {
       updateData.attributes = data.attributes as Prisma.InputJsonValue;
     }
+    if (data.barcode !== undefined) {
+      const normalized = this.normalizeBarcode(data.barcode);
+      if (normalized) {
+        this.validateBarcodeOrThrow(normalized);
+      }
+      updateData.barcode = normalized || null;
+    }
 
-    return this.prisma.productVariation.updateMany({
-      where: { id, tenantId },
-      data: updateData,
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.productVariation.updateMany({
+        where: { id, tenantId },
+        data: updateData,
+      });
+
+      if (updated.count === 0) {
+        return updated;
+      }
+
+      if (data.barcode !== undefined || data.alternateBarcodes !== undefined) {
+        const current = await tx.productVariation.findFirst({
+          where: { id, tenantId },
+          select: { barcode: true },
+        });
+
+        await this.syncVariationBarcodes(tx, {
+          variationId: id,
+          tenantId,
+          primaryBarcode: current?.barcode ?? null,
+          alternateBarcodes: data.alternateBarcodes,
+        });
+      }
+
+      return updated;
     });
+  }
+
+  async findVariationByBarcode(
+    barcode: string,
+    tenantId: string,
+    branchId?: string,
+  ) {
+    const normalized = this.normalizeBarcode(barcode);
+    if (!normalized) {
+      throw new BadRequestException('Barcode is required');
+    }
+
+    const barcodeHit = await this.prisma.productVariationBarcode.findFirst({
+      where: {
+        tenantId,
+        code: normalized,
+        isActive: true,
+        variation: {
+          isActive: true,
+          deletedAt: null,
+          product: {
+            tenantId,
+            deletedAt: null,
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+      },
+      include: {
+        variation: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                price: true,
+                stock: true,
+                branchId: true,
+              },
+            },
+            barcodes: {
+              where: { isActive: true },
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+
+    if (barcodeHit) {
+      return {
+        matchedBarcode: barcodeHit.code,
+        matchedAs: barcodeHit.isPrimary ? 'primary' : 'alternate',
+        variation: barcodeHit.variation,
+        product: barcodeHit.variation.product,
+      };
+    }
+
+    const legacyVariation = await this.prisma.productVariation.findFirst({
+      where: {
+        tenantId,
+        barcode: normalized,
+        isActive: true,
+        deletedAt: null,
+        product: {
+          tenantId,
+          deletedAt: null,
+          ...(branchId ? { branchId } : {}),
+        },
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            price: true,
+            stock: true,
+            branchId: true,
+          },
+        },
+        barcodes: {
+          where: { isActive: true },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        },
+      },
+    });
+
+    if (!legacyVariation) {
+      throw new NotFoundException('Barcode not found');
+    }
+
+    return {
+      matchedBarcode: normalized,
+      matchedAs: 'legacy',
+      variation: legacyVariation,
+      product: legacyVariation.product,
+    };
   }
 
   async deleteVariation(id: string, tenantId: string) {

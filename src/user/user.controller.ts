@@ -412,13 +412,18 @@ export class UserController {
   @Post('verify-pos-pin')
   async verifyUserPosPin(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { userId: string; pin: string },
+    @Body() body: { userId: string; pin: string; requireManagerRole?: boolean },
   ) {
     const tenantId = req.user.tenantId;
     if (!tenantId) {
       throw new ForbiddenException('Tenant context is required');
     }
-    return this.userService.verifyUserPosPin(body.userId, tenantId, body.pin);
+    return this.userService.verifyUserPosPin(
+      body.userId,
+      tenantId,
+      body.pin,
+      !!body.requireManagerRole,
+    );
   }
 
   @Get('me/plan-limits')

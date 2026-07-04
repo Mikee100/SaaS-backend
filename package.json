@@ -23,6 +23,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "create-superadmin": "ts-node scripts/create-superadmin.ts",
+    "barcodes:generate-variations": "ts-node scripts/generate-variation-barcodes.ts",
     "seed:restaurant-bom": "ts-node scripts/seed-restaurant-bom.ts",
     "seed:crm-entitlements": "ts-node scripts/seed-crm-entitlements.ts",
     "seed:tenant-dashboard": "ts-node scripts/seed-tenant-dashboard-data.ts"

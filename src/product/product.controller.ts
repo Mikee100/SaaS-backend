@@ -348,6 +348,25 @@ export class ProductController {
     return { count };
   }
 
+  @Get('scan/:barcode')
+  @UseGuards(AuthGuard('jwt'))
+  @Permissions('view_products')
+  async scanByBarcode(
+    @Param('barcode') barcode: string,
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { branchId?: string },
+  ) {
+    const tenantId = this.getTenantId(req);
+    const branchId =
+      query.branchId || this.getHeaderBranchId(req) || req.user?.branchId;
+
+    return this.productService.findVariationByBarcode(
+      barcode,
+      tenantId,
+      branchId,
+    );
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   @Permissions('view_products')
@@ -378,6 +397,7 @@ export class ProductController {
       stock: number;
       attributes: Record<string, string>;
       barcode?: string;
+      alternateBarcodes?: string[];
       weight?: number;
       branchId?: string;
     },
@@ -442,6 +462,8 @@ export class ProductController {
       cost: number;
       stock: number;
       attributes: Record<string, string>;
+      barcode: string;
+      alternateBarcodes: string[];
       isActive: boolean;
       images: string[];
     }>,

@@ -200,6 +200,7 @@ model Tenant {
   userPermissions     UserPermission[]        @relation("TenantUserPermissions")
   userRoles           UserRole[]              @relation("TenantUserRoles")
   productVariations   ProductVariation[]      @relation("TenantProductVariations")
+  variationBarcodes   ProductVariationBarcode[]
   productAttributes   ProductAttribute[]      @relation("TenantProductAttributes")
   supportTickets      SupportTicket[]
   expenses            Expense[] // New
@@ -611,6 +612,7 @@ model ProductVariation {
   tenant     Tenant     @relation("TenantProductVariations", fields: [tenantId], references: [id])
   branch     Branch?    @relation("BranchProductVariations", fields: [branchId], references: [id])
   saleItems  SaleItem[] @relation("VariationSaleItems")
+  barcodes   ProductVariationBarcode[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -618,6 +620,26 @@ model ProductVariation {
   @@index([branchId])
   @@index([sku])
   @@index([deletedAt])
+}
+
+model ProductVariationBarcode {
+  id          String           @id @default(uuid())
+  tenantId    String
+  variationId String
+  code        String
+  type        String           @default("CODE128")
+  isPrimary   Boolean          @default(false)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  variation   ProductVariation @relation(fields: [variationId], references: [id])
+
+  @@unique([tenantId, code])
+  @@index([variationId])
+  @@index([tenantId, isPrimary])
+  @@index([tenantId, isActive])
 }
 
 model Product {
@@ -680,6 +702,11 @@ model Sale {
   mpesaTransactionId                             String?            @unique
   idempotencyKey                                 String?
   vatAmount                                      Float?
+  managerOverrideApprovedByUserId                String?
+  managerOverrideApprovedByName                  String?
+  managerOverrideReason                          String?
+  managerOverrideApprovedAt                      DateTime?
+  managerOverrideDiscountAmount                  Float?
   branchId                                       String?
   MpesaTransaction_MpesaTransaction_saleIdToSale MpesaTransaction[] @relation("MpesaTransaction_saleIdToSale")
   Branch                                         Branch?            @relation(fields: [branchId], references: [id])
@@ -698,6 +725,8 @@ model Sale {
   // Composite indexes for analytics queries (tenant + time, and tenant + branch + time)
   @@index([tenantId, createdAt])
   @@index([tenantId, branchId, createdAt])
+  @@index([managerOverrideApprovedByUserId])
+  @@index([managerOverrideApprovedAt])
 }
 
 model SaleItem {

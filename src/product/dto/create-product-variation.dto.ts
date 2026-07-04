@@ -1,4 +1,10 @@
-import { IsString, IsNumber, IsObject, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsString,
+  IsNumber,
+  IsObject,
+  IsOptional,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class AttributeValueDto {
@@ -36,6 +42,11 @@ export class CreateProductVariationDto {
   @IsOptional()
   @IsString()
   barcode?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  alternateBarcodes?: string[];
 
   @IsOptional()
   @IsNumber()
