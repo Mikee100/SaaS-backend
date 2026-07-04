@@ -70,10 +70,17 @@ export class ExpensesController {
     return undefined;
   }
 
-  private resolveBranchScope(req: AuthenticatedRequest): string | undefined {
+  private resolveBranchScope(
+    req: AuthenticatedRequest,
+    queryBranchId?: string,
+  ): string | undefined {
     const roles = this.getNormalizedRoleNames(req.user);
     const assignedBranchId = req.user?.branchId;
-    const requestedBranchId = this.getHeaderBranchId(req);
+    const normalizedQueryBranchId =
+      typeof queryBranchId === 'string' && queryBranchId.trim()
+        ? queryBranchId.trim()
+        : undefined;
+    const requestedBranchId = normalizedQueryBranchId || this.getHeaderBranchId(req);
     const isBranchScopedRole =
       roles.includes('manager') || roles.includes('cashier');
 
@@ -149,6 +156,165 @@ export class ExpensesController {
     };
   }
 
+  @Get('analytics/summary')
+  @Permissions('view_expenses')
+  async getExpenseAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { startDate?: string; endDate?: string },
+  ) {
+    const { startDate, endDate } = query;
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.expensesService.getExpenseAnalytics(
+      this.getTenantId(req),
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+      effectiveBranchId,
+    );
+  }
+
+  @Get('categories/list')
+  @Permissions('view_expenses')
+  async getExpenseCategories(@Req() req: AuthenticatedRequest) {
+    return this.expensesService.getExpenseCategories(this.getTenantId(req));
+  }
+
+  @Get('comparison/branches')
+  @Permissions('view_expenses')
+  async getBranchComparison(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { startDate?: string; endDate?: string; branchId?: string },
+  ) {
+    const { startDate, endDate } = query;
+    const effectiveBranchId = this.resolveBranchScope(req, query.branchId);
+    return this.expensesService.getBranchComparison(
+      this.getTenantId(req),
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
+      effectiveBranchId,
+    );
+  }
+
+  @Post('reset-monthly')
+  @Permissions('manage_expenses')
+  async resetMonthlyExpenses(@Req() req: AuthenticatedRequest) {
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.expensesService.resetMonthlyExpenses(
+      this.getTenantId(req),
+      this.getUserId(req),
+      effectiveBranchId,
+    );
+  }
+
+  @Get('past-months')
+  @Permissions('view_expenses')
+  async getPastMonthsRecords(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: { months?: string; branchId?: string },
+  ) {
+    const monthsRaw = query.months ?? '12';
+    const months = Number.parseInt(monthsRaw, 10);
+    const effectiveBranchId = this.resolveBranchScope(req, query.branchId);
+    return this.expensesService.getPastMonthsRecords(
+      this.getTenantId(req),
+      Number.isFinite(months) ? months : 12,
+      effectiveBranchId,
+    );
+  }
+
+  @Get('current-month-total')
+  @Permissions('view_expenses')
+  async getCurrentMonthExpenseTotal(
+    @Req() req: AuthenticatedRequest,
+    @Query('branchId') branchId?: string,
+  ) {
+    const effectiveBranchId = this.resolveBranchScope(req, branchId);
+    const result = await this.expensesService.getCurrentMonthExpenseTotal(
+      this.getTenantId(req),
+      effectiveBranchId,
+    );
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('total-expense')
+  @Permissions('view_expenses')
+  async getExpenseTotalForMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    const parsedMonth = Number(month);
+    const parsedYear = Number(year);
+    if (
+      !parsedMonth ||
+      !parsedYear ||
+      parsedMonth < 1 ||
+      parsedMonth > 12 ||
+      parsedYear < 1900 ||
+      parsedYear > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
+    }
+    const effectiveBranchId = this.resolveBranchScope(req, branchId);
+    const result = await this.expensesService.getExpenseTotalForMonth(
+      this.getTenantId(req),
+      parsedMonth,
+      parsedYear,
+      effectiveBranchId,
+    );
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('by-month')
+  @Permissions('view_expenses')
+  async getExpensesByMonth(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const month = typeof query.month === 'string' ? Number(query.month) : NaN;
+    const year = typeof query.year === 'string' ? Number(query.year) : NaN;
+    if (
+      !month ||
+      !year ||
+      month < 1 ||
+      month > 12 ||
+      year < 1900 ||
+      year > 2100
+    ) {
+      throw new BadRequestException(
+        'Valid month (1-12) and year (1900-2100) are required',
+      );
+    }
+    const requestedBranchId =
+      typeof query.branchId === 'string' ? query.branchId : undefined;
+    const effectiveBranchId = this.resolveBranchScope(req, requestedBranchId);
+    const result = await this.expensesService.getExpensesByMonth(
+      this.getTenantId(req),
+      month,
+      year,
+      effectiveBranchId,
+      query,
+    );
+    return {
+      success: true,
+      data: result.expenses,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+    };
+  }
+
   @Get(':id')
   @Permissions('view_expenses')
   async getExpenseById(
@@ -196,158 +362,5 @@ export class ExpensesController {
       this.getTenantId(req),
       effectiveBranchId,
     );
-  }
-
-  @Get('analytics/summary')
-  @Permissions('view_expenses')
-  async getExpenseAnalytics(
-    @Req() req: AuthenticatedRequest,
-    @Query() query: { startDate?: string; endDate?: string },
-  ) {
-    const { startDate, endDate } = query;
-    const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.getExpenseAnalytics(
-      this.getTenantId(req),
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
-      effectiveBranchId,
-    );
-  }
-
-  @Get('categories/list')
-  @Permissions('view_expenses')
-  async getExpenseCategories(@Req() req: AuthenticatedRequest) {
-    return this.expensesService.getExpenseCategories(this.getTenantId(req));
-  }
-
-  @Get('comparison/branches')
-  @Permissions('view_expenses')
-  async getBranchComparison(
-    @Req() req: AuthenticatedRequest,
-    @Query() query: { startDate?: string; endDate?: string },
-  ) {
-    const { startDate, endDate } = query;
-    const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.getBranchComparison(
-      this.getTenantId(req),
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined,
-      effectiveBranchId,
-    );
-  }
-
-  @Post('reset-monthly')
-  @Permissions('manage_expenses')
-  async resetMonthlyExpenses(@Req() req: AuthenticatedRequest) {
-    const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.resetMonthlyExpenses(
-      this.getTenantId(req),
-      this.getUserId(req),
-      effectiveBranchId,
-    );
-  }
-
-  @Get('past-months')
-  @Permissions('view_expenses')
-  async getPastMonthsRecords(
-    @Req() req: AuthenticatedRequest,
-    @Query() query: { months?: string },
-  ) {
-    const monthsRaw = query.months ?? '12';
-    const months = Number.parseInt(monthsRaw, 10);
-    const effectiveBranchId = this.resolveBranchScope(req);
-    return this.expensesService.getPastMonthsRecords(
-      this.getTenantId(req),
-      Number.isFinite(months) ? months : 12,
-      effectiveBranchId,
-    );
-  }
-
-  @Get('current-month-total')
-  @Permissions('view_expenses')
-  async getCurrentMonthExpenseTotal(@Req() req: AuthenticatedRequest) {
-    const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getCurrentMonthExpenseTotal(
-      this.getTenantId(req),
-      effectiveBranchId,
-    );
-    return {
-      success: true,
-      data: result,
-    };
-  }
-
-  @Get('total-expense')
-  @Permissions('view_expenses')
-  async getExpenseTotalForMonth(
-    @Req() req: AuthenticatedRequest,
-    @Query('month') month: string,
-    @Query('year') year: string,
-  ) {
-    const parsedMonth = Number(month);
-    const parsedYear = Number(year);
-    if (
-      !parsedMonth ||
-      !parsedYear ||
-      parsedMonth < 1 ||
-      parsedMonth > 12 ||
-      parsedYear < 1900 ||
-      parsedYear > 2100
-    ) {
-      throw new BadRequestException(
-        'Valid month (1-12) and year (1900-2100) are required',
-      );
-    }
-    const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getExpenseTotalForMonth(
-      this.getTenantId(req),
-      parsedMonth,
-      parsedYear,
-      effectiveBranchId,
-    );
-    return {
-      success: true,
-      data: result,
-    };
-  }
-
-  @Get('by-month')
-  @Permissions('view_expenses')
-  async getExpensesByMonth(
-    @Req() req: AuthenticatedRequest,
-    @Query() query: Record<string, unknown>,
-  ) {
-    const month = typeof query.month === 'string' ? Number(query.month) : NaN;
-    const year = typeof query.year === 'string' ? Number(query.year) : NaN;
-    if (
-      !month ||
-      !year ||
-      month < 1 ||
-      month > 12 ||
-      year < 1900 ||
-      year > 2100
-    ) {
-      throw new BadRequestException(
-        'Valid month (1-12) and year (1900-2100) are required',
-      );
-    }
-    const effectiveBranchId = this.resolveBranchScope(req);
-    const result = await this.expensesService.getExpensesByMonth(
-      this.getTenantId(req),
-      month,
-      year,
-      effectiveBranchId,
-      query,
-    );
-    return {
-      success: true,
-      data: result.expenses,
-      pagination: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-        totalPages: result.totalPages,
-      },
-    };
   }
 }
