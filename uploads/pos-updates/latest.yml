@@ -1,8 +1,8 @@
-version: 1.0.13
+version: 1.0.14
 files:
-  - url: AdeeraPOS-1.0.13-Setup.exe
-    sha512: PjHA2PudINBrKFtImVXeMvtjyr6duCqwNxgnaKaDeJ70AjUCoVKDTLB1t91cr0p7Zn5dqUd0z1iey3rvwYXMZw==
-    size: 79582198
-path: AdeeraPOS-1.0.13-Setup.exe
-sha512: PjHA2PudINBrKFtImVXeMvtjyr6duCqwNxgnaKaDeJ70AjUCoVKDTLB1t91cr0p7Zn5dqUd0z1iey3rvwYXMZw==
-releaseDate: '2026-06-23T19:37:11.733Z'
+  - url: AdeeraPOS-1.0.14-Setup.exe
+    sha512: OZKW+hcSAgJnYKQZdComHYSbtnU631CJRlMmyGur7XvGjnIdMxw2Ge7LC5Bc67JB95MTI3c/sjCEBr1tn+1Nhw==
+    size: 79625774
+path: AdeeraPOS-1.0.14-Setup.exe
+sha512: OZKW+hcSAgJnYKQZdComHYSbtnU631CJRlMmyGur7XvGjnIdMxw2Ge7LC5Bc67JB95MTI3c/sjCEBr1tn+1Nhw==
+releaseDate: '2026-07-04T09:37:08.425Z'

@@ -54,6 +54,23 @@ export interface ProfitAndLoss {
   netProfit: number;
 }
 
+export type ProfitLossTrendGranularity = 'day' | 'week' | 'month' | 'year';
+
+export interface ProfitAndLossTrendPoint {
+  label: string;
+  startDate: string;
+  endDate: string;
+  revenue: number;
+  cogs: number;
+  expenses: number;
+  netProfit: number;
+}
+
+export interface ProfitAndLossTrendSummary {
+  granularity: ProfitLossTrendGranularity;
+  points: ProfitAndLossTrendPoint[];
+}
+
 export interface BalanceSheet {
   assets: { name: string; amount: number }[];
   liabilities: { name: string; amount: number }[];

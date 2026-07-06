@@ -7,8 +7,11 @@ import {
   TrialBalance,
   ProfitAndLoss,
   BalanceSheet,
+  ProfitAndLossTrendSummary,
+  ProfitLossTrendGranularity,
 } from './accounting.types';
 import { RealtimeGateway } from '../realtime.gateway';
+import { AuditLogService } from '../audit-log.service';
 
 type JournalEntryWithRelations = Prisma.JournalEntryGetPayload<{
   include: {
@@ -19,11 +22,25 @@ type JournalEntryWithRelations = Prisma.JournalEntryGetPayload<{
   };
 }>;
 
+type ProfitLossTrendCacheEntry = {
+  expiresAt: number;
+  value: ProfitAndLossTrendSummary;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_POINTS_BY_GRANULARITY: Record<ProfitLossTrendGranularity, number> = {
+  day: 60,
+  week: 52,
+  month: 36,
+  year: 10,
+};
+
 @Injectable()
 export class LedgerService {
   constructor(
     private prisma: PrismaService,
     private realtimeGateway: RealtimeGateway,
+    private auditLogService: AuditLogService,
   ) {}
 
   private readonly viableDefaultAccounts = [
@@ -79,6 +96,60 @@ export class LedgerService {
       subtype: 'general',
     },
   ] as const;
+
+  private readonly profitLossTrendCacheTtlMs = 60_000;
+  private readonly profitLossTrendCache = new Map<
+    string,
+    ProfitLossTrendCacheEntry
+  >();
+
+  private buildProfitLossTrendCacheKey(params: {
+    tenantId: string;
+    startDate: string;
+    endDate: string;
+    granularity: ProfitLossTrendGranularity;
+    branchId?: string;
+  }): string {
+    return [
+      params.tenantId,
+      params.branchId || 'all',
+      params.granularity,
+      params.startDate,
+      params.endDate,
+    ].join('|');
+  }
+
+  private getProfitLossTrendFromCache(
+    key: string,
+  ): ProfitAndLossTrendSummary | null {
+    const cached = this.profitLossTrendCache.get(key);
+    if (!cached) return null;
+
+    if (cached.expiresAt <= Date.now()) {
+      this.profitLossTrendCache.delete(key);
+      return null;
+    }
+
+    return cached.value;
+  }
+
+  private setProfitLossTrendCache(
+    key: string,
+    value: ProfitAndLossTrendSummary,
+  ): void {
+    this.profitLossTrendCache.set(key, {
+      expiresAt: Date.now() + this.profitLossTrendCacheTtlMs,
+      value,
+    });
+  }
+
+  private invalidateProfitLossTrendCache(tenantId: string): void {
+    for (const key of this.profitLossTrendCache.keys()) {
+      if (key.startsWith(`${tenantId}|`)) {
+        this.profitLossTrendCache.delete(key);
+      }
+    }
+  }
 
   private resolveExpenseSubtype(categoryName?: string, description?: string) {
     const lowerHints =
@@ -401,9 +472,232 @@ export class LedgerService {
     );
   }
 
+  private parseDateParam(value: string): Date {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  private toDateParam(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private formatTrendLabel(
+    start: Date,
+    end: Date,
+    granularity: ProfitLossTrendGranularity,
+  ): string {
+    if (granularity === 'day') {
+      return start.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+
+    if (granularity === 'week') {
+      return `${start.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })} - ${end.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })}`;
+    }
+
+    if (granularity === 'month') {
+      return start.toLocaleDateString(undefined, {
+        month: 'short',
+        year: '2-digit',
+      });
+    }
+
+    return start.toLocaleDateString(undefined, { year: 'numeric' });
+  }
+
+  private getPeriodEnd(
+    start: Date,
+    granularity: ProfitLossTrendGranularity,
+  ): Date {
+    if (granularity === 'day') {
+      return new Date(start);
+    }
+
+    if (granularity === 'week') {
+      return new Date(start.getTime() + DAY_MS * 6);
+    }
+
+    if (granularity === 'month') {
+      return new Date(start.getFullYear(), start.getMonth() + 1, 0);
+    }
+
+    return new Date(start.getFullYear(), 11, 31);
+  }
+
+  private getNextPeriodStart(
+    start: Date,
+    granularity: ProfitLossTrendGranularity,
+  ): Date {
+    if (granularity === 'day') {
+      return new Date(start.getTime() + DAY_MS);
+    }
+
+    if (granularity === 'week') {
+      return new Date(start.getTime() + DAY_MS * 7);
+    }
+
+    if (granularity === 'month') {
+      return new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    }
+
+    return new Date(start.getFullYear() + 1, 0, 1);
+  }
+
+  private alignPeriodStart(
+    date: Date,
+    granularity: ProfitLossTrendGranularity,
+  ): Date {
+    if (granularity === 'month') {
+      return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    if (granularity === 'year') {
+      return new Date(date.getFullYear(), 0, 1);
+    }
+
+    return new Date(date);
+  }
+
+  private buildTrendPeriods(
+    startDate: Date,
+    endDate: Date,
+    granularity: ProfitLossTrendGranularity,
+  ): { label: string; startDate: string; endDate: string }[] {
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime()) ||
+      startDate > endDate
+    ) {
+      return [];
+    }
+
+    const periods: { label: string; startDate: string; endDate: string }[] = [];
+    let cursor = this.alignPeriodStart(startDate, granularity);
+
+    while (cursor <= endDate) {
+      const periodStart = cursor < startDate ? new Date(startDate) : new Date(cursor);
+      const rawPeriodEnd = this.getPeriodEnd(cursor, granularity);
+      const periodEnd = rawPeriodEnd > endDate ? new Date(endDate) : rawPeriodEnd;
+
+      if (periodStart <= periodEnd) {
+        periods.push({
+          label: this.formatTrendLabel(periodStart, periodEnd, granularity),
+          startDate: this.toDateParam(periodStart),
+          endDate: this.toDateParam(periodEnd),
+        });
+      }
+
+      cursor = this.getNextPeriodStart(cursor, granularity);
+    }
+
+    const maxPoints = MAX_POINTS_BY_GRANULARITY[granularity];
+    if (periods.length > maxPoints) {
+      return periods.slice(periods.length - maxPoints);
+    }
+
+    return periods;
+  }
+
+  private buildProfitAndLossFromJournalEntries(
+    journalEntries: JournalEntryWithRelations[],
+    startDate?: Date,
+    endDate?: Date,
+  ): ProfitAndLoss {
+    const effectiveEnd = endDate ? new Date(endDate) : undefined;
+    if (effectiveEnd) {
+      effectiveEnd.setHours(23, 59, 59, 999);
+    }
+
+    const scopedEntries = journalEntries.filter((journalEntry) => {
+      if (startDate && journalEntry.date < startDate) {
+        return false;
+      }
+      if (effectiveEnd && journalEntry.date > effectiveEnd) {
+        return false;
+      }
+      return true;
+    });
+
+    const revenueMap = new Map<string, number>();
+    const cogsMap = new Map<string, number>();
+    const expenseMap = new Map<string, number>();
+
+    scopedEntries.forEach((journalEntry) => {
+      journalEntry.ledgerEntries.forEach((ledgerEntry) => {
+        if (ledgerEntry.account.type === 'revenue') {
+          const current = revenueMap.get(ledgerEntry.account.name) || 0;
+          revenueMap.set(
+            ledgerEntry.account.name,
+            current + (ledgerEntry.credit - ledgerEntry.debit),
+          );
+        } else if (ledgerEntry.account.type === 'expense') {
+          if (ledgerEntry.account.subtype === 'cogs') {
+            const current = cogsMap.get(ledgerEntry.account.name) || 0;
+            cogsMap.set(
+              ledgerEntry.account.name,
+              current + (ledgerEntry.debit - ledgerEntry.credit),
+            );
+          } else {
+            const current = expenseMap.get(ledgerEntry.account.name) || 0;
+            expenseMap.set(
+              ledgerEntry.account.name,
+              current + (ledgerEntry.debit - ledgerEntry.credit),
+            );
+          }
+        }
+      });
+    });
+
+    const revenue = Array.from(revenueMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
+    const cogs = Array.from(cogsMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
+    const expenses = Array.from(expenseMap.entries()).map(([name, amount]) => ({
+      name,
+      amount,
+    }));
+
+    const totalRevenue = revenue.reduce((sum, item) => sum + item.amount, 0);
+    const totalCOGS = cogs.reduce((sum, item) => sum + item.amount, 0);
+    const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      revenue,
+      cogs,
+      expenses,
+      totalRevenue,
+      totalCOGS,
+      grossProfit: totalRevenue - totalCOGS,
+      totalExpenses,
+      netProfit: totalRevenue - totalCOGS - totalExpenses,
+    };
+  }
+
   // --- Formal Accounting Methods ---
 
-  async initializeCOA(tenantId: string) {
+  async initializeCOA(
+    tenantId: string,
+    options?: {
+      actorUserId?: string | null;
+      ip?: string;
+      logAuditEvent?: boolean;
+    },
+  ) {
     const existingAccounts = await this.prisma.account.findMany({
       where: { tenantId },
       select: { id: true, code: true, isSystem: true },
@@ -463,24 +757,56 @@ export class LedgerService {
         });
       }
     }
+
+    if (options?.logAuditEvent) {
+      await this.auditLogService.log(
+        options.actorUserId || null,
+        'ledger_coa_initialized',
+        {
+          tenantId,
+          missingAccountsCreated: missingAccounts.length,
+          viableDefaultsCount: this.viableDefaultAccounts.length,
+        },
+        options.ip,
+      );
+    }
+
+    return {
+      success: true,
+      missingAccountsCreated: missingAccounts.length,
+      defaultsEnsured: this.viableDefaultAccounts.length,
+    };
   }
 
-  async getAccounts(tenantId: string) {
-    let accounts = await this.prisma.account.findMany({
+  async getAccounts(tenantId: string, branchId?: string) {
+    const accounts = await this.prisma.account.findMany({
       where: { tenantId, isActive: true },
       orderBy: { code: 'asc' },
     });
 
-    // Self-heal tenants that never initialized COA so ledger screens are not blank.
-    if (accounts.length === 0) {
-      await this.initializeCOA(tenantId);
-      accounts = await this.prisma.account.findMany({
-        where: { tenantId, isActive: true },
-        orderBy: { code: 'asc' },
-      });
+    if (!branchId || accounts.length === 0) {
+      return accounts;
     }
 
-    return accounts;
+    const scopedJournalEntries = await this.getJournalEntriesForReporting(
+      tenantId,
+      { branchId },
+    );
+
+    const scopedAccountIds = new Set<string>();
+    for (const journalEntry of scopedJournalEntries) {
+      for (const ledgerEntry of journalEntry.ledgerEntries) {
+        scopedAccountIds.add(ledgerEntry.accountId);
+      }
+    }
+
+    // Keep tenant-level account visibility when the selected branch has no
+    // posted activity yet (prevents false "not initialized" states in UI).
+    if (scopedAccountIds.size === 0) {
+      return accounts;
+    }
+
+    return accounts.filter((account) => scopedAccountIds.has(account.id));
   }
 
   async createJournalEntry(
@@ -540,6 +866,8 @@ export class LedgerService {
       journalEntryId: created.id,
       timestamp: new Date().toISOString(),
     });
+
+    this.invalidateProfitLossTrendCache(tenantId);
 
     return created;
   }
@@ -628,54 +956,100 @@ export class LedgerService {
       branchId,
     });
 
-    const revenueMap = new Map<string, number>();
-    const cogsMap = new Map<string, number>();
-    const expenseMap = new Map<string, number>();
+    return this.buildProfitAndLossFromJournalEntries(
+      journalEntries,
+      startDate,
+      endDate,
+    );
+  }
 
-    journalEntries.forEach((je) => {
-      je.ledgerEntries.forEach((le) => {
-        if (le.account.type === 'revenue') {
-          const current = revenueMap.get(le.account.name) || 0;
-          revenueMap.set(le.account.name, current + (le.credit - le.debit));
-        } else if (le.account.type === 'expense') {
-          if (le.account.subtype === 'cogs') {
-            const current = cogsMap.get(le.account.name) || 0;
-            cogsMap.set(le.account.name, current + (le.debit - le.credit));
-          } else {
-            const current = expenseMap.get(le.account.name) || 0;
-            expenseMap.set(le.account.name, current + (le.debit - le.credit));
-          }
-        }
-      });
+  async getProfitAndLossTrendSummary(
+    tenantId: string,
+    startDateText: string | undefined,
+    endDateText: string | undefined,
+    granularity: ProfitLossTrendGranularity,
+    branchId?: string,
+  ): Promise<ProfitAndLossTrendSummary> {
+    const supportedGranularity: ProfitLossTrendGranularity[] = [
+      'day',
+      'week',
+      'month',
+      'year',
+    ];
+    if (!supportedGranularity.includes(granularity)) {
+      throw new BadRequestException(
+        `Unsupported granularity: ${granularity}`,
+      );
+    }
+
+    if (!startDateText || !endDateText) {
+      throw new BadRequestException(
+        'startDate and endDate are required for trend summary.',
+      );
+    }
+
+    const startDate = this.parseDateParam(startDateText);
+    const endDate = this.parseDateParam(endDateText);
+
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime()) ||
+      startDate > endDate
+    ) {
+      throw new BadRequestException('Invalid date range for trend summary.');
+    }
+
+    const cacheKey = this.buildProfitLossTrendCacheKey({
+      tenantId,
+      startDate: startDateText,
+      endDate: endDateText,
+      granularity,
+      branchId,
     });
 
-    const revenue = Array.from(revenueMap.entries()).map(([name, amount]) => ({
-      name,
-      amount,
-    }));
-    const cogs = Array.from(cogsMap.entries()).map(([name, amount]) => ({
-      name,
-      amount,
-    }));
-    const expenses = Array.from(expenseMap.entries()).map(([name, amount]) => ({
-      name,
-      amount,
-    }));
+    const cached = this.getProfitLossTrendFromCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
-    const totalRevenue = revenue.reduce((sum, r) => sum + r.amount, 0);
-    const totalCOGS = cogs.reduce((sum, c) => sum + c.amount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const periods = this.buildTrendPeriods(startDate, endDate, granularity);
+    if (periods.length === 0) {
+      return { granularity, points: [] };
+    }
 
-    return {
-      revenue,
-      cogs,
-      expenses,
-      totalRevenue,
-      totalCOGS,
-      grossProfit: totalRevenue - totalCOGS,
-      totalExpenses,
-      netProfit: totalRevenue - totalCOGS - totalExpenses,
+    const journalEntries = await this.getJournalEntriesForReporting(tenantId, {
+      startDate,
+      endDate,
+      branchId,
+    });
+
+    const points = periods.map((period) => {
+      const periodStart = this.parseDateParam(period.startDate);
+      const periodEnd = this.parseDateParam(period.endDate);
+      const summary = this.buildProfitAndLossFromJournalEntries(
+        journalEntries,
+        periodStart,
+        periodEnd,
+      );
+
+      return {
+        label: period.label,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        revenue: summary.totalRevenue,
+        cogs: summary.totalCOGS,
+        expenses: summary.totalExpenses,
+        netProfit: summary.netProfit,
+      };
+    });
+
+    const summary = {
+      granularity,
+      points,
     };
+
+    this.setProfitLossTrendCache(cacheKey, summary);
+    return summary;
   }
 
   async getBalanceSheet(
@@ -1287,7 +1661,7 @@ export class LedgerService {
       movedToAccount[key] = (movedToAccount[key] || 0) + 1;
     }
 
-    return {
+    const result = {
       scanned: scopedJournalEntries.length,
       reclassifiedCount,
       unchangedCount,
@@ -1295,6 +1669,12 @@ export class LedgerService {
       skippedNoExpenseLine,
       movedToAccount,
     };
+
+    if (result.reclassifiedCount > 0) {
+      this.invalidateProfitLossTrendCache(tenantId);
+    }
+
+    return result;
   }
 
   // --- Virtual Ledger Methods (Aggregated from other tables) ---
@@ -1458,6 +1838,10 @@ export class LedgerService {
       syncedExpensesCount: syncedExpenses.length,
       timestamp: new Date().toISOString(),
     });
+
+    if (syncedSales.length > 0 || syncedExpenses.length > 0) {
+      this.invalidateProfitLossTrendCache(tenantId);
+    }
 
     return result;
   }
