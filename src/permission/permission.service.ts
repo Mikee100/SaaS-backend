@@ -8,6 +8,15 @@ export class PermissionService {
   private async ensureRestaurantPermissions() {
     const restaurantPermissions = [
       {
+        name: 'pos.access',
+        description: 'Access POS login and branch session',
+      },
+      {
+        name: 'pos.branch.locked',
+        description:
+          'Restrict POS usage to assigned branch for manager branch sessions',
+      },
+      {
         name: 'restaurant_view',
         description: 'View restaurant POS data and tickets',
       },
