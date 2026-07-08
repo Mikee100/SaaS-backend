@@ -35,6 +35,8 @@ const permissions = [
   { name: 'view_expenses', description: 'View expenses' },
   { name: 'manage_expenses', description: 'Create and manage expenses' },
   { name: 'view_audit_log', description: 'View system audit logs' },
+  { name: 'pos.access', description: 'Access POS login and branch session' },
+  { name: 'pos.branch.locked', description: 'Restrict POS usage to assigned branch for manager branch sessions' },
   { name: 'restaurant_view', description: 'View restaurant POS data and tickets' },
   { name: 'restaurant_orders_manage', description: 'Create and update restaurant orders' },
   { name: 'restaurant_kitchen_manage', description: 'Manage kitchen order workflow' },

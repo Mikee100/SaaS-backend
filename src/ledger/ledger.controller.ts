@@ -14,6 +14,7 @@ import {
 import { LedgerService } from './ledger.service';
 import { AuthGuard } from '@nestjs/passport';
 import { JournalEntryDto } from './accounting.types';
+import { ProfitLossTrendGranularity } from './accounting.types';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { RequireModules } from '../auth/module-access.decorator';
@@ -120,13 +121,19 @@ export class LedgerController {
   @Post('init-coa')
   @Permissions('create_sales')
   async initCOA(@Req() req: AuthenticatedRequest) {
-    return this.ledgerService.initializeCOA(this.getTenantId(req));
+    return this.ledgerService.initializeCOA(this.getTenantId(req), {
+      actorUserId: this.getActorUserId(req),
+      ip: req.ip,
+      logAuditEvent: true,
+    });
   }
 
   @Get('accounts')
   @Permissions('view_reports')
   async getAccounts(@Req() req: AuthenticatedRequest) {
-    return this.ledgerService.getAccounts(this.getTenantId(req));
+    const tenantId = this.getTenantId(req);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.ledgerService.getAccounts(tenantId, effectiveBranchId);
   }
 
   @Post('journal')
@@ -180,6 +187,25 @@ export class LedgerController {
       tenantId,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
+      effectiveBranchId,
+    );
+  }
+
+  @Get('profit-loss/trend')
+  @Permissions('view_reports')
+  async getProfitLossTrend(
+    @Req() req: AuthenticatedRequest,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('granularity') granularity: ProfitLossTrendGranularity = 'month',
+  ) {
+    const tenantId = this.getTenantId(req);
+    const effectiveBranchId = this.resolveBranchScope(req);
+    return this.ledgerService.getProfitAndLossTrendSummary(
+      tenantId,
+      startDate,
+      endDate,
+      granularity,
       effectiveBranchId,
     );
   }
