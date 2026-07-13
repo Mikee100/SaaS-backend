@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Query,
   UseGuards,
   Req,
   ForbiddenException,
@@ -412,6 +413,40 @@ export class AnalyticsController {
       this.rethrowKnownOrInternal(
         error,
         'Failed to fetch branch product comparison data',
+      );
+    }
+  }
+
+  @Get('/api/reports/branches/:tenantId/retail-center')
+  @RequireModules('reports')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getRetailReportsCenter(
+    @Req() req: AuthenticatedRequest,
+    @Query('timeRange') timeRange?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const params = req.params as Record<string, unknown>;
+    const tenantId = this.getString(params.tenantId);
+    const userTenantId = req.user?.tenantId;
+
+    if (!tenantId || !userTenantId || tenantId !== userTenantId) {
+      throw new ForbiddenException('Access denied for tenant reports');
+    }
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getRetailReportsCenter(tenantId, {
+        timeRange,
+        startDate,
+        endDate,
+        branchId: effectiveBranchId,
+      });
+    } catch (error) {
+      console.error('Error fetching retail reports center:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch retail reports center data',
       );
     }
   }

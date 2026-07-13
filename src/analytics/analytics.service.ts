@@ -40,6 +40,441 @@ export class AnalyticsService {
     return '';
   }
 
+  private parseTimeRange(
+    timeRange: string | undefined,
+    startDate: string | undefined,
+    endDate: string | undefined,
+  ): { start: Date; end: Date; label: string } {
+    const now = new Date();
+
+    const hasCustomRange =
+      typeof startDate === 'string' &&
+      startDate.length > 0 &&
+      typeof endDate === 'string' &&
+      endDate.length > 0;
+
+    if (hasCustomRange) {
+      const parsedStart = new Date(startDate as string);
+      const parsedEnd = new Date(endDate as string);
+      if (!Number.isNaN(parsedStart.getTime()) && !Number.isNaN(parsedEnd.getTime())) {
+        const normalizedStart = new Date(parsedStart);
+        normalizedStart.setHours(0, 0, 0, 0);
+
+        const normalizedEnd = new Date(parsedEnd);
+        normalizedEnd.setHours(23, 59, 59, 999);
+
+        return {
+          start: normalizedStart,
+          end: normalizedEnd,
+          label: 'custom',
+        };
+      }
+    }
+
+    const resolved = typeof timeRange === 'string' ? timeRange : '30days';
+    const start = new Date(now);
+
+    switch (resolved) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        break;
+      case '7days':
+        start.setDate(now.getDate() - 7);
+        break;
+      case '90days':
+        start.setDate(now.getDate() - 90);
+        break;
+      case '1year':
+        start.setFullYear(now.getFullYear() - 1);
+        break;
+      case '30days':
+      default:
+        start.setDate(now.getDate() - 30);
+        break;
+    }
+
+    return {
+      start,
+      end: now,
+      label: resolved,
+    };
+  }
+
+  private async buildPaymentMethodBreakdown(
+    whereClause: Prisma.SaleWhereInput,
+  ): Promise<
+    Array<{
+      method: string;
+      amount: number;
+      count: number;
+      componentCount: number;
+      transactionCount: number;
+    }>
+  > {
+    const sales = await this.prisma.sale.findMany({
+      where: whereClause,
+      select: {
+        paymentType: true,
+        total: true,
+        mpesaTransaction: {
+          select: {
+            amount: true,
+          },
+        },
+        credit: {
+          select: {
+            totalAmount: true,
+          },
+        },
+      },
+    });
+
+    const methodMap = new Map<
+      string,
+      { componentCount: number; transactionCount: number; amount: number }
+    >();
+    const addMethod = (methodRaw: string, amountRaw: number, count = 1) => {
+      const method = String(methodRaw || 'unknown').toLowerCase();
+      const amount = this.toNumber(amountRaw);
+      const current = methodMap.get(method) || {
+        componentCount: 0,
+        transactionCount: 0,
+        amount: 0,
+      };
+      current.componentCount += count;
+      current.amount += amount;
+      methodMap.set(method, current);
+    };
+
+    // Transaction count by sale record primary payment type.
+    for (const sale of sales) {
+      const method = String(sale.paymentType || 'unknown').toLowerCase();
+      const current = methodMap.get(method) || {
+        componentCount: 0,
+        transactionCount: 0,
+        amount: 0,
+      };
+      current.transactionCount += 1;
+      methodMap.set(method, current);
+    }
+
+    for (const sale of sales) {
+      const paymentType = String(sale.paymentType || '').toLowerCase();
+      const saleTotal = this.toNumber(sale.total);
+
+      if (paymentType !== 'split') {
+        addMethod(paymentType || 'unknown', saleTotal);
+        continue;
+      }
+
+      const mpesaAmount = this.toNumber(sale.mpesaTransaction?.amount);
+      const creditAmount = this.toNumber(sale.credit?.totalAmount);
+      const cashAmount = Math.max(0, saleTotal - mpesaAmount - creditAmount);
+
+      let componentCount = 0;
+      if (cashAmount > 0) {
+        addMethod('cash', cashAmount);
+        componentCount += 1;
+      }
+      if (mpesaAmount > 0) {
+        addMethod('mpesa', mpesaAmount);
+        componentCount += 1;
+      }
+      if (creditAmount > 0) {
+        addMethod('credit', creditAmount);
+        componentCount += 1;
+      }
+
+      // Defensive fallback in case old/malformed split records have no components.
+      if (componentCount === 0) {
+        addMethod('split', saleTotal);
+      }
+    }
+
+    return Array.from(methodMap.entries())
+      .map(([method, value]) => ({
+        method,
+        count: value.componentCount,
+        componentCount: value.componentCount,
+        transactionCount: value.transactionCount,
+        amount: Number(value.amount.toFixed(2)),
+      }))
+      .filter((row) => row.amount > 0 || row.componentCount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }
+
+  async getRetailReportsCenter(
+    tenantId: string,
+    options: {
+      timeRange?: string;
+      branchId?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ) {
+    try {
+      const range = this.parseTimeRange(
+        options.timeRange,
+        options.startDate,
+        options.endDate,
+      );
+
+      const buildSnapshot = async (start: Date, end: Date) => {
+        const whereClause: Prisma.SaleWhereInput = {
+          tenantId,
+          createdAt: {
+            gte: start,
+            lte: end,
+          },
+          ...(options.branchId ? { branchId: options.branchId } : {}),
+        };
+
+        const [aggregate, paymentMethods] = await Promise.all([
+          this.prisma.sale.aggregate({
+            where: whereClause,
+            _sum: {
+              total: true,
+            },
+            _count: {
+              _all: true,
+            },
+          }),
+          this.buildPaymentMethodBreakdown(whereClause),
+        ]);
+
+        const totalOrders = this.toNumber(aggregate._count?._all);
+        const totalSales = this.toNumber(aggregate._sum?.total);
+        const avgTicket =
+          totalOrders > 0 ? Number((totalSales / totalOrders).toFixed(2)) : 0;
+
+        const cashTotal = paymentMethods
+          .filter((row) => row.method.toLowerCase() === 'cash')
+          .reduce((sum, row) => sum + row.amount, 0);
+        const nonCashTotal = Math.max(0, totalSales - cashTotal);
+
+        return {
+          periodStart: start.toISOString(),
+          periodEnd: end.toISOString(),
+          totalOrders,
+          totalSales,
+          avgTicket,
+          cashTotal,
+          nonCashTotal,
+          paymentMethods,
+        };
+      };
+
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayEnd = new Date(todayStart);
+      yesterdayEnd.setMilliseconds(yesterdayEnd.getMilliseconds() - 1);
+
+      const selectedWhereClause: Prisma.SaleWhereInput = {
+        tenantId,
+        createdAt: {
+          gte: range.start,
+          lte: range.end,
+        },
+        ...(options.branchId ? { branchId: options.branchId } : {}),
+      };
+      const todayWhereClause: Prisma.SaleWhereInput = {
+        tenantId,
+        createdAt: {
+          gte: todayStart,
+          lte: now,
+        },
+        ...(options.branchId ? { branchId: options.branchId } : {}),
+      };
+
+      const [xReport, zReport, paymentMethodsRange, cashierRaw, todayCashierRaw] =
+        await Promise.all([
+          buildSnapshot(todayStart, now),
+          buildSnapshot(yesterdayStart, yesterdayEnd),
+          this.buildPaymentMethodBreakdown(selectedWhereClause),
+          this.prisma.sale.groupBy({
+            by: ['userId'],
+            where: selectedWhereClause,
+            _count: {
+              _all: true,
+            },
+            _sum: {
+              total: true,
+            },
+            orderBy: {
+              _sum: {
+                total: 'desc',
+              },
+            },
+          }),
+          this.prisma.sale.groupBy({
+            by: ['userId'],
+            where: todayWhereClause,
+            _count: {
+              _all: true,
+            },
+            _sum: {
+              total: true,
+            },
+            orderBy: {
+              _sum: {
+                total: 'desc',
+              },
+            },
+          }),
+        ]);
+
+      const paymentTotal = paymentMethodsRange.reduce(
+        (sum, row) => sum + this.toNumber(row.amount),
+        0,
+      );
+
+      const byPaymentMethod = paymentMethodsRange.map((row) => {
+        const amount = this.toNumber(row.amount);
+        return {
+          method: this.toText(row.method || 'unknown'),
+          count: this.toNumber(row.count),
+          componentCount: this.toNumber(row.componentCount),
+          transactionCount: this.toNumber(row.transactionCount),
+          amount,
+          sharePct:
+            paymentTotal > 0 ? Number(((amount / paymentTotal) * 100).toFixed(2)) : 0,
+        };
+      });
+
+      const cashierIds = [...cashierRaw, ...todayCashierRaw]
+        .map((row) => row.userId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+      const cashierUsers = cashierIds.length
+        ? await this.prisma.user.findMany({
+            where: {
+              id: { in: cashierIds },
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          })
+        : [];
+      const cashierMap = new Map(
+        cashierUsers.map((user) => [user.id, user.name || user.email || user.id]),
+      );
+
+      const byCashier = cashierRaw.map((row) => {
+        const sales = this.toNumber(row._sum?.total);
+        const orders = this.toNumber(row._count?._all);
+        return {
+          userId: row.userId,
+          cashier: cashierMap.get(row.userId) || row.userId,
+          orders,
+          sales,
+          avgTicket: orders > 0 ? Number((sales / orders).toFixed(2)) : 0,
+        };
+      });
+
+      const todayByCashier = todayCashierRaw.map((row) => {
+        const sales = this.toNumber(row._sum?.total);
+        const orders = this.toNumber(row._count?._all);
+        return {
+          userId: row.userId,
+          cashier: cashierMap.get(row.userId) || row.userId,
+          orders,
+          sales,
+          avgTicket: orders > 0 ? Number((sales / orders).toFixed(2)) : 0,
+        };
+      });
+
+      const currentAggregate = await this.prisma.sale.aggregate({
+        where: selectedWhereClause,
+        _sum: { total: true },
+        _count: { _all: true },
+      });
+
+      const durationMs = Math.max(1, range.end.getTime() - range.start.getTime());
+      const previousEnd = new Date(range.start);
+      previousEnd.setMilliseconds(previousEnd.getMilliseconds() - 1);
+      const previousStart = new Date(range.start.getTime() - durationMs);
+
+      const previousAggregate = await this.prisma.sale.aggregate({
+        where: {
+          tenantId,
+          createdAt: {
+            gte: previousStart,
+            lte: previousEnd,
+          },
+          ...(options.branchId ? { branchId: options.branchId } : {}),
+        },
+        _sum: { total: true },
+        _count: { _all: true },
+      });
+
+      const currentSales = this.toNumber(currentAggregate._sum?.total);
+      const previousSales = this.toNumber(previousAggregate._sum?.total);
+      const currentOrders = this.toNumber(currentAggregate._count?._all);
+      const previousOrders = this.toNumber(previousAggregate._count?._all);
+      const currentAvg =
+        currentOrders > 0 ? Number((currentSales / currentOrders).toFixed(2)) : 0;
+      const previousAvg =
+        previousOrders > 0
+          ? Number((previousSales / previousOrders).toFixed(2))
+          : 0;
+
+      const pct = (current: number, previous: number): number => {
+        if (!previous) return current > 0 ? 100 : 0;
+        return Number((((current - previous) / previous) * 100).toFixed(2));
+      };
+
+      return {
+        range: {
+          label: range.label,
+          start: range.start.toISOString(),
+          end: range.end.toISOString(),
+        },
+        xReport,
+        zReport,
+        byPaymentMethod,
+        byCashier,
+        todayByCashier,
+        variance: {
+          todayVsYesterday: {
+            salesDelta: Number((xReport.totalSales - zReport.totalSales).toFixed(2)),
+            salesDeltaPct: pct(xReport.totalSales, zReport.totalSales),
+            ordersDelta: xReport.totalOrders - zReport.totalOrders,
+            ordersDeltaPct: pct(xReport.totalOrders, zReport.totalOrders),
+            avgTicketDelta: Number((xReport.avgTicket - zReport.avgTicket).toFixed(2)),
+            avgTicketDeltaPct: pct(xReport.avgTicket, zReport.avgTicket),
+            comparedTo: {
+              start: zReport.periodStart,
+              end: zReport.periodEnd,
+            },
+          },
+          periodOverPeriod: {
+            salesDelta: Number((currentSales - previousSales).toFixed(2)),
+            salesDeltaPct: pct(currentSales, previousSales),
+            ordersDelta: currentOrders - previousOrders,
+            ordersDeltaPct: pct(currentOrders, previousOrders),
+            avgTicketDelta: Number((currentAvg - previousAvg).toFixed(2)),
+            avgTicketDeltaPct: pct(currentAvg, previousAvg),
+            comparedTo: {
+              start: previousStart.toISOString(),
+              end: previousEnd.toISOString(),
+            },
+          },
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error in getRetailReportsCenter', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw new Error('Failed to fetch retail reports center data');
+    }
+  }
+
   async getDashboardAnalytics(tenantId: string, branchId?: string) {
     const cacheKey = `analytics:dashboard:${tenantId}:${branchId || 'all'}`;
     const cached = this.cache.get(cacheKey);
@@ -1138,20 +1573,7 @@ export class AnalyticsService {
         LIMIT 5
       `;
 
-      // Get payment methods
-      const paymentMethodsData = await this.prisma.$queryRaw`
-        SELECT
-          "paymentType" as method,
-          COUNT(*) as count,
-          COALESCE(SUM(total), 0) as amount
-        FROM "Sale"
-        WHERE "tenantId" = ${tenantId}
-          AND "createdAt" >= ${startDate}
-          AND "createdAt" <= ${endDate}
-          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
-        GROUP BY "paymentType"
-        ORDER BY amount DESC
-      `;
+      const paymentMethods = await this.buildPaymentMethodBreakdown(whereClause);
 
       // Get sales trend (daily)
       const salesTrendData = await this.prisma.$queryRaw`
@@ -1175,11 +1597,6 @@ export class AnalyticsService {
         quantitySold: number | string | bigint;
         totalRevenue: number | string | bigint;
       };
-      type PaymentMethodsRow = {
-        method: string;
-        count: number | string | bigint;
-        amount: number | string | bigint;
-      };
       type SalesTrendRow = {
         date: Date | string;
         sales: number | string | bigint;
@@ -1193,12 +1610,9 @@ export class AnalyticsService {
         totalRevenue: this.toNumber(p.totalRevenue),
       }));
 
-      const paymentMethods = (paymentMethodsData as PaymentMethodsRow[]).map(
-        (pm) => ({
-          method: pm.method,
-          count: this.toNumber(pm.count),
-          amount: this.toNumber(pm.amount),
-        }),
+      const totalPaymentComponents = paymentMethods.reduce(
+        (sum, method) => sum + this.toNumber(method.componentCount),
+        0,
       );
 
       const salesTrend = (salesTrendData as SalesTrendRow[]).map((st) => ({
@@ -1213,6 +1627,10 @@ export class AnalyticsService {
         averageOrderValue: Number(averageOrderValue.toFixed(2)),
         topProducts,
         paymentMethods,
+        paymentMethodSummary: {
+          totalTransactions: totalOrders,
+          totalPaymentComponents,
+        },
         salesTrend,
       };
     } catch (error) {

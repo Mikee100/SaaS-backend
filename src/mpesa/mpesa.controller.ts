@@ -84,6 +84,97 @@ export class MpesaController {
     return error.response.data;
   }
 
+  private normalizeMpesaStatus(
+    status: string,
+    message?: string | null,
+    mpesaReceipt?: string | null,
+    createdAt?: Date | string,
+  ): 'pending' | 'success' | 'failed' | 'cancelled' | 'timeout' | 'stock_unavailable' {
+    const normalizedStatus = String(status || '').toLowerCase();
+    const normalizedMessage = String(message || '').toLowerCase();
+    const hasReceipt = Boolean(String(mpesaReceipt || '').trim());
+    const indicatesProcessing =
+      normalizedMessage.includes('under processing') ||
+      normalizedMessage.includes('being processed') ||
+      normalizedMessage.includes('request accepted for processing');
+
+    // M-Pesa receipt is definitive proof of successful payment.
+    if (hasReceipt) {
+      return 'success';
+    }
+
+    // Stale pending payments should not remain pending indefinitely.
+    if (normalizedStatus === 'pending' && createdAt) {
+      const created = new Date(createdAt);
+      const isValidDate = !Number.isNaN(created.getTime());
+      if (isValidDate) {
+        const ageMs = Date.now() - created.getTime();
+        const timeoutMs = 30 * 60 * 1000; // 30 minutes
+        if (ageMs > timeoutMs) {
+          return 'timeout';
+        }
+      }
+    }
+
+    if (indicatesProcessing && normalizedStatus !== 'pending') {
+      return 'pending';
+    }
+
+    if (
+      normalizedStatus === 'success' ||
+      normalizedStatus === 'failed' ||
+      normalizedStatus === 'cancelled' ||
+      normalizedStatus === 'timeout' ||
+      normalizedStatus === 'stock_unavailable' ||
+      normalizedStatus === 'pending'
+    ) {
+      return normalizedStatus;
+    }
+
+    return 'pending';
+  }
+
+  private normalizeMpesaMessage(
+    status: string,
+    message?: string | null,
+    mpesaReceipt?: string | null,
+  ): string | undefined {
+    const normalizedStatus = String(status || '').toLowerCase();
+    const trimmed = typeof message === 'string' ? message.trim() : '';
+    const hasReceipt = Boolean(String(mpesaReceipt || '').trim());
+
+    if (!trimmed) {
+      if (normalizedStatus === 'timeout') {
+        return 'No callback received in expected time window.';
+      }
+      return undefined;
+    }
+
+    if (normalizedStatus === 'success' || hasReceipt) {
+      const lower = trimmed.toLowerCase();
+      if (
+        lower.includes('under processing') ||
+        lower.includes('being processed') ||
+        lower.includes('request accepted for processing')
+      ) {
+        return undefined;
+      }
+    }
+
+    if (normalizedStatus === 'timeout') {
+      const lower = trimmed.toLowerCase();
+      if (
+        lower.includes('under processing') ||
+        lower.includes('being processed') ||
+        lower.includes('request accepted for processing')
+      ) {
+        return 'No callback received in expected time window.';
+      }
+    }
+
+    return trimmed;
+  }
+
   @Post('initiate')
   async initiatePayment(
     @Body() body: InitiatePaymentBody,
@@ -689,6 +780,334 @@ export class MpesaController {
       return res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .json({ error: 'Failed to fetch transaction' });
+    }
+  }
+
+  @Get('tenant/transactions')
+  @UseGuards(AuthGuard('jwt'))
+  async getTenantTransactions(
+    @Query('status') status: string | undefined,
+    @Query('search') search: string | undefined,
+    @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined,
+    @Query('branchId') branchId: string | undefined,
+    @Query('cashierId') cashierId: string | undefined,
+    @Query('limit') limit: string | undefined,
+    @Res() res: Response,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    try {
+      const user = req?.user;
+      if (!user) {
+        return res
+          .status(HttpStatus.UNAUTHORIZED)
+          .json({ success: false, error: 'Unauthorized' });
+      }
+
+      if (!user.tenantId && !user.isSuperadmin) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          success: false,
+          error: 'Tenant context is required',
+        });
+      }
+
+      const whereClause: Record<string, unknown> = {};
+
+      if (!user.isSuperadmin && user.tenantId) {
+        whereClause.tenantId = user.tenantId;
+      }
+
+      const normalizedStatus = (status || '').trim().toLowerCase();
+      if (normalizedStatus && normalizedStatus !== 'all') {
+        whereClause.status = normalizedStatus;
+      }
+
+      const normalizedSearch = (search || '').trim();
+      if (normalizedSearch) {
+        whereClause.OR = [
+          { mpesaReceipt: { contains: normalizedSearch, mode: 'insensitive' } },
+          {
+            checkoutRequestID: {
+              contains: normalizedSearch,
+              mode: 'insensitive',
+            },
+          },
+          { phoneNumber: { contains: normalizedSearch, mode: 'insensitive' } },
+        ];
+      }
+
+      const normalizedBranchId = (branchId || '').trim();
+      const normalizedCashierId = (cashierId || '').trim();
+      if (normalizedBranchId || normalizedCashierId) {
+        whereClause.sale = {
+          is: {
+            ...(normalizedBranchId ? { branchId: normalizedBranchId } : {}),
+            ...(normalizedCashierId ? { userId: normalizedCashierId } : {}),
+          },
+        };
+      }
+
+      const fromDate = from ? new Date(from) : undefined;
+      const toDate = to ? new Date(to) : undefined;
+      const hasFrom = Boolean(fromDate && !Number.isNaN(fromDate.getTime()));
+      const hasTo = Boolean(toDate && !Number.isNaN(toDate.getTime()));
+      if (hasFrom || hasTo) {
+        whereClause.createdAt = {};
+        if (hasFrom && fromDate) {
+          whereClause.createdAt.gte = fromDate;
+        }
+        if (hasTo && toDate) {
+          whereClause.createdAt.lte = toDate;
+        }
+      }
+
+      const parsedLimit = Number(limit);
+      const take = Number.isFinite(parsedLimit)
+        ? Math.max(1, Math.min(1000, Math.floor(parsedLimit)))
+        : 500;
+
+      const transactions = await this.mpesaService.prisma.mpesaTransaction.findMany(
+        {
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            sale: {
+              select: {
+                id: true,
+                total: true,
+                customerName: true,
+                customerPhone: true,
+                branchId: true,
+                userId: true,
+                Branch: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                User: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+          },
+          take,
+        },
+      );
+
+      const summary = transactions.reduce(
+        (acc, tx) => {
+          const normalized = this.normalizeMpesaStatus(
+            tx.status,
+            tx.message,
+            tx.mpesaReceipt,
+            tx.createdAt,
+          );
+          acc.total += 1;
+          acc.totalAmount += tx.amount;
+          if (normalized === 'success') acc.success += 1;
+          if (normalized === 'pending') acc.pending += 1;
+          if (
+            normalized === 'failed' ||
+            normalized === 'cancelled' ||
+            normalized === 'timeout' ||
+            normalized === 'stock_unavailable'
+          ) {
+            acc.failed += 1;
+          }
+          return acc;
+        },
+        {
+          total: 0,
+          success: 0,
+          pending: 0,
+          failed: 0,
+          totalAmount: 0,
+        },
+      );
+
+      const branches = Array.from(
+        new Map(
+          transactions
+            .filter((tx) => tx.sale?.Branch)
+            .map((tx) => [tx.sale!.Branch!.id, tx.sale!.Branch!]),
+        ).values(),
+      ).sort((a, b) => a.name.localeCompare(b.name));
+
+      const cashiers = Array.from(
+        new Map(
+          transactions
+            .filter((tx) => tx.sale?.User)
+            .map((tx) => [tx.sale!.User!.id, tx.sale!.User!]),
+        ).values(),
+      ).sort((a, b) => a.name.localeCompare(b.name));
+
+      return res.json({
+        success: true,
+        summary,
+        filters: {
+          branches,
+          cashiers,
+        },
+        data: transactions.map((transaction) => {
+          const status = this.normalizeMpesaStatus(
+            transaction.status,
+            transaction.message,
+            transaction.mpesaReceipt,
+            transaction.createdAt,
+          );
+          const message = this.normalizeMpesaMessage(
+            status,
+            transaction.message,
+            transaction.mpesaReceipt,
+          );
+
+          return {
+            id: transaction.id,
+            phoneNumber: transaction.phoneNumber,
+            amount: transaction.amount,
+            status,
+            checkoutRequestId: transaction.checkoutRequestID,
+            mpesaReceipt: transaction.mpesaReceipt,
+            message,
+            createdAt: transaction.createdAt,
+            updatedAt: transaction.updatedAt,
+            sale: transaction.sale
+              ? {
+                  id: transaction.sale.id,
+                  total: transaction.sale.total,
+                  customerName: transaction.sale.customerName ?? undefined,
+                  customerPhone: transaction.sale.customerPhone ?? undefined,
+                branchId: transaction.sale.branchId ?? undefined,
+                cashierId: transaction.sale.userId ?? undefined,
+                branchName: transaction.sale.Branch?.name ?? undefined,
+                cashierName: transaction.sale.User?.name ?? undefined,
+                }
+              : undefined,
+          };
+        }),
+      });
+    } catch {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        error: 'Failed to fetch M-Pesa transactions',
+      });
+    }
+  }
+
+  @Post('tenant/transactions/reconcile-pending')
+  @UseGuards(AuthGuard('jwt'))
+  async reconcilePendingTransactions(
+    @Res() res: Response,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    try {
+      const user = req?.user;
+      if (!user) {
+        return res
+          .status(HttpStatus.UNAUTHORIZED)
+          .json({ success: false, error: 'Unauthorized' });
+      }
+      if (!user.tenantId && !user.isSuperadmin) {
+        return res
+          .status(HttpStatus.BAD_REQUEST)
+          .json({ success: false, error: 'Tenant context is required' });
+      }
+
+      const pendingTransactions =
+        await this.mpesaService.prisma.mpesaTransaction.findMany({
+          where: {
+            ...(user.isSuperadmin ? {} : { tenantId: user.tenantId }),
+            status: 'pending',
+            checkoutRequestID: { not: null },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        });
+
+      let updated = 0;
+      const timeoutMs = 30 * 60 * 1000;
+      for (const tx of pendingTransactions) {
+        if (!tx.checkoutRequestID || !tx.tenantId) {
+          continue;
+        }
+
+        const transactionAgeMs = Date.now() - tx.createdAt.getTime();
+        const isStalePending = transactionAgeMs > timeoutMs;
+
+        try {
+          const stkQuery = await this.mpesaService.queryStkPushStatus(
+            tx.tenantId,
+            tx.checkoutRequestID,
+          );
+
+          const resultCodeRaw =
+            typeof stkQuery.ResultCode === 'string' ||
+            typeof stkQuery.ResultCode === 'number'
+              ? String(stkQuery.ResultCode)
+              : undefined;
+          const resultDesc =
+            typeof stkQuery.ResultDesc === 'string'
+              ? stkQuery.ResultDesc
+              : typeof stkQuery.ResponseDescription === 'string'
+                ? stkQuery.ResponseDescription
+                : undefined;
+
+          if (resultCodeRaw === '0') {
+            await this.mpesaService.updateTransaction(tx.checkoutRequestID, {
+              status: 'success',
+              responseCode: resultCodeRaw,
+              responseDesc: resultDesc,
+              message: resultDesc,
+            });
+            updated += 1;
+          } else if (resultCodeRaw && resultCodeRaw !== '1037') {
+            await this.mpesaService.updateTransaction(tx.checkoutRequestID, {
+              status: 'failed',
+              responseCode: resultCodeRaw,
+              responseDesc: resultDesc,
+              message: resultDesc,
+            });
+            updated += 1;
+          } else if (isStalePending) {
+            await this.mpesaService.updateTransaction(tx.checkoutRequestID, {
+              status: 'timeout',
+              responseCode: resultCodeRaw || 'TIMEOUT',
+              responseDesc:
+                resultDesc || 'No callback received in expected time window.',
+              message: 'No callback received in expected time window.',
+            });
+            updated += 1;
+          }
+        } catch {
+          if (isStalePending) {
+            await this.mpesaService.updateTransaction(tx.checkoutRequestID, {
+              status: 'timeout',
+              responseCode: 'TIMEOUT',
+              responseDesc: 'No callback received in expected time window.',
+              message: 'No callback received in expected time window.',
+            });
+            updated += 1;
+          }
+          // Do not fail full reconciliation due to one transaction.
+          continue;
+        }
+      }
+
+      return res.json({
+        success: true,
+        checked: pendingTransactions.length,
+        updated,
+      });
+    } catch {
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        error: 'Failed to reconcile pending transactions',
+      });
     }
   }
 }

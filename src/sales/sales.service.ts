@@ -1416,13 +1416,18 @@ export class SalesService {
 
         // Add M-Pesa payment if exists
         if (sale.mpesaTransaction) {
+          const publicReference =
+            sale.mpesaTransaction.checkoutRequestID ||
+            sale.mpesaTransaction.transactionId ||
+            sale.mpesaTransaction.id;
           splitPayments.push({
             method: 'mpesa',
             amount: sale.mpesaTransaction.amount,
-            mpesaTransactionId: sale.mpesaTransaction.id,
+            mpesaTransactionId: publicReference,
             mpesaReceipt:
               sale.mpesaTransaction.mpesaReceipt ||
-              sale.mpesaTransaction.transactionId,
+              sale.mpesaTransaction.transactionId ||
+              sale.mpesaTransaction.checkoutRequestID,
           });
         }
 

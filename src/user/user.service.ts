@@ -393,19 +393,46 @@ export class UserService {
 
   async updateUser(
     id: string,
-    data: { name?: string; role?: string },
+    data: {
+      name?: string;
+      role?: string;
+      branchId?: string | null;
+      auditNote?: string;
+    },
     tenantId: string,
     actorUserId?: string,
     ip?: string,
   ): Promise<{ count: number }> {
+    const {
+      role: requestedRole,
+      branchId,
+      auditNote,
+      name,
+    } = data;
+
+    const targetUser = await this.prisma.user.findFirst({
+      where: {
+        id,
+        userRoles: {
+          some: { tenantId },
+        },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('User not found for this tenant');
+    }
+
     // If role is being updated, handle role assignment
-    if (data.role) {
+    if (requestedRole) {
       const role = await this.prisma.role.findUnique({
-        where: { name_tenantId: { name: data.role, tenantId } },
+        where: { name_tenantId: { name: requestedRole, tenantId } },
       });
       if (!role) {
         throw new NotFoundException(
-          `Role '${data.role}' not found for tenant ${tenantId}`,
+          `Role '${requestedRole}' not found for tenant ${tenantId}`,
         );
       }
 
@@ -426,34 +453,58 @@ export class UserService {
           tenantId: tenantId,
         },
       });
-      // Remove role from data to prevent updating it directly
-      delete data.role;
     }
 
-    // Update user data if there's anything left to update
+    // Update scalar user fields that are supported by Prisma updateMany input.
+    const userScalarData: Prisma.UserUpdateManyMutationInput = {
+      updatedAt: new Date(),
+    };
+    if (typeof name === 'string') {
+      userScalarData.name = name;
+    }
+
     let result: { count: number };
-    if (Object.keys(data).length > 0) {
+    if (Object.keys(userScalarData).length > 1) {
       result = await this.prisma.user.updateMany({
         where: {
-          id,
-          userRoles: {
-            some: { tenantId },
-          },
+          id: targetUser.id,
+          deletedAt: null,
         },
-        data: {
-          ...data,
-          updatedAt: new Date(),
-        },
+        data: userScalarData,
       });
     } else {
       result = { count: 1 };
+    }
+
+    // Handle branch assignment through relation update to avoid scalar mismatch errors.
+    if (branchId !== undefined) {
+      await this.prisma.user.update({
+        where: { id: targetUser.id },
+        data: {
+          Branch:
+            branchId === null || branchId === ''
+              ? { disconnect: true }
+              : { connect: { id: branchId } },
+          updatedAt: new Date(),
+        },
+      });
     }
 
     if (this.auditLogService) {
       await this.auditLogService.log(
         actorUserId || null,
         'user_updated',
-        { userId: id, updatedFields: data },
+        {
+          userId: id,
+          updatedFields: {
+            ...(typeof name === 'string' ? { name } : {}),
+            ...(requestedRole ? { role: requestedRole } : {}),
+            ...(branchId !== undefined ? { branchId } : {}),
+          },
+          ...(typeof auditNote === 'string' && auditNote.trim().length > 0
+            ? { auditNote: auditNote.trim() }
+            : {}),
+        },
         ip,
       );
     }
