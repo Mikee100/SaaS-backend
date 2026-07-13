@@ -309,7 +309,13 @@ export class UserController {
   async updateUser(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: { name?: string; role?: string },
+    @Body()
+    body: {
+      name?: string;
+      role?: string;
+      branchId?: string | null;
+      auditNote?: string;
+    },
   ) {
     const tenantId = req.user.tenantId;
     const actorUserId = getActorUserId(req);
