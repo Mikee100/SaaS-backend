@@ -21,6 +21,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly adminTenantStatsService: AdminTenantStatsService,
     private readonly tenantService: TenantService,
+    private readonly emailService: EmailService,
   ) {}
 
   private async getPhysicalProductCount(tenantId?: string): Promise<number> {
@@ -1025,8 +1026,6 @@ export class AdminService {
 
     // Send welcome email with login credentials
     try {
-      const emailService = new EmailService();
-
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Welcome to SaaS Platform!</h2>
@@ -1041,7 +1040,7 @@ export class AdminService {
         </div>
       `;
 
-      await emailService.sendPaymentConfirmationEmail(
+      this.emailService.sendPaymentConfirmationEmail(
         result.user.email,
         'Welcome to SaaS Platform - Your Account is Ready',
         html,

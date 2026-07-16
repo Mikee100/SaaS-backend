@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { NotFoundException } from '@nestjs/common';
 import { Express } from 'express';
+import { promises as fs, existsSync } from 'fs';
+import * as path from 'path';
 
 export interface LogoValidation {
   isValid: boolean;
@@ -258,8 +260,7 @@ export class LogoService {
   }
 
   async updateLogo(tenantId: string, file: MulterFile) {
-    // Upload the file to storage (e.g., S3, local storage, etc.)
-    const logoUrl = this.uploadFile(file);
+    const logoUrl = await this.uploadFile(file);
 
     // Update the tenant with the new logo URL
     const updatedTenant = await this.prisma.tenant.update({
@@ -274,8 +275,7 @@ export class LogoService {
   }
 
   async updateEtimsQrCode(tenantId: string, file: MulterFile) {
-    // Upload the file to storage
-    const etimsQrUrl = this.uploadFile(file);
+    const etimsQrUrl = await this.uploadFile(file);
 
     // Update the tenant with the new ETIMS QR code URL
     const updatedTenant = await this.prisma.tenant.update({
@@ -289,15 +289,35 @@ export class LogoService {
     };
   }
 
-  private uploadFile(file: MulterFile): string {
-    // Implement your file upload logic here
-    // This is a placeholder - replace with your actual file storage implementation
-    const fileName = `${Date.now()}-${file.originalname}`;
-    // Example: Upload to S3 or save to disk
-    // const result = await this.storageService.upload(file.buffer, fileName, file.mimetype);
-    // return result.url;
+  /**
+   * Persists an uploaded logo to the same uploads/logos directory served
+   * statically at /uploads/logos by main.ts, and returns its public URL.
+   * Handles both memory storage (file.buffer) and disk storage (file.path,
+   * already written by multer) depending on how the calling controller's
+   * FileInterceptor is configured.
+   */
+  private async uploadFile(file: MulterFile): Promise<string> {
+    const uploadsRoot =
+      process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+    const logosDir = path.join(uploadsRoot, 'logos');
+    const ext = path.extname(file.originalname) || '';
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    const destPath = path.join(logosDir, fileName);
 
-    // For now, return a placeholder URL
-    return `/uploads/${fileName}`;
+    if (!existsSync(logosDir)) {
+      await fs.mkdir(logosDir, { recursive: true });
+    }
+
+    if (file.buffer) {
+      await fs.writeFile(destPath, file.buffer);
+    } else if (file.path) {
+      // multer's diskStorage already wrote the file; move it into our
+      // managed logos directory so the URL below is guaranteed to resolve.
+      await fs.rename(file.path, destPath);
+    } else {
+      throw new Error('Uploaded file has neither a buffer nor a path');
+    }
+
+    return `/uploads/logos/${fileName}`;
   }
 }

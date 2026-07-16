@@ -32,14 +32,18 @@ export class BulkController {
       tenantIds?: string[];
       userIds?: string[];
       confirmation?: string;
+      planId?: string;
+      importFilename?: string;
     },
   ) {
-    const { action, tenantIds, userIds, confirmation } = body;
+    const { action, tenantIds, userIds, confirmation, planId, importFilename } =
+      body;
 
     const destructiveActions = [
       'suspend_users',
       'suspend_tenants',
       'delete_tenants',
+      'import_data',
     ];
     if (destructiveActions.includes(action) && confirmation !== 'CONFIRM') {
       throw new BadRequestException(
@@ -47,6 +51,9 @@ export class BulkController {
       );
     }
 
-    return this.bulkService.execute(action, tenantIds ?? [], userIds ?? []);
+    return this.bulkService.execute(action, tenantIds ?? [], userIds ?? [], {
+      planId,
+      importFilename,
+    });
   }
 }

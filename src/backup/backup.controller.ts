@@ -4,16 +4,25 @@ import {
   Post,
   Body,
   Param,
+  Res,
   HttpException,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { createReadStream } from 'fs';
+import { basename } from 'path';
 import { BackupService } from './backup.service';
 import { BackupStatusDto, BackupListDto } from './dto/backup-status.dto';
 import { CreateBackupDto } from './dto/create-backup.dto';
+import { SuperadminGuard } from '../admin/superadmin.guard';
+import { TrialGuard } from '../auth/trial.guard';
 
 @ApiTags('Backup')
 @Controller('backup')
+@UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
 
@@ -76,10 +85,10 @@ export class BackupController {
   }
 
   @Post('restore/:filename')
-  @ApiOperation({ summary: 'Restore from backup (not yet implemented)' })
+  @ApiOperation({ summary: 'Restore database from a backup file' })
   @ApiResponse({
-    status: 501,
-    description: 'Restore functionality not yet implemented',
+    status: 201,
+    description: 'Backup restored successfully',
   })
   async restoreBackup(@Param('filename') filename: string) {
     try {
@@ -100,26 +109,32 @@ export class BackupController {
   @ApiOperation({ summary: 'Download backup file' })
   @ApiResponse({
     status: 200,
-    description: 'Backup file download initiated',
+    description: 'Backup file stream',
   })
   @ApiResponse({
     status: 404,
     description: 'Backup file not found',
   })
-  async downloadBackup(@Param('filename') filename: string) {
+  async downloadBackup(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ): Promise<void> {
     try {
       const filePath = await this.backupService.getBackupPath(filename);
-      // In a real implementation, you would return a stream or use a file serving mechanism
-      // For now, just return the path info
-      return {
-        success: true,
-        message: 'Backup file found',
-        data: {
-          filename,
-          path: filePath,
-          note: 'Direct download not implemented yet. File path provided for manual access.',
-        },
-      };
+      const safeName = basename(filePath);
+      res.set({
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${safeName}"`,
+      });
+      const stream = createReadStream(filePath);
+      stream.on('error', () => {
+        if (!res.headersSent) {
+          res.status(HttpStatus.INTERNAL_SERVER_ERROR).end();
+        } else {
+          res.end();
+        }
+      });
+      stream.pipe(res);
     } catch (error) {
       throw new HttpException(
         this.getErrorMessage(error),

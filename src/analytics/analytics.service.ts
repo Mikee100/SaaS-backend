@@ -54,9 +54,12 @@ export class AnalyticsService {
       endDate.length > 0;
 
     if (hasCustomRange) {
-      const parsedStart = new Date(startDate as string);
-      const parsedEnd = new Date(endDate as string);
-      if (!Number.isNaN(parsedStart.getTime()) && !Number.isNaN(parsedEnd.getTime())) {
+      const parsedStart = new Date(startDate);
+      const parsedEnd = new Date(endDate);
+      if (
+        !Number.isNaN(parsedStart.getTime()) &&
+        !Number.isNaN(parsedEnd.getTime())
+      ) {
         const normalizedStart = new Date(parsedStart);
         normalizedStart.setHours(0, 0, 0, 0);
 
@@ -290,42 +293,47 @@ export class AnalyticsService {
         ...(options.branchId ? { branchId: options.branchId } : {}),
       };
 
-      const [xReport, zReport, paymentMethodsRange, cashierRaw, todayCashierRaw] =
-        await Promise.all([
-          buildSnapshot(todayStart, now),
-          buildSnapshot(yesterdayStart, yesterdayEnd),
-          this.buildPaymentMethodBreakdown(selectedWhereClause),
-          this.prisma.sale.groupBy({
-            by: ['userId'],
-            where: selectedWhereClause,
-            _count: {
-              _all: true,
-            },
+      const [
+        xReport,
+        zReport,
+        paymentMethodsRange,
+        cashierRaw,
+        todayCashierRaw,
+      ] = await Promise.all([
+        buildSnapshot(todayStart, now),
+        buildSnapshot(yesterdayStart, yesterdayEnd),
+        this.buildPaymentMethodBreakdown(selectedWhereClause),
+        this.prisma.sale.groupBy({
+          by: ['userId'],
+          where: selectedWhereClause,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            total: true,
+          },
+          orderBy: {
             _sum: {
-              total: true,
+              total: 'desc',
             },
-            orderBy: {
-              _sum: {
-                total: 'desc',
-              },
-            },
-          }),
-          this.prisma.sale.groupBy({
-            by: ['userId'],
-            where: todayWhereClause,
-            _count: {
-              _all: true,
-            },
+          },
+        }),
+        this.prisma.sale.groupBy({
+          by: ['userId'],
+          where: todayWhereClause,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            total: true,
+          },
+          orderBy: {
             _sum: {
-              total: true,
+              total: 'desc',
             },
-            orderBy: {
-              _sum: {
-                total: 'desc',
-              },
-            },
-          }),
-        ]);
+          },
+        }),
+      ]);
 
       const paymentTotal = paymentMethodsRange.reduce(
         (sum, row) => sum + this.toNumber(row.amount),
@@ -341,7 +349,9 @@ export class AnalyticsService {
           transactionCount: this.toNumber(row.transactionCount),
           amount,
           sharePct:
-            paymentTotal > 0 ? Number(((amount / paymentTotal) * 100).toFixed(2)) : 0,
+            paymentTotal > 0
+              ? Number(((amount / paymentTotal) * 100).toFixed(2))
+              : 0,
         };
       });
 
@@ -361,7 +371,10 @@ export class AnalyticsService {
           })
         : [];
       const cashierMap = new Map(
-        cashierUsers.map((user) => [user.id, user.name || user.email || user.id]),
+        cashierUsers.map((user) => [
+          user.id,
+          user.name || user.email || user.id,
+        ]),
       );
 
       const byCashier = cashierRaw.map((row) => {
@@ -394,7 +407,10 @@ export class AnalyticsService {
         _count: { _all: true },
       });
 
-      const durationMs = Math.max(1, range.end.getTime() - range.start.getTime());
+      const durationMs = Math.max(
+        1,
+        range.end.getTime() - range.start.getTime(),
+      );
       const previousEnd = new Date(range.start);
       previousEnd.setMilliseconds(previousEnd.getMilliseconds() - 1);
       const previousStart = new Date(range.start.getTime() - durationMs);
@@ -417,7 +433,9 @@ export class AnalyticsService {
       const currentOrders = this.toNumber(currentAggregate._count?._all);
       const previousOrders = this.toNumber(previousAggregate._count?._all);
       const currentAvg =
-        currentOrders > 0 ? Number((currentSales / currentOrders).toFixed(2)) : 0;
+        currentOrders > 0
+          ? Number((currentSales / currentOrders).toFixed(2))
+          : 0;
       const previousAvg =
         previousOrders > 0
           ? Number((previousSales / previousOrders).toFixed(2))
@@ -441,11 +459,15 @@ export class AnalyticsService {
         todayByCashier,
         variance: {
           todayVsYesterday: {
-            salesDelta: Number((xReport.totalSales - zReport.totalSales).toFixed(2)),
+            salesDelta: Number(
+              (xReport.totalSales - zReport.totalSales).toFixed(2),
+            ),
             salesDeltaPct: pct(xReport.totalSales, zReport.totalSales),
             ordersDelta: xReport.totalOrders - zReport.totalOrders,
             ordersDeltaPct: pct(xReport.totalOrders, zReport.totalOrders),
-            avgTicketDelta: Number((xReport.avgTicket - zReport.avgTicket).toFixed(2)),
+            avgTicketDelta: Number(
+              (xReport.avgTicket - zReport.avgTicket).toFixed(2),
+            ),
             avgTicketDeltaPct: pct(xReport.avgTicket, zReport.avgTicket),
             comparedTo: {
               start: zReport.periodStart,
@@ -678,7 +700,11 @@ export class AnalyticsService {
     startDate.setDate(startDate.getDate() - 14);
 
     const rows = await this.prisma.$queryRaw<
-      Array<{ day: string; revenue: string | number | bigint; cost: string | number | bigint }>
+      Array<{
+        day: string;
+        revenue: string | number | bigint;
+        cost: string | number | bigint;
+      }>
     >(Prisma.sql`
       SELECT
         TO_CHAR(s."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') as day,
@@ -752,7 +778,10 @@ export class AnalyticsService {
       Sat: 6,
     };
 
-    const buckets = new Map<string, { dow: number; hour: number; orders: number; revenue: number }>();
+    const buckets = new Map<
+      string,
+      { dow: number; hour: number; orders: number; revenue: number }
+    >();
 
     for (const sale of sales) {
       const dayShort = weekdayFormatter.format(sale.createdAt);
@@ -778,7 +807,7 @@ export class AnalyticsService {
     }
 
     return Array.from(buckets.values())
-      .sort((a, b) => (a.dow - b.dow) || (a.hour - b.hour))
+      .sort((a, b) => a.dow - b.dow || a.hour - b.hour)
       .map((row) => ({
         dow: row.dow,
         hour: row.hour,
@@ -990,6 +1019,385 @@ export class AnalyticsService {
     );
   }
 
+  private resolvePeriod(
+    from?: string,
+    to?: string,
+  ): { start: Date; end: Date } {
+    const end = to ? new Date(to) : new Date();
+    const start = from
+      ? new Date(from)
+      : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return {
+      start: Number.isNaN(start.getTime())
+        ? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000)
+        : start,
+      end: Number.isNaN(end.getTime()) ? new Date() : end,
+    };
+  }
+
+  async getInventoryMovement(
+    tenantId: string,
+    branchId?: string,
+    from?: string,
+    to?: string,
+  ) {
+    const { start, end } = this.resolvePeriod(from, to);
+
+    const movements = await this.prisma.inventoryMovement.findMany({
+      where: {
+        tenantId,
+        ...(branchId ? { branchId } : {}),
+        createdAt: { gte: start, lte: end },
+      },
+      select: {
+        type: true,
+        previousQuantity: true,
+        newQuantity: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const byDate = new Map<
+      string,
+      {
+        date: string;
+        receiptsQty: number;
+        issuesQty: number;
+        adjustmentsQty: number;
+        netMovementQty: number;
+      }
+    >();
+
+    for (const m of movements) {
+      const date = m.createdAt.toISOString().slice(0, 10);
+      const entry = byDate.get(date) ?? {
+        date,
+        receiptsQty: 0,
+        issuesQty: 0,
+        adjustmentsQty: 0,
+        netMovementQty: 0,
+      };
+      const netChange = m.newQuantity - m.previousQuantity;
+
+      if (m.type === 'in') entry.receiptsQty += Math.abs(netChange);
+      else if (m.type === 'out') entry.issuesQty += Math.abs(netChange);
+      else if (m.type === 'adjustment') entry.adjustmentsQty += netChange;
+      // 'transfer' movements net to zero tenant-wide but still affect this
+      // location's balance, so they're folded into netMovementQty only.
+
+      entry.netMovementQty += netChange;
+      byDate.set(date, entry);
+    }
+
+    return Array.from(byDate.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
+  }
+
+  async getInventoryValuation(tenantId: string, branchId?: string) {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        cost: true,
+        stock: true,
+        inventory: {
+          where: branchId ? { branchId } : undefined,
+          select: { quantity: true },
+        },
+      },
+    });
+
+    return products.map((product) => {
+      const stockQty =
+        product.inventory.length > 0
+          ? product.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
+          : product.stock;
+      const costPrice = product.cost || 0;
+      const sellingPrice = product.price || 0;
+      const stockValue = stockQty * costPrice;
+      const potentialRevenue = stockQty * sellingPrice;
+      const marginPct =
+        sellingPrice > 0
+          ? ((sellingPrice - costPrice) / sellingPrice) * 100
+          : 0;
+
+      return {
+        productId: product.id,
+        productName: product.name,
+        stockQty,
+        costPrice,
+        sellingPrice,
+        stockValue,
+        potentialRevenue,
+        marginPct: Math.round(marginPct * 100) / 100,
+      };
+    });
+  }
+
+  async getInventoryAging(tenantId: string, branchId?: string) {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
+      select: {
+        id: true,
+        name: true,
+        cost: true,
+        stock: true,
+        updatedAt: true,
+        inventory: {
+          where: branchId ? { branchId } : undefined,
+          select: { quantity: true, updatedAt: true },
+        },
+      },
+    });
+
+    const now = new Date();
+    const results: Array<{
+      productId: string;
+      productName: string;
+      stockQty: number;
+      lastReceivedAt: string;
+      daysInStock: number;
+      ageBucket: '0-30' | '31-60' | '61-90' | '90+';
+      unitCost: number;
+      stockValue: number;
+    }> = [];
+
+    for (const product of products) {
+      const stockQty =
+        product.inventory.length > 0
+          ? product.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
+          : product.stock;
+
+      if (stockQty <= 0) continue;
+
+      const lastInMovement = await this.prisma.inventoryMovement.findFirst({
+        where: {
+          productId: product.id,
+          type: 'in',
+          ...(branchId ? { branchId } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+
+      const lastReceivedAt =
+        lastInMovement?.createdAt ||
+        product.inventory[0]?.updatedAt ||
+        product.updatedAt;
+
+      const daysInStock = Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(lastReceivedAt).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      );
+
+      const ageBucket =
+        daysInStock <= 30
+          ? '0-30'
+          : daysInStock <= 60
+            ? '31-60'
+            : daysInStock <= 90
+              ? '61-90'
+              : '90+';
+
+      const unitCost = product.cost || 0;
+
+      results.push({
+        productId: product.id,
+        productName: product.name,
+        stockQty,
+        lastReceivedAt: new Date(lastReceivedAt).toISOString(),
+        daysInStock,
+        ageBucket,
+        unitCost,
+        stockValue: stockQty * unitCost,
+      });
+    }
+
+    return results.sort((a, b) => b.daysInStock - a.daysInStock);
+  }
+
+  async getInventoryTurnover(
+    tenantId: string,
+    branchId?: string,
+    from?: string,
+    to?: string,
+  ) {
+    const { start, end } = this.resolvePeriod(from, to);
+
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        inventory: {
+          where: branchId ? { branchId } : undefined,
+          select: { quantity: true },
+        },
+      },
+    });
+
+    const results: Array<{
+      productId: string;
+      productName: string;
+      soldUnits: number;
+      averageStock: number;
+      turnoverRatio: number;
+      periodStart: string;
+      periodEnd: string;
+    }> = [];
+    for (const product of products) {
+      const salesAgg = await this.prisma.saleItem.aggregate({
+        where: {
+          productId: product.id,
+          sale: {
+            tenantId,
+            createdAt: { gte: start, lte: end },
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+        _sum: { quantity: true },
+      });
+
+      const soldUnits = salesAgg._sum.quantity || 0;
+      // No historical stock snapshots are recorded, so current on-hand
+      // quantity is used as the average-stock denominator.
+      const averageStock =
+        product.inventory.length > 0
+          ? product.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
+          : product.stock;
+
+      const turnoverRatio = averageStock > 0 ? soldUnits / averageStock : 0;
+
+      results.push({
+        productId: product.id,
+        productName: product.name,
+        soldUnits,
+        averageStock,
+        turnoverRatio: Math.round(turnoverRatio * 100) / 100,
+        periodStart: start.toISOString(),
+        periodEnd: end.toISOString(),
+      });
+    }
+
+    return results.sort((a, b) => b.turnoverRatio - a.turnoverRatio);
+  }
+
+  private extractProductCategory(customFields: unknown): string {
+    if (
+      !customFields ||
+      typeof customFields !== 'object' ||
+      Array.isArray(customFields)
+    ) {
+      return 'Uncategorized';
+    }
+    const raw = (customFields as Record<string, unknown>).category;
+    const name = typeof raw === 'string' ? raw.trim() : '';
+    return name || 'Uncategorized';
+  }
+
+  async getProductCategoryAnalysis(
+    tenantId: string,
+    branchId?: string,
+    from?: string,
+    to?: string,
+  ) {
+    const { start, end } = this.resolvePeriod(from, to);
+
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, deletedAt: null, ...(branchId ? { branchId } : {}) },
+      select: {
+        id: true,
+        cost: true,
+        stock: true,
+        customFields: true,
+        inventory: {
+          where: branchId ? { branchId } : undefined,
+          select: { quantity: true },
+        },
+      },
+    });
+
+    const categories = new Map<
+      string,
+      { revenue: number; unitsSold: number; cogs: number; stockValue: number }
+    >();
+
+    for (const product of products) {
+      const categoryName = this.extractProductCategory(product.customFields);
+      const entry = categories.get(categoryName) ?? {
+        revenue: 0,
+        unitsSold: 0,
+        cogs: 0,
+        stockValue: 0,
+      };
+
+      const salesAgg = await this.prisma.saleItem.aggregate({
+        where: {
+          productId: product.id,
+          sale: {
+            tenantId,
+            createdAt: { gte: start, lte: end },
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+        _sum: { quantity: true },
+      });
+      // Revenue is computed from actual sale line prices, not current list
+      // price, so historical discounts/price changes are reflected.
+      const saleItems = await this.prisma.saleItem.findMany({
+        where: {
+          productId: product.id,
+          sale: {
+            tenantId,
+            createdAt: { gte: start, lte: end },
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+        select: { price: true, quantity: true },
+      });
+
+      const revenue = saleItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      const unitsSold = salesAgg._sum.quantity || 0;
+      const cogs = unitsSold * (product.cost || 0);
+      const stockQty =
+        product.inventory.length > 0
+          ? product.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
+          : product.stock;
+
+      entry.revenue += revenue;
+      entry.unitsSold += unitsSold;
+      entry.cogs += cogs;
+      entry.stockValue += stockQty * (product.cost || 0);
+      categories.set(categoryName, entry);
+    }
+
+    return Array.from(categories.entries())
+      .map(([categoryName, data]) => ({
+        categoryId: categoryName.toLowerCase().replace(/\s+/g, '-'),
+        categoryName,
+        revenue: data.revenue,
+        unitsSold: data.unitsSold,
+        marginPct:
+          data.revenue > 0
+            ? Math.round(((data.revenue - data.cogs) / data.revenue) * 10000) /
+              100
+            : 0,
+        stockValue: data.stockValue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }
+
   private async getBranchSalesByTimePeriod(
     tenantId: string,
     period: 'day' | 'week' | 'month' | 'year',
@@ -1190,7 +1598,10 @@ export class AnalyticsService {
     `);
 
     const inventoryByProduct = new Map<string, number>(
-      inventoryRows.map((row) => [row.productId, Number(row.totalQuantity) || 0]),
+      inventoryRows.map((row) => [
+        row.productId,
+        Number(row.totalQuantity) || 0,
+      ]),
     );
 
     const lowStockThreshold = 10; // Items below this are considered low stock
@@ -1573,7 +1984,8 @@ export class AnalyticsService {
         LIMIT 5
       `;
 
-      const paymentMethods = await this.buildPaymentMethodBreakdown(whereClause);
+      const paymentMethods =
+        await this.buildPaymentMethodBreakdown(whereClause);
 
       // Get sales trend (daily)
       const salesTrendData = await this.prisma.$queryRaw`
