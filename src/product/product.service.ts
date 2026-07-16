@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { Prisma } from '@prisma/client';
@@ -194,7 +195,9 @@ export class ProductService {
       }
     }
 
-    const stale = existing.filter((entry) => !desiredCodes.includes(entry.code));
+    const stale = existing.filter(
+      (entry) => !desiredCodes.includes(entry.code),
+    );
     if (stale.length > 0) {
       await tx.productVariationBarcode.updateMany({
         where: { id: { in: stale.map((entry) => entry.id) } },
@@ -597,6 +600,31 @@ export class ProductService {
   ) {
     if (!data.tenantId || !data.branchId) {
       throw new BadRequestException('tenantId and branchId are required');
+    }
+
+    // Skip plan limits check when no subscription exists yet (e.g. during
+    // initial tenant setup), mirroring branch/user/sale creation enforcement.
+    try {
+      const canAddProduct = await this.subscriptionService.canAddProduct(
+        data.tenantId,
+      );
+      if (!canAddProduct) {
+        const subscription =
+          await this.subscriptionService.getCurrentSubscription(data.tenantId);
+        const maxProducts = subscription.plan?.maxProducts || 0;
+        throw new ForbiddenException(
+          `Product limit exceeded. Your plan allows up to ${maxProducts} products. Please upgrade your plan to add more products.`,
+        );
+      }
+    } catch (error) {
+      if (
+        error instanceof NotFoundException &&
+        /No active( or trial)? subscription found/i.test(error.message)
+      ) {
+        // Allow product creation for tenants without a subscription yet
+      } else {
+        throw error;
+      }
     }
 
     const productData: Record<string, unknown> = {
@@ -1241,7 +1269,7 @@ export class ProductService {
             price: data.price ?? 0,
             cost: data.cost ?? 0,
             stock: data.stock,
-            attributes: (data.attributes ?? {}) as Prisma.InputJsonValue,
+            attributes: data.attributes ?? {},
             tenantId: data.tenantId,
             branchId: data.branchId ?? null,
             barcode: normalizedPrimaryBarcode || null,

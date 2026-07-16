@@ -89,7 +89,13 @@ export class MpesaController {
     message?: string | null,
     mpesaReceipt?: string | null,
     createdAt?: Date | string,
-  ): 'pending' | 'success' | 'failed' | 'cancelled' | 'timeout' | 'stock_unavailable' {
+  ):
+    | 'pending'
+    | 'success'
+    | 'failed'
+    | 'cancelled'
+    | 'timeout'
+    | 'stock_unavailable' {
     const normalizedStatus = String(status || '').toLowerCase();
     const normalizedMessage = String(message || '').toLowerCase();
     const hasReceipt = Boolean(String(mpesaReceipt || '').trim());
@@ -176,9 +182,11 @@ export class MpesaController {
   }
 
   @Post('initiate')
+  @UseGuards(AuthGuard('jwt'))
   async initiatePayment(
     @Body() body: InitiatePaymentBody,
     @Res() res: Response,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       const { phoneNumber, amount, reference, transactionDesc, tenantId } =
@@ -189,13 +197,20 @@ export class MpesaController {
         JSON.stringify(body, null, 2),
       );
 
-      // Get tenantId from authenticated user (assuming req.user has tenantId)
-      // For now, require tenantId in body; in production, extract from JWT
       if (!tenantId) {
         console.log('Tenant ID validation failed');
         return res
           .status(HttpStatus.BAD_REQUEST)
           .json({ error: 'Tenant ID required' });
+      }
+
+      const user = req?.user;
+      const canInitiate =
+        !!user && (user.tenantId === tenantId || user.isSuperadmin === true);
+      if (!canInitiate) {
+        return res.status(HttpStatus.FORBIDDEN).json({
+          error: 'You can only initiate payments for your own tenant.',
+        });
       }
 
       // Validate amount
@@ -342,7 +357,11 @@ export class MpesaController {
   }
 
   @Post('callback')
-  async mpesaWebhook(@Body() body: MpesaCallbackBody, @Res() res: Response) {
+  async mpesaWebhook(
+    @Body() body: MpesaCallbackBody,
+    @Query('token') token: string | undefined,
+    @Res() res: Response,
+  ) {
     console.log('=== M-PESA CALLBACK RECEIVED ===');
     console.log('Callback body:', JSON.stringify(body, null, 2));
 
@@ -363,6 +382,34 @@ export class MpesaController {
         );
 
         const checkoutRequestId = CheckoutRequestID;
+
+        // Safaricom doesn't sign callbacks, so we verify against the
+        // per-tenant HMAC token we embedded in the CallBackURL we registered
+        // for this checkout request, and confirm the checkout ID corresponds
+        // to a transaction we actually initiated.
+        const pendingTx = checkoutRequestId
+          ? await this.mpesaService.prisma.mpesaTransaction.findFirst({
+              where: { checkoutRequestID: checkoutRequestId },
+            })
+          : null;
+
+        if (!pendingTx || !pendingTx.tenantId) {
+          console.warn(
+            `M-Pesa callback rejected: unknown CheckoutRequestID ${checkoutRequestId ?? ''}`,
+          );
+          return res
+            .status(HttpStatus.NOT_FOUND)
+            .json({ error: 'Unknown transaction' });
+        }
+
+        if (!this.mpesaService.verifyCallbackToken(pendingTx.tenantId, token)) {
+          console.warn(
+            `M-Pesa callback rejected: invalid token for CheckoutRequestID ${checkoutRequestId ?? ''}`,
+          );
+          return res
+            .status(HttpStatus.FORBIDDEN)
+            .json({ error: 'Invalid callback token' });
+        }
         const status = ResultCode === 0 ? 'success' : 'failed';
         let mpesaReceipt = undefined;
         let transactionId = undefined;
@@ -681,12 +728,17 @@ export class MpesaController {
   }
 
   @Get('status/:checkoutRequestId')
-  async getStatus(@Param('checkoutRequestId') checkoutRequestId: string) {
+  @UseGuards(AuthGuard('jwt'))
+  async getStatus(
+    @Param('checkoutRequestId') checkoutRequestId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     console.log('Getting status for checkoutRequestId:', checkoutRequestId);
-    let transaction =
-      await this.mpesaService.prisma.mpesaTransaction.findFirst({
+    let transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst(
+      {
         where: { checkoutRequestID: checkoutRequestId },
-      });
+      },
+    );
 
     if (!transaction) {
       console.log(
@@ -694,6 +746,16 @@ export class MpesaController {
         checkoutRequestId,
       );
       return { success: false, error: 'Transaction not found' };
+    }
+
+    const user = req?.user;
+    const canView =
+      !!user &&
+      (user.tenantId === transaction.tenantId || user.isSuperadmin === true);
+    if (!canView) {
+      throw new ForbiddenException(
+        'You can only view M-Pesa transactions for your own tenant.',
+      );
     }
 
     if (transaction.status === 'pending' && transaction.tenantId) {
@@ -732,9 +794,11 @@ export class MpesaController {
           });
         }
 
-        transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst({
-          where: { checkoutRequestID: checkoutRequestId },
-        });
+        transaction = await this.mpesaService.prisma.mpesaTransaction.findFirst(
+          {
+            where: { checkoutRequestID: checkoutRequestId },
+          },
+        );
       } catch (error) {
         console.warn(
           'STK status reconciliation failed for checkoutRequestId:',
@@ -766,15 +830,34 @@ export class MpesaController {
   }
 
   @Get('transaction/:checkoutRequestId')
+  @UseGuards(AuthGuard('jwt'))
   async getByCheckoutId(
     @Param('checkoutRequestId') checkoutRequestId: string,
     @Res() res: Response,
+    @Req() req: AuthenticatedRequest,
   ) {
     try {
       const transaction =
         await this.mpesaService.prisma.mpesaTransaction.findFirst({
           where: { checkoutRequestID: checkoutRequestId },
         });
+
+      if (!transaction) {
+        return res
+          .status(HttpStatus.NOT_FOUND)
+          .json({ error: 'Transaction not found' });
+      }
+
+      const user = req?.user;
+      const canView =
+        !!user &&
+        (user.tenantId === transaction.tenantId || user.isSuperadmin === true);
+      if (!canView) {
+        return res.status(HttpStatus.FORBIDDEN).json({
+          error: 'You can only view M-Pesa transactions for your own tenant.',
+        });
+      }
+
       return res.json(transaction);
     } catch {
       return res
@@ -866,8 +949,8 @@ export class MpesaController {
         ? Math.max(1, Math.min(1000, Math.floor(parsedLimit)))
         : 500;
 
-      const transactions = await this.mpesaService.prisma.mpesaTransaction.findMany(
-        {
+      const transactions =
+        await this.mpesaService.prisma.mpesaTransaction.findMany({
           where: whereClause,
           orderBy: { createdAt: 'desc' },
           include: {
@@ -896,8 +979,7 @@ export class MpesaController {
             },
           },
           take,
-        },
-      );
+        });
 
       const summary = transactions.reduce(
         (acc, tx) => {
@@ -942,7 +1024,7 @@ export class MpesaController {
         new Map(
           transactions
             .filter((tx) => tx.sale?.User)
-            .map((tx) => [tx.sale!.User!.id, tx.sale!.User!]),
+            .map((tx) => [tx.sale!.User.id, tx.sale!.User]),
         ).values(),
       ).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -982,10 +1064,10 @@ export class MpesaController {
                   total: transaction.sale.total,
                   customerName: transaction.sale.customerName ?? undefined,
                   customerPhone: transaction.sale.customerPhone ?? undefined,
-                branchId: transaction.sale.branchId ?? undefined,
-                cashierId: transaction.sale.userId ?? undefined,
-                branchName: transaction.sale.Branch?.name ?? undefined,
-                cashierName: transaction.sale.User?.name ?? undefined,
+                  branchId: transaction.sale.branchId ?? undefined,
+                  cashierId: transaction.sale.userId ?? undefined,
+                  branchName: transaction.sale.Branch?.name ?? undefined,
+                  cashierName: transaction.sale.User?.name ?? undefined,
                 }
               : undefined,
           };

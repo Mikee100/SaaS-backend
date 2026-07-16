@@ -93,7 +93,10 @@ export class AnalyticsController {
     return tenantId;
   }
 
-  private rethrowKnownOrInternal(error: unknown, fallbackMessage: string): never {
+  private rethrowKnownOrInternal(
+    error: unknown,
+    fallbackMessage: string,
+  ): never {
     if (error instanceof HttpException) {
       throw error;
     }
@@ -326,6 +329,115 @@ export class AnalyticsController {
       this.rethrowKnownOrInternal(
         error,
         'Failed to fetch stockout lost sales report',
+      );
+    }
+  }
+
+  @Get('/analytics/inventory-movement')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getInventoryMovement(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+    const query = req.query as Record<string, unknown>;
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getInventoryMovement(
+        tenantId,
+        effectiveBranchId,
+        this.getString(query.from),
+        this.getString(query.to),
+      );
+    } catch (error) {
+      console.error('Error fetching inventory movement report:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch inventory movement report',
+      );
+    }
+  }
+
+  @Get('/analytics/inventory-valuation')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getInventoryValuation(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getInventoryValuation(
+        tenantId,
+        effectiveBranchId,
+      );
+    } catch (error) {
+      console.error('Error fetching inventory valuation report:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch inventory valuation report',
+      );
+    }
+  }
+
+  @Get('/analytics/inventory-aging')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getInventoryAging(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getInventoryAging(
+        tenantId,
+        effectiveBranchId,
+      );
+    } catch (error) {
+      console.error('Error fetching inventory aging report:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch inventory aging report',
+      );
+    }
+  }
+
+  @Get('/analytics/inventory-turnover')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getInventoryTurnover(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+    const query = req.query as Record<string, unknown>;
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getInventoryTurnover(
+        tenantId,
+        effectiveBranchId,
+        this.getString(query.from),
+        this.getString(query.to),
+      );
+    } catch (error) {
+      console.error('Error fetching inventory turnover report:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch inventory turnover report',
+      );
+    }
+  }
+
+  @Get('/analytics/product-category-analysis')
+  @UseGuards(AuthGuard('jwt'), TrialGuard)
+  async getProductCategoryAnalysis(@Req() req: AuthenticatedRequest) {
+    const tenantId = this.requireTenantId(req);
+    const query = req.query as Record<string, unknown>;
+
+    try {
+      const effectiveBranchId = this.resolveBranchScope(req);
+      return await this.analyticsService.getProductCategoryAnalysis(
+        tenantId,
+        effectiveBranchId,
+        this.getString(query.from),
+        this.getString(query.to),
+      );
+    } catch (error) {
+      console.error('Error fetching product category analysis report:', error);
+      this.rethrowKnownOrInternal(
+        error,
+        'Failed to fetch product category analysis report',
       );
     }
   }
