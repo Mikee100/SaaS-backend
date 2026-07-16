@@ -1062,10 +1062,10 @@ export class AnalyticsService {
       string,
       {
         date: string;
-        receiptsQty: number;
-        issuesQty: number;
-        adjustmentsQty: number;
-        netMovementQty: number;
+        receipts: number;
+        issues: number;
+        adjustments: number;
+        netMovement: number;
       }
     >();
 
@@ -1073,20 +1073,20 @@ export class AnalyticsService {
       const date = m.createdAt.toISOString().slice(0, 10);
       const entry = byDate.get(date) ?? {
         date,
-        receiptsQty: 0,
-        issuesQty: 0,
-        adjustmentsQty: 0,
-        netMovementQty: 0,
+        receipts: 0,
+        issues: 0,
+        adjustments: 0,
+        netMovement: 0,
       };
       const netChange = m.newQuantity - m.previousQuantity;
 
-      if (m.type === 'in') entry.receiptsQty += Math.abs(netChange);
-      else if (m.type === 'out') entry.issuesQty += Math.abs(netChange);
-      else if (m.type === 'adjustment') entry.adjustmentsQty += netChange;
+      if (m.type === 'in') entry.receipts += Math.abs(netChange);
+      else if (m.type === 'out') entry.issues += Math.abs(netChange);
+      else if (m.type === 'adjustment') entry.adjustments += netChange;
       // 'transfer' movements net to zero tenant-wide but still affect this
-      // location's balance, so they're folded into netMovementQty only.
+      // location's balance, so they're folded into netMovement only.
 
-      entry.netMovementQty += netChange;
+      entry.netMovement += netChange;
       byDate.set(date, entry);
     }
 
@@ -1126,14 +1126,14 @@ export class AnalyticsService {
           : 0;
 
       return {
-        productId: product.id,
+        id: product.id,
         productName: product.name,
-        stockQty,
+        stock: stockQty,
         costPrice,
         sellingPrice,
         stockValue,
         potentialRevenue,
-        marginPct: Math.round(marginPct * 100) / 100,
+        profitMargin: Math.round(marginPct * 100) / 100,
       };
     });
   }
@@ -1156,10 +1156,10 @@ export class AnalyticsService {
 
     const now = new Date();
     const results: Array<{
-      productId: string;
+      id: string;
       productName: string;
-      stockQty: number;
-      lastReceivedAt: string;
+      stock: number;
+      lastReceived: string;
       daysInStock: number;
       ageBucket: '0-30' | '31-60' | '61-90' | '90+';
       unitCost: number;
@@ -1209,10 +1209,10 @@ export class AnalyticsService {
       const unitCost = product.cost || 0;
 
       results.push({
-        productId: product.id,
+        id: product.id,
         productName: product.name,
-        stockQty,
-        lastReceivedAt: new Date(lastReceivedAt).toISOString(),
+        stock: stockQty,
+        lastReceived: new Date(lastReceivedAt).toISOString(),
         daysInStock,
         ageBucket,
         unitCost,
@@ -1245,18 +1245,18 @@ export class AnalyticsService {
     });
 
     const results: Array<{
-      productId: string;
-      productName: string;
-      soldUnits: number;
-      averageStock: number;
-      turnoverRatio: number;
+      id: string;
+      product: string;
+      sold: number;
+      avgStock: number;
+      turnover: number;
       periodStart: string;
       periodEnd: string;
     }> = [];
-    for (const product of products) {
+    for (const productRow of products) {
       const salesAgg = await this.prisma.saleItem.aggregate({
         where: {
-          productId: product.id,
+          productId: productRow.id,
           sale: {
             tenantId,
             createdAt: { gte: start, lte: end },
@@ -1266,28 +1266,28 @@ export class AnalyticsService {
         _sum: { quantity: true },
       });
 
-      const soldUnits = salesAgg._sum.quantity || 0;
+      const sold = salesAgg._sum.quantity || 0;
       // No historical stock snapshots are recorded, so current on-hand
       // quantity is used as the average-stock denominator.
-      const averageStock =
-        product.inventory.length > 0
-          ? product.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
-          : product.stock;
+      const avgStock =
+        productRow.inventory.length > 0
+          ? productRow.inventory.reduce((sum, inv) => sum + inv.quantity, 0)
+          : productRow.stock;
 
-      const turnoverRatio = averageStock > 0 ? soldUnits / averageStock : 0;
+      const turnover = avgStock > 0 ? sold / avgStock : 0;
 
       results.push({
-        productId: product.id,
-        productName: product.name,
-        soldUnits,
-        averageStock,
-        turnoverRatio: Math.round(turnoverRatio * 100) / 100,
+        id: productRow.id,
+        product: productRow.name,
+        sold,
+        avgStock,
+        turnover: Math.round(turnover * 100) / 100,
         periodStart: start.toISOString(),
         periodEnd: end.toISOString(),
       });
     }
 
-    return results.sort((a, b) => b.turnoverRatio - a.turnoverRatio);
+    return results.sort((a, b) => b.turnover - a.turnover);
   }
 
   private extractProductCategory(customFields: unknown): string {
