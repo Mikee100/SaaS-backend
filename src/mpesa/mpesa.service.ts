@@ -6,6 +6,42 @@ import * as crypto from 'crypto';
 export class MpesaService {
   constructor(public readonly prisma: PrismaService) {}
 
+  /**
+   * Safaricom does not sign STK callbacks, so we embed a per-tenant HMAC
+   * token in the CallBackURL we register with them and verify it on the way
+   * back in. This stops arbitrary POSTs to /mpesa/callback from being able
+   * to fabricate a successful payment for a tenant they can't derive the
+   * token for.
+   */
+  computeCallbackToken(tenantId: string): string {
+    const secret = process.env.MPESA_CALLBACK_SECRET || process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error(
+        'MPESA_CALLBACK_SECRET (or JWT_SECRET) must be set to secure M-Pesa callbacks.',
+      );
+    }
+    return crypto
+      .createHmac('sha256', secret)
+      .update(tenantId)
+      .digest('hex')
+      .slice(0, 32);
+  }
+
+  verifyCallbackToken(tenantId: string, token: string | undefined): boolean {
+    if (!token) return false;
+    const expected = this.computeCallbackToken(tenantId);
+    const expectedBuf = Buffer.from(expected);
+    const tokenBuf = Buffer.from(token);
+    if (expectedBuf.length !== tokenBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, tokenBuf);
+  }
+
+  appendCallbackToken(callbackUrl: string, tenantId: string): string {
+    const token = this.computeCallbackToken(tenantId);
+    const separator = callbackUrl.includes('?') ? '&' : '?';
+    return `${callbackUrl}${separator}token=${token}`;
+  }
+
   async getTenantMpesaConfig(tenantId: string, requireActive = true) {
     if (!tenantId) {
       throw new BadRequestException('Tenant ID is required.');
@@ -179,8 +215,10 @@ export class MpesaService {
       PartyA: phoneNumber,
       PartyB: config.shortCode,
       PhoneNumber: phoneNumber,
-      CallBackURL:
+      CallBackURL: this.appendCallbackToken(
         config.callbackUrl || `${process.env.BASE_URL}/mpesa/callback`,
+        tenantId,
+      ),
       AccountReference: reference || 'Saas Platform',
       TransactionDesc: transactionDesc || 'Payment for Saas Platform',
     };

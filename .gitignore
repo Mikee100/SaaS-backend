@@ -13,3 +13,10 @@ backups/
 *.sql.gz
 *.bak
 *.backup
+
+# Bulk-admin data exports (contain tenant/user PII)
+exports/
+
+# Replication learning lab artifacts
+pgdata_standby/
+scripts/replication/logs/

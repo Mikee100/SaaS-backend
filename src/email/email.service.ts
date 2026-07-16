@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { jobQueue, QUEUE_NAMES } from '../queue';
 
 @Injectable()
 export class EmailService {
@@ -7,6 +8,14 @@ export class EmailService {
   private transporter: nodemailer.Transporter<nodemailer.SentMessageInfo>;
 
   constructor() {
+    // Actual delivery happens off the request path via the in-process job
+    // queue, which also retries transient SMTP failures instead of failing
+    // the caller's request outright.
+    jobQueue.registerHandler<nodemailer.SendMailOptions>(
+      QUEUE_NAMES.EMAIL,
+      (mailOptions) => this.sendMail(mailOptions),
+    );
+
     // For development, use Ethereal test service by default
     // Only use Gmail if explicitly configured with valid credentials
     const useGmail = process.env.USE_GMAIL === 'true';
@@ -81,7 +90,7 @@ export class EmailService {
     return sendMailFn(mailOptions).then(() => undefined);
   }
 
-  async sendResetPasswordEmail(to: string, token: string): Promise<void> {
+  sendResetPasswordEmail(to: string, token: string): void {
     const resetUrl = `http://localhost:5000/reset-password?token=${token}`;
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -104,20 +113,15 @@ export class EmailService {
       html,
     };
 
-    try {
-      await this.sendMail(mailOptions);
-      this.logger.log(`Reset password email sent to ${to}`);
-    } catch (error) {
-      this.logger.error(`Failed to send reset email to ${to}:`, error);
-      throw error;
-    }
+    jobQueue.enqueue(QUEUE_NAMES.EMAIL, mailOptions);
+    this.logger.log(`Reset password email queued for ${to}`);
   }
 
-  async sendPaymentConfirmationEmail(
+  sendPaymentConfirmationEmail(
     to: string,
     subject: string,
     html: string,
-  ): Promise<void> {
+  ): void {
     const mailOptions: nodemailer.SendMailOptions = {
       from:
         process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
@@ -126,15 +130,7 @@ export class EmailService {
       html,
     };
 
-    try {
-      await this.sendMail(mailOptions);
-      this.logger.log(`Payment confirmation email sent to ${to}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send payment confirmation email to ${to}:`,
-        error,
-      );
-      throw error;
-    }
+    jobQueue.enqueue(QUEUE_NAMES.EMAIL, mailOptions);
+    this.logger.log(`Payment confirmation email queued for ${to}`);
   }
 }

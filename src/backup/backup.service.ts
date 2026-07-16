@@ -84,14 +84,7 @@ export class BackupService {
       }
 
       // Parse database URL for pg_dump parameters
-      const dbUrlMatch = dbUrl.match(
-        /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/,
-      );
-      if (!dbUrlMatch) {
-        throw new Error('Invalid DATABASE_URL format');
-      }
-
-      const [, user, password, host, port, database] = dbUrlMatch;
+      const { user, password, host, port, database } = this.parseDbUrl(dbUrl);
 
       // Create pg_dump command with gzip compression
       const pgDumpCommand = `pg_dump --host=${host} --port=${port} --username=${user} --dbname=${database} --no-password --format=custom --compress=9 --file="${backupPath}"`;
@@ -260,15 +253,54 @@ export class BackupService {
     }
   }
 
-  restoreBackup(filename: string): Promise<void> {
-    // This would implement restore functionality
-    // For now, just log that it's not implemented
-    this.logger.warn(
-      `Restore functionality not yet implemented for ${filename}`,
+  private parseDbUrl(dbUrl: string): {
+    user: string;
+    password: string;
+    host: string;
+    port: string;
+    database: string;
+  } {
+    const dbUrlMatch = dbUrl.match(
+      /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/,
     );
-    return Promise.reject(
-      new Error('Restore functionality not yet implemented'),
-    );
+    if (!dbUrlMatch) {
+      throw new Error('Invalid DATABASE_URL format');
+    }
+    const [, user, password, host, port, database] = dbUrlMatch;
+    return { user, password, host, port, database };
+  }
+
+  async restoreBackup(filename: string): Promise<void> {
+    // Validate the filename resolves to a real file within the backup directory
+    const backupPath = await this.getBackupPath(filename);
+
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+      throw new Error('DATABASE_URL environment variable not set');
+    }
+    const { user, password, host, port, database } = this.parseDbUrl(dbUrl);
+
+    // --clean --if-exists drops existing objects before recreating them so the
+    // restore is idempotent against the current schema state.
+    const pgRestoreCommand = `pg_restore --host=${host} --port=${port} --username=${user} --dbname=${database} --no-password --clean --if-exists "${backupPath}"`;
+    const env = { ...process.env, PGPASSWORD: password };
+
+    this.logger.warn(`Restoring database ${database} from ${filename}`);
+
+    try {
+      const { stderr } = await execAsync(pgRestoreCommand, { env });
+      // pg_restore writes non-fatal warnings to stderr even on success, so log
+      // them but do not treat their presence as failure.
+      if (stderr) {
+        this.logger.warn(`pg_restore warnings for ${filename}: ${stderr}`);
+      }
+      this.logger.log(`Restore completed successfully from ${filename}`);
+    } catch (error) {
+      this.logger.error(
+        `Restore failed for ${filename}: ${this.getErrorMessage(error)}`,
+      );
+      throw new Error(`Restore failed: ${this.getErrorMessage(error)}`);
+    }
   }
 
   async getBackupPath(filename: string): Promise<string> {

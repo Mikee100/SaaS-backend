@@ -7,11 +7,6 @@ import {
 import { PrismaService } from '../prisma.service';
 import { AuthenticatedRequest } from '../auth/request.types';
 
-type ActiveSubscription = {
-  status: string;
-  currentPeriodEnd: Date;
-};
-
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,7 +20,7 @@ export class SubscriptionGuard implements CanActivate {
     }
 
     // Fetch active subscription for tenant
-    const subscription = (await this.prisma.subscription.findFirst({
+    const subscription = await this.prisma.subscription.findFirst({
       where: {
         tenantId,
         status: {
@@ -36,7 +31,7 @@ export class SubscriptionGuard implements CanActivate {
         status: true,
         currentPeriodEnd: true,
       },
-    })) as ActiveSubscription | null;
+    });
 
     if (!subscription) {
       throw new ForbiddenException('No active or trial subscription found');
@@ -50,13 +45,15 @@ export class SubscriptionGuard implements CanActivate {
       throw new ForbiddenException('Subscription payment is overdue');
     }
 
-    // Example enforcement: check maxUsers limit
-    // This is a placeholder, actual enforcement logic depends on the resource being accessed
-    // For example, if accessing user management, check current user count vs maxUsers
-
-    // You can extend this guard to check other limits like maxProducts, maxSalesPerMonth, etc.
-
-    // If all checks pass
+    // Resource-count limits (maxUsers, maxBranches, maxProducts,
+    // maxSalesPerMonth) are enforced at the point of creation in each
+    // resource's own service (see user.service.ts, branch.service.ts,
+    // product.service.ts, sales.service.ts via SubscriptionService.canAddX),
+    // not here — this guard only asserts that a subscription is active.
+    // Route-wide suspension/expiry is also already enforced globally by
+    // JwtStrategy for every authenticated, non-billing route. Apply this
+    // guard in addition to that when a specific route should be blocked
+    // outright rather than allowed through with a restricted-mode response.
     return true;
   }
 }

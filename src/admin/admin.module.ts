@@ -24,6 +24,7 @@ import { AdminHealthController } from './admin-health.controller';
 import { PlatformSettingsController } from './platform-settings.controller';
 import { ImpersonationController } from './impersonation.controller';
 import { ClassificationModule } from '../classification/classification.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ClassificationModule } from '../classification/classification.module';
     TenantConfigurationModule,
     MonitoringModule,
     ClassificationModule,
+    EmailModule,
   ],
   controllers: [
     AdminController,
