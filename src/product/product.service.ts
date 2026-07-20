@@ -912,7 +912,7 @@ export class ProductService {
     await this.ensureCategoryRegistered(data.tenantId, normalizedCategory);
 
     let generatedVariations: unknown[] | undefined;
-    let bomRecipe: unknown | undefined;
+    let bomRecipe: unknown;
 
     if (
       modeInputs.mode === 'variable' &&
