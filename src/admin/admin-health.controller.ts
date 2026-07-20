@@ -1,6 +1,8 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { SuperadminGuard } from './superadmin.guard';
+import { AdminRole } from '@prisma/client';
+import { AdminRoleGuard } from './admin-role.guard';
+import { AdminRoles } from './admin-roles.decorator';
 import { TrialGuard } from '../auth/trial.guard';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import * as si from 'systeminformation';
@@ -16,7 +18,8 @@ function toHealthStatus(
 }
 
 @Controller('admin/health')
-@UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
+@UseGuards(AuthGuard('jwt'), AdminRoleGuard, TrialGuard)
+@AdminRoles(AdminRole.SUPPORT, AdminRole.BILLING)
 export class AdminHealthController {
   constructor(private readonly monitoringService: MonitoringService) {}
 
@@ -94,6 +97,12 @@ export class AdminHealthController {
       activeIssues: [],
       recentAlerts,
     };
+  }
+
+  @Get('history-range')
+  async getHistoryRange(@Query('hours') hours?: string) {
+    const hoursNum = hours ? Number(hours) : 24;
+    return this.monitoringService.getHealthHistoryRange(hoursNum);
   }
 
   @Get('metrics')

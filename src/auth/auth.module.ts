@@ -15,6 +15,9 @@ import { TrialGuard } from './trial.guard';
 import { CookieService } from './cookie.service';
 import { SessionService } from './session.service';
 import { DeviceService } from './device.service';
+import { MfaController } from './mfa/mfa.controller';
+import { MfaService } from './mfa/mfa.service';
+import { MfaEnrollGuard, MfaPendingGuard } from './mfa/mfa-token.guard';
 
 @Module({
   imports: [
@@ -50,8 +53,11 @@ import { DeviceService } from './device.service';
     CookieService,
     SessionService,
     DeviceService,
+    MfaService,
+    MfaEnrollGuard,
+    MfaPendingGuard,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController],
   exports: [AuthService, SessionService, CookieService],
 })
 export class AuthModule {}

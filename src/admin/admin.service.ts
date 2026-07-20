@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { AdminRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { BillingService } from '../billing/billing.service';
@@ -248,6 +250,77 @@ export class AdminService {
   async getBillingMetrics() {
     this.logger.log('AdminService: getBillingMetrics called');
     return this.billingService.getBillingMetrics();
+  }
+
+  async getRevenueByPlan() {
+    this.logger.log('AdminService: getRevenueByPlan called');
+
+    const activeSubs = await this.prisma.subscription.findMany({
+      where: { status: 'active' },
+      include: { Plan: true },
+    });
+
+    const byPlan = new Map<
+      string,
+      { planName: string; mrr: number; subscriberCount: number }
+    >();
+
+    for (const sub of activeSubs) {
+      if (!sub.Plan) continue;
+      const monthlyPrice =
+        sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
+      const existing = byPlan.get(sub.planId) ?? {
+        planName: sub.Plan.name,
+        mrr: 0,
+        subscriberCount: 0,
+      };
+      existing.mrr += monthlyPrice;
+      existing.subscriberCount += 1;
+      byPlan.set(sub.planId, existing);
+    }
+
+    return Array.from(byPlan.values())
+      .map((entry) => ({ ...entry, mrr: Math.round(entry.mrr * 100) / 100 }))
+      .sort((a, b) => b.mrr - a.mrr);
+  }
+
+  async getChurnHistory(months: number = 12) {
+    this.logger.log(
+      `AdminService: getChurnHistory called with months: ${months}`,
+    );
+
+    const now = new Date();
+    const data: Array<{ month: string; newSubs: number; churned: number }> = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
+      const [newSubs, churned] = await Promise.all([
+        this.prisma.subscription.count({
+          where: { createdAt: { gte: monthStart, lte: monthEnd } },
+        }),
+        this.prisma.subscription.count({
+          where: { canceledAt: { gte: monthStart, lte: monthEnd } },
+        }),
+      ]);
+
+      const monthLabel = monthStart.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+
+      data.push({ month: monthLabel, newSubs, churned });
+    }
+
+    return data;
   }
 
   async getAllSubscriptions() {
@@ -496,13 +569,6 @@ export class AdminService {
 
     const products = await this.prisma.product.findMany({
       where: { tenantId },
-      include: {
-        inventory: {
-          select: {
-            quantity: true,
-          },
-        },
-      },
       orderBy: {
         name: 'asc',
       },
@@ -1097,10 +1163,54 @@ export class AdminService {
       email: user.email,
       isSuperadmin: user.isSuperadmin,
       isDisabled: user.isDisabled,
+      adminRoles: user.adminRoles,
       createdAt: user.createdAt,
       tenant: user.tenant,
       userRoles: user.userRoles,
     }));
+  }
+
+  async updateAdminRoles(userId: string, adminRoles: string[]) {
+    this.logger.log(
+      `AdminService: updateAdminRoles called for userId: ${userId}, adminRoles: ${JSON.stringify(adminRoles)}`,
+    );
+
+    const requested = Array.isArray(adminRoles) ? adminRoles : [];
+    const allowedRoles = new Set<string>([
+      AdminRole.SUPPORT,
+      AdminRole.BILLING,
+    ]);
+    const invalid = requested.filter((role) => !allowedRoles.has(role));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Invalid admin role(s): ${invalid.join(', ')}. Only SUPPORT and BILLING can be granted here; SUPERADMIN must be granted manually.`,
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, tenantId: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.tenantId) {
+      throw new BadRequestException(
+        'Admin roles can only be granted to platform-staff users (no tenant), not tenant-attached users.',
+      );
+    }
+
+    const deduped = Array.from(new Set(requested)) as AdminRole[];
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { adminRoles: deduped },
+      select: { id: true, adminRoles: true },
+    });
+
+    this.logger.log(
+      `AdminService: Updated admin roles for user ${userId} to [${updated.adminRoles.join(', ')}]`,
+    );
+    return updated;
   }
 
   async updateUserRole(userId: string, roleId: string, tenantId?: string) {

@@ -312,7 +312,7 @@ export class ExpensesService {
       const sortOrder = query?.sortOrder === 'asc' ? 'asc' : 'desc';
       orderBy = {
         [sortField]: sortOrder,
-      } as Prisma.ExpenseOrderByWithRelationInput;
+      };
     }
 
     // Pagination
@@ -1040,7 +1040,7 @@ export class ExpensesService {
       const sortOrder = query?.sortOrder === 'asc' ? 'asc' : 'desc';
       orderBy = {
         [sortField]: sortOrder,
-      } as Prisma.ExpenseOrderByWithRelationInput;
+      };
     }
 
     // Pagination

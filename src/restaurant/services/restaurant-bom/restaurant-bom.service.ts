@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma.service';
+import { getInventoryPolicyForMode } from '../../../product/product-mode.types';
 
 interface SaveBomPayload {
   productId: string;
@@ -270,6 +271,14 @@ export class RestaurantBomService {
           isActive: true,
         },
         select: { id: true, version: true },
+      });
+
+      // A recipe now governs this product's stock, regardless of how it
+      // was created - keep inventoryPolicy in sync so downstream inventory
+      // logic (see product-mode.types.ts) treats it as recipe-driven.
+      await tx.product.update({
+        where: { id: payload.productId },
+        data: { inventoryPolicy: getInventoryPolicyForMode('recipe') },
       });
 
       if (!existingActive) {

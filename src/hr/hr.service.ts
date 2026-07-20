@@ -205,7 +205,9 @@ export class HrService {
         payeBands: [
           { upto: 24000, rate: 0.1 },
           { upto: 32333, rate: 0.25 },
-          { upto: null, rate: 0.3 },
+          { upto: 500000, rate: 0.3 },
+          { upto: 800000, rate: 0.325 },
+          { upto: null, rate: 0.35 },
         ],
         nssfEnabled: true,
         nssfLowerLimit: 8000,
@@ -257,7 +259,9 @@ export class HrService {
       payeBands: [
         { upto: 24000, rate: 0.1 },
         { upto: 32333, rate: 0.25 },
-        { upto: null, rate: 0.3 },
+        { upto: 500000, rate: 0.3 },
+        { upto: 800000, rate: 0.325 },
+        { upto: null, rate: 0.35 },
       ],
       nssfEnabled: true,
       nssfLowerLimit: 8000,
@@ -826,14 +830,17 @@ export class HrService {
     });
   }
 
-  async getPayrollRunById(tenantId: string, id: string) {
+  async getPayrollRunById(tenantId: string, id: string, branchId?: string) {
     const runs = await this.readJsonConfig<PayrollRun[]>(
       tenantId,
       PAYROLL_RUNS_KEY,
       [],
     );
     const run = runs.find((item) => item.id === id);
-    if (!run) {
+    if (
+      !run ||
+      ((branchId || '') !== '' && (run.branchId || '') !== branchId)
+    ) {
       throw new NotFoundException('Payroll run not found');
     }
 
@@ -1095,14 +1102,18 @@ export class HrService {
     branchId?: string,
   ) {
     const locks = await this.listPayrollPeriodLocks(tenantId);
-    return locks.find((lock) =>
-      this.samePeriodBranch(
-        { month: lock.month, year: lock.year, branchId: lock.branchId },
-        month,
-        year,
-        branchId,
-      ),
-    );
+    return locks.find((lock) => {
+      if (lock.month !== month || lock.year !== year) {
+        return false;
+      }
+
+      // A lock with no branchId is tenant-wide and applies to every branch.
+      if (!lock.branchId) {
+        return true;
+      }
+
+      return lock.branchId === branchId;
+    });
   }
 
   async lockPayrollPeriod(
@@ -1299,12 +1310,14 @@ export class HrService {
       employeeName?: string;
       month?: number;
       year?: number;
+      branchId?: string;
     },
   ) {
     const runs = await this.listPayrollRuns(
       tenantId,
       params.month,
       params.year,
+      params.branchId,
     );
 
     let run = params.runId
@@ -1312,7 +1325,11 @@ export class HrService {
       : runs[0];
 
     if (!run && params.runId) {
-      const direct = await this.getPayrollRunById(tenantId, params.runId);
+      const direct = await this.getPayrollRunById(
+        tenantId,
+        params.runId,
+        params.branchId,
+      );
       run = direct;
     }
 

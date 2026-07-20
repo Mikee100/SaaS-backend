@@ -1,6 +1,11 @@
 import { AppModuleKey } from '../auth/module-access.constants';
+import { ProductMode } from '../product/product-mode.types';
 
-export type BusinessTypeKey = 'fashion' | 'restaurant' | 'spa_barber';
+export type BusinessTypeKey =
+  | 'fashion'
+  | 'restaurant'
+  | 'spa_barber'
+  | 'hardware';
 
 export type BlueprintVersionKey = 'v1';
 
@@ -49,6 +54,12 @@ export interface BlueprintEntityDefinition {
   label: string;
   engine: string;
   attributes?: string[];
+  // Which product creation modes this entity supports in this blueprint
+  // (e.g. restaurant menu_item -> ['recipe', 'simple']) and which one the
+  // "Add" form should default to. Omitted for non-sellable entities
+  // (orders, kitchen tickets, staff members, etc).
+  allowedProductModes?: ProductMode[];
+  defaultProductMode?: ProductMode;
 }
 
 export interface BlueprintReportDefinition {

@@ -615,6 +615,11 @@ export class AnalyticsService {
       this.getSalesByHourHeatmap(tenantId, branchId),
     ]);
 
+    const [customerSegments, locationSegments] = await Promise.all([
+      this.getCustomerSegments(tenantId, branchId),
+      this.getLocationSegments(tenantId, branchId),
+    ]);
+
     // Calculate customer retention (simplified)
     const repeatCustomers = await this.getRepeatCustomers(tenantId, branchId);
     const totalUniqueCustomers = totalCustomers.length;
@@ -651,9 +656,17 @@ export class AnalyticsService {
       performanceMetrics,
       realTimeData: await this.getRealTimeData(tenantId),
       forecast: forecastData,
-      anomalies: [],
-      customerSegmentsAI: [],
-      churnPrediction: [],
+      customerSegments,
+      advancedSegments: {
+        byLocation: locationSegments,
+      },
+      predictiveAnalytics: {
+        nextMonthForecast: forecastData.hasEnoughData
+          ? forecastData.forecast_sales[0]
+          : null,
+        growthRate: forecastData.growthRate,
+        hasEnoughData: forecastData.hasEnoughData,
+      },
     };
 
     // Add recent activity data
@@ -1697,6 +1710,83 @@ export class AnalyticsService {
     return (repeatCustomers as RepeatCustomer[]).length;
   }
 
+  private async getCustomerSegments(tenantId: string, branchId?: string) {
+    const rows = await this.prisma.$queryRaw(
+      Prisma.sql`
+        SELECT "customerPhone", COUNT(*) as purchase_count, COALESCE(SUM(total), 0) as total_revenue
+        FROM "Sale"
+        WHERE "tenantId" = ${tenantId}
+          AND "customerPhone" IS NOT NULL
+          ${branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty}
+        GROUP BY "customerPhone"
+      `,
+    );
+
+    type CustomerRow = {
+      customerPhone: string;
+      purchase_count: bigint;
+      total_revenue: string;
+    };
+
+    const segments = {
+      new: { count: 0, revenue: 0 },
+      returning: { count: 0, revenue: 0 },
+      loyal: { count: 0, revenue: 0 },
+    };
+
+    for (const row of rows as CustomerRow[]) {
+      const purchases = Number(row.purchase_count);
+      const revenue = parseFloat(row.total_revenue);
+      const bucket =
+        purchases === 1 ? 'new' : purchases <= 4 ? 'returning' : 'loyal';
+      segments[bucket].count += 1;
+      segments[bucket].revenue += revenue;
+    }
+
+    return [
+      {
+        segment: 'New Customers',
+        count: segments.new.count,
+        revenue: parseFloat(segments.new.revenue.toFixed(2)),
+      },
+      {
+        segment: 'Returning Customers',
+        count: segments.returning.count,
+        revenue: parseFloat(segments.returning.revenue.toFixed(2)),
+      },
+      {
+        segment: 'Loyal Customers',
+        count: segments.loyal.count,
+        revenue: parseFloat(segments.loyal.revenue.toFixed(2)),
+      },
+    ].filter((segment) => segment.count > 0);
+  }
+
+  private async getLocationSegments(tenantId: string, branchId?: string) {
+    const rows = await this.prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          COALESCE(b.city, b.name, 'Unknown') as location,
+          COUNT(DISTINCT s."customerPhone") as customers,
+          COALESCE(SUM(s.total), 0) as revenue
+        FROM "Sale" s
+        LEFT JOIN "Branch" b ON b.id = s."branchId"
+        WHERE s."tenantId" = ${tenantId}
+          ${branchId ? Prisma.sql`AND s."branchId" = ${branchId}` : Prisma.empty}
+        GROUP BY COALESCE(b.city, b.name, 'Unknown')
+        ORDER BY revenue DESC
+      `,
+    );
+
+    type LocationRow = { location: string; customers: bigint; revenue: string };
+
+    return (rows as LocationRow[]).map((row) => ({
+      location: row.location,
+      customers: Number(row.customers),
+      revenue: Number(parseFloat(row.revenue).toFixed(2)),
+    }));
+  }
+
   private async calculatePerformanceMetrics(tenantId: string) {
     // Simplified calculations - in a real app, these would be more sophisticated
     const thirtyDaysAgo = new Date();
@@ -1828,25 +1918,14 @@ export class AnalyticsService {
       total_revenue: string;
     };
 
-    // If we have less than 3 months of data, generate mock forecast data
+    // Not enough history to fit a trend - be honest that there's no forecast yet
+    // rather than fabricating numbers.
     if ((historicalSales as HistoricalData[]).length < 3) {
-      const now = new Date();
-      const forecastMonths: string[] = [];
-      const forecastSales: number[] = [];
-
-      for (let i = 1; i <= 6; i++) {
-        const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-        forecastMonths.push(futureDate.toISOString().slice(0, 7)); // YYYY-MM format
-
-        // Generate realistic mock sales data with some growth trend
-        const baseSales = 150 + Math.random() * 100; // Base sales between 150-250
-        const growthFactor = 1 + i * 0.05 + (Math.random() * 0.1 - 0.05); // 5% monthly growth with variance
-        forecastSales.push(Math.round(baseSales * growthFactor));
-      }
-
       return {
-        forecast_months: forecastMonths,
-        forecast_sales: forecastSales,
+        forecast_months: [],
+        forecast_sales: [],
+        hasEnoughData: false,
+        growthRate: 0,
       };
     }
 
@@ -1879,39 +1958,27 @@ export class AnalyticsService {
       const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
       forecastMonths.push(futureDate.toISOString().slice(0, 7)); // YYYY-MM format
 
-      // Predict sales using linear regression
-      const predictedSales = intercept + slope * (n + i - 1);
-
-      // Add some realistic variance (±20%) and ensure positive values
-      const variance = 0.2;
-      const randomFactor = 1 + (Math.random() * variance * 2 - variance);
-      const finalPrediction = Math.max(
-        1,
-        Math.round(predictedSales * randomFactor),
+      // Predict sales using linear regression, floored at 0
+      const predictedSales = Math.max(
+        0,
+        Math.round(intercept + slope * (n + i - 1)),
       );
 
-      forecastSales.push(finalPrediction);
+      forecastSales.push(predictedSales);
     }
+
+    const lastActualSales = salesData[salesData.length - 1].sales;
+    const growthRate =
+      lastActualSales > 0
+        ? ((forecastSales[0] - lastActualSales) / lastActualSales) * 100
+        : 0;
 
     return {
       forecast_months: forecastMonths,
       forecast_sales: forecastSales,
+      hasEnoughData: true,
+      growthRate: parseFloat(growthRate.toFixed(1)),
     };
-  }
-
-  private getAnomaliesData() {
-    // AI service removed - returning empty array
-    return [];
-  }
-
-  private getCustomerSegmentsData() {
-    // AI service removed - returning empty array
-    return [];
-  }
-
-  private getChurnPredictionData() {
-    // AI service removed - returning empty array
-    return [];
   }
 
   async getBranchSales(

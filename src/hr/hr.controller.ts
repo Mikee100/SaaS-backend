@@ -258,9 +258,11 @@ export class HrController {
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
   ) {
+    const effectiveBranchId = this.resolveBranchScope(req);
     const run = await this.hrService.getPayrollRunById(
       this.getTenantId(req),
       id,
+      effectiveBranchId,
     );
     return { success: true, data: run };
   }
@@ -522,13 +524,18 @@ export class HrController {
       );
     }
 
-    const payslip = await this.hrService.generatePayslip(req.user.tenantId, {
-      runId,
-      salarySchemeId,
-      employeeName,
-      month: month ? Number(month) : undefined,
-      year: year ? Number(year) : undefined,
-    });
+    const effectiveBranchId = this.resolveBranchScope(req);
+    const payslip = await this.hrService.generatePayslip(
+      this.getTenantId(req),
+      {
+        runId,
+        salarySchemeId,
+        employeeName,
+        month: month ? Number(month) : undefined,
+        year: year ? Number(year) : undefined,
+        branchId: effectiveBranchId,
+      },
+    );
 
     return { success: true, data: payslip };
   }

@@ -26,7 +26,7 @@
     "schemaVersion": { "const": "1.0.0" },
     "businessType": {
       "type": "string",
-      "enum": ["fashion", "restaurant", "spa_barber"]
+      "enum": ["fashion", "restaurant", "spa_barber", "hardware"]
     },
     "blueprintKey": { "type": "string", "minLength": 1 },
     "blueprintVersion": { "type": "string", "const": "v1" },

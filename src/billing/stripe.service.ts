@@ -398,7 +398,7 @@ export class StripeService {
           subscription.stripeCustomerId,
         );
         if (!customerData.deleted) {
-          customer = customerData as Stripe.Customer;
+          customer = customerData;
         }
       } catch (error) {
         this.logger.error(

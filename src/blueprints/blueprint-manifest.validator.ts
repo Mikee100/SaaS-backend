@@ -59,12 +59,20 @@ function isAppModuleKey(input: unknown): input is AppModuleKey {
 
 function isNavItem(input: unknown): input is BlueprintNavItem {
   if (!isRecord(input)) return false;
-  return isNonEmptyString(input.key) && isNonEmptyString(input.label) && isNonEmptyString(input.path);
+  return (
+    isNonEmptyString(input.key) &&
+    isNonEmptyString(input.label) &&
+    isNonEmptyString(input.path)
+  );
 }
 
 function isDashboardWidget(input: unknown): input is BlueprintDashboardWidget {
   if (!isRecord(input)) return false;
-  return isNonEmptyString(input.key) && isNonEmptyString(input.title) && isNonEmptyString(input.widgetType);
+  return (
+    isNonEmptyString(input.key) &&
+    isNonEmptyString(input.title) &&
+    isNonEmptyString(input.widgetType)
+  );
 }
 
 function isQuickAction(input: unknown): input is BlueprintQuickAction {
@@ -72,26 +80,42 @@ function isQuickAction(input: unknown): input is BlueprintQuickAction {
   return (
     isNonEmptyString(input.key) &&
     isNonEmptyString(input.label) &&
-    (input.actionType === 'navigate' || input.actionType === 'modal' || input.actionType === 'api')
+    (input.actionType === 'navigate' ||
+      input.actionType === 'modal' ||
+      input.actionType === 'api')
   );
 }
 
 function isSettingsItem(input: unknown): input is BlueprintSettingsItem {
   if (!isRecord(input)) return false;
-  return isNonEmptyString(input.key) && isNonEmptyString(input.label) && isNonEmptyString(input.path);
+  return (
+    isNonEmptyString(input.key) &&
+    isNonEmptyString(input.label) &&
+    isNonEmptyString(input.path)
+  );
 }
 
-function isEntityDefinition(input: unknown): input is BlueprintEntityDefinition {
+function isEntityDefinition(
+  input: unknown,
+): input is BlueprintEntityDefinition {
   if (!isRecord(input)) return false;
-  return isNonEmptyString(input.key) && isNonEmptyString(input.label) && isNonEmptyString(input.engine);
+  return (
+    isNonEmptyString(input.key) &&
+    isNonEmptyString(input.label) &&
+    isNonEmptyString(input.engine)
+  );
 }
 
-function isReportDefinition(input: unknown): input is BlueprintReportDefinition {
+function isReportDefinition(
+  input: unknown,
+): input is BlueprintReportDefinition {
   if (!isRecord(input)) return false;
   return isNonEmptyString(input.key) && isNonEmptyString(input.label);
 }
 
-export function validateBlueprintManifest(input: unknown): ManifestValidationResult {
+export function validateBlueprintManifest(
+  input: unknown,
+): ManifestValidationResult {
   const errors: string[] = [];
 
   if (!isRecord(input)) {
@@ -123,9 +147,13 @@ export function validateBlueprintManifest(input: unknown): ManifestValidationRes
   }
 
   if (Array.isArray(input.enabledModules)) {
-    const invalid = input.enabledModules.filter((entry) => !isAppModuleKey(entry));
+    const invalid = input.enabledModules.filter(
+      (entry) => !isAppModuleKey(entry),
+    );
     if (invalid.length > 0) {
-      errors.push(`enabledModules contains invalid modules: ${invalid.join(', ')}`);
+      errors.push(
+        `enabledModules contains invalid modules: ${invalid.join(', ')}`,
+      );
     }
   } else {
     errors.push('enabledModules must be an array');
@@ -137,12 +165,24 @@ export function validateBlueprintManifest(input: unknown): ManifestValidationRes
   validateArray(input.settings, 'settings', errors, isSettingsItem);
   validateArray(input.entities, 'entities', errors, isEntityDefinition);
   validateArray(input.reports, 'reports', errors, isReportDefinition);
-  validateArray(input.permissions, 'permissions', errors, (item): item is string => isNonEmptyString(item));
-  validateArray(input.features, 'features', errors, (item): item is string => isNonEmptyString(item));
-  validateArray(input.apps, 'apps', errors, (item): item is { key: string; label: string } => {
-    if (!isRecord(item)) return false;
-    return isNonEmptyString(item.key) && isNonEmptyString(item.label);
-  });
+  validateArray(
+    input.permissions,
+    'permissions',
+    errors,
+    (item): item is string => isNonEmptyString(item),
+  );
+  validateArray(input.features, 'features', errors, (item): item is string =>
+    isNonEmptyString(item),
+  );
+  validateArray(
+    input.apps,
+    'apps',
+    errors,
+    (item): item is { key: string; label: string } => {
+      if (!isRecord(item)) return false;
+      return isNonEmptyString(item.key) && isNonEmptyString(item.label);
+    },
+  );
 
   return {
     valid: errors.length === 0,
@@ -154,7 +194,9 @@ export function normalizeManifestModules(input: unknown): AppModuleKey[] {
   return normalizeEnabledModules(input) || [...DEFAULT_ENABLED_MODULES];
 }
 
-export function assertValidBlueprintManifest(input: unknown): asserts input is BlueprintManifestV1 {
+export function assertValidBlueprintManifest(
+  input: unknown,
+): asserts input is BlueprintManifestV1 {
   const result = validateBlueprintManifest(input);
   if (!result.valid) {
     throw new Error(`Invalid blueprint manifest: ${result.errors.join('; ')}`);

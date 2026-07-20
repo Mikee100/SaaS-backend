@@ -25,9 +25,9 @@ const domPurifyModule = DOMPurify as unknown as {
 const createPurify =
   typeof domPurifyModule.default === 'function'
     ? domPurifyModule.default
-    : (DOMPurify as unknown as (
-        win: unknown,
-      ) => { sanitize: (value: string) => string });
+    : (DOMPurify as unknown as (win: unknown) => {
+        sanitize: (value: string) => string;
+      });
 
 const DOMPurifyServer = createPurify(window);
 

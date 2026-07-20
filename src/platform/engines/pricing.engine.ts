@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PricingContext, PricingEngine, PricingResult } from '../engine.interfaces';
+import {
+  PricingContext,
+  PricingEngine,
+  PricingResult,
+} from '../engine.interfaces';
 
 @Injectable()
 export class PlatformPricingEngine implements PricingEngine {

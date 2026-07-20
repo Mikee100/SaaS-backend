@@ -133,4 +133,17 @@ export class EmailService {
     jobQueue.enqueue(QUEUE_NAMES.EMAIL, mailOptions);
     this.logger.log(`Payment confirmation email queued for ${to}`);
   }
+
+  sendPayrollSummaryEmail(to: string, subject: string, html: string): void {
+    const mailOptions: nodemailer.SendMailOptions = {
+      from:
+        process.env.FROM_EMAIL || '"SaaS Platform" <noreply@saasplatform.com>',
+      to,
+      subject,
+      html,
+    };
+
+    jobQueue.enqueue(QUEUE_NAMES.EMAIL, mailOptions);
+    this.logger.log(`Payroll summary email queued for ${to}`);
+  }
 }

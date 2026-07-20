@@ -1,0 +1,11 @@
+# --- Replication learning settings (primary) ---
+# WAL records must contain enough detail for standby replay.
+wal_level = replica
+
+# Number of standby servers that are allowed to connect for WAL streaming.
+# 3 is enough for this local exercise and leaves room for extra test standbys.
+max_wal_senders = 3
+
+# Keep this amount of recent WAL on disk so a standby that disconnects briefly
+# can catch up without requiring a brand-new base backup.
+wal_keep_size = 512MB

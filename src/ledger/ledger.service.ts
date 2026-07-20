@@ -586,9 +586,11 @@ export class LedgerService {
     let cursor = this.alignPeriodStart(startDate, granularity);
 
     while (cursor <= endDate) {
-      const periodStart = cursor < startDate ? new Date(startDate) : new Date(cursor);
+      const periodStart =
+        cursor < startDate ? new Date(startDate) : new Date(cursor);
       const rawPeriodEnd = this.getPeriodEnd(cursor, granularity);
-      const periodEnd = rawPeriodEnd > endDate ? new Date(endDate) : rawPeriodEnd;
+      const periodEnd =
+        rawPeriodEnd > endDate ? new Date(endDate) : rawPeriodEnd;
 
       if (periodStart <= periodEnd) {
         periods.push({
@@ -977,9 +979,7 @@ export class LedgerService {
       'year',
     ];
     if (!supportedGranularity.includes(granularity)) {
-      throw new BadRequestException(
-        `Unsupported granularity: ${granularity}`,
-      );
+      throw new BadRequestException(`Unsupported granularity: ${granularity}`);
     }
 
     if (!startDateText || !endDateText) {

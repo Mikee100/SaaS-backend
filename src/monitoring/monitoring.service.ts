@@ -250,6 +250,8 @@ export class MonitoringService {
         this.healthHistory = this.healthHistory.slice(0, 100);
       }
 
+      await this.persistSnapshot(result);
+
       // Check alerts
       await this.checkAlerts(result);
 
@@ -285,6 +287,43 @@ export class MonitoringService {
 
   getHealthHistory(limit: number = 50): HealthCheckResult[] {
     return this.healthHistory.slice(0, limit);
+  }
+
+  /** Best-effort persistence so history survives restarts; must never break the live health check response. */
+  private async persistSnapshot(result: HealthCheckResult): Promise<void> {
+    try {
+      await this.prisma.healthMetricSnapshot.create({
+        data: {
+          status: result.status,
+          responseTimeMs: result.responseTime,
+          dbResponseTimeMs: result.database.responseTime,
+          cpuPercent: result.system.cpu,
+          memoryPercent: result.system.memory,
+          diskPercent: result.system.disk,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to persist health metric snapshot:', error);
+    }
+  }
+
+  async getHealthHistoryRange(hours: number = 24) {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    return this.prisma.healthMetricSnapshot.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async pruneOldSnapshots(olderThanDays: number = 30): Promise<void> {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    try {
+      await this.prisma.healthMetricSnapshot.deleteMany({
+        where: { createdAt: { lt: cutoff } },
+      });
+    } catch (error) {
+      this.logger.error('Failed to prune old health metric snapshots:', error);
+    }
   }
 
   getAlertConfigs(): AlertConfig[] {

@@ -23,6 +23,9 @@ model User {
   region                  String?
   isSuperadmin            Boolean                 @default(false)
   isDisabled              Boolean                 @default(false)
+  adminRoles              AdminRole[]             @default([])
+  twoFactorSecret         String?
+  twoFactorEnabled        Boolean                 @default(false)
   tenantId                String?
   branchId                String?
   AuditLog                AuditLog[]
@@ -47,11 +50,42 @@ model User {
   RestaurantOrder         RestaurantOrder[]
   restaurantActivityEvents RestaurantActivityEvent[]
   bomRecipesCreated       BomRecipe[]              @relation("BomRecipeCreatedBy")
+  twoFactorBackupCodes    TwoFactorBackupCode[]
 
   @@index([email])
   @@index([branchId])
   @@index([resetPasswordToken])
   @@index([deletedAt])
+}
+
+enum AdminRole {
+  SUPPORT
+  BILLING
+  SUPERADMIN
+}
+
+model TwoFactorBackupCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model HealthMetricSnapshot {
+  id               String   @id @default(uuid())
+  status           String
+  responseTimeMs   Int
+  dbResponseTimeMs Int
+  cpuPercent       Int
+  memoryPercent    Int
+  diskPercent      Int
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Role {

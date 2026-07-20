@@ -7,6 +7,9 @@ import {
   COOKIE_DOMAIN,
   COOKIE_SAME_SITE_ACCESS,
   COOKIE_SAME_SITE_REFRESH,
+  MFA_COOKIE_PATH,
+  MFA_ENROLL_TOKEN_TTL_SEC,
+  MFA_PENDING_TOKEN_TTL_SEC,
 } from './constants';
 
 @Injectable()
@@ -35,6 +38,28 @@ export class CookieService {
     });
   }
 
+  setMfaEnrollToken(res: Response, token: string): void {
+    res.cookie(AUTH_COOKIE_NAMES.MFA_ENROLL_TOKEN, token, {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE_ACCESS,
+      maxAge: MFA_ENROLL_TOKEN_TTL_SEC * 1000,
+      path: MFA_COOKIE_PATH,
+      ...(COOKIE_DOMAIN && { domain: COOKIE_DOMAIN }),
+    });
+  }
+
+  setMfaPendingToken(res: Response, token: string): void {
+    res.cookie(AUTH_COOKIE_NAMES.MFA_PENDING_TOKEN, token, {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE_ACCESS,
+      maxAge: MFA_PENDING_TOKEN_TTL_SEC * 1000,
+      path: MFA_COOKIE_PATH,
+      ...(COOKIE_DOMAIN && { domain: COOKIE_DOMAIN }),
+    });
+  }
+
   clearAuthCookies(res: Response): void {
     const opts = {
       httpOnly: true,
@@ -49,5 +74,19 @@ export class CookieService {
       ...opts,
       sameSite: COOKIE_SAME_SITE_REFRESH,
     });
+    this.clearMfaCookies(res);
+  }
+
+  clearMfaCookies(res: Response): void {
+    const opts = {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      path: MFA_COOKIE_PATH,
+      maxAge: 0,
+      sameSite: COOKIE_SAME_SITE_ACCESS,
+      ...(COOKIE_DOMAIN && { domain: COOKIE_DOMAIN }),
+    };
+    res.cookie(AUTH_COOKIE_NAMES.MFA_ENROLL_TOKEN, '', opts);
+    res.cookie(AUTH_COOKIE_NAMES.MFA_PENDING_TOKEN, '', opts);
   }
 }

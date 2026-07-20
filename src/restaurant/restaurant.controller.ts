@@ -126,7 +126,10 @@ export class RestaurantController {
         : [];
   }
 
-  private hasAnyRole(req: AuthenticatedRequest, acceptedRoles: string[]): boolean {
+  private hasAnyRole(
+    req: AuthenticatedRequest,
+    acceptedRoles: string[],
+  ): boolean {
     if (req.user.isSuperadmin) return true;
     const roles = this.getNormalizedRoles(req);
     return roles.some((role) => acceptedRoles.includes(role));
@@ -138,7 +141,9 @@ export class RestaurantController {
 
   private isKitchenOnly(req: AuthenticatedRequest): boolean {
     const roles = this.getNormalizedRoles(req);
-    const hasKitchenRole = roles.some((role) => ['kitchen', 'chef'].includes(role));
+    const hasKitchenRole = roles.some((role) =>
+      ['kitchen', 'chef'].includes(role),
+    );
     return hasKitchenRole && !this.isOwnerLike(req);
   }
 
@@ -212,16 +217,22 @@ export class RestaurantController {
 
     if (next === 'SentToKitchen') {
       if (isWaiter) return;
-      throw new ForbiddenException('Only waiter/cashier can send orders to kitchen');
+      throw new ForbiddenException(
+        'Only waiter/cashier can send orders to kitchen',
+      );
     }
 
     if (next === 'Served') {
       if (isKitchen) return;
-      throw new ForbiddenException('Only kitchen/chef can mark orders as served');
+      throw new ForbiddenException(
+        'Only kitchen/chef can mark orders as served',
+      );
     }
 
     if (next === 'Closed' || next === 'Voided') {
-      throw new ForbiddenException('Only owner/admin/manager can close or void orders directly');
+      throw new ForbiddenException(
+        'Only owner/admin/manager can close or void orders directly',
+      );
     }
 
     throw new ForbiddenException('Unsupported status transition request');

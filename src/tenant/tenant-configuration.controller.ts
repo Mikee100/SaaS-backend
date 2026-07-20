@@ -164,10 +164,15 @@ export class TenantConfigurationController {
     };
   }
 
-  private normalizeBusinessType(value: unknown): 'fashion' | 'restaurant' | 'spa_barber' {
-    const normalized = String(value || '').trim().toLowerCase();
+  private normalizeBusinessType(
+    value: unknown,
+  ): 'fashion' | 'restaurant' | 'spa_barber' | 'hardware' {
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
     if (normalized === 'restaurant') return 'restaurant';
     if (normalized === 'spa_barber') return 'spa_barber';
+    if (normalized === 'hardware') return 'hardware';
     return 'fashion';
   }
 
@@ -175,7 +180,10 @@ export class TenantConfigurationController {
     input: unknown,
   ): UnifiedProductsDisplayConfig {
     const defaults = this.defaultUnifiedProductsDisplayConfig();
-    const root = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+    const root =
+      typeof input === 'object' && input !== null
+        ? (input as Record<string, unknown>)
+        : {};
     const global =
       typeof root.global === 'object' && root.global !== null
         ? (root.global as Record<string, unknown>)

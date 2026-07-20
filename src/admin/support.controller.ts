@@ -10,7 +10,9 @@ import {
   Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { SuperadminGuard } from './superadmin.guard';
+import { AdminRole } from '@prisma/client';
+import { AdminRoleGuard } from './admin-role.guard';
+import { AdminRoles } from './admin-roles.decorator';
 import { TrialGuard } from '../auth/trial.guard';
 import { SupportService } from './support.service';
 import {
@@ -20,7 +22,8 @@ import {
 } from './support.service';
 
 @Controller('admin/support')
-@UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
+@UseGuards(AuthGuard('jwt'), AdminRoleGuard, TrialGuard)
+@AdminRoles(AdminRole.SUPPORT)
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 
@@ -54,6 +57,17 @@ export class SupportController {
     @Query('priority') priority?: string,
   ) {
     return this.supportService.getTickets(status, priority);
+  }
+
+  @Get('stats')
+  async getTicketStats() {
+    return this.supportService.getTicketStats();
+  }
+
+  @Get('stats/history')
+  async getTicketHistory(@Query('months') months?: string) {
+    const monthsNum = months ? Number(months) : 6;
+    return this.supportService.getTicketHistory(monthsNum);
   }
 
   @Get('tickets/:id/responses')

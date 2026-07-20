@@ -151,7 +151,7 @@ export function softDeleteExtension(prisma: PrismaClient) {
             // a general WhereInput and breaks. Guard by ensuring the row exists and is not
             // soft-deleted, then run the update with the original where.
             args.where = withNotDeletedWhereUnique(
-              args.where as Record<string, unknown> | undefined,
+              args.where,
             ) as typeof args.where;
             try {
               return await query(args);

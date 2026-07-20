@@ -79,6 +79,59 @@ export class SupportService {
     }));
   }
 
+  async getTicketStats() {
+    const [byStatus, byPriority, byCategory] = await Promise.all([
+      this.prisma.supportTicket.groupBy({ by: ['status'], _count: true }),
+      this.prisma.supportTicket.groupBy({ by: ['priority'], _count: true }),
+      this.prisma.supportTicket.groupBy({ by: ['category'], _count: true }),
+    ]);
+
+    return {
+      byStatus: byStatus.map((row) => ({
+        status: row.status,
+        count: row._count,
+      })),
+      byPriority: byPriority.map((row) => ({
+        priority: row.priority,
+        count: row._count,
+      })),
+      byCategory: byCategory.map((row) => ({
+        category: row.category,
+        count: row._count,
+      })),
+    };
+  }
+
+  async getTicketHistory(months: number = 6) {
+    const now = new Date();
+    const data: Array<{ month: string; count: number }> = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
+      const count = await this.prisma.supportTicket.count({
+        where: { createdAt: { gte: monthStart, lte: monthEnd } },
+      });
+
+      const monthLabel = monthStart.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+
+      data.push({ month: monthLabel, count });
+    }
+
+    return data;
+  }
+
   async getTicketResponses(ticketId: string) {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },

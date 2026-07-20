@@ -57,7 +57,11 @@ export class BlueprintManifestService {
     return Array.from(
       new Set(
         input
-          .map((entry) => String(entry || '').trim().toLowerCase())
+          .map((entry) =>
+            String(entry || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((entry) => entry.length > 0),
       ),
     );
@@ -82,7 +86,11 @@ export class BlueprintManifestService {
     return Array.from(
       new Set(
         input
-          .map((entry) => String(entry || '').trim().toLowerCase())
+          .map((entry) =>
+            String(entry || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((entry) => entry.length > 0),
       ),
     );
@@ -109,14 +117,24 @@ export class BlueprintManifestService {
     const navigationCatalog = getBlueprintNavigationCatalogV1();
     const navigationByKey = new Map(
       [...navigationCatalog, ...baseNavigation].map((item) => [
-        String(item.key || '').trim().toLowerCase(),
+        String(item.key || '')
+          .trim()
+          .toLowerCase(),
         item,
       ]),
     );
     const mergedNavigation = Array.isArray(navigationKeysOverride)
       ? navigationKeysOverride
-          .map((key) => navigationByKey.get(String(key || '').trim().toLowerCase()))
-          .filter((item): item is BlueprintManifestV1['navigation'][number] => Boolean(item))
+          .map((key) =>
+            navigationByKey.get(
+              String(key || '')
+                .trim()
+                .toLowerCase(),
+            ),
+          )
+          .filter((item): item is BlueprintManifestV1['navigation'][number] =>
+            Boolean(item),
+          )
       : baseNavigation;
 
     return {
@@ -124,7 +142,8 @@ export class BlueprintManifestService {
       businessType:
         configuredBusinessType === 'restaurant' ||
         configuredBusinessType === 'spa_barber' ||
-        configuredBusinessType === 'fashion'
+        configuredBusinessType === 'fashion' ||
+        configuredBusinessType === 'hardware'
           ? configuredBusinessType
           : baseManifest.businessType,
       enabledModules:
@@ -140,7 +159,9 @@ export class BlueprintManifestService {
     };
   }
 
-  async resolveEffectiveManifest(tenantId: string): Promise<EffectiveManifestPayload> {
+  async resolveEffectiveManifest(
+    tenantId: string,
+  ): Promise<EffectiveManifestPayload> {
     const [
       configuredBlueprintKey,
       configuredBlueprintVersion,
@@ -183,7 +204,9 @@ export class BlueprintManifestService {
     const normalizedBlueprintKey = String(configuredBlueprintKey || '')
       .trim()
       .toLowerCase();
-    const normalizedBlueprintVersion = String(configuredBlueprintVersion || 'v1')
+    const normalizedBlueprintVersion = String(
+      configuredBlueprintVersion || 'v1',
+    )
       .trim()
       .toLowerCase();
     const normalizedBusinessType = String(configuredBusinessType || '')

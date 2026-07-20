@@ -32,6 +32,7 @@ type JwtRequestUser = {
   roles?: string[];
   permissions?: string[];
   isSuperadmin?: boolean;
+  adminRoles?: string[];
   impersonating?: boolean;
   impersonatingTenantName?: string | null;
   sessionId?: string;
@@ -115,7 +116,24 @@ export class AuthController {
         body.deviceName,
       );
 
-      if (!result || !result.access_token) {
+      if (!result) {
+        this.logger.error('Login failed: No result returned');
+        throw new InternalServerErrorException('Authentication failed');
+      }
+
+      if ('mfaEnrollmentRequired' in result && result.mfaEnrollmentRequired) {
+        this.cookieService.setMfaEnrollToken(res, result.enrollToken);
+        this.logger.log(`MFA enrollment required for: ${emailLower}`);
+        return { mfaEnrollmentRequired: true, enrollToken: result.enrollToken };
+      }
+
+      if ('mfaRequired' in result && result.mfaRequired) {
+        this.cookieService.setMfaPendingToken(res, result.pendingToken);
+        this.logger.log(`MFA code required for: ${emailLower}`);
+        return { mfaRequired: true, pendingToken: result.pendingToken };
+      }
+
+      if (!result.access_token) {
         this.logger.error('Login failed: No access token in response');
         throw new InternalServerErrorException('Authentication failed');
       }
@@ -209,6 +227,7 @@ export class AuthController {
       roles: user.roles || [],
       permissions: user.permissions || [],
       isSuperadmin: user.isSuperadmin ?? false,
+      adminRoles: user.adminRoles ?? [],
       impersonating: user.impersonating ?? false,
       impersonatingAsTenantName: user.impersonatingTenantName ?? null,
     };
