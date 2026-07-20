@@ -1,0 +1,38 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      # Unit tests are intentionally not run here yet: 3 spec files fail to
+      # load on master because Jest's default transformIgnorePatterns skips
+      # node_modules, and jsdom's dependency chain (html-encoding-sniffer,
+      # @exodus/bytes, @csstools/*) ships ESM. Fix that config gap, then add
+      # a `npm test -- --ci` step here and include it in the deploy gate below.

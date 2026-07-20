@@ -1,7 +1,9 @@
 name: Auto Deploy Backend
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Backend CI"]
+    types: [completed]
     branches:
       - master
   workflow_dispatch:
@@ -17,6 +19,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -38,7 +41,7 @@ jobs:
           script: |
             set -e
             APP_DIR="${{ env.PROD_APP_DIR }}"
-            BRANCH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref_name }}"
+            BRANCH="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.event.workflow_run.head_branch }}"
 
             if [ -z "$APP_DIR" ]; then
               echo "PROD_APP_DIR is not set"
