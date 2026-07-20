@@ -339,7 +339,7 @@ export class AuthService {
 
     try {
       // Send email with reset link
-      await this.emailService.sendResetPasswordEmail(email, resetToken);
+      this.emailService.sendResetPasswordEmail(email, resetToken);
       this.logger.log(`Password reset email sent successfully to ${email}`);
     } catch (error) {
       this.logger.error(
@@ -392,7 +392,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Session user not found');
     }
-    const userWithAuthMeta = user as typeof user & UserWithAuthMeta;
+    const userWithAuthMeta = user;
     const userRolesList = userWithAuthMeta.userRoles ?? [];
     const roles = userRolesList
       .map((ur: UserRoleWithRoleName) => ur.role?.name)

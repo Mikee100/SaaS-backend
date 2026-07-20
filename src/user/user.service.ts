@@ -403,12 +403,7 @@ export class UserService {
     actorUserId?: string,
     ip?: string,
   ): Promise<{ count: number }> {
-    const {
-      role: requestedRole,
-      branchId,
-      auditNote,
-      name,
-    } = data;
+    const { role: requestedRole, branchId, auditNote, name } = data;
 
     const targetUser = await this.prisma.user.findFirst({
       where: {
@@ -564,7 +559,7 @@ export class UserService {
       const raw = current?.preferences;
       const currentPrefs: Record<string, unknown> =
         raw != null && typeof raw === 'object' && !Array.isArray(raw)
-          ? (raw as Record<string, unknown>)
+          ? raw
           : {};
       let merged: Record<string, unknown> = { ...currentPrefs };
       if (data.themePreferences !== undefined)
@@ -616,7 +611,7 @@ export class UserService {
       rawPrefs != null &&
       typeof rawPrefs === 'object' &&
       !Array.isArray(rawPrefs)
-        ? (rawPrefs as Record<string, unknown>)
+        ? rawPrefs
         : {};
 
     const pinHash = await bcrypt.hash(trimmedPin, 10);
@@ -845,7 +840,7 @@ export class UserService {
       </div>
     `;
     try {
-      await this.emailService.sendPaymentConfirmationEmail(
+      this.emailService.sendPaymentConfirmationEmail(
         adminEmail,
         emailSubject,
         html,

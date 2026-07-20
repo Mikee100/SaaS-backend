@@ -403,7 +403,7 @@ export class MonitoringService {
     `;
 
     try {
-      await this.emailService.sendPaymentConfirmationEmail(
+      this.emailService.sendPaymentConfirmationEmail(
         process.env.ADMIN_EMAIL || 'admin@saasplatform.com',
         `🚨 Alert: ${alert.name}`,
         html,
