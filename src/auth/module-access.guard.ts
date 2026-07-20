@@ -48,9 +48,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     return user.roles
       .map((entry) =>
-        typeof entry === 'string'
-          ? entry
-          : String(entry?.name || ''),
+        typeof entry === 'string' ? entry : String(entry?.name || ''),
       )
       .map((entry) => entry.trim().toLowerCase())
       .filter((entry) => entry.length > 0);
@@ -98,7 +96,9 @@ export class ModuleAccessGuard implements CanActivate {
   private inferRequiredModulesFromPath(path: string): AppModuleKey[] {
     const normalizedPath = String(path || '').toLowerCase();
 
-    if (normalizedPath.startsWith('/tenant/configurations/manifest/effective')) {
+    if (
+      normalizedPath.startsWith('/tenant/configurations/manifest/effective')
+    ) {
       return [];
     }
 
@@ -327,8 +327,7 @@ export class ModuleAccessGuard implements CanActivate {
     if (requiredCapabilities && requiredCapabilities.length > 0) {
       const userPermissions = await this.resolveUserPermissions(user);
       const missingCapabilities = requiredCapabilities.filter(
-        (capability) =>
-          !this.hasPermissionOrAlias(userPermissions, capability),
+        (capability) => !this.hasPermissionOrAlias(userPermissions, capability),
       );
 
       if (missingCapabilities.length > 0) {

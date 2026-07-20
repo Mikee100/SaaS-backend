@@ -75,10 +75,7 @@ export class UserController {
     const tenantId = user?.tenantId ? String(user.tenantId) : null;
     // Get effective permissions and full user record for preferences
     const [permissions, dbUser] = await Promise.all([
-      this.userService.getEffectivePermissions(
-        actorUserId,
-        tenantId,
-      ),
+      this.userService.getEffectivePermissions(actorUserId, tenantId),
       this.userService.findById(actorUserId, {
         include: undefined,
       }),
@@ -268,8 +265,8 @@ export class UserController {
               : undefined;
           const hasPosPin = Boolean(
             rawPreferences &&
-              typeof rawPreferences.posPinHash === 'string' &&
-              rawPreferences.posPinHash.length > 0,
+            typeof rawPreferences.posPinHash === 'string' &&
+            rawPreferences.posPinHash.length > 0,
           );
           if (rawPreferences && 'posPinHash' in rawPreferences) {
             delete rawPreferences.posPinHash;
@@ -289,14 +286,14 @@ export class UserController {
     if (isSuperadmin) {
       // Return all users for superadmin
       const users = await this.userService.findAll();
-      return await normalizePermissions(users as UserListItemLike[]);
+      return await normalizePermissions(users);
     }
     if (!tenantId) {
       throw new ForbiddenException('Tenant context is required');
     }
     // Return users for tenant
     const users = await this.userService.findAllByTenant(tenantId);
-    return await normalizePermissions(users as UserListItemLike[]);
+    return await normalizePermissions(users);
   }
 
   @Get('protected')

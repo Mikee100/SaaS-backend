@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { SuperadminGuard } from './superadmin.guard';
+import { AdminRoleGuard } from './admin-role.guard';
 import { ConfigurationController } from './configuration.controller';
 import { SubscriptionAdminController } from './subscription-admin.controller';
 import { SubscriptionAdminService } from './subscription-admin.service';
@@ -51,6 +52,7 @@ import { EmailModule } from '../email/email.module';
   providers: [
     AdminService,
     SuperadminGuard,
+    AdminRoleGuard,
     SubscriptionAdminService,
     SupportService,
     BulkService,

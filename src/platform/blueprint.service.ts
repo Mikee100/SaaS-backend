@@ -43,7 +43,9 @@ export class BlueprintService {
   }
 
   private normalizeVertical(value: string | null): VerticalKey {
-    const normalized = String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
     if (normalized === VERTICAL.RESTAURANT) {
       return VERTICAL.RESTAURANT;
     }
@@ -54,10 +56,11 @@ export class BlueprintService {
   }
 
   async resolveBlueprintForTenant(tenantId: string): Promise<BlueprintSchema> {
-    const businessType = await this.tenantConfigurationService.getTenantConfiguration(
-      tenantId,
-      BUSINESS_TYPE_CONFIG_KEY,
-    );
+    const businessType =
+      await this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+      );
     const vertical = this.normalizeVertical(businessType);
     const key = this.inferBlueprintKeyFromVertical(vertical);
     const blueprint = this.blueprints.get(key);

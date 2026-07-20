@@ -215,7 +215,8 @@ export class AdminController {
     if (
       normalized === 'fashion' ||
       normalized === 'restaurant' ||
-      normalized === 'spa_barber'
+      normalized === 'spa_barber' ||
+      normalized === 'hardware'
     ) {
       return normalized;
     }
@@ -341,15 +342,17 @@ export class AdminController {
     return Array.from(
       new Set(
         input
-          .map((entry) => String(entry || '').trim().toLowerCase())
+          .map((entry) =>
+            String(entry || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((entry) => entry.length > 0),
       ),
     );
   }
 
-  private normalizeFeatureFlags(
-    input: unknown,
-  ): Record<string, boolean> {
+  private normalizeFeatureFlags(input: unknown): Record<string, boolean> {
     if (!input || typeof input !== 'object') {
       return {};
     }
@@ -371,14 +374,22 @@ export class AdminController {
 
     const allowed = new Set(
       availableNavigationKeys
-        .map((entry) => String(entry || '').trim().toLowerCase())
+        .map((entry) =>
+          String(entry || '')
+            .trim()
+            .toLowerCase(),
+        )
         .filter((entry) => entry.length > 0),
     );
 
     return Array.from(
       new Set(
         input
-          .map((entry) => String(entry || '').trim().toLowerCase())
+          .map((entry) =>
+            String(entry || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((entry) => entry.length > 0 && allowed.has(entry)),
       ),
     );
@@ -392,7 +403,11 @@ export class AdminController {
     return Array.from(
       new Set(
         input
-          .map((entry) => String(entry || '').trim().toLowerCase())
+          .map((entry) =>
+            String(entry || '')
+              .trim()
+              .toLowerCase(),
+          )
           .filter((entry) => entry.length > 0),
       ),
     );
@@ -551,6 +566,19 @@ export class AdminController {
     return this.adminService.getTenantGrowth(monthsNum);
   }
 
+  @Get('stats/revenue-by-plan')
+  async getRevenueByPlan() {
+    this.logger.log('AdminController: getRevenueByPlan called');
+    return this.adminService.getRevenueByPlan();
+  }
+
+  @Get('stats/churn-history')
+  async getChurnHistory(@Query('months') months?: string) {
+    this.logger.log('AdminController: getChurnHistory called');
+    const monthsNum = months ? Number(months) : 12;
+    return this.adminService.getChurnHistory(monthsNum);
+  }
+
   @Get('billing/metrics')
   async getBillingMetrics() {
     this.logger.log('AdminController: getBillingMetrics called');
@@ -608,10 +636,7 @@ export class AdminController {
     this.logger.log(
       `AdminController: updateTenant called with tenantId: ${tenantId}`,
     );
-    return this.adminService.updateTenantBusiness(
-      tenantId,
-      body as UpdateTenantBusinessDto,
-    );
+    return this.adminService.updateTenantBusiness(tenantId, body);
   }
 
   @Get('tenants/:id/products')
@@ -665,7 +690,7 @@ export class AdminController {
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.classificationService.updateClassification(id, body as any);
+    return this.classificationService.updateClassification(id, body);
   }
 
   @Delete('classifications/:id')
@@ -691,7 +716,7 @@ export class AdminController {
     @Param('unitId') unitId: string,
     @Body() body: Record<string, unknown>,
   ) {
-    return this.classificationService.updateUnit(unitId, body as any);
+    return this.classificationService.updateUnit(unitId, body);
   }
 
   @Delete('classifications/units/:unitId')
@@ -799,7 +824,9 @@ export class AdminController {
 
     let modulesParsed: unknown;
     try {
-      modulesParsed = configuredModules ? JSON.parse(configuredModules) : undefined;
+      modulesParsed = configuredModules
+        ? JSON.parse(configuredModules)
+        : undefined;
     } catch {
       modulesParsed = undefined;
     }
@@ -836,14 +863,17 @@ export class AdminController {
       configuredNavigationKeysSet: configuredNavigationKeys !== null,
       configured: {
         businessType: this.normalizeBusinessType(configuredBusinessType),
-        blueprintKey: String(configuredBlueprintKey || '').trim().toLowerCase(),
+        blueprintKey: String(configuredBlueprintKey || '')
+          .trim()
+          .toLowerCase(),
         blueprintVersion: String(configuredBlueprintVersion || 'v1')
           .trim()
           .toLowerCase(),
         installedApps: this.normalizeInstalledApps(installedAppsParsed),
         featureFlags: this.normalizeFeatureFlags(featureFlagsParsed),
         enabledModules: normalizeEnabledModules(modulesParsed),
-        navigationKeys: this.parseConfiguredNavigationKeys(navigationKeysParsed),
+        navigationKeys:
+          this.parseConfiguredNavigationKeys(navigationKeysParsed),
       },
       effective,
     };
@@ -872,7 +902,8 @@ export class AdminController {
     return {
       tenantId,
       key: UNIFIED_PRODUCTS_DISPLAY_CONFIG_KEY,
-      businessType: this.normalizeBusinessType(configuredBusinessType) || 'fashion',
+      businessType:
+        this.normalizeBusinessType(configuredBusinessType) || 'fashion',
       config: this.normalizeUnifiedProductsDisplayConfig(parsed),
     };
   }
@@ -997,15 +1028,14 @@ export class AdminController {
       (acc, report) => {
         const confidence = report.recommendation.confidence;
         const band =
-          confidence >= 0.8
-            ? 'high'
-            : confidence >= 0.5
-              ? 'medium'
-              : 'low';
+          confidence >= 0.8 ? 'high' : confidence >= 0.5 ? 'medium' : 'low';
         acc[band] = (acc[band] || 0) + 1;
         return acc;
       },
-      { high: 0, medium: 0, low: 0 } as Record<'high' | 'medium' | 'low', number>,
+      { high: 0, medium: 0, low: 0 } as Record<
+        'high' | 'medium' | 'low',
+        number
+      >,
     );
 
     const withBlueprintChange = reports.filter(
@@ -1060,7 +1090,11 @@ export class AdminController {
       body?.enabledModules || blueprint.enabledModules,
     );
     const defaultNavigationKeys = getBlueprintNavigationCatalogV1()
-      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .map((item) =>
+        String(item?.key || '')
+          .trim()
+          .toLowerCase(),
+      )
       .filter((item) => item.length > 0);
     const normalizedNavigationKeys = this.normalizeNavigationKeys(
       body?.navigationKeys,
@@ -1095,7 +1129,7 @@ export class AdminController {
           enabledModules: normalizedModules,
           navigationKeys: normalizedNavigationKeys,
         },
-      } as unknown as Prisma.InputJsonValue,
+      },
       this.getRequestIp(req),
     );
 
@@ -1144,7 +1178,11 @@ export class AdminController {
     );
     const navigationCatalog = getBlueprintNavigationCatalogV1();
     const defaultNavigationKeys = navigationCatalog
-      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .map((item) =>
+        String(item?.key || '')
+          .trim()
+          .toLowerCase(),
+      )
       .filter((item) => item.length > 0);
     const normalizedNavigationKeys = this.normalizeNavigationKeys(
       body?.navigationKeys,
@@ -1152,7 +1190,9 @@ export class AdminController {
     );
     const navigationByKey = new Map(
       navigationCatalog.map((item) => [
-        String(item?.key || '').trim().toLowerCase(),
+        String(item?.key || '')
+          .trim()
+          .toLowerCase(),
         item,
       ]),
     );
@@ -1260,7 +1300,9 @@ export class AdminController {
       );
     }
 
-    const rollbackBlueprint = getBlueprintManifestV1(rollbackSnapshot.blueprintKey);
+    const rollbackBlueprint = getBlueprintManifestV1(
+      rollbackSnapshot.blueprintKey,
+    );
     if (!rollbackBlueprint) {
       throw new BadRequestException(
         'Rollback target blueprint is no longer available',
@@ -1274,7 +1316,9 @@ export class AdminController {
       .trim()
       .toLowerCase();
     const normalizedBlueprintVersion = String(
-      rollbackSnapshot.blueprintVersion || rollbackBlueprint.blueprintVersion || 'v1',
+      rollbackSnapshot.blueprintVersion ||
+        rollbackBlueprint.blueprintVersion ||
+        'v1',
     )
       .trim()
       .toLowerCase();
@@ -1288,7 +1332,11 @@ export class AdminController {
       rollbackSnapshot.enabledModules || rollbackBlueprint.enabledModules,
     );
     const defaultNavigationKeys = getBlueprintNavigationCatalogV1()
-      .map((item) => String(item?.key || '').trim().toLowerCase())
+      .map((item) =>
+        String(item?.key || '')
+          .trim()
+          .toLowerCase(),
+      )
       .filter((item) => item.length > 0);
     const normalizedNavigationKeys = this.normalizeNavigationKeys(
       rollbackSnapshot.navigationKeys,
@@ -1322,7 +1370,7 @@ export class AdminController {
           enabledModules: normalizedModules,
           navigationKeys: normalizedNavigationKeys,
         },
-      } as unknown as Prisma.InputJsonValue,
+      },
       this.getRequestIp(req),
     );
 
@@ -1933,6 +1981,29 @@ export class AdminController {
       `AdminController: updateUserRole called for userId: ${userId}, roleId: ${body.roleId}`,
     );
     return this.adminService.updateUserRole(userId, body.roleId, body.tenantId);
+  }
+
+  @Put('users/:id/admin-roles')
+  async updateAdminRoles(
+    @Param('id') userId: string,
+    @Body() body: { adminRoles: string[] },
+    @Req() req: ExpressRequest,
+  ) {
+    this.logger.log(
+      `AdminController: updateAdminRoles called for userId: ${userId}, adminRoles: ${JSON.stringify(body.adminRoles)}`,
+    );
+    const updated = await this.adminService.updateAdminRoles(
+      userId,
+      body.adminRoles,
+    );
+    const actorUserId = this.getActorUserId(req);
+    await this.auditLogService.log(
+      actorUserId,
+      'admin_roles_updated',
+      { targetUserId: userId, adminRoles: updated.adminRoles },
+      this.getRequestIp(req),
+    );
+    return updated;
   }
 
   @Post('users/:id/logout-all')

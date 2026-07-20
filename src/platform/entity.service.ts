@@ -47,8 +47,11 @@ export class EntityService {
     tenantId: string,
     rawEntityType: string,
   ): Promise<EntityTypeKey> {
-    const entityType = String(rawEntityType || '').trim().toUpperCase() as EntityTypeKey;
-    const blueprint = await this.blueprintService.resolveBlueprintForTenant(tenantId);
+    const entityType = String(rawEntityType || '')
+      .trim()
+      .toUpperCase() as EntityTypeKey;
+    const blueprint =
+      await this.blueprintService.resolveBlueprintForTenant(tenantId);
     const allowed = blueprint.entityContracts.some(
       (entry) => entry.entityType === entityType,
     );
@@ -74,13 +77,16 @@ export class EntityService {
   async create(dto: CreateEntityDto, user?: AuthenticatedUser) {
     const tenantId = this.getTenantIdFromUser(user);
     const entityType = await this.validateEntityType(tenantId, dto.entityType);
-    const blueprint = await this.blueprintService.resolveBlueprintForTenant(tenantId);
+    const blueprint =
+      await this.blueprintService.resolveBlueprintForTenant(tenantId);
     const contract = blueprint.entityContracts.find(
       (entry) => entry.entityType === entityType,
     );
 
     if (!contract) {
-      throw new BadRequestException('Entity contract not found for selected type');
+      throw new BadRequestException(
+        'Entity contract not found for selected type',
+      );
     }
 
     this.ensureRequiredFields(dto, contract.requiredFields);
@@ -150,8 +156,13 @@ export class EntityService {
 
   async getWorkflow(entityType: string, user?: AuthenticatedUser) {
     const tenantId = this.getTenantIdFromUser(user);
-    const normalized = String(entityType || '').trim().toUpperCase() as EntityTypeKey;
-    const workflow = await this.blueprintService.getWorkflowSteps(tenantId, normalized);
+    const normalized = String(entityType || '')
+      .trim()
+      .toUpperCase() as EntityTypeKey;
+    const workflow = await this.blueprintService.getWorkflowSteps(
+      tenantId,
+      normalized,
+    );
     return {
       tenantId,
       entityType: normalized,
@@ -160,11 +171,19 @@ export class EntityService {
   }
 
   async executeSale(
-    payload: { entityType: string; quantity: number; basePrice: number; branchId?: string },
+    payload: {
+      entityType: string;
+      quantity: number;
+      basePrice: number;
+      branchId?: string;
+    },
     user?: AuthenticatedUser,
   ) {
     const tenantId = this.getTenantIdFromUser(user);
-    const entityType = await this.validateEntityType(tenantId, payload.entityType);
+    const entityType = await this.validateEntityType(
+      tenantId,
+      payload.entityType,
+    );
 
     return this.salesEngine.execute({
       tenantId,

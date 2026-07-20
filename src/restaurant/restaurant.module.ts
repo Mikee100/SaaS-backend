@@ -5,9 +5,10 @@ import { DiningTableService } from './services/dining-table/dining-table.service
 import { RestaurantOrderService } from './services/restaurant-order/restaurant-order.service';
 import { RestaurantBomService } from './services/restaurant-bom/restaurant-bom.service';
 import { SalesModule } from '../sales/sales.module';
+import { RealtimeModule } from '../realtime.module';
 
 @Module({
-  imports: [SalesModule],
+  imports: [SalesModule, RealtimeModule],
   controllers: [RestaurantController],
   providers: [
     RestaurantService,

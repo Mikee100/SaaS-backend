@@ -14,7 +14,12 @@ import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma.service';
 import { SessionService } from './session.service';
 import { DeviceService } from './device.service';
-import { REFRESH_TOKEN_TTL_SEC, ACCESS_TOKEN_TTL_SEC } from './constants';
+import {
+  REFRESH_TOKEN_TTL_SEC,
+  ACCESS_TOKEN_TTL_SEC,
+  MFA_ENROLL_TOKEN_TTL_SEC,
+  MFA_PENDING_TOKEN_TTL_SEC,
+} from './constants';
 
 type UserRoleWithRoleName = {
   tenantId?: string | null;
@@ -26,6 +31,8 @@ type UserRoleWithRoleName = {
 type UserWithAuthMeta = {
   isDisabled?: boolean | null;
   isSuperadmin?: boolean | null;
+  adminRoles?: string[] | null;
+  twoFactorEnabled?: boolean | null;
   userRoles?: UserRoleWithRoleName[] | null;
 };
 
@@ -143,6 +150,121 @@ export class AuthService {
         throw new UnauthorizedException('Account disabled. Contact admin.');
       }
 
+      // 2.6. Platform staff (superadmin or any adminRoles grant) must complete
+      // TOTP MFA before a session is issued. Regular tenant users are unaffected.
+      const isPlatformStaff =
+        userWithAuthMeta.isSuperadmin === true ||
+        (userWithAuthMeta.adminRoles?.length ?? 0) > 0;
+      if (isPlatformStaff) {
+        return this.beginMfaChallenge(
+          user.id,
+          userWithAuthMeta.twoFactorEnabled === true,
+        );
+      }
+
+      return this.completeSession(
+        user,
+        userWithAuthMeta,
+        ip,
+        userAgent,
+        deviceFingerprint,
+        deviceName,
+      );
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  private beginMfaChallenge(userId: string, twoFactorEnabled: boolean) {
+    const signOpts = (expiresIn: number) => ({
+      secret: process.env.JWT_SECRET || 'waweru',
+      issuer: 'saas-platform',
+      audience: 'saas-platform-client',
+      expiresIn,
+    });
+
+    if (!twoFactorEnabled) {
+      const enrollToken = this.jwtService.sign(
+        { sub: userId, type: 'mfa_enroll' },
+        signOpts(MFA_ENROLL_TOKEN_TTL_SEC),
+      );
+      return { mfaEnrollmentRequired: true as const, enrollToken };
+    }
+
+    const pendingToken = this.jwtService.sign(
+      { sub: userId, type: 'mfa_pending' },
+      signOpts(MFA_PENDING_TOKEN_TTL_SEC),
+    );
+    return { mfaRequired: true as const, pendingToken };
+  }
+
+  /** Completes the login started in login() after a platform-staff user has verified their MFA code. */
+  async completeLoginAfterMfa(
+    userId: string,
+    ip?: string,
+    userAgent?: string,
+    deviceFingerprint?: string,
+    deviceName?: string,
+  ) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          userRoles: {
+            include: {
+              role: {
+                include: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+              tenant: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid session user');
+      }
+
+      const userWithAuthMeta = user;
+      if (userWithAuthMeta.isDisabled) {
+        throw new UnauthorizedException('Account disabled. Contact admin.');
+      }
+
+      return this.completeSession(
+        user,
+        userWithAuthMeta,
+        ip,
+        userAgent,
+        deviceFingerprint,
+        deviceName,
+      );
+    } catch (error) {
+      console.error('Post-MFA login error:', error);
+      throw error;
+    }
+  }
+
+  private async completeSession(
+    user: {
+      id: string;
+      email: string;
+      name: string | null;
+      branchId: string | null;
+    },
+    userWithAuthMeta: UserWithAuthMeta,
+    ip?: string,
+    userAgent?: string,
+    deviceFingerprint?: string,
+    deviceName?: string,
+  ) {
+    {
       // 3. Get user's roles and tenant from user.userRoles
       const userRoles = userWithAuthMeta.userRoles ?? [];
       let tenantId: string | null = null;
@@ -235,6 +357,7 @@ export class AuthService {
         roles: roles,
         permissions: userPermissions,
         isSuperadmin: userWithAuthMeta.isSuperadmin ?? false,
+        adminRoles: userWithAuthMeta.adminRoles ?? [],
         sessionId: session.id,
       };
 
@@ -303,6 +426,7 @@ export class AuthService {
         roles: payload.roles,
         permissions: payload.permissions,
         isSuperadmin: payload.isSuperadmin,
+        adminRoles: payload.adminRoles,
       };
 
       // 12. Return tokens (for cookies) and user; access_token in body for legacy clients
@@ -311,9 +435,6 @@ export class AuthService {
         refresh_token: refreshTokenRaw,
         user: userResponse,
       };
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
     }
   }
 
@@ -339,7 +460,7 @@ export class AuthService {
 
     try {
       // Send email with reset link
-      await this.emailService.sendResetPasswordEmail(email, resetToken);
+      this.emailService.sendResetPasswordEmail(email, resetToken);
       this.logger.log(`Password reset email sent successfully to ${email}`);
     } catch (error) {
       this.logger.error(
@@ -392,7 +513,7 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Session user not found');
     }
-    const userWithAuthMeta = user as typeof user & UserWithAuthMeta;
+    const userWithAuthMeta = user;
     const userRolesList = userWithAuthMeta.userRoles ?? [];
     const roles = userRolesList
       .map((ur: UserRoleWithRoleName) => ur.role?.name)

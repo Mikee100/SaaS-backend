@@ -18,6 +18,11 @@ import { restoreProduct } from '../prisma/soft-delete-restore';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
+import {
+  ProductMode,
+  isProductMode,
+  getInventoryPolicyForMode,
+} from './product-mode.types';
 
 type ProductCategoryItem = {
   id: string;
@@ -30,6 +35,18 @@ type ProductWithCustomFields = {
   customFields?: unknown;
 };
 
+type CreateProductBomLineInput = {
+  ingredientProductId: string;
+  quantity: number;
+  unit?: string;
+  wastePercent?: number;
+};
+
+type CreateProductVariationAttributeInput = {
+  attributeName: string;
+  values: string[];
+};
+
 type CreateProductInput = Record<string, unknown> & {
   tenantId: string;
   branchId: string;
@@ -37,6 +54,13 @@ type CreateProductInput = Record<string, unknown> & {
   customFields?: unknown;
   customFieldValues?: unknown;
   supplierId?: unknown;
+  // Product mode inputs (see product-mode.types.ts). All optional so
+  // existing callers that omit `mode` keep today's exact behavior.
+  mode?: unknown;
+  variationAttributes?: unknown;
+  bomLines?: unknown;
+  yieldQty?: unknown;
+  yieldUnit?: unknown;
 };
 
 type UpdateProductInput = Record<string, unknown> & {
@@ -593,6 +617,111 @@ export class ProductService {
     return result;
   }
 
+  // Parses and validates the optional mode-driven fields (mode,
+  // variationAttributes, bomLines, yieldQty/yieldUnit) off an otherwise
+  // loosely-typed create payload. Returns defaults when `mode` is omitted
+  // so existing callers are unaffected.
+  private validateProductModeInputs(data: CreateProductInput): {
+    mode?: ProductMode;
+    variationAttributes: CreateProductVariationAttributeInput[];
+    bomLines: CreateProductBomLineInput[];
+    yieldQty: number;
+    yieldUnit: string;
+  } {
+    let mode: ProductMode | undefined;
+    if (data.mode !== undefined && data.mode !== null && data.mode !== '') {
+      if (!isProductMode(data.mode)) {
+        throw new BadRequestException(
+          `Invalid product mode "${String(data.mode)}"`,
+        );
+      }
+      mode = data.mode;
+    }
+
+    const variationAttributes: CreateProductVariationAttributeInput[] = [];
+    if (Array.isArray(data.variationAttributes)) {
+      for (const entry of data.variationAttributes as unknown[]) {
+        const item = entry as Record<string, unknown>;
+        const attributeName =
+          typeof item?.attributeName === 'string'
+            ? item.attributeName.trim()
+            : '';
+        if (
+          !attributeName ||
+          !Array.isArray(item?.values) ||
+          item.values.length === 0
+        ) {
+          throw new BadRequestException(
+            'Each variationAttributes entry requires attributeName and a non-empty values array',
+          );
+        }
+        variationAttributes.push({
+          attributeName,
+          values: (item.values as unknown[]).map((v) => String(v)),
+        });
+      }
+    }
+
+    const bomLines: CreateProductBomLineInput[] = [];
+    if (Array.isArray(data.bomLines)) {
+      for (const entry of data.bomLines as unknown[]) {
+        const item = entry as Record<string, unknown>;
+        const ingredientProductId =
+          typeof item?.ingredientProductId === 'string'
+            ? item.ingredientProductId.trim()
+            : '';
+        const quantity = Number(item?.quantity);
+        if (!ingredientProductId || !(quantity > 0)) {
+          throw new BadRequestException(
+            'Each bomLines entry requires ingredientProductId and a quantity greater than zero',
+          );
+        }
+        bomLines.push({
+          ingredientProductId,
+          quantity,
+          unit:
+            typeof item?.unit === 'string' && item.unit.trim()
+              ? item.unit.trim()
+              : 'unit',
+          wastePercent: Math.max(0, Number(item?.wastePercent || 0)),
+        });
+      }
+    }
+
+    const uniqueIngredientIds = new Set(
+      bomLines.map((line) => line.ingredientProductId),
+    );
+    if (uniqueIngredientIds.size !== bomLines.length) {
+      throw new BadRequestException(
+        'Duplicate ingredient lines are not allowed',
+      );
+    }
+
+    const yieldQty =
+      data.yieldQty !== undefined ? this.toNumberValue(data.yieldQty, 1) : 1;
+    if (!(yieldQty > 0)) {
+      throw new BadRequestException('Yield quantity must be greater than zero');
+    }
+    const yieldUnit =
+      typeof data.yieldUnit === 'string' && data.yieldUnit.trim()
+        ? data.yieldUnit.trim()
+        : 'portion';
+
+    if (mode === 'unit_priced' && !data.unitId) {
+      throw new BadRequestException(
+        'unitId is required when mode is "unit_priced"',
+      );
+    }
+
+    if (mode === 'recipe' && bomLines.length === 0) {
+      throw new BadRequestException(
+        'At least one bomLines entry is required when mode is "recipe"',
+      );
+    }
+
+    return { mode, variationAttributes, bomLines, yieldQty, yieldUnit };
+  }
+
   async createProduct(
     data: CreateProductInput,
     actorUserId?: string,
@@ -601,6 +730,8 @@ export class ProductService {
     if (!data.tenantId || !data.branchId) {
       throw new BadRequestException('tenantId and branchId are required');
     }
+
+    const modeInputs = this.validateProductModeInputs(data);
 
     // Skip plan limits check when no subscription exists yet (e.g. during
     // initial tenant setup), mirroring branch/user/sale creation enforcement.
@@ -684,6 +815,11 @@ export class ProductService {
     delete productData.hasVariations;
     delete productData.categoryId; // Remove categoryId as we handle it through the relation
     delete productData.customFieldValues; // Remove customFieldValues as we handle it through customFields
+    delete productData.mode;
+    delete productData.variationAttributes;
+    delete productData.bomLines;
+    delete productData.yieldQty;
+    delete productData.yieldUnit;
 
     // Remove branchId and tenantId from productData, as they should be set via relation connect
     delete productData.branchId;
@@ -719,6 +855,26 @@ export class ProductService {
       );
     }
 
+    // Validate BOM ingredient references before creating anything, so a
+    // bad ingredient id fails fast instead of leaving an orphan product.
+    if (modeInputs.bomLines.length > 0) {
+      const ingredientCount = await this.prisma.product.count({
+        where: {
+          id: {
+            in: modeInputs.bomLines.map((line) => line.ingredientProductId),
+          },
+          tenantId: data.tenantId,
+          deletedAt: null,
+          OR: [{ branchId: data.branchId }, { branchId: null }],
+        },
+      });
+      if (ingredientCount !== modeInputs.bomLines.length) {
+        throw new BadRequestException(
+          'One or more ingredient products were not found in this branch or tenant',
+        );
+      }
+    }
+
     // Build create data - use spread but ensure supplier is not included
     delete productData.supplier;
     const cleanProductData = productData;
@@ -740,11 +896,66 @@ export class ProductService {
     }
     // If supplierId is not provided, don't include it (Prisma will use null by default)
 
-    const product = await this.prisma.product.create({
+    // inventoryPolicy defaults to TRACKED on the Prisma model, so leaving
+    // this unset when `mode` is omitted reproduces today's exact behavior.
+    if (modeInputs.mode) {
+      createData.inventoryPolicy = getInventoryPolicyForMode(modeInputs.mode);
+    }
+    if (modeInputs.mode === 'service') {
+      createData.stock = 0; // services carry no physical stock
+    }
+
+    let product = await this.prisma.product.create({
       data: createData,
     });
 
     await this.ensureCategoryRegistered(data.tenantId, normalizedCategory);
+
+    let generatedVariations: unknown[] | undefined;
+    let bomRecipe: unknown;
+
+    if (
+      modeInputs.mode === 'variable' &&
+      modeInputs.variationAttributes.length > 0
+    ) {
+      await this.generateVariationsFromAttributes(
+        product.id,
+        data.tenantId,
+        modeInputs.variationAttributes,
+        undefined,
+        data.branchId,
+      );
+      product = await this.prisma.product.update({
+        where: { id: product.id },
+        data: { hasVariations: true },
+      });
+      generatedVariations = await this.prisma.productVariation.findMany({
+        where: { productId: product.id },
+      });
+    }
+
+    if (modeInputs.mode === 'recipe' && modeInputs.bomLines.length > 0) {
+      bomRecipe = await this.prisma.bomRecipe.create({
+        data: {
+          tenantId: data.tenantId,
+          branchId: data.branchId,
+          productId: product.id,
+          yieldQty: modeInputs.yieldQty,
+          yieldUnit: modeInputs.yieldUnit,
+          isActive: true,
+          createdBy: actorUserId,
+          lines: {
+            create: modeInputs.bomLines.map((line) => ({
+              ingredientProductId: line.ingredientProductId,
+              quantity: line.quantity,
+              unit: line.unit ?? 'unit',
+              wastePercent: line.wastePercent ?? 0,
+            })),
+          },
+        },
+        include: { lines: true },
+      });
+    }
 
     // Invalidate cache for this tenant
     this.cacheService.invalidateProductCache(data.tenantId);
@@ -785,7 +996,11 @@ export class ProductService {
       }
     }
 
-    return this.mapProductCategory(product);
+    return {
+      ...this.mapProductCategory(product),
+      ...(generatedVariations ? { variations: generatedVariations } : {}),
+      ...(bomRecipe ? { bomRecipe } : {}),
+    };
   }
 
   async updateProduct(

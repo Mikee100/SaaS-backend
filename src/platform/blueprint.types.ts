@@ -1,4 +1,8 @@
-import { CapabilityKey, EntityTypeKey, VerticalKey } from './blueprint-registry.constants';
+import {
+  CapabilityKey,
+  EntityTypeKey,
+  VerticalKey,
+} from './blueprint-registry.constants';
 
 export interface BlueprintWorkflowStep {
   key: string;

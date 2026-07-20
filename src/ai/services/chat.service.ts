@@ -109,7 +109,7 @@ export class ChatService {
       // Generate response using OpenAI with Tools enabled
       const response = await client.chat.completions.create({
         model: this.openaiConfig.getChatModel(),
-        messages: messages as ChatCompletionMessageParam[],
+        messages: messages,
         tools: AI_TOOLS,
         tool_choice: 'auto',
         temperature: 0.7,
@@ -142,7 +142,7 @@ export class ChatService {
         response: aiResponse,
         category,
         suggestions,
-        toolCalls: toolCalls ? (toolCalls as unknown[]) : undefined,
+        toolCalls: toolCalls ? toolCalls : undefined,
         metadata: {
           model: this.openaiConfig.getChatModel(),
           hasToolCalls: !!toolCalls,

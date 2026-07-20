@@ -95,7 +95,9 @@ export class SalesTargetService {
     };
   }
 
-  private parseBranchTargets(value: string | null | undefined): StoredBranchTarget[] {
+  private parseBranchTargets(
+    value: string | null | undefined,
+  ): StoredBranchTarget[] {
     if (!value) return [];
 
     try {
@@ -146,9 +148,12 @@ export class SalesTargetService {
     );
 
     const branchCount = branches.length;
-    const defaultDaily = branchCount > 0 ? Number(baseTargets.daily || 0) / branchCount : 0;
-    const defaultWeekly = branchCount > 0 ? Number(baseTargets.weekly || 0) / branchCount : 0;
-    const defaultMonthly = branchCount > 0 ? Number(baseTargets.monthly || 0) / branchCount : 0;
+    const defaultDaily =
+      branchCount > 0 ? Number(baseTargets.daily || 0) / branchCount : 0;
+    const defaultWeekly =
+      branchCount > 0 ? Number(baseTargets.weekly || 0) / branchCount : 0;
+    const defaultMonthly =
+      branchCount > 0 ? Number(baseTargets.monthly || 0) / branchCount : 0;
 
     return {
       branches: branches.map((branch) => {
@@ -158,7 +163,9 @@ export class SalesTargetService {
           branchName: branch.name,
           daily: configured ? Number(configured.daily || 0) : defaultDaily,
           weekly: configured ? Number(configured.weekly || 0) : defaultWeekly,
-          monthly: configured ? Number(configured.monthly || 0) : defaultMonthly,
+          monthly: configured
+            ? Number(configured.monthly || 0)
+            : defaultMonthly,
           isExplicit: Boolean(configured),
         };
       }),
@@ -172,13 +179,17 @@ export class SalesTargetService {
     this.ensureTenantId(tenantId);
 
     const targets = Array.isArray(payload?.targets) ? payload.targets : [];
-    const branchIds = [...new Set(targets.map((target) => target.branchId).filter(Boolean))];
+    const branchIds = [
+      ...new Set(targets.map((target) => target.branchId).filter(Boolean)),
+    ];
 
     const existingBranches = await this.prisma.branch.findMany({
       where: { tenantId, deletedAt: null, id: { in: branchIds } },
       select: { id: true },
     });
-    const existingBranchIdSet = new Set(existingBranches.map((branch) => branch.id));
+    const existingBranchIdSet = new Set(
+      existingBranches.map((branch) => branch.id),
+    );
 
     const sanitizedTargets = targets
       .filter((target) => existingBranchIdSet.has(target.branchId))

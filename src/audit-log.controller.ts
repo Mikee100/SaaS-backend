@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuditLogService } from './audit-log.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from './auth/permissions.decorator';

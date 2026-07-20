@@ -56,8 +56,10 @@ interface RawSaleResult {
 }
 
 // Define the type for the transformed sale
-export interface TransformedSale
-  extends Omit<RawSaleResult, 'branchId' | 'branchName' | 'branchAddress'> {
+export interface TransformedSale extends Omit<
+  RawSaleResult,
+  'branchId' | 'branchName' | 'branchAddress'
+> {
   cashier: string | null;
   mpesaTransaction: {
     phoneNumber: string;
@@ -457,7 +459,8 @@ export class SalesService {
       Math.min(dto.discountAmount ?? 0, subtotal),
     );
     const managerOverrideMetadata =
-      dto.managerOverride?.approvedByUserId && dto.managerOverride.approvalReason
+      dto.managerOverride?.approvedByUserId &&
+      dto.managerOverride.approvalReason
         ? {
             managerOverrideApprovedByUserId:
               dto.managerOverride.approvedByUserId,
@@ -640,7 +643,10 @@ export class SalesService {
           data: saleDataWithManagerOverride as Prisma.SaleCreateInput,
         });
       } catch (error) {
-        if (managerOverrideMetadata && this.isManagerOverridePersistenceError(error)) {
+        if (
+          managerOverrideMetadata &&
+          this.isManagerOverridePersistenceError(error)
+        ) {
           this.logger.warn(
             'Manager override metadata could not be persisted because Prisma client/schema is not aligned yet. Falling back to sale creation without persistence fields.',
           );

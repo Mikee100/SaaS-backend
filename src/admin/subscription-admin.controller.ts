@@ -20,12 +20,15 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { AuthGuard } from '@nestjs/passport';
+import { AdminRole } from '@prisma/client';
 import { SubscriptionAdminService } from './subscription-admin.service';
-import { SuperadminGuard } from './superadmin.guard';
+import { AdminRoleGuard } from './admin-role.guard';
+import { AdminRoles } from './admin-roles.decorator';
 import { TrialGuard } from '../auth/trial.guard';
 
 @Controller('admin/subscriptions')
-@UseGuards(AuthGuard('jwt'), SuperadminGuard, TrialGuard)
+@UseGuards(AuthGuard('jwt'), AdminRoleGuard, TrialGuard)
+@AdminRoles(AdminRole.BILLING)
 export class SubscriptionAdminController {
   private readonly logger = new Logger(SubscriptionAdminController.name);
 

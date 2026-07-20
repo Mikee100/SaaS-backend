@@ -80,7 +80,8 @@ export class ExpensesController {
       typeof queryBranchId === 'string' && queryBranchId.trim()
         ? queryBranchId.trim()
         : undefined;
-    const requestedBranchId = normalizedQueryBranchId || this.getHeaderBranchId(req);
+    const requestedBranchId =
+      normalizedQueryBranchId || this.getHeaderBranchId(req);
     const isBranchScopedRole =
       roles.includes('manager') || roles.includes('cashier');
 

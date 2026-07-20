@@ -68,7 +68,8 @@ export class BlueprintMigrationHelperService {
     if (
       normalized === 'fashion' ||
       normalized === 'restaurant' ||
-      normalized === 'spa_barber'
+      normalized === 'spa_barber' ||
+      normalized === 'hardware'
     ) {
       return normalized;
     }
@@ -120,7 +121,10 @@ export class BlueprintMigrationHelperService {
     if (enabledModules.includes('crm') && appKeys.has('loyalty')) {
       suggested.add('loyalty');
     }
-    if (enabledModules.includes('inventory') && appKeys.has('supplier_portal')) {
+    if (
+      enabledModules.includes('inventory') &&
+      appKeys.has('supplier_portal')
+    ) {
       suggested.add('supplier_portal');
     }
     if (enabledModules.includes('sales') && appKeys.has('delivery')) {
@@ -141,7 +145,9 @@ export class BlueprintMigrationHelperService {
       ...(manifest.featureFlags || {}),
     };
 
-    if (Object.prototype.hasOwnProperty.call(flags, 'advanced_analytics_enabled')) {
+    if (
+      Object.prototype.hasOwnProperty.call(flags, 'advanced_analytics_enabled')
+    ) {
       flags.advanced_analytics_enabled = enabledModules.includes('analytics');
     }
 
@@ -166,14 +172,26 @@ export class BlueprintMigrationHelperService {
       `Matched ${overlap.length}/${enabledModules.length || 1} enabled legacy modules to ${manifest.blueprintKey}.`,
     );
 
-    if (enabledModules.includes('crm') && manifest.businessType === 'spa_barber') {
-      rationale.push('CRM + service workflow pattern favors spa_barber blueprint.');
+    if (
+      enabledModules.includes('crm') &&
+      manifest.businessType === 'spa_barber'
+    ) {
+      rationale.push(
+        'CRM + service workflow pattern favors spa_barber blueprint.',
+      );
     }
-    if (enabledModules.includes('sales') && manifest.businessType === 'restaurant') {
-      rationale.push('Sales-heavy workflow aligns with restaurant operational model.');
+    if (
+      enabledModules.includes('sales') &&
+      manifest.businessType === 'restaurant'
+    ) {
+      rationale.push(
+        'Sales-heavy workflow aligns with restaurant operational model.',
+      );
     }
     if (confidence < 0.5) {
-      rationale.push('Low confidence suggestion; review manually before applying.');
+      rationale.push(
+        'Low confidence suggestion; review manually before applying.',
+      );
     }
 
     return rationale;
@@ -183,25 +201,29 @@ export class BlueprintMigrationHelperService {
     tenantId: string,
     businessTypeHint?: string,
   ): Promise<TenantBlueprintMigrationDryRunReport> {
-    const [configuredModules, configuredBusinessType, configuredBlueprintKey, configuredBlueprintVersion] =
-      await Promise.all([
-        this.tenantConfigurationService.getTenantConfiguration(
-          tenantId,
-          MODULES_CONFIG_KEY,
-        ),
-        this.tenantConfigurationService.getTenantConfiguration(
-          tenantId,
-          BUSINESS_TYPE_CONFIG_KEY,
-        ),
-        this.tenantConfigurationService.getTenantConfiguration(
-          tenantId,
-          BLUEPRINT_KEY_CONFIG_KEY,
-        ),
-        this.tenantConfigurationService.getTenantConfiguration(
-          tenantId,
-          BLUEPRINT_VERSION_CONFIG_KEY,
-        ),
-      ]);
+    const [
+      configuredModules,
+      configuredBusinessType,
+      configuredBlueprintKey,
+      configuredBlueprintVersion,
+    ] = await Promise.all([
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        MODULES_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BUSINESS_TYPE_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BLUEPRINT_KEY_CONFIG_KEY,
+      ),
+      this.tenantConfigurationService.getTenantConfiguration(
+        tenantId,
+        BLUEPRINT_VERSION_CONFIG_KEY,
+      ),
+    ]);
 
     const currentEnabledModules = normalizeEnabledModules(
       this.parseJson(configuredModules),
@@ -245,8 +267,12 @@ export class BlueprintMigrationHelperService {
       tenantId,
       current: {
         businessType:
-          normalizedBusinessType || currentBlueprint?.businessType || selected.businessType,
-        blueprintKey: String(configuredBlueprintKey || '').trim().toLowerCase(),
+          normalizedBusinessType ||
+          currentBlueprint?.businessType ||
+          selected.businessType,
+        blueprintKey: String(configuredBlueprintKey || '')
+          .trim()
+          .toLowerCase(),
         blueprintVersion: String(configuredBlueprintVersion || 'v1')
           .trim()
           .toLowerCase(),
@@ -268,8 +294,9 @@ export class BlueprintMigrationHelperService {
       },
       changes: {
         blueprintWillChange:
-          String(configuredBlueprintKey || '').trim().toLowerCase() !==
-          selected.blueprintKey,
+          String(configuredBlueprintKey || '')
+            .trim()
+            .toLowerCase() !== selected.blueprintKey,
         modulesToAdd: suggestedEnabledModules.filter(
           (module) => !currentEnabledModules.includes(module),
         ),

@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma.service';
 import { SalesService } from '../../../sales/sales.service';
+import { RealtimeGateway } from '../../../realtime.gateway';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   Open: ['SentToKitchen', 'Voided'],
@@ -57,6 +58,7 @@ export class RestaurantOrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly salesService: SalesService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   private createAuditId() {
@@ -106,7 +108,7 @@ export class RestaurantOrderService {
       return {
         userId: waiterUser.id,
         name: waiterUser.name || fallback?.name,
-        roles: roles.length > 0 ? roles : (fallback?.roles || []),
+        roles: roles.length > 0 ? roles : fallback?.roles || [],
       };
     } catch {
       return fallback;
@@ -168,10 +170,12 @@ export class RestaurantOrderService {
         | undefined;
       const isMissingActivityTableError =
         String(errorLike?.code || '') === 'P2021' &&
-        (
-          `${errorLike?.meta?.table || ''}`.includes('RestaurantActivityEvent') ||
-          `${errorLike?.meta?.modelName || ''}`.includes('RestaurantActivityEvent')
-        );
+        (`${errorLike?.meta?.table || ''}`.includes(
+          'RestaurantActivityEvent',
+        ) ||
+          `${errorLike?.meta?.modelName || ''}`.includes(
+            'RestaurantActivityEvent',
+          ));
 
       if (isMissingActivityTableError) {
         this.logger.warn(
@@ -631,7 +635,7 @@ export class RestaurantOrderService {
       }
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    const order = await this.prisma.$transaction(async (prisma) => {
       const activityActor = await this.resolveActivityActorForOrderCreate(
         tenantId,
         data.waiterId,
@@ -686,6 +690,15 @@ export class RestaurantOrderService {
 
       return order;
     });
+
+    this.realtimeGateway.emitRestaurantOrderEvent(tenantId, branchId, {
+      type: 'created',
+      orderId: order.id,
+      status: order.status,
+      order,
+    });
+
+    return order;
   }
 
   async updateStatus(
@@ -708,7 +721,7 @@ export class RestaurantOrderService {
       }
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    const updatedOrder = await this.prisma.$transaction(async (prisma) => {
       const updatedOrder = await prisma.restaurantOrder.update({
         where: { id },
         data: {
@@ -774,6 +787,15 @@ export class RestaurantOrderService {
 
       return updatedOrder;
     });
+
+    this.realtimeGateway.emitRestaurantOrderEvent(tenantId, order.branchId, {
+      type: 'statusChanged',
+      orderId: id,
+      status: newStatus,
+      order: updatedOrder,
+    });
+
+    return updatedOrder;
   }
 
   async addItems(
@@ -800,7 +822,7 @@ export class RestaurantOrderService {
       throw new BadRequestException('At least one item is required');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const createdItems = await Promise.all(
         items.map((item) =>
           tx.restaurantOrderItem.create({
@@ -858,6 +880,15 @@ export class RestaurantOrderService {
 
       return { order: updated, createdItems };
     });
+
+    this.realtimeGateway.emitRestaurantOrderEvent(tenantId, order.branchId, {
+      type: 'itemsAdded',
+      orderId: id,
+      status: result.order?.status,
+      order: result.order,
+    });
+
+    return result;
   }
 
   async checkoutToSale(
@@ -979,6 +1010,12 @@ export class RestaurantOrderService {
           customerPhone: payload.customerPhone || order.customerPhone || null,
         },
       });
+    });
+
+    this.realtimeGateway.emitRestaurantOrderEvent(tenantId, order.branchId, {
+      type: 'statusChanged',
+      orderId,
+      status: 'Closed',
     });
 
     return receipt;

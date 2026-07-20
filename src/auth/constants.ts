@@ -6,7 +6,20 @@ export const AUTH_COOKIE_NAMES = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   CSRF_TOKEN: 'csrf_token',
+  MFA_ENROLL_TOKEN: 'mfa_enroll_token',
+  MFA_PENDING_TOKEN: 'mfa_pending_token',
 } as const;
+
+/** Path scope for MFA challenge cookies — never sent outside the MFA endpoints. */
+export const MFA_COOKIE_PATH = '/auth/mfa';
+
+/** Enrollment challenge (first-time MFA setup) lifetime in seconds. */
+export const MFA_ENROLL_TOKEN_TTL_SEC =
+  parseInt(process.env.MFA_ENROLL_TOKEN_TTL_SEC || '', 10) || 10 * 60;
+
+/** Pending login (MFA code required) lifetime in seconds. */
+export const MFA_PENDING_TOKEN_TTL_SEC =
+  parseInt(process.env.MFA_PENDING_TOKEN_TTL_SEC || '', 10) || 5 * 60;
 
 /** Access token (JWT) lifetime in seconds. Default 15 minutes. */
 export const ACCESS_TOKEN_TTL_SEC =

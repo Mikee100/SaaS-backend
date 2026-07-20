@@ -1,0 +1,5 @@
+# --- Replication learning access (primary) ---
+# Allow local replication client login for the dedicated replication role.
+# Do not use your main application role for replication.
+host    replication    replicator    127.0.0.1/32    scram-sha-256
+host    replication    replicator    ::1/128         scram-sha-256

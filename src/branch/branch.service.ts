@@ -70,7 +70,7 @@ export class BranchService {
     }
 
     return this.prisma.branch.create({
-      data: branchData as Prisma.BranchUncheckedCreateInput,
+      data: branchData,
     });
   }
 
@@ -89,10 +89,10 @@ export class BranchService {
   async updateBranch(id: string, data: Prisma.BranchUncheckedUpdateInput) {
     // If updating to make this branch the main branch, unset isMainBranch for others
     if (data.isMainBranch === true) {
-      const branch = (await this.prisma.branch.findUnique({
+      const branch = await this.prisma.branch.findUnique({
         where: { id },
         select: { tenantId: true },
-      })) as { tenantId: string } | null;
+      });
       if (branch) {
         await this.prisma.branch.updateMany({
           where: {
@@ -108,10 +108,10 @@ export class BranchService {
   }
 
   async deleteBranch(id: string) {
-    const branch = (await this.prisma.branch.findUnique({
+    const branch = await this.prisma.branch.findUnique({
       where: { id },
       select: { tenantId: true, isMainBranch: true },
-    })) as { tenantId: string; isMainBranch: boolean } | null;
+    });
     if (!branch) {
       throw new Error('Branch not found');
     }
@@ -164,10 +164,10 @@ export class BranchService {
 
   async updateUserBranch(userId: string, branchId: string) {
     // Verify the user exists and get their tenant
-    const user = (await this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { tenantId: true },
-    })) as { tenantId: string | null } | null;
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -178,13 +178,13 @@ export class BranchService {
     }
 
     // Verify the branch exists and belongs to the same tenant
-    const branch = (await this.prisma.branch.findFirst({
+    const branch = await this.prisma.branch.findFirst({
       where: {
         id: branchId,
         tenantId: user.tenantId,
       },
       select: { id: true },
-    })) as { id: string } | null;
+    });
 
     if (!branch) {
       throw new NotFoundException('Branch not found or not accessible');

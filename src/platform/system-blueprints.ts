@@ -1,5 +1,9 @@
 import { BlueprintSchema } from './blueprint.types';
-import { CAPABILITY, ENTITY_TYPE, VERTICAL } from './blueprint-registry.constants';
+import {
+  CAPABILITY,
+  ENTITY_TYPE,
+  VERTICAL,
+} from './blueprint-registry.constants';
 
 export const SYSTEM_BLUEPRINTS: BlueprintSchema[] = [
   {
@@ -41,7 +45,13 @@ export const SYSTEM_BLUEPRINTS: BlueprintSchema[] = [
       {
         entityType: ENTITY_TYPE.PRODUCT_STYLE,
         requiredFields: ['name', 'basePrice', 'category'],
-        optionalFields: ['brand', 'supplierId', 'season', 'variants', 'barcode'],
+        optionalFields: [
+          'brand',
+          'supplierId',
+          'season',
+          'variants',
+          'barcode',
+        ],
         capabilities: [CAPABILITY.SKU_INVENTORY, CAPABILITY.VARIANT_MATRIX],
         workflow: [
           { key: 'identity', label: 'Style Identity', required: true },
@@ -78,7 +88,11 @@ export const SYSTEM_BLUEPRINTS: BlueprintSchema[] = [
         workflow: [
           { key: 'identity', label: 'Service Identity', required: true },
           { key: 'duration', label: 'Duration and Rules', required: true },
-          { key: 'staffing', label: 'Staffing and Commission', required: false },
+          {
+            key: 'staffing',
+            label: 'Staffing and Commission',
+            required: false,
+          },
         ],
       },
     ],

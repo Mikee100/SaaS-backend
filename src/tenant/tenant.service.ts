@@ -207,7 +207,7 @@ export class TenantService {
       },
     );
 
-    return tenant as CreatedTenant;
+    return tenant;
   }
 
   async getAllTenants(): Promise<unknown[]> {

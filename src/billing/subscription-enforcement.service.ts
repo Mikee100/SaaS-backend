@@ -413,7 +413,7 @@ export class SubscriptionEnforcementService {
 
     for (const email of emails) {
       try {
-        await this.emailService.sendPaymentConfirmationEmail(
+        this.emailService.sendPaymentConfirmationEmail(
           email,
           params.emailSubject,
           params.emailBody,

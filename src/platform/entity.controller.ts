@@ -55,7 +55,13 @@ export class EntityController {
 
   @Post('entities/sales-execution')
   async executeSales(
-    @Body() body: { entityType: string; quantity: number; basePrice: number; branchId?: string },
+    @Body()
+    body: {
+      entityType: string;
+      quantity: number;
+      basePrice: number;
+      branchId?: string;
+    },
     @Req() req: AuthenticatedRequest,
   ) {
     return this.entityService.executeSale(body, req.user);

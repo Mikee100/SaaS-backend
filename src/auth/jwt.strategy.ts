@@ -62,6 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         tenantId: true,
         isDisabled: true,
         isSuperadmin: true,
+        adminRoles: true,
       },
     });
 
@@ -89,12 +90,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         typeof payload.tenantId === 'string'
           ? payload.tenantId
           : (dbUser.tenantId ?? null),
-      branchId:
-        typeof payload.branchId === 'string' ? payload.branchId : null,
+      branchId: typeof payload.branchId === 'string' ? payload.branchId : null,
       isSuperadmin:
         typeof payload.isSuperadmin === 'boolean'
           ? payload.isSuperadmin
           : Boolean(dbUser.isSuperadmin),
+      adminRoles: Array.isArray(payload.adminRoles)
+        ? payload.adminRoles
+        : (dbUser.adminRoles ?? []),
       ...payload,
     };
     return user;
