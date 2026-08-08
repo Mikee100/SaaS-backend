@@ -5,6 +5,8 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuditLogService {
+  private auditTableUnavailable = false;
+
   constructor(private prisma: PrismaService) {}
 
   async log(
@@ -14,6 +16,10 @@ export class AuditLogService {
     ip?: string,
     prismaClient?: Prisma.TransactionClient | PrismaService,
   ) {
+    if (this.auditTableUnavailable) {
+      return null;
+    }
+
     const prisma = prismaClient || this.prisma;
 
     // Validate userId exists if provided
@@ -27,19 +33,35 @@ export class AuditLogService {
       }
     }
 
-    return prisma.auditLog.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        action,
-        details,
-        ip,
-        createdAt: new Date(),
-      },
-    });
+    try {
+      return await prisma.auditLog.create({
+        data: {
+          id: uuidv4(),
+          userId,
+          action,
+          details,
+          ip,
+          createdAt: new Date(),
+        },
+      });
+    } catch (error) {
+      if (this.isMissingAuditTableError(error)) {
+        this.auditTableUnavailable = true;
+        console.warn(
+          '[AuditLogService] AuditLog table is missing. Disabling audit writes until restart.',
+        );
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   async getLogs(limit = 100, tenantId?: string) {
+    if (this.auditTableUnavailable) {
+      return [];
+    }
+
     const where: Prisma.AuditLogWhereInput = {};
     if (tenantId) {
       where.User = { tenantId };
@@ -57,5 +79,25 @@ export class AuditLogService {
         },
       },
     });
+  }
+
+  private isMissingAuditTableError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const prismaError = error as {
+      code?: string;
+      meta?: { modelName?: string; table?: string };
+    };
+
+    if (prismaError.code !== 'P2021') {
+      return false;
+    }
+
+    return (
+      prismaError.meta?.modelName === 'AuditLog' ||
+      prismaError.meta?.table === 'public.AuditLog'
+    );
   }
 }
