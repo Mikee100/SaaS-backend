@@ -37,6 +37,38 @@ export class ReportService {
     return typeof value === 'string' ? value : fallback;
   }
 
+  /** Builds the workbook, writes it (xlsx or csv), and returns its path. */
+  private async writeReportWorkbook(
+    rows: (string | number)[][],
+    colWidths: number[],
+    sheetName: string,
+    filenamePrefix: string,
+    format: 'xlsx' | 'csv',
+  ): Promise<{ filePath: string; filename: string }> {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = colWidths.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${filenamePrefix}-${timestamp}.${format}`;
+
+    const reportsDir = join(process.cwd(), 'reports');
+    if (!existsSync(reportsDir)) {
+      await mkdir(reportsDir, { recursive: true });
+    }
+    const filePath = join(reportsDir, filename);
+
+    if (format === 'xlsx') {
+      XLSX.writeFile(wb, filePath);
+    } else {
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      await writeFile(filePath, csv, 'utf-8');
+    }
+
+    return { filePath, filename };
+  }
+
   async generateSalesReport(
     tenantId: string,
     branchId: string,
@@ -165,47 +197,18 @@ export class ReportService {
       ]);
     });
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(reportData);
-
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 12 }, // Date
-      { wch: 20 }, // Sale ID
-      { wch: 20 }, // Customer
-      { wch: 12 }, // Total
-      { wch: 12 }, // Items Count
-      { wch: 15 }, // Payment Method
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Sales Report');
-
-    // Generate filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     let periodSuffix: string = period;
     if (specificMonth) {
       periodSuffix = `${monthNames[specificMonth.month].toLowerCase()}-${specificMonth.year}`;
     }
-    const filename = `sales-report-${periodSuffix}-${timestamp}.${format}`;
 
-    // Ensure reports directory exists
-    const reportsDir = join(process.cwd(), 'reports');
-    if (!existsSync(reportsDir)) {
-      await mkdir(reportsDir, { recursive: true });
-    }
-
-    const filePath = join(reportsDir, filename);
-
-    if (format === 'xlsx') {
-      XLSX.writeFile(wb, filePath);
-    } else {
-      // CSV format
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      await writeFile(filePath, csv, 'utf-8');
-    }
-
-    return { filePath, filename };
+    return this.writeReportWorkbook(
+      reportData,
+      [12, 20, 20, 12, 12, 15],
+      'Sales Report',
+      `sales-report-${periodSuffix}`,
+      format,
+    );
   }
 
   async generateInventoryReport(
@@ -288,45 +291,13 @@ export class ReportService {
       ]);
     });
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(reportData);
-
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 25 }, // Product Name
-      { wch: 15 }, // SKU
-      { wch: 10 }, // Quantity
-      { wch: 10 }, // Min Stock
-      { wch: 10 }, // Max Stock
-      { wch: 12 }, // Status
-      { wch: 12 }, // Unit Price
-      { wch: 12 }, // Total Value
-    ];
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory Report');
-
-    // Generate filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `inventory-report-${timestamp}.${format}`;
-
-    // Ensure reports directory exists
-    const reportsDir = join(process.cwd(), 'reports');
-    if (!existsSync(reportsDir)) {
-      await mkdir(reportsDir, { recursive: true });
-    }
-
-    const filePath = join(reportsDir, filename);
-
-    if (format === 'xlsx') {
-      XLSX.writeFile(wb, filePath);
-    } else {
-      // CSV format
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      await writeFile(filePath, csv, 'utf-8');
-    }
-
-    return { filePath, filename };
+    return this.writeReportWorkbook(
+      reportData,
+      [25, 15, 10, 10, 10, 12, 12, 12],
+      'Inventory Report',
+      'inventory-report',
+      format,
+    );
   }
 
   async generateProductReport(
@@ -379,41 +350,171 @@ export class ReportService {
       ]);
     });
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(reportData);
+    return this.writeReportWorkbook(
+      reportData,
+      [30, 15, 12, 12, 15],
+      'Product Report',
+      'product-report',
+      format,
+    );
+  }
 
-    // Set column widths
-    ws['!cols'] = [
-      { wch: 30 }, // Product Name
-      { wch: 15 }, // Revenue
-      { wch: 12 }, // Units Sold
-      { wch: 12 }, // Sales Count
-      { wch: 15 }, // Average Price
+  async generatePayrollReport(
+    tenantId: string,
+    branchId: string,
+    format: 'xlsx' | 'csv' = 'xlsx',
+  ): Promise<{ filePath: string; filename: string }> {
+    const payrollDataRaw: unknown = await this.dataService.getPayrollData(
+      tenantId,
+      branchId,
+    );
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const payrollData = this.asObject(payrollDataRaw) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
+
+    const reportData: (string | number)[][] = [
+      ['Payroll Report'],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [],
+      ['Summary'],
+      ['Active Employees', this.asNumber(payrollData.employeeCount)],
+      [
+        'Total Active Salaries (per pay period)',
+        this.asNumber(payrollData.totalActiveSalaries),
+      ],
+      [
+        'Estimated Monthly Payroll Cost',
+        this.asNumber(payrollData.monthlyPayrollTotal),
+      ],
+      [],
+      ['Salary Schemes'],
+      ['Employee', 'Salary Amount', 'Frequency', 'Next Due Date'],
     ];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Product Report');
+    const schemes = Array.isArray(payrollData.schemes)
+      ? payrollData.schemes
+      : [];
+    schemes.forEach((scheme) => {
+      const row = this.asObject(scheme) ?? {};
+      const nextDueDate = row.nextDueDate;
+      reportData.push([
+        this.asString(row.employeeName, 'Unknown'),
+        this.asNumber(row.salaryAmount),
+        this.asString(row.frequency, 'monthly'),
+        nextDueDate ? new Date(nextDueDate as string).toLocaleDateString() : 'N/A',
+      ]);
+    });
 
-    // Generate filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `product-report-${timestamp}.${format}`;
+    return this.writeReportWorkbook(
+      reportData,
+      [25, 15, 12, 15],
+      'Payroll Report',
+      'payroll-report',
+      format,
+    );
+  }
 
-    // Ensure reports directory exists
-    const reportsDir = join(process.cwd(), 'reports');
-    if (!existsSync(reportsDir)) {
-      await mkdir(reportsDir, { recursive: true });
-    }
+  async generateRestaurantReport(
+    tenantId: string,
+    branchId: string,
+    format: 'xlsx' | 'csv' = 'xlsx',
+  ): Promise<{ filePath: string; filename: string }> {
+    const restaurantDataRaw: unknown =
+      await this.dataService.getRestaurantData(tenantId, branchId);
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const restaurantData = this.asObject(restaurantDataRaw) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
 
-    const filePath = join(reportsDir, filename);
+    const reportData: (string | number)[][] = [
+      ['Restaurant Operations Report'],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [],
+      ['Summary'],
+      ['Total Tables', this.asNumber(restaurantData.totalTables)],
+      [
+        'Orders (Last 30 Days)',
+        this.asNumber(restaurantData.totalOrdersLast30Days),
+      ],
+      [
+        'Revenue (Last 30 Days)',
+        this.asNumber(restaurantData.revenueLast30Days),
+      ],
+      [],
+      ['Top Dishes (Last 30 Days)'],
+      ['Dish', 'Units Sold'],
+    ];
 
-    if (format === 'xlsx') {
-      XLSX.writeFile(wb, filePath);
-    } else {
-      // CSV format
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      await writeFile(filePath, csv, 'utf-8');
-    }
+    const topItems = Array.isArray(restaurantData.topItems)
+      ? restaurantData.topItems
+      : [];
+    topItems.forEach((item) => {
+      const row = this.asObject(item) ?? {};
+      reportData.push([
+        this.asString(row.product, 'Unknown'),
+        this.asNumber(row.quantitySold),
+      ]);
+    });
 
-    return { filePath, filename };
+    return this.writeReportWorkbook(
+      reportData,
+      [30, 15],
+      'Restaurant Report',
+      'restaurant-report',
+      format,
+    );
+  }
+
+  async generateSalesTargetReport(
+    tenantId: string,
+    branchId: string,
+    format: 'xlsx' | 'csv' = 'xlsx',
+  ): Promise<{ filePath: string; filename: string }> {
+    const targetDataRaw: unknown = await this.dataService.getSalesTargetData(
+      tenantId,
+      branchId,
+    );
+    const tenantInfoRaw: unknown =
+      await this.dataService.getTenantInfo(tenantId);
+    const targetData = this.asObject(targetDataRaw) ?? {};
+    const tenantInfo = this.asObject(tenantInfoRaw) ?? {};
+
+    const reportData: (string | number)[][] = [
+      ['Sales Target Report'],
+      [`Business: ${this.asString(tenantInfo.name, 'N/A')}`],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [],
+      [
+        'Actual Revenue This Month So Far',
+        this.asNumber(targetData.actualThisMonth),
+      ],
+      [],
+      ['Targets'],
+      ['Target Name', 'Monthly Goal', 'Actual This Month', 'Progress %'],
+    ];
+
+    const targets = Array.isArray(targetData.targets)
+      ? targetData.targets
+      : [];
+    targets.forEach((target) => {
+      const row = this.asObject(target) ?? {};
+      reportData.push([
+        this.asString(row.name, 'Target'),
+        this.asNumber(row.monthly),
+        this.asNumber(row.actualThisMonth),
+        this.asNumber(row.progressPercent),
+      ]);
+    });
+
+    return this.writeReportWorkbook(
+      reportData,
+      [25, 15, 18, 12],
+      'Sales Targets',
+      'sales-target-report',
+      format,
+    );
   }
 }

@@ -17,8 +17,6 @@ import { DeviceService } from './device.service';
 import {
   REFRESH_TOKEN_TTL_SEC,
   ACCESS_TOKEN_TTL_SEC,
-  MFA_ENROLL_TOKEN_TTL_SEC,
-  MFA_PENDING_TOKEN_TTL_SEC,
 } from './constants';
 
 type UserRoleWithRoleName = {
@@ -150,18 +148,6 @@ export class AuthService {
         throw new UnauthorizedException('Account disabled. Contact admin.');
       }
 
-      // 2.6. Platform staff (superadmin or any adminRoles grant) must complete
-      // TOTP MFA before a session is issued. Regular tenant users are unaffected.
-      const isPlatformStaff =
-        userWithAuthMeta.isSuperadmin === true ||
-        (userWithAuthMeta.adminRoles?.length ?? 0) > 0;
-      if (isPlatformStaff) {
-        return this.beginMfaChallenge(
-          user.id,
-          userWithAuthMeta.twoFactorEnabled === true,
-        );
-      }
-
       return this.completeSession(
         user,
         userWithAuthMeta,
@@ -176,30 +162,7 @@ export class AuthService {
     }
   }
 
-  private beginMfaChallenge(userId: string, twoFactorEnabled: boolean) {
-    const signOpts = (expiresIn: number) => ({
-      secret: process.env.JWT_SECRET || 'waweru',
-      issuer: 'saas-platform',
-      audience: 'saas-platform-client',
-      expiresIn,
-    });
-
-    if (!twoFactorEnabled) {
-      const enrollToken = this.jwtService.sign(
-        { sub: userId, type: 'mfa_enroll' },
-        signOpts(MFA_ENROLL_TOKEN_TTL_SEC),
-      );
-      return { mfaEnrollmentRequired: true as const, enrollToken };
-    }
-
-    const pendingToken = this.jwtService.sign(
-      { sub: userId, type: 'mfa_pending' },
-      signOpts(MFA_PENDING_TOKEN_TTL_SEC),
-    );
-    return { mfaRequired: true as const, pendingToken };
-  }
-
-  /** Completes the login started in login() after a platform-staff user has verified their MFA code. */
+  /** Completes a login after MFA verification for explicit MFA endpoint flows. */
   async completeLoginAfterMfa(
     userId: string,
     ip?: string,

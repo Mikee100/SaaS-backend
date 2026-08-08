@@ -7,6 +7,9 @@ export interface ContextNeeds {
   needsCustomers: boolean;
   needsCreditors: boolean;
   needsExpenses: boolean;
+  needsPayroll: boolean;
+  needsRestaurant: boolean;
+  needsSalesTargets: boolean;
   period?: 'today' | 'week' | 'month' | 'year' | 'all';
 }
 
@@ -144,6 +147,50 @@ const EXPENSE_KEYWORDS = [
   'budget',
 ];
 
+const PAYROLL_KEYWORDS = [
+  'payroll',
+  'salary',
+  'salaries',
+  'wage',
+  'wages',
+  'pay',
+  'paycheck',
+  'employee pay',
+  'staff pay',
+  'compensation',
+];
+
+const RESTAURANT_KEYWORDS = [
+  'table',
+  'tables',
+  'occupied',
+  'reserved',
+  'order',
+  'orders',
+  'kitchen',
+  'dish',
+  'dishes',
+  'menu',
+  'waiter',
+  'waitress',
+  'server',
+  'dining',
+  'ticket',
+  'recipe',
+  'bom',
+];
+
+const SALES_TARGET_KEYWORDS = [
+  'target',
+  'targets',
+  'goal',
+  'goals',
+  'quota',
+  'kpi',
+  'on track',
+  'hitting',
+];
+
 const PERIOD_MAP: Record<string, ContextNeeds['period']> = {
   today: 'today',
   'this week': 'week',
@@ -177,6 +224,9 @@ export class ContextSelectorService {
       needsCustomers: this.matchesKeywords(lower, CUSTOMER_KEYWORDS),
       needsCreditors: this.matchesKeywords(lower, CREDITOR_KEYWORDS),
       needsExpenses: this.matchesKeywords(lower, EXPENSE_KEYWORDS),
+      needsPayroll: this.matchesKeywords(lower, PAYROLL_KEYWORDS),
+      needsRestaurant: this.matchesKeywords(lower, RESTAURANT_KEYWORDS),
+      needsSalesTargets: this.matchesKeywords(lower, SALES_TARGET_KEYWORDS),
     };
 
     // Handle affirmative follow-ups: carry over context from last AI response
@@ -202,6 +252,15 @@ export class ContextSelectorService {
       needs.needsCustomers = this.matchesKeywords(lastLower, CUSTOMER_KEYWORDS);
       needs.needsCreditors = this.matchesKeywords(lastLower, CREDITOR_KEYWORDS);
       needs.needsExpenses = this.matchesKeywords(lastLower, EXPENSE_KEYWORDS);
+      needs.needsPayroll = this.matchesKeywords(lastLower, PAYROLL_KEYWORDS);
+      needs.needsRestaurant = this.matchesKeywords(
+        lastLower,
+        RESTAURANT_KEYWORDS,
+      );
+      needs.needsSalesTargets = this.matchesKeywords(
+        lastLower,
+        SALES_TARGET_KEYWORDS,
+      );
     }
 
     // Inventory questions often need product context too
@@ -226,7 +285,10 @@ export class ContextSelectorService {
       needs.needsProducts ||
       needs.needsCustomers ||
       needs.needsCreditors ||
-      needs.needsExpenses
+      needs.needsExpenses ||
+      needs.needsPayroll ||
+      needs.needsRestaurant ||
+      needs.needsSalesTargets
     );
   }
 

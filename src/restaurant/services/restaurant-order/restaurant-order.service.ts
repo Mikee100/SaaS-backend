@@ -188,6 +188,81 @@ export class RestaurantOrderService {
     }
   }
 
+  // Grams-per-unit for weight units, so a recipe line and the ingredient's
+  // own inventory unit only need to share a family, not an exact string.
+  private static readonly WEIGHT_TO_GRAMS: Record<string, number> = {
+    mg: 0.001,
+    g: 1,
+    gram: 1,
+    grams: 1,
+    kg: 1000,
+    kilogram: 1000,
+    kilograms: 1000,
+    oz: 28.3495,
+    ounce: 28.3495,
+    ounces: 28.3495,
+    lb: 453.592,
+    lbs: 453.592,
+    pound: 453.592,
+    pounds: 453.592,
+  };
+
+  // Millilitres-per-unit for volume units.
+  private static readonly VOLUME_TO_ML: Record<string, number> = {
+    ml: 1,
+    milliliter: 1,
+    milliliters: 1,
+    millilitre: 1,
+    millilitres: 1,
+    cl: 10,
+    l: 1000,
+    liter: 1000,
+    liters: 1000,
+    litre: 1000,
+    litres: 1000,
+    tsp: 4.92892,
+    teaspoon: 4.92892,
+    tbsp: 14.7868,
+    tablespoon: 14.7868,
+    cup: 236.588,
+  };
+
+  private normalizeUnit(unit?: string | null): string {
+    return String(unit || '').trim().toLowerCase();
+  }
+
+  // Converts `value` from `fromUnit` into `toUnit`. Returns the unchanged
+  // value when either unit is unspecified or they're already identical
+  // (preserves today's behavior for recipes that never set a unit, or that
+  // already match the ingredient's inventory unit). Returns null when the
+  // two units are both specified but not known to be convertible - callers
+  // must treat that as "don't guess" rather than silently applying a wrong
+  // number.
+  private convertQuantity(
+    value: number,
+    fromUnitRaw?: string | null,
+    toUnitRaw?: string | null,
+  ): number | null {
+    const from = this.normalizeUnit(fromUnitRaw);
+    const to = this.normalizeUnit(toUnitRaw);
+
+    if (!from || !to || from === to) {
+      return value;
+    }
+
+    const weight = RestaurantOrderService.WEIGHT_TO_GRAMS;
+    if (from in weight && to in weight) {
+      return (value * weight[from]) / weight[to];
+    }
+
+    const volume = RestaurantOrderService.VOLUME_TO_ML;
+    if (from in volume && to in volume) {
+      return (value * volume[from]) / volume[to];
+    }
+
+    return null;
+  }
+
   private async applyBomConsumptionIfNeeded(
     tx: TxClient,
     order: BomOrderContext,
@@ -219,7 +294,13 @@ export class RestaurantOrderService {
         productId: { in: productIds },
         OR: [{ branchId: order.branchId }, { branchId: null }],
       },
-      include: { lines: true },
+      include: {
+        lines: {
+          include: {
+            ingredientProduct: { select: { id: true, unitAbbreviation: true } },
+          },
+        },
+      },
       orderBy: [{ branchId: 'desc' }, { updatedAt: 'desc' }],
     });
 
@@ -234,6 +315,15 @@ export class RestaurantOrderService {
       }
     }
 
+    const ingredientDeductions: Array<{
+      ingredientProductId: string;
+      requestedQuantity: number;
+      appliedQuantity: number;
+      previousStock: number | null;
+      newStock: number | null;
+      skippedReason?: string;
+    }> = [];
+
     const ingredientRequired = new Map<string, number>();
     for (const item of order.items || []) {
       const recipe = recipeByProductId.get(item.productId);
@@ -245,34 +335,48 @@ export class RestaurantOrderService {
         const baseQty = (itemQty / recipeYield) * Number(line.quantity || 0);
         const wasteMultiplier =
           1 + Math.max(0, Number(line.wastePercent || 0)) / 100;
-        const needed = Math.max(0, baseQty * wasteMultiplier);
+        const neededInLineUnit = Math.max(0, baseQty * wasteMultiplier);
+        if (neededInLineUnit <= 0) continue;
+
+        const ingredientUnit = line.ingredientProduct?.unitAbbreviation;
+        const converted = this.convertQuantity(
+          neededInLineUnit,
+          line.unit,
+          ingredientUnit,
+        );
+
+        if (converted === null) {
+          // The recipe line's unit and the ingredient's inventory unit are
+          // both set but not convertible (e.g. "ml" into an ingredient
+          // tracked in "kg"). Deducting anyway would silently apply a wrong
+          // factor to real stock, so skip this line and surface it instead.
+          ingredientDeductions.push({
+            ingredientProductId: line.ingredientProductId,
+            requestedQuantity: neededInLineUnit,
+            appliedQuantity: 0,
+            previousStock: null,
+            newStock: null,
+            skippedReason: `unit_mismatch:${line.unit || 'unit'}->${ingredientUnit || 'unspecified'}`,
+          });
+          continue;
+        }
+
         ingredientRequired.set(
           line.ingredientProductId,
-          (ingredientRequired.get(line.ingredientProductId) || 0) + needed,
+          (ingredientRequired.get(line.ingredientProductId) || 0) + converted,
         );
       }
     }
 
-    if (ingredientRequired.size === 0) {
+    if (ingredientRequired.size === 0 && ingredientDeductions.length === 0) {
       return;
     }
-
-    const ingredientDeductions: Array<{
-      ingredientProductId: string;
-      requestedQuantity: number;
-      appliedQuantity: number;
-      previousStock: number | null;
-      newStock: number | null;
-      skippedReason?: string;
-    }> = [];
 
     for (const [
       ingredientProductId,
       requested,
     ] of ingredientRequired.entries()) {
-      const movementQty =
-        requested > 0 ? Math.max(1, Math.round(requested)) : 0;
-      if (movementQty <= 0) continue;
+      if (requested <= 0) continue;
 
       const inventory = await tx.inventory.findFirst({
         where: {
@@ -285,7 +389,7 @@ export class RestaurantOrderService {
       if (!inventory) {
         ingredientDeductions.push({
           ingredientProductId,
-          requestedQuantity: movementQty,
+          requestedQuantity: requested,
           appliedQuantity: 0,
           previousStock: null,
           newStock: null,
@@ -295,7 +399,7 @@ export class RestaurantOrderService {
       }
 
       const previousQuantity = Number(inventory.quantity || 0);
-      const newQuantity = Math.max(0, previousQuantity - movementQty);
+      const newQuantity = Math.max(0, previousQuantity - requested);
       const appliedQuantity = Math.max(0, previousQuantity - newQuantity);
 
       await tx.inventory.update({
@@ -306,6 +410,10 @@ export class RestaurantOrderService {
         },
       });
 
+      // InventoryMovement's quantity columns are Int, so the audit-trail
+      // entry rounds; the live `inventory.quantity` above (Float) keeps the
+      // precise converted amount, which is what actually matters for stock
+      // accuracy and for BOM reversal on a voided order.
       await tx.inventoryMovement.create({
         data: {
           productId: ingredientProductId,
@@ -323,7 +431,7 @@ export class RestaurantOrderService {
 
       ingredientDeductions.push({
         ingredientProductId,
-        requestedQuantity: movementQty,
+        requestedQuantity: requested,
         appliedQuantity,
         previousStock: previousQuantity,
         newStock: newQuantity,
@@ -396,7 +504,7 @@ export class RestaurantOrderService {
           : '';
       const appliedQuantity =
         typeof line.appliedQuantity === 'number' ? line.appliedQuantity : 0;
-      const toRestore = Math.max(0, Math.round(Number(appliedQuantity)));
+      const toRestore = Math.max(0, Number(appliedQuantity));
       if (!ingredientProductId || toRestore <= 0) continue;
 
       const inventory = await tx.inventory.findFirst({
@@ -433,7 +541,7 @@ export class RestaurantOrderService {
         data: {
           productId: ingredientProductId,
           type: 'in',
-          quantity: toRestore,
+          quantity: Math.round(toRestore),
           previousQuantity: Math.round(previousQuantity),
           newQuantity: Math.round(newQuantity),
           reason: `BOM reversal for voided restaurant order ${order.id}`,
