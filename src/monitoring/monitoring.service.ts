@@ -55,6 +55,7 @@ export interface NotificationHistory {
 @Injectable()
 export class MonitoringService {
   private readonly logger = new Logger(MonitoringService.name);
+  private healthSnapshotTableUnavailable = false;
   private alertConfigs: AlertConfig[] = [];
   private healthHistory: HealthCheckResult[] = [];
   private notificationHistory: NotificationHistory[] = [];
@@ -291,6 +292,10 @@ export class MonitoringService {
 
   /** Best-effort persistence so history survives restarts; must never break the live health check response. */
   private async persistSnapshot(result: HealthCheckResult): Promise<void> {
+    if (this.healthSnapshotTableUnavailable) {
+      return;
+    }
+
     try {
       await this.prisma.healthMetricSnapshot.create({
         data: {
@@ -303,11 +308,23 @@ export class MonitoringService {
         },
       });
     } catch (error) {
+      if (this.isMissingHealthSnapshotTableError(error)) {
+        this.healthSnapshotTableUnavailable = true;
+        this.logger.warn(
+          'HealthMetricSnapshot table is missing. Disabling snapshot persistence until restart.',
+        );
+        return;
+      }
+
       this.logger.error('Failed to persist health metric snapshot:', error);
     }
   }
 
   async getHealthHistoryRange(hours: number = 24) {
+    if (this.healthSnapshotTableUnavailable) {
+      return [];
+    }
+
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     return this.prisma.healthMetricSnapshot.findMany({
       where: { createdAt: { gte: since } },
@@ -316,14 +333,46 @@ export class MonitoringService {
   }
 
   async pruneOldSnapshots(olderThanDays: number = 30): Promise<void> {
+    if (this.healthSnapshotTableUnavailable) {
+      return;
+    }
+
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
     try {
       await this.prisma.healthMetricSnapshot.deleteMany({
         where: { createdAt: { lt: cutoff } },
       });
     } catch (error) {
+      if (this.isMissingHealthSnapshotTableError(error)) {
+        this.healthSnapshotTableUnavailable = true;
+        this.logger.warn(
+          'HealthMetricSnapshot table is missing. Disabling snapshot cleanup until restart.',
+        );
+        return;
+      }
+
       this.logger.error('Failed to prune old health metric snapshots:', error);
     }
+  }
+
+  private isMissingHealthSnapshotTableError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const prismaError = error as {
+      code?: string;
+      meta?: { modelName?: string; table?: string };
+    };
+
+    if (prismaError.code !== 'P2021') {
+      return false;
+    }
+
+    return (
+      prismaError.meta?.modelName === 'HealthMetricSnapshot' ||
+      prismaError.meta?.table === 'public.HealthMetricSnapshot'
+    );
   }
 
   getAlertConfigs(): AlertConfig[] {

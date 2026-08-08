@@ -201,7 +201,8 @@ async function bootstrap() {
       );
     }
 
-    const port = configService.get<number>('PORT', 5100);
+    const port = Number(configService.get<number | string>('PORT', 5100));
+    const host = isProduction ? '0.0.0.0' : '127.0.0.1';
     // isProduction is already defined above
 
     // Enable gzip compression for all responses
@@ -369,11 +370,11 @@ async function bootstrap() {
       logger.error('JWT_SECRET is not set - authentication will fail');
     }
 
-    // Start the application (127.0.0.1 = local-only; use 0.0.0.0 only in Docker/production)
-    await app.listen(port, '127.0.0.1');
+    // Start the application. Production needs 0.0.0.0 for container platforms.
+    await app.listen(port, host);
 
     // Log application startup information
-    logger.log(`🚀 Application is running on: http://localhost:${port}`);
+    logger.log(`🚀 Application is running on: http://${host}:${port}`);
 
     // Log database connection info
     const dbUrl = configService.get<string>('DATABASE_URL');

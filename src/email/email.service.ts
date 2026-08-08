@@ -16,8 +16,10 @@ export class EmailService {
       (mailOptions) => this.sendMail(mailOptions),
     );
 
-    // For development, use Ethereal test service by default
-    // Only use Gmail if explicitly configured with valid credentials
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // For development, use Ethereal test service by default.
+    // In production, require explicit SMTP credentials and avoid Ethereal network calls.
     const useGmail = process.env.USE_GMAIL === 'true';
     const gmailUser = process.env.GMAIL_USER;
     const gmailPass = process.env.GMAIL_PASS;
@@ -34,11 +36,33 @@ export class EmailService {
       // Verify Gmail first, fallback to Ethereal if verification fails.
       void this.verifyTransporter('Gmail').then((isReady) => {
         if (!isReady) {
-          void this.setupEthereal();
+          if (isProduction) {
+            this.transporter = nodemailer.createTransport({
+              streamTransport: true,
+              newline: 'unix',
+              buffer: true,
+            });
+            this.logger.error(
+              'Gmail transporter failed in production. Email sending is disabled (stream transport fallback).',
+            );
+          } else {
+            void this.setupEthereal();
+          }
         }
       });
     } else {
-      void this.setupEthereal();
+      if (isProduction) {
+        this.transporter = nodemailer.createTransport({
+          streamTransport: true,
+          newline: 'unix',
+          buffer: true,
+        });
+        this.logger.warn(
+          'No production SMTP configured. Email sending is disabled (stream transport fallback).',
+        );
+      } else {
+        void this.setupEthereal();
+      }
     }
   }
 
