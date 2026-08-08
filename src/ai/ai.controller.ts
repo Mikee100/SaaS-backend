@@ -75,15 +75,16 @@ export class AiController {
       conversationId,
     );
 
-    // Log the interaction with category and conversationId
-    await this.aiService.logInteraction(
+    // Log the interaction with category and conversationId — fire-and-forget,
+    // errors are already caught internally, no need to block the response on it
+    void this.aiService.logInteraction(
       userId,
       tenantId,
       branchId,
       message,
       result.response,
       result.category,
-      conversationId,
+      result.conversationId || conversationId,
     );
 
     return {
@@ -94,6 +95,65 @@ export class AiController {
       chartData: result.chartData,
       reportData: result.reportData,
     };
+  }
+
+  @Post('chat/stream')
+  @Permissions('use_ai_assistant')
+  async chatStream(
+    @Body() body: { message: string; conversationId?: string },
+    @Request() req: ExpressRequest,
+    @Res() res: Response,
+  ) {
+    const { message, conversationId } = body;
+    const { userId, tenantId, branchId } = this.getAuthContext(req);
+
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    let fullResponse = '';
+    let category = 'general';
+    let finalConversationId = conversationId;
+
+    try {
+      for await (const event of this.aiService.processChatStream(
+        message,
+        userId,
+        tenantId,
+        branchId,
+        conversationId,
+      )) {
+        if (event.type === 'text') {
+          fullResponse += event.delta;
+        } else if (event.type === 'final') {
+          category = event.category;
+          finalConversationId = event.conversationId || finalConversationId;
+        }
+        res.write(JSON.stringify(event) + '\n');
+      }
+    } catch (error: unknown) {
+      res.write(
+        JSON.stringify({
+          type: 'error',
+          message:
+            error instanceof Error ? error.message : 'Unknown streaming error',
+        }) + '\n',
+      );
+    } finally {
+      res.end();
+    }
+
+    // Fire-and-forget: errors are already caught internally, no need to
+    // block stream teardown on it
+    void this.aiService.logInteraction(
+      userId,
+      tenantId,
+      branchId,
+      message,
+      fullResponse,
+      category,
+      finalConversationId,
+    );
   }
 
   @Post('feedback')
@@ -205,7 +265,7 @@ export class AiController {
     @Body() body: { data: unknown; chartType: string; title: string },
   ) {
     const { data, chartType, title } = body;
-    const description = await this.aiService.generateVisualizationWithOpenAI(
+    const description = await this.aiService.generateVisualizationWithAI(
       data,
       chartType,
       title,

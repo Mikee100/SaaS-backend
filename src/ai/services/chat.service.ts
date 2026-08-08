@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { OpenAIConfig } from '../config/openai.config';
+import {
+  Content,
+  FunctionCall,
+  FunctionCallingConfigMode,
+  GenerateContentConfig,
+  GoogleGenAI,
+  Part,
+} from '@google/genai';
+import { GeminiConfig } from '../config/gemini.config';
 import { PrismaService } from '../../prisma.service';
 import { FormatterService } from './formatter.service';
 import {
@@ -8,7 +16,6 @@ import {
   DATA_GUIDELINES,
 } from '../prompts/system.instructions';
 import { AI_TOOLS } from '../constants/tools';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { ContextSelectorService } from './context-selector.service';
 import { DataService } from './data.service';
 
@@ -17,7 +24,11 @@ export interface ChatContext {
   businessData?: unknown;
   tenantInfo?: unknown;
   branchInfo?: unknown;
-  userPreferences?: unknown;
+}
+
+export interface ChatToolCall {
+  name: string;
+  args: Record<string, unknown>;
 }
 
 export interface ChatResponse {
@@ -25,13 +36,39 @@ export interface ChatResponse {
   category: string;
   suggestions: string[];
   metadata?: Record<string, unknown>;
-  toolCalls?: unknown[];
+  toolCalls?: ChatToolCall[];
 }
+
+export interface ToolExecutionResult {
+  /** Fed back to the model as the function's result. */
+  output: Record<string, unknown>;
+  /** Surfaced to the client alongside the final synthesized reply. */
+  chartData?: unknown;
+  reportData?: unknown;
+}
+
+export type ToolExecutor = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<ToolExecutionResult>;
+
+export type ChatStreamEvent =
+  | { type: 'text'; delta: string }
+  | { type: 'toolCall'; name: string }
+  | {
+      type: 'final';
+      category: string;
+      suggestions: string[];
+      chartData?: unknown;
+      reportData?: unknown;
+      metadata?: Record<string, unknown>;
+    }
+  | { type: 'error'; message: string };
 
 @Injectable()
 export class ChatService {
   constructor(
-    private readonly openaiConfig: OpenAIConfig,
+    private readonly geminiConfig: GeminiConfig,
     private readonly prisma: PrismaService,
     private readonly formatter: FormatterService,
     private readonly contextSelector: ContextSelectorService,
@@ -72,11 +109,11 @@ export class ChatService {
     tenantId: string,
     branchId: string,
   ): Promise<ChatResponse> {
-    if (!this.openaiConfig.isConfigured()) {
+    if (!this.geminiConfig.isConfigured()) {
       return this.fallbackResponse(message, context);
     }
 
-    const client = this.openaiConfig.getClient();
+    const client = this.geminiConfig.getClient();
     if (!client) {
       return this.fallbackResponse(message, context);
     }
@@ -103,30 +140,37 @@ export class ChatService {
       // 3. Build system prompt with only the relevant context
       const systemPrompt = this.buildSystemPrompt(context, selectiveData);
 
-      // Build conversation messages
-      const messages = this.buildMessages(message, context, systemPrompt);
+      // Build conversation contents
+      const contents = this.buildMessages(message, context);
 
-      // Generate response using OpenAI with Tools enabled
-      const response = await client.chat.completions.create({
-        model: this.openaiConfig.getChatModel(),
-        messages: messages,
-        tools: AI_TOOLS,
-        tool_choice: 'auto',
-        temperature: 0.7,
-        max_tokens: this.openaiConfig.getMaxChatTokens(),
-        top_p: 0.9,
+      // Generate response using Gemini with Tools enabled
+      const response = await client.models.generateContent({
+        model: this.geminiConfig.getChatModel(),
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ functionDeclarations: AI_TOOLS }],
+          toolConfig: {
+            functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
+          },
+          temperature: 0.7,
+          maxOutputTokens: this.geminiConfig.getMaxChatTokens(),
+          topP: 0.9,
+        },
       });
 
-      const messageResult = response.choices[0]?.message;
-      const aiResponse = messageResult?.content || '';
-      const toolCalls = messageResult?.tool_calls;
+      const aiResponse = response.text || '';
+      const toolCalls: ChatToolCall[] | undefined = response.functionCalls
+        ?.filter((call) => !!call.name)
+        .map((call) => ({
+          name: call.name as string,
+          args: call.args ?? {},
+        }));
 
       // Determine category based on tool calls or simple content check
       let category = 'general';
       if (toolCalls && toolCalls.length > 0) {
-        const firstToolCall = this.asObject(toolCalls[0]);
-        const functionData = this.asObject(firstToolCall?.function);
-        const firstTool = this.asString(functionData?.name);
+        const firstTool = toolCalls[0].name;
         if (firstTool === 'generate_chart') category = 'charts';
         else if (firstTool === 'generate_report') category = 'reports';
         else if (firstTool === 'update_inventory') category = 'inventory';
@@ -142,16 +186,209 @@ export class ChatService {
         response: aiResponse,
         category,
         suggestions,
-        toolCalls: toolCalls ? toolCalls : undefined,
+        toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
         metadata: {
-          model: this.openaiConfig.getChatModel(),
-          hasToolCalls: !!toolCalls,
+          model: this.geminiConfig.getChatModel(),
+          hasToolCalls: !!(toolCalls && toolCalls.length > 0),
         },
       };
     } catch (error: unknown) {
       console.error('Error generating chat response:', error);
       return this.fallbackResponse(message, context);
     }
+  }
+
+  /**
+   * Streams a response, executing any tool call the model requests and
+   * feeding the real result back for a second, synthesized streamed reply —
+   * rather than swapping in a canned message like the non-streaming path.
+   */
+  async *generateResponseStream(
+    message: string,
+    context: ChatContext,
+    tenantId: string,
+    branchId: string,
+    executeTool: ToolExecutor,
+  ): AsyncGenerator<ChatStreamEvent> {
+    if (!this.geminiConfig.isConfigured()) {
+      const fallback = this.fallbackResponse(message, context);
+      yield { type: 'text', delta: fallback.response };
+      yield {
+        type: 'final',
+        category: fallback.category,
+        suggestions: fallback.suggestions,
+      };
+      return;
+    }
+
+    const client = this.geminiConfig.getClient();
+    if (!client) {
+      const fallback = this.fallbackResponse(message, context);
+      yield { type: 'text', delta: fallback.response };
+      yield {
+        type: 'final',
+        category: fallback.category,
+        suggestions: fallback.suggestions,
+      };
+      return;
+    }
+
+    try {
+      const lastAiResponse = context.conversationHistory?.slice(-1)[0]?.content;
+      const needs = this.contextSelector.classify(
+        message,
+        context.conversationHistory?.[context.conversationHistory.length - 1]
+          ?.role === 'assistant'
+          ? context.conversationHistory[context.conversationHistory.length - 1]
+              ?.content
+          : lastAiResponse,
+      );
+
+      const selectiveData: unknown = await this.dataService.getSelectiveData(
+        tenantId,
+        branchId,
+        needs,
+      );
+
+      const systemPrompt = this.buildSystemPrompt(context, selectiveData);
+      const contents = this.buildMessages(message, context);
+
+      const config: GenerateContentConfig = {
+        systemInstruction: systemPrompt,
+        tools: [{ functionDeclarations: AI_TOOLS }],
+        toolConfig: {
+          functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
+        },
+        temperature: 0.7,
+        maxOutputTokens: this.geminiConfig.getMaxChatTokens(),
+        topP: 0.9,
+        abortSignal: AbortSignal.timeout(30000),
+      };
+      const model = this.geminiConfig.getChatModel();
+
+      let firstCallText = '';
+      let functionCalls: FunctionCall[] = [];
+      {
+        const gen = this.streamChunks(client, model, contents, config);
+        let step = await gen.next();
+        while (!step.done) {
+          firstCallText += step.value;
+          yield { type: 'text', delta: step.value };
+          step = await gen.next();
+        }
+        functionCalls = step.value.functionCalls;
+      }
+      let fullText = firstCallText;
+
+      let chartData: unknown;
+      let reportData: unknown;
+
+      if (functionCalls.length > 0) {
+        // Echo back everything the model said in this turn (including any
+        // lead-in text already streamed to the client) so the follow-up
+        // call knows what it already told the user and continues naturally
+        // instead of repeating a similar intro.
+        contents.push({
+          role: 'model',
+          parts: [
+            ...(firstCallText ? [{ text: firstCallText }] : []),
+            ...functionCalls.map((fc) => ({ functionCall: fc })),
+          ],
+        });
+
+        const responseParts: Part[] = [];
+        for (const fc of functionCalls) {
+          if (!fc.name) continue;
+          yield { type: 'toolCall', name: fc.name };
+          const result = await executeTool(fc.name, fc.args ?? {});
+          if (result.chartData !== undefined) chartData = result.chartData;
+          if (result.reportData !== undefined) reportData = result.reportData;
+          responseParts.push({
+            functionResponse: {
+              id: fc.id,
+              name: fc.name,
+              response: result.output,
+            },
+          });
+        }
+        contents.push({ role: 'user', parts: responseParts });
+
+        // Second call — model synthesizes a real reply grounded in the tool result
+        const gen = this.streamChunks(client, model, contents, {
+          ...config,
+          abortSignal: AbortSignal.timeout(30000),
+        });
+        let step = await gen.next();
+        while (!step.done) {
+          fullText += step.value;
+          yield { type: 'text', delta: step.value };
+          step = await gen.next();
+        }
+      }
+
+      let category = 'general';
+      const firstTool = functionCalls[0]?.name;
+      if (firstTool === 'generate_chart') category = 'charts';
+      else if (firstTool === 'generate_report') category = 'reports';
+      else if (firstTool === 'update_inventory') category = 'inventory';
+
+      const suggestions = this.generateSuggestions(
+        message,
+        fullText,
+        category,
+      );
+
+      yield {
+        type: 'final',
+        category,
+        suggestions,
+        chartData,
+        reportData,
+        metadata: {
+          model,
+          hasToolCalls: functionCalls.length > 0,
+        },
+      };
+    } catch (error: unknown) {
+      console.error('Error streaming chat response:', error);
+      const fallback = this.fallbackResponse(message, context);
+      yield { type: 'text', delta: fallback.response };
+      yield {
+        type: 'final',
+        category: fallback.category,
+        suggestions: fallback.suggestions,
+      };
+    }
+  }
+
+  /**
+   * Drives a single Gemini streaming call, yielding each text delta and
+   * returning the accumulated text + any function calls once exhausted.
+   */
+  private async *streamChunks(
+    client: GoogleGenAI,
+    model: string,
+    contents: Content[],
+    config: GenerateContentConfig,
+  ): AsyncGenerator<string, { text: string; functionCalls: FunctionCall[] }, void> {
+    const stream = await client.models.generateContentStream({
+      model,
+      contents,
+      config,
+    });
+
+    let fullText = '';
+    const functionCalls: FunctionCall[] = [];
+    for await (const chunk of stream) {
+      if (chunk.text) {
+        fullText += chunk.text;
+        yield chunk.text;
+      }
+      if (chunk.functionCalls?.length) {
+        functionCalls.push(...chunk.functionCalls);
+      }
+    }
+    return { text: fullText, functionCalls };
   }
 
   private buildSystemPrompt(
@@ -161,7 +398,7 @@ export class ChatService {
     const tenantInfo = this.asObject(context.tenantInfo) ?? {};
     const bizName = this.asString(tenantInfo.name, 'this business');
     const bizType = this.asString(tenantInfo.businessType, 'business');
-    const maxTokens = this.openaiConfig.getMaxChatTokens();
+    const maxTokens = this.geminiConfig.getMaxChatTokens();
 
     let prompt = SYSTEM_IDENTITY(bizName, bizType);
     prompt += ACTION_GUIDELINES;
@@ -204,6 +441,21 @@ export class ChatService {
           selectiveDataObj.expenses,
           bizName,
         );
+      if (selectiveDataObj.payroll)
+        prompt += this.formatter.formatPayrollData(
+          selectiveDataObj.payroll,
+          bizName,
+        );
+      if (selectiveDataObj.restaurant)
+        prompt += this.formatter.formatRestaurantData(
+          selectiveDataObj.restaurant,
+          bizName,
+        );
+      if (selectiveDataObj.salesTargets)
+        prompt += this.formatter.formatSalesTargetData(
+          selectiveDataObj.salesTargets,
+          bizName,
+        );
     } else if (selectiveDataObj.summary) {
       // Lightweight summary for general chat
       const s = this.asObject(selectiveDataObj.summary) ?? {};
@@ -217,32 +469,25 @@ export class ChatService {
     return prompt;
   }
 
-  private buildMessages(
-    message: string,
-    context: ChatContext,
-    systemPrompt: string,
-  ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
-    const messages: Array<{
-      role: 'system' | 'user' | 'assistant';
-      content: string;
-    }> = [{ role: 'system', content: systemPrompt }];
+  private buildMessages(message: string, context: ChatContext): Content[] {
+    const contents: Content[] = [];
 
     // Add conversation history if available
     if (context.conversationHistory && context.conversationHistory.length > 0) {
       // Limit to last 10 messages to avoid token limits
       const recentHistory = context.conversationHistory.slice(-10);
       for (const msg of recentHistory) {
-        messages.push({
-          role: msg.role,
-          content: msg.content,
+        contents.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
         });
       }
     }
 
     // Add current message
-    messages.push({ role: 'user', content: message });
+    contents.push({ role: 'user', parts: [{ text: message }] });
 
-    return messages;
+    return contents;
   }
 
   private generateSuggestions(

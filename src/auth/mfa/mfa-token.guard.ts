@@ -22,12 +22,30 @@ export type MfaScopedRequest = Request & { mfaUserId?: string };
 abstract class MfaTokenGuardBase implements CanActivate {
   protected abstract readonly cookieName: string;
   protected abstract readonly tokenType: MfaTokenType;
+  protected abstract readonly headerName: string;
+  protected abstract readonly bodyFieldName: string;
 
   constructor(private readonly jwtService: JwtService) {}
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<MfaScopedRequest>();
-    const token = request.cookies?.[this.cookieName];
+    const cookieToken = request.cookies?.[this.cookieName];
+    const headerValue = request.headers?.[this.headerName];
+    const bodyValue = (request.body as Record<string, unknown> | undefined)?.[
+      this.bodyFieldName
+    ];
+    const headerToken =
+      typeof headerValue === 'string'
+        ? headerValue
+        : Array.isArray(headerValue) && headerValue.length > 0
+          ? headerValue[0]
+          : undefined;
+    const bodyToken = typeof bodyValue === 'string' ? bodyValue : undefined;
+    const token =
+      typeof cookieToken === 'string' && cookieToken.length > 0
+        ? cookieToken
+        : headerToken || bodyToken;
+
     if (!token || typeof token !== 'string') {
       throw new UnauthorizedException('MFA challenge token missing or expired');
     }
@@ -56,10 +74,14 @@ abstract class MfaTokenGuardBase implements CanActivate {
 export class MfaEnrollGuard extends MfaTokenGuardBase {
   protected readonly cookieName = AUTH_COOKIE_NAMES.MFA_ENROLL_TOKEN;
   protected readonly tokenType: MfaTokenType = 'mfa_enroll';
+  protected readonly headerName = 'x-mfa-enroll-token';
+  protected readonly bodyFieldName = 'mfaEnrollToken';
 }
 
 @Injectable()
 export class MfaPendingGuard extends MfaTokenGuardBase {
   protected readonly cookieName = AUTH_COOKIE_NAMES.MFA_PENDING_TOKEN;
   protected readonly tokenType: MfaTokenType = 'mfa_pending';
+  protected readonly headerName = 'x-mfa-pending-token';
+  protected readonly bodyFieldName = 'mfaPendingToken';
 }

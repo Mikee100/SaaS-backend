@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { BackupService } from '../backup/backup.service';
-import { OpenAIConfig } from './config/openai.config';
-import { ChatService, ChatContext } from './services/chat.service';
+import { GeminiConfig } from './config/gemini.config';
+import {
+  ChatService,
+  ChatContext,
+  ChatStreamEvent,
+  ToolExecutionResult,
+} from './services/chat.service';
 import { DataService } from './services/data.service';
 import { EmbeddingService } from './services/embedding.service';
 import { ChartService } from './services/chart.service';
@@ -61,7 +66,7 @@ export class AiService {
   constructor(
     private prisma: PrismaService,
     private backupService: BackupService,
-    private openaiConfig: OpenAIConfig,
+    private geminiConfig: GeminiConfig,
     private chatService: ChatService,
     private dataService: DataService,
     private embeddingService: EmbeddingService,
@@ -97,16 +102,20 @@ export class AiService {
     return error instanceof Error ? error.message : 'Unknown error';
   }
 
-  async processChat(
+  /**
+   * Streams a chat turn end-to-end: conversation bookkeeping, then delegates
+   * the actual model interaction (including the tool-result feedback loop)
+   * to ChatService, wiring tool execution back through dispatchTool.
+   */
+  async *processChatStream(
     message: string,
     userId: string,
     tenantId: string,
     branchId: string,
     conversationId?: string,
-  ): Promise<ChatResult> {
+  ): AsyncGenerator<ChatStreamEvent & { conversationId?: string }> {
+    let activeConversationId = conversationId;
     try {
-      // Handle conversation management
-      let activeConversationId = conversationId;
       if (!activeConversationId) {
         const newConversation = await this.createConversation(
           userId,
@@ -121,7 +130,6 @@ export class AiService {
         throw new Error('Failed to create or find conversation');
       }
 
-      // Get conversation history
       const conversationHistoryRaw: unknown[] =
         await this.getConversationHistory(
           userId,
@@ -131,14 +139,11 @@ export class AiService {
         );
 
       // Get tenant/branch metadata only — data is now fetched selectively inside ChatService (RAG)
-      const tenantInfo: unknown =
-        await this.dataService.getTenantInfo(tenantId);
-      const branchInfo: unknown = await this.dataService.getBranchInfo(
-        tenantId,
-        branchId,
-      );
+      const [tenantInfo, branchInfo]: [unknown, unknown] = await Promise.all([
+        this.dataService.getTenantInfo(tenantId),
+        this.dataService.getBranchInfo(tenantId, branchId),
+      ]);
 
-      // Build chat context
       const historyMessages: Array<{
         role: 'user' | 'assistant';
         content: string;
@@ -159,104 +164,174 @@ export class AiService {
         conversationHistory: historyMessages,
         tenantInfo,
         branchInfo,
-        userPreferences: await this.getUserPreferences(userId, tenantId),
       };
 
-      // Generate AI response with Tools
-      const chatResponse = await this.chatService.generateResponse(
+      const stream = this.chatService.generateResponseStream(
         message,
         chatContext,
         tenantId,
         branchId,
+        (name, args) => this.dispatchTool(name, args, message, tenantId, branchId),
       );
 
-      let chartData: unknown;
-      let reportData: ChatResult['reportData'];
-      let finalResponse = chatResponse.response;
-
-      // Handle Tool Calls if any
-      if (chatResponse.toolCalls && chatResponse.toolCalls.length > 0) {
-        for (const toolCall of chatResponse.toolCalls) {
-          const toolCallObj = this.asObject(toolCall);
-          const functionObj = this.asObject(toolCallObj?.function);
-          const functionName = this.asString(functionObj?.name);
-          const rawArgs = this.asString(functionObj?.arguments, '{}');
-          const parsed = JSON.parse(rawArgs) as unknown;
-          const args = this.asObject(parsed) ?? {};
-
-          if (functionName === 'generate_chart') {
-            const chartResult = await this.executeGenerateChartCommand(
-              message,
-              { parameters: args },
-              tenantId,
-              branchId,
-            );
-            if (chartResult.success) {
-              const chartResultData = this.asObject(chartResult.data) ?? {};
-              chartData = chartResultData.chartConfig;
-              if (!finalResponse) finalResponse = chartResult.message;
-            }
-          } else if (functionName === 'generate_report') {
-            const reportResult = await this.executeGenerateReportCommand(
-              message,
-              { parameters: args },
-              tenantId,
-              branchId,
-            );
-            if (reportResult.success) {
-              const reportResultData = this.asObject(reportResult.data) ?? {};
-              reportData = {
-                filename: this.asString(reportResultData.filename),
-                downloadUrl: this.asString(reportResultData.downloadUrl),
-                reportType: this.asString(reportResultData.reportType, 'sales'),
-                format: this.asString(reportResultData.format, 'xlsx'),
-              };
-              if (!finalResponse) finalResponse = reportResult.message;
-            }
-          } else if (functionName === 'update_inventory') {
-            const invResult = await this.executeUpdateInventoryCommand(
-              message,
-              { parameters: args },
-              tenantId,
-              branchId,
-            );
-            if (invResult.success) {
-              finalResponse = invResult.message;
-            }
-          } else if (functionName === 'initiate_backup') {
-            const backupResult = await this.executeBackupCommand(tenantId);
-            finalResponse = backupResult.message;
-          } else if (functionName === 'get_system_status') {
-            const statusResult = await this.executeStatusCommand(
-              tenantId,
-              branchId,
-            );
-            finalResponse = statusResult.message;
-          }
-        }
+      for await (const event of stream) {
+        yield event.type === 'final'
+          ? { ...event, conversationId: activeConversationId }
+          : event;
       }
-
-      return {
-        response: finalResponse || chatResponse.response,
-        category: chatResponse.category,
-        suggestions: chatResponse.suggestions,
-        conversationId: activeConversationId,
-        chartData,
-        reportData,
-      };
     } catch (error: unknown) {
-      console.error('Error processing AI chat:', error);
-      return {
-        response:
+      console.error('Error streaming AI chat:', error);
+      yield {
+        type: 'text',
+        delta:
           'Sorry, I encountered an error while processing your request. Please try again.',
+      };
+      yield {
+        type: 'final',
         category: 'Error',
         suggestions: [
           'Try asking about sales trends',
           'Check product performance',
           'View revenue summary',
         ],
+        conversationId: activeConversationId,
       };
     }
+  }
+
+  async processChat(
+    message: string,
+    userId: string,
+    tenantId: string,
+    branchId: string,
+    conversationId?: string,
+  ): Promise<ChatResult> {
+    let response = '';
+    let category = 'general';
+    let suggestions: string[] = [];
+    let chartData: unknown;
+    let reportData: ChatResult['reportData'];
+    let finalConversationId = conversationId;
+
+    for await (const event of this.processChatStream(
+      message,
+      userId,
+      tenantId,
+      branchId,
+      conversationId,
+    )) {
+      if (event.type === 'text') {
+        response += event.delta;
+      } else if (event.type === 'final') {
+        category = event.category;
+        suggestions = event.suggestions;
+        chartData = event.chartData;
+        reportData = event.reportData as ChatResult['reportData'] | undefined;
+        finalConversationId = event.conversationId ?? finalConversationId;
+      }
+    }
+
+    return {
+      response,
+      category,
+      suggestions,
+      conversationId: finalConversationId,
+      chartData,
+      reportData,
+    };
+  }
+
+  /** Executes a model-requested tool call and returns both the LLM-facing
+   * result and any client-facing display data (chart/report). */
+  private async dispatchTool(
+    functionName: string,
+    args: Record<string, unknown>,
+    message: string,
+    tenantId: string,
+    branchId: string,
+  ): Promise<ToolExecutionResult> {
+    if (functionName === 'generate_chart') {
+      const chartResult = await this.executeGenerateChartCommand(
+        message,
+        { parameters: args },
+        tenantId,
+        branchId,
+      );
+      const resultData = this.asObject(chartResult.data) ?? {};
+      return {
+        output: {
+          success: chartResult.success,
+          summary: chartResult.message,
+          chartType: this.asString(resultData.chartType),
+          title: this.asString(resultData.title),
+        },
+        chartData: chartResult.success ? resultData.chartConfig : undefined,
+      };
+    }
+
+    if (functionName === 'generate_report') {
+      const reportResult = await this.executeGenerateReportCommand(
+        message,
+        { parameters: args },
+        tenantId,
+        branchId,
+      );
+      const resultData = this.asObject(reportResult.data) ?? {};
+      return {
+        output: {
+          success: reportResult.success,
+          summary: reportResult.message,
+          reportType: this.asString(resultData.reportType),
+          period: this.asString(resultData.period),
+        },
+        reportData: reportResult.success
+          ? {
+              filename: this.asString(resultData.filename),
+              downloadUrl: this.asString(resultData.downloadUrl),
+              reportType: this.asString(resultData.reportType, 'sales'),
+              format: this.asString(resultData.format, 'xlsx'),
+            }
+          : undefined,
+      };
+    }
+
+    if (functionName === 'update_inventory') {
+      const invResult = await this.executeUpdateInventoryCommand(
+        message,
+        { parameters: args },
+        tenantId,
+        branchId,
+      );
+      return {
+        output: {
+          success: invResult.success,
+          summary: invResult.message,
+          ...(this.asObject(invResult.data) ?? {}),
+        },
+      };
+    }
+
+    if (functionName === 'initiate_backup') {
+      const backupResult = await this.executeBackupCommand(tenantId);
+      return {
+        output: { success: backupResult.success, summary: backupResult.message },
+      };
+    }
+
+    if (functionName === 'get_system_status') {
+      const statusResult = await this.executeStatusCommand(tenantId, branchId);
+      return {
+        output: {
+          success: statusResult.success,
+          summary: statusResult.message,
+          ...(this.asObject(statusResult.data) ?? {}),
+        },
+      };
+    }
+
+    return {
+      output: { success: false, error: `Unknown tool: ${functionName}` },
+    };
   }
 
   private isCommand(message: string): boolean {
@@ -522,27 +597,25 @@ export class AiService {
   ): Promise<CommandResult> {
     try {
       const lowerMessage = message.toLowerCase();
-      let reportType = 'sales';
-      let format: 'xlsx' | 'csv' = 'xlsx';
-      let period: '7days' | '30days' | '90days' | '1year' | 'all' = '30days';
+      const extractedObj = this.asObject(extracted) ?? {};
+      const extractedParameters = this.asObject(extractedObj.parameters) ?? {};
+
+      // reportType/format come from the model's own tool-call arguments —
+      // reportType is required by the tool schema, so trust it directly
+      // rather than re-deriving it from the raw message text.
+      const reportType = this.asString(extractedParameters.reportType, 'sales');
+      const format: 'xlsx' | 'csv' =
+        this.asString(extractedParameters.format) === 'csv' ? 'csv' : 'xlsx';
+      const period = this.asString(extractedParameters.period, '30days') as
+        | '7days'
+        | '30days'
+        | '90days'
+        | '1year'
+        | 'all';
       let specificMonth: { year: number; month: number } | undefined;
 
-      // Determine report type
-      if (
-        lowerMessage.includes('inventory') ||
-        lowerMessage.includes('stock')
-      ) {
-        reportType = 'inventory';
-      } else if (lowerMessage.includes('product')) {
-        reportType = 'product';
-      }
-
-      // Determine format
-      if (lowerMessage.includes('csv') || lowerMessage.includes('excel')) {
-        format = lowerMessage.includes('csv') ? 'csv' : 'xlsx';
-      }
-
-      // Check for specific month requests
+      // Specific-month / relative-month phrasing isn't part of the tool
+      // schema, so it's still worth parsing directly from the message.
       const monthNames = [
         'january',
         'february',
@@ -576,26 +649,10 @@ export class AiService {
         }
       }
 
-      // Determine period (only if no specific month)
+      // "this month" / "last month" phrasing maps to a specific month rather
+      // than the period enum — not something the schema captures either.
       if (!specificMonth) {
-        if (lowerMessage.includes('7 days') || lowerMessage.includes('week')) {
-          period = '7days';
-        } else if (
-          lowerMessage.includes('90 days') ||
-          lowerMessage.includes('3 months')
-        ) {
-          period = '90days';
-        } else if (
-          lowerMessage.includes('year') ||
-          lowerMessage.includes('12 months')
-        ) {
-          period = '1year';
-        } else if (
-          lowerMessage.includes('all') ||
-          lowerMessage.includes('everything')
-        ) {
-          period = 'all';
-        } else if (
+        if (
           lowerMessage.includes('this month') ||
           lowerMessage.includes('current month')
         ) {
@@ -611,6 +668,9 @@ export class AiService {
         }
       }
 
+      // Only the sales report is time-period scoped; the rest are current-snapshot reports.
+      const isPeriodScoped = reportType === 'sales';
+
       let reportResult: unknown;
       if (reportType === 'inventory') {
         reportResult = await this.reportService.generateInventoryReport(
@@ -620,6 +680,24 @@ export class AiService {
         );
       } else if (reportType === 'product') {
         reportResult = await this.reportService.generateProductReport(
+          tenantId,
+          branchId,
+          format,
+        );
+      } else if (reportType === 'payroll') {
+        reportResult = await this.reportService.generatePayrollReport(
+          tenantId,
+          branchId,
+          format,
+        );
+      } else if (reportType === 'restaurant') {
+        reportResult = await this.reportService.generateRestaurantReport(
+          tenantId,
+          branchId,
+          format,
+        );
+      } else if (reportType === 'salesTargets') {
+        reportResult = await this.reportService.generateSalesTargetReport(
           tenantId,
           branchId,
           format,
@@ -654,15 +732,16 @@ export class AiService {
       }
 
       const reportResultObj = this.asObject(reportResult) ?? {};
+      const periodPhrase = isPeriodScoped ? ` for ${periodMessage}` : '';
 
       return {
         success: true,
-        message: `I've put together that ${reportType} report for ${periodMessage} for you! You can download it as an ${format.toUpperCase()} file right here:`,
+        message: `I've put together that ${reportType} report${periodPhrase} for you! You can download it as an ${format.toUpperCase()} file right here:`,
         action_taken: 'report_generated',
         data: {
           reportType,
           format,
-          period: periodMessage,
+          period: isPeriodScoped ? periodMessage : undefined,
           filename: this.asString(reportResultObj.filename),
           filePath: this.asString(reportResultObj.filePath),
           downloadUrl: `/api/ai/reports/download/${this.asString(reportResultObj.filename)}`,
@@ -687,35 +766,24 @@ export class AiService {
       const lowerMessage = message.toLowerCase();
       const extractedObj = this.asObject(extracted) ?? {};
       const extractedParameters = this.asObject(extractedObj.parameters) ?? {};
-      let chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area' = 'line';
-      let dataType = 'sales';
-      let period: '7days' | '30days' | '90days' | '1year' = '30days';
-      let limit = 10;
 
-      // Determine chart type
-      if (lowerMessage.includes('bar')) {
-        chartType = 'bar';
-      } else if (lowerMessage.includes('pie')) {
-        chartType = 'pie';
-      } else if (lowerMessage.includes('doughnut')) {
-        chartType = 'doughnut';
-      } else if (lowerMessage.includes('area')) {
-        chartType = 'area';
-      }
+      // chartType/dataType/limit come from the model's own tool-call
+      // arguments — chartType and dataType are required by the tool schema,
+      // so trust them directly rather than re-deriving from the raw message.
+      const chartType = this.asString(
+        extractedParameters.chartType,
+        'line',
+      ) as 'line' | 'bar' | 'pie' | 'doughnut' | 'area';
+      const dataType = this.asString(extractedParameters.dataType, 'sales');
+      let period = this.asString(extractedParameters.period, '30days') as
+        | '7days'
+        | '30days'
+        | '90days'
+        | '1year';
+      const limit = this.asNumber(extractedParameters.limit) || 10;
 
-      // Determine data type
-      if (lowerMessage.includes('product')) {
-        dataType = 'product';
-      } else if (
-        lowerMessage.includes('inventory') ||
-        lowerMessage.includes('stock')
-      ) {
-        dataType = 'inventory';
-      } else if (lowerMessage.includes('customer')) {
-        dataType = 'customer';
-      }
-
-      // Determine period
+      // "Monthly performance" phrasing implies a longer trend view than the
+      // schema's period enum captures on its own — worth refining here.
       const monthNames = [
         'january',
         'february',
@@ -730,45 +798,11 @@ export class AiService {
         'november',
         'december',
       ];
-      const mentionsMonthName = monthNames.some((m) =>
-        lowerMessage.includes(m),
-      );
-
-      if (lowerMessage.includes('7 days') || lowerMessage.includes('week')) {
-        period = '7days';
-      } else if (
-        lowerMessage.includes('90 days') ||
-        lowerMessage.includes('3 months') ||
-        lowerMessage.includes('quarter')
-      ) {
-        period = '90days';
-      } else if (
-        this.asString(extractedParameters.period) === '1year' ||
-        this.asString(extractedParameters.period) === 'monthly' ||
-        lowerMessage.includes('year') ||
-        lowerMessage.includes('12 months') ||
-        lowerMessage.includes('month ') ||
-        lowerMessage.includes('months') ||
+      const impliesMonthlyTrend =
         lowerMessage.includes('monthly') ||
-        mentionsMonthName
-      ) {
-        // When user talks about months / monthly performance, show a 1-year monthly trend
+        monthNames.some((m) => lowerMessage.includes(m));
+      if (impliesMonthlyTrend) {
         period = '1year';
-      } else if (this.asString(extractedParameters.period) === '90days') {
-        period = '90days';
-      } else if (this.asString(extractedParameters.period) === '7days') {
-        period = '7days';
-      } else {
-        period = '30days';
-      }
-
-      // Extract limit if mentioned
-      const limitMatch = message.match(/\b(\d+)\b/);
-      if (limitMatch) {
-        const num = parseInt(limitMatch[1]);
-        if (num > 0 && num <= 50) {
-          limit = num;
-        }
       }
 
       let chartConfig: unknown;
@@ -801,6 +835,29 @@ export class AiService {
           branchId,
           customerChartType,
           limit,
+        );
+      } else if (dataType === 'payroll') {
+        const payrollChartType =
+          chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
+        chartConfig = await this.chartService.generatePayrollChart(
+          tenantId,
+          branchId,
+          payrollChartType,
+          limit,
+        );
+      } else if (dataType === 'restaurant') {
+        const restaurantChartType =
+          chartType === 'line' || chartType === 'area' ? 'bar' : chartType;
+        chartConfig = await this.chartService.generateRestaurantChart(
+          tenantId,
+          branchId,
+          restaurantChartType,
+          limit,
+        );
+      } else if (dataType === 'salesTargets') {
+        chartConfig = await this.chartService.generateSalesTargetChart(
+          tenantId,
+          branchId,
         );
       } else {
         const salesChartType =
@@ -882,24 +939,6 @@ export class AiService {
         activeUsers: 0,
         lastBackup: null,
       };
-    }
-  }
-
-  private async getUserPreferences(
-    userId: string,
-    tenantId: string,
-  ): Promise<any> {
-    try {
-      const history = await this.getConversationHistory(userId, tenantId);
-      const patterns = this.analyzePatterns(
-        history as Array<{ userMessage?: string | null }>,
-      );
-      return {
-        frequentTopics: Object.keys(patterns.query_categories).slice(0, 5),
-        insights: patterns.insights,
-      };
-    } catch {
-      return {};
     }
   }
 
@@ -1606,16 +1645,16 @@ export class AiService {
     }
   }
 
-  async generateVisualizationWithOpenAI(
+  async generateVisualizationWithAI(
     data: any,
     chartType: string,
     title: string,
   ): Promise<string> {
-    if (!this.openaiConfig.isConfigured()) {
+    if (!this.geminiConfig.isConfigured()) {
       return this.generateFallbackVisualization(data, chartType, title);
     }
 
-    const client = this.openaiConfig.getClient();
+    const client = this.geminiConfig.getClient();
     if (!client) {
       return this.generateFallbackVisualization(data, chartType, title);
     }
@@ -1634,29 +1673,24 @@ Please generate a detailed description of what this chart would look like, inclu
 
 Make the description vivid and actionable for someone who wants to understand their business data.`;
 
-      const response = await client.chat.completions.create({
-        model: this.openaiConfig.getChatModel(),
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a data visualization expert who creates detailed, accurate descriptions of charts and graphs based on provided data. Focus on business analytics and provide actionable insights.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: this.openaiConfig.getMaxVisualizationTokens(),
-        temperature: 0.7,
+      const response = await client.models.generateContent({
+        model: this.geminiConfig.getChatModel(),
+        contents: prompt,
+        config: {
+          systemInstruction:
+            'You are a data visualization expert who creates detailed, accurate descriptions of charts and graphs based on provided data. Focus on business analytics and provide actionable insights.',
+          maxOutputTokens: this.geminiConfig.getMaxVisualizationTokens(),
+          temperature: 0.7,
+          abortSignal: AbortSignal.timeout(30000),
+        },
       });
 
       return (
-        response.choices[0]?.message?.content ||
+        response.text ||
         this.generateFallbackVisualization(data, chartType, title)
       );
     } catch (error: any) {
-      console.error('Error generating visualization with OpenAI:', error);
+      console.error('Error generating visualization with Gemini:', error);
       return this.generateFallbackVisualization(data, chartType, title);
     }
   }

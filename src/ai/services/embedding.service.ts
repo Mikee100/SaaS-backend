@@ -1,31 +1,31 @@
 import { Injectable } from '@nestjs/common';
-import { OpenAIConfig } from '../config/openai.config';
+import { GeminiConfig } from '../config/gemini.config';
 
 @Injectable()
 export class EmbeddingService {
-  constructor(private readonly openaiConfig: OpenAIConfig) {}
+  constructor(private readonly geminiConfig: GeminiConfig) {}
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'Unknown error';
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
-    if (!this.openaiConfig.isConfigured()) {
-      throw new Error('OpenAI API key not configured');
+    if (!this.geminiConfig.isConfigured()) {
+      throw new Error('Gemini API key not configured');
     }
 
-    const client = this.openaiConfig.getClient();
+    const client = this.geminiConfig.getClient();
     if (!client) {
-      throw new Error('OpenAI client not initialized');
+      throw new Error('Gemini client not initialized');
     }
 
     try {
-      const response = await client.embeddings.create({
-        model: this.openaiConfig.getEmbeddingModel(),
-        input: text,
+      const response = await client.models.embedContent({
+        model: this.geminiConfig.getEmbeddingModel(),
+        contents: text,
       });
 
-      return response.data[0].embedding;
+      return response.embeddings?.[0]?.values ?? [];
     } catch (error: unknown) {
       console.error('Error generating embedding:', error);
       throw new Error(
@@ -35,22 +35,22 @@ export class EmbeddingService {
   }
 
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
-    if (!this.openaiConfig.isConfigured()) {
-      throw new Error('OpenAI API key not configured');
+    if (!this.geminiConfig.isConfigured()) {
+      throw new Error('Gemini API key not configured');
     }
 
-    const client = this.openaiConfig.getClient();
+    const client = this.geminiConfig.getClient();
     if (!client) {
-      throw new Error('OpenAI client not initialized');
+      throw new Error('Gemini client not initialized');
     }
 
     try {
-      const response = await client.embeddings.create({
-        model: this.openaiConfig.getEmbeddingModel(),
-        input: texts,
+      const response = await client.models.embedContent({
+        model: this.geminiConfig.getEmbeddingModel(),
+        contents: texts,
       });
 
-      return response.data.map((item) => item.embedding);
+      return (response.embeddings ?? []).map((item) => item.values ?? []);
     } catch (error: unknown) {
       console.error('Error generating embeddings:', error);
       throw new Error(

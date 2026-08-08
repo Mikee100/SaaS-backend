@@ -38,7 +38,10 @@ export class DataService {
       !needs.needsProducts &&
       !needs.needsCustomers &&
       !needs.needsCreditors &&
-      !needs.needsExpenses;
+      !needs.needsExpenses &&
+      !needs.needsPayroll &&
+      !needs.needsRestaurant &&
+      !needs.needsSalesTargets;
 
     // For pure general chat, only return a lightweight summary
     if (nothingNeeded) {
@@ -71,6 +74,18 @@ export class DataService {
     if (needs.needsExpenses) {
       tasks.push(this.getExpenseData(tenantId, branchId));
       keys.push('expenses');
+    }
+    if (needs.needsPayroll) {
+      tasks.push(this.getPayrollData(tenantId, branchId));
+      keys.push('payroll');
+    }
+    if (needs.needsRestaurant) {
+      tasks.push(this.getRestaurantData(tenantId, branchId));
+      keys.push('restaurant');
+    }
+    if (needs.needsSalesTargets) {
+      tasks.push(this.getSalesTargetData(tenantId, branchId));
+      keys.push('salesTargets');
     }
 
     try {
@@ -809,6 +824,189 @@ export class DataService {
         categoryBreakdown: [],
         recurringExpenses: [],
       };
+    }
+  }
+
+  async getPayrollData(tenantId: string, branchId: string): Promise<any> {
+    try {
+      const [schemes, totalAggregate] = await Promise.all([
+        this.prisma.salaryScheme.findMany({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            isActive: true,
+          },
+          select: {
+            employeeName: true,
+            salaryAmount: true,
+            frequency: true,
+            nextDueDate: true,
+            lastPaidDate: true,
+          },
+          orderBy: { salaryAmount: 'desc' },
+          take: 50,
+        }),
+        this.prisma.salaryScheme.aggregate({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            deletedAt: null,
+            isActive: true,
+          },
+          _sum: { salaryAmount: true },
+          _count: true,
+        }),
+      ]);
+
+      const monthlyTotal = schemes
+        .filter((s) => s.frequency === 'monthly')
+        .reduce((sum, s) => sum + s.salaryAmount, 0);
+      const yearlyTotal = schemes
+        .filter((s) => s.frequency === 'yearly')
+        .reduce((sum, s) => sum + s.salaryAmount, 0);
+
+      return {
+        employeeCount: totalAggregate._count || 0,
+        totalActiveSalaries: totalAggregate._sum.salaryAmount || 0,
+        monthlyPayrollTotal: monthlyTotal + yearlyTotal / 12,
+        schemes,
+      };
+    } catch (error) {
+      console.error('Error getting payroll data:', error);
+      return { employeeCount: 0, totalActiveSalaries: 0, schemes: [] };
+    }
+  }
+
+  async getRestaurantData(tenantId: string, branchId: string): Promise<any> {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      const [tables, recentOrders, topItems] = await Promise.all([
+        this.prisma.diningTable.findMany({
+          where: { tenantId, ...(branchId ? { branchId } : {}) },
+          select: { number: true, status: true, capacity: true },
+        }),
+        this.prisma.restaurantOrder.findMany({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            createdAt: { gte: thirtyDaysAgo },
+          },
+          select: {
+            status: true,
+            total: true,
+            customerName: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+        this.prisma.restaurantOrderItem.groupBy({
+          by: ['productId'],
+          where: {
+            order: {
+              tenantId,
+              ...(branchId ? { branchId } : {}),
+              createdAt: { gte: thirtyDaysAgo },
+            },
+          },
+          _sum: { quantity: true, price: true },
+          orderBy: { _sum: { quantity: 'desc' } },
+          take: 10,
+        }),
+      ]);
+
+      const tableStatusCounts = tables.reduce(
+        (acc: Record<string, number>, t) => {
+          acc[t.status] = (acc[t.status] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
+
+      const orderStatusCounts = recentOrders.reduce(
+        (acc: Record<string, number>, o) => {
+          acc[o.status] = (acc[o.status] || 0) + 1;
+          return acc;
+        },
+        {},
+      );
+
+      const productIds = topItems.map((i) => i.productId);
+      const products =
+        productIds.length > 0
+          ? await this.prisma.product.findMany({
+              where: { id: { in: productIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const productMap = Object.fromEntries(
+        products.map((p) => [p.id, p.name]),
+      );
+
+      return {
+        totalTables: tables.length,
+        tableStatusCounts,
+        totalOrdersLast30Days: recentOrders.length,
+        orderStatusCounts,
+        revenueLast30Days: recentOrders.reduce((sum, o) => sum + o.total, 0),
+        topItems: topItems.map((i) => ({
+          product: productMap[i.productId] || 'Unknown item',
+          quantitySold: i._sum.quantity || 0,
+        })),
+      };
+    } catch (error) {
+      console.error('Error getting restaurant data:', error);
+      return {
+        totalTables: 0,
+        tableStatusCounts: {},
+        totalOrdersLast30Days: 0,
+        orderStatusCounts: {},
+        topItems: [],
+      };
+    }
+  }
+
+  async getSalesTargetData(tenantId: string, branchId: string): Promise<any> {
+    try {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const [targets, monthlySales] = await Promise.all([
+        this.prisma.salesTarget.findMany({
+          where: { tenantId, deletedAt: null },
+          select: { name: true, target: true, daily: true, weekly: true, monthly: true },
+        }),
+        this.prisma.sale.aggregate({
+          where: {
+            tenantId,
+            ...(branchId ? { branchId } : {}),
+            createdAt: { gte: startOfMonth },
+          },
+          _sum: { total: true },
+        }),
+      ]);
+
+      const actualThisMonth = monthlySales._sum.total || 0;
+
+      return {
+        targets: targets.map((t) => ({
+          name: t.name,
+          target: t.target,
+          daily: t.daily,
+          weekly: t.weekly,
+          monthly: t.monthly,
+          actualThisMonth,
+          progressPercent:
+            t.monthly > 0 ? Math.round((actualThisMonth / t.monthly) * 100) : 0,
+        })),
+        actualThisMonth,
+      };
+    } catch (error) {
+      console.error('Error getting sales target data:', error);
+      return { targets: [], actualThisMonth: 0 };
     }
   }
 

@@ -6,7 +6,7 @@ import { TrialGuard } from '../auth/trial.guard';
 import { SubscriptionService } from '../billing/subscription.service';
 import { BillingService } from '../billing/billing.service';
 import { BackupModule } from '../backup/backup.module';
-import { OpenAIConfig } from './config/openai.config';
+import { GeminiConfig } from './config/gemini.config';
 import { ChatService } from './services/chat.service';
 import { DataService } from './services/data.service';
 
@@ -25,7 +25,7 @@ import { ContextSelectorService } from './services/context-selector.service';
     TrialGuard,
     SubscriptionService,
     BillingService,
-    OpenAIConfig,
+    GeminiConfig,
     ChatService,
     DataService,
     EmbeddingService,

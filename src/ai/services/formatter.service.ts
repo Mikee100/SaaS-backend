@@ -229,6 +229,81 @@ export class FormatterService {
     return p;
   }
 
+  formatPayrollData(payroll: unknown, name: string): string {
+    const payrollObj = this.asObject(payroll);
+    if (!payrollObj) return '';
+
+    let p = `\nPAYROLL (${name}):\n`;
+    p += `- Active Employees on Payroll: ${this.asNumber(payrollObj.employeeCount)}\n`;
+    p += `- Total Active Salaries (per pay period): ${this.asNumber(payrollObj.totalActiveSalaries)}\n`;
+    p += `- Estimated Monthly Payroll Cost: ${this.asNumber(payrollObj.monthlyPayrollTotal).toFixed(2)}\n`;
+
+    const schemes = this.asArray(payrollObj.schemes);
+    if (schemes.length > 0) {
+      p += `\nSalary Schemes:\n`;
+      schemes.slice(0, 15).forEach((scheme) => {
+        const s = this.asObject(scheme) ?? {};
+        p += `- ${this.asString(s.employeeName, 'Unknown')}: ${this.asNumber(s.salaryAmount)} / ${this.asString(s.frequency, 'monthly')}`;
+        const nextDueDate = this.asDateInput(s.nextDueDate);
+        if (nextDueDate) {
+          p += ` | Next due: ${new Date(nextDueDate).toLocaleDateString()}`;
+        }
+        p += `\n`;
+      });
+    }
+    return p;
+  }
+
+  formatRestaurantData(restaurant: unknown, name: string): string {
+    const restaurantObj = this.asObject(restaurant);
+    if (!restaurantObj) return '';
+
+    let p = `\nRESTAURANT OPERATIONS (${name}):\n`;
+    p += `- Total Tables: ${this.asNumber(restaurantObj.totalTables)}\n`;
+    const tableStatusCounts = this.asObject(restaurantObj.tableStatusCounts) ?? {};
+    Object.entries(tableStatusCounts).forEach(([status, count]) => {
+      p += `  - ${status}: ${this.asNumber(count)}\n`;
+    });
+    p += `- Orders (Last 30 days): ${this.asNumber(restaurantObj.totalOrdersLast30Days)}\n`;
+    p += `- Revenue (Last 30 days): ${this.asNumber(restaurantObj.revenueLast30Days)}\n`;
+
+    const orderStatusCounts = this.asObject(restaurantObj.orderStatusCounts) ?? {};
+    if (Object.keys(orderStatusCounts).length > 0) {
+      p += `\nOrder Status Breakdown:\n`;
+      Object.entries(orderStatusCounts).forEach(([status, count]) => {
+        p += `- ${status}: ${this.asNumber(count)}\n`;
+      });
+    }
+
+    const topItems = this.asArray(restaurantObj.topItems);
+    if (topItems.length > 0) {
+      p += `\nTop-Selling Dishes (Last 30 days):\n`;
+      topItems.slice(0, 10).forEach((item, i) => {
+        const it = this.asObject(item) ?? {};
+        p += `${i + 1}. ${this.asString(it.product, 'Unknown')}: ${this.asNumber(it.quantitySold)} sold\n`;
+      });
+    }
+    return p;
+  }
+
+  formatSalesTargetData(salesTargets: unknown, name: string): string {
+    const targetsObj = this.asObject(salesTargets);
+    if (!targetsObj) return '';
+
+    const targets = this.asArray(targetsObj.targets);
+    if (targets.length === 0) return '';
+
+    let p = `\nSALES TARGETS (${name}):\n`;
+    p += `- Actual Revenue This Month So Far: ${this.asNumber(targetsObj.actualThisMonth)}\n`;
+
+    p += `\nTargets:\n`;
+    targets.forEach((target) => {
+      const t = this.asObject(target) ?? {};
+      p += `- ${this.asString(t.name, 'Target')}: Monthly goal ${this.asNumber(t.monthly)}, achieved ${this.asNumber(t.progressPercent)}% so far (Daily: ${this.asNumber(t.daily)}, Weekly: ${this.asNumber(t.weekly)})\n`;
+    });
+    return p;
+  }
+
   formatGeneralInfo(context: unknown): string {
     const contextObj = this.asObject(context) ?? {};
     let p = '';

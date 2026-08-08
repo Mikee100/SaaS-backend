@@ -1,110 +1,116 @@
-import { ChatCompletionTool } from 'openai/resources/chat/completions';
+import { FunctionDeclaration, Type } from '@google/genai';
 
-export const AI_TOOLS: ChatCompletionTool[] = [
+export const AI_TOOLS: FunctionDeclaration[] = [
   {
-    type: 'function',
-    function: {
-      name: 'generate_chart',
-      description:
-        'Generate a visual chart or graph (sales trends, product performance, etc.)',
-      parameters: {
-        type: 'object',
-        properties: {
-          chartType: {
-            type: 'string',
-            enum: ['line', 'bar', 'pie', 'doughnut', 'area'],
-            description: 'The visual style of the chart',
-          },
-          dataType: {
-            type: 'string',
-            enum: ['sales', 'product', 'inventory', 'customer'],
-            description: 'The type of data to visualize',
-          },
-          period: {
-            type: 'string',
-            enum: ['7days', '30days', '90days', '1year'],
-            description: 'Time range for the data',
-          },
-          limit: {
-            type: 'number',
-            description: 'Number of items to show (e.g., top 10 products)',
-          },
+    name: 'generate_chart',
+    description:
+      'Generate a visual chart or graph (sales trends, product performance, etc.)',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        chartType: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: ['line', 'bar', 'pie', 'doughnut', 'area'],
+          description: 'The visual style of the chart',
         },
-        required: ['chartType', 'dataType'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generate_report',
-      description: 'Generate a downloadable report in Excel or CSV format',
-      parameters: {
-        type: 'object',
-        properties: {
-          reportType: {
-            type: 'string',
-            enum: ['sales', 'inventory', 'product'],
-            description: 'The content of the report',
-          },
-          format: {
-            type: 'string',
-            enum: ['xlsx', 'csv'],
-            description: 'File format of the report',
-          },
-          period: {
-            type: 'string',
-            enum: ['7days', '30days', '90days', '1year', 'all'],
-            description: 'Time frame for the report',
-          },
+        dataType: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: [
+            'sales',
+            'product',
+            'inventory',
+            'customer',
+            'payroll',
+            'restaurant',
+            'salesTargets',
+          ],
+          description: 'The type of data to visualize',
         },
-        required: ['reportType'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_inventory',
-      description: 'Adjust or restock inventory levels for a specific product',
-      parameters: {
-        type: 'object',
-        properties: {
-          productName: {
-            type: 'string',
-            description: 'Name of the product to update',
-          },
-          quantity: {
-            type: 'number',
-            description:
-              'The amount to add to current stock (use negative for removals)',
-          },
+        period: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: ['7days', '30days', '90days', '1year'],
+          description: 'Time range for the data',
         },
-        required: ['productName', 'quantity'],
+        limit: {
+          type: Type.NUMBER,
+          description: 'Number of items to show (e.g., top 10 products)',
+        },
       },
+      required: ['chartType', 'dataType'],
     },
   },
   {
-    type: 'function',
-    function: {
-      name: 'initiate_backup',
-      description: 'Trigger a manual backup of the system data',
-      parameters: {
-        type: 'object',
-        properties: {},
+    name: 'generate_report',
+    description: 'Generate a downloadable report in Excel or CSV format',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        reportType: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: [
+            'sales',
+            'inventory',
+            'product',
+            'payroll',
+            'restaurant',
+            'salesTargets',
+          ],
+          description: 'The content of the report',
+        },
+        format: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: ['xlsx', 'csv'],
+          description: 'File format of the report',
+        },
+        period: {
+          type: Type.STRING,
+          format: 'enum',
+          enum: ['7days', '30days', '90days', '1year', 'all'],
+          description: 'Time frame for the report',
+        },
       },
+      required: ['reportType'],
     },
   },
   {
-    type: 'function',
-    function: {
-      name: 'get_system_status',
-      description:
-        'Check the current status of the database and key system metrics',
-      parameters: {
-        type: 'object',
-        properties: {},
+    name: 'update_inventory',
+    description: 'Adjust or restock inventory levels for a specific product',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        productName: {
+          type: Type.STRING,
+          description: 'Name of the product to update',
+        },
+        quantity: {
+          type: Type.NUMBER,
+          description:
+            'The amount to add to current stock (use negative for removals)',
+        },
       },
+      required: ['productName', 'quantity'],
+    },
+  },
+  {
+    name: 'initiate_backup',
+    description: 'Trigger a manual backup of the system data',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: 'get_system_status',
+    description:
+      'Check the current status of the database and key system metrics',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
     },
   },
 ];

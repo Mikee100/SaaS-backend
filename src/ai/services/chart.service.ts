@@ -117,6 +117,61 @@ export class ChartService {
     });
   }
 
+  private getSalarySchemes(
+    data: unknown,
+  ): Array<{ employeeName: string; salaryAmount: number }> {
+    const obj = this.asObject(data);
+    const list = obj?.schemes;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        employeeName: this.asString(row?.employeeName, 'Unnamed employee'),
+        salaryAmount: this.asNumber(row?.salaryAmount, 0),
+      };
+    });
+  }
+
+  private getTopDishes(
+    data: unknown,
+  ): Array<{ product: string; quantitySold: number }> {
+    const obj = this.asObject(data);
+    const list = obj?.topItems;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        product: this.asString(row?.product, 'Unnamed item'),
+        quantitySold: this.asNumber(row?.quantitySold, 0),
+      };
+    });
+  }
+
+  private getSalesTargets(
+    data: unknown,
+  ): Array<{ name: string; monthly: number; actualThisMonth: number }> {
+    const obj = this.asObject(data);
+    const list = obj?.targets;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list.map((item) => {
+      const row = this.asObject(item);
+      return {
+        name: this.asString(row?.name, 'Target'),
+        monthly: this.asNumber(row?.monthly, 0),
+        actualThisMonth: this.asNumber(row?.actualThisMonth, 0),
+      };
+    });
+  }
+
   async generateSalesChart(
     tenantId: string,
     branchId: string,
@@ -562,6 +617,278 @@ export class ChartService {
                 },
               }
             : undefined,
+      },
+    };
+  }
+
+  async generatePayrollChart(
+    tenantId: string,
+    branchId: string,
+    chartType: 'bar' | 'pie' | 'doughnut' = 'bar',
+    limit: number = 10,
+  ): Promise<ChartConfig> {
+    const rawPayrollData: unknown = await this.dataService.getPayrollData(
+      tenantId,
+      branchId,
+    );
+    const schemes = this.getSalarySchemes(rawPayrollData)
+      .sort((a, b) => b.salaryAmount - a.salaryAmount)
+      .slice(0, limit);
+
+    const labels = schemes.map((s) => s.employeeName);
+    const data = schemes.map((s) => s.salaryAmount);
+
+    const colors = [
+      'rgba(59, 130, 246, 0.8)',
+      'rgba(16, 185, 129, 0.8)',
+      'rgba(245, 158, 11, 0.8)',
+      'rgba(239, 68, 68, 0.8)',
+      'rgba(139, 92, 246, 0.8)',
+      'rgba(236, 72, 153, 0.8)',
+      'rgba(20, 184, 166, 0.8)',
+      'rgba(251, 146, 60, 0.8)',
+      'rgba(99, 102, 241, 0.8)',
+      'rgba(168, 85, 247, 0.8)',
+    ];
+
+    return {
+      type: chartType,
+      title: 'Payroll by Employee',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Salary',
+            data,
+            backgroundColor:
+              chartType === 'bar' ? colors[0] : colors.slice(0, limit),
+            borderColor:
+              chartType === 'bar' ? 'rgba(59, 130, 246, 1)' : '#ffffff',
+            borderWidth: chartType === 'bar' ? 0 : 2,
+            borderRadius: chartType === 'bar' ? 6 : 0,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: chartType !== 'bar',
+            position: 'right',
+            labels: {
+              font: { family: "'Inter', sans-serif", size: 12 },
+              usePointStyle: true,
+              padding: 20,
+            },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          },
+        },
+        scales:
+          chartType === 'bar'
+            ? {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                  },
+                },
+                x: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                    maxRotation: 45,
+                    minRotation: 45,
+                  },
+                },
+              }
+            : undefined,
+      },
+    };
+  }
+
+  async generateRestaurantChart(
+    tenantId: string,
+    branchId: string,
+    chartType: 'bar' | 'pie' | 'doughnut' = 'bar',
+    limit: number = 10,
+  ): Promise<ChartConfig> {
+    const rawRestaurantData: unknown = await this.dataService.getRestaurantData(
+      tenantId,
+      branchId,
+    );
+    const dishes = this.getTopDishes(rawRestaurantData)
+      .sort((a, b) => b.quantitySold - a.quantitySold)
+      .slice(0, limit);
+
+    const labels = dishes.map((d) => d.product);
+    const data = dishes.map((d) => d.quantitySold);
+
+    const colors = [
+      'rgba(245, 158, 11, 0.8)',
+      'rgba(239, 68, 68, 0.8)',
+      'rgba(16, 185, 129, 0.8)',
+      'rgba(59, 130, 246, 0.8)',
+      'rgba(139, 92, 246, 0.8)',
+      'rgba(236, 72, 153, 0.8)',
+      'rgba(20, 184, 166, 0.8)',
+      'rgba(251, 146, 60, 0.8)',
+      'rgba(99, 102, 241, 0.8)',
+      'rgba(168, 85, 247, 0.8)',
+    ];
+
+    return {
+      type: chartType,
+      title: `Top ${limit} Dishes by Units Sold`,
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Units Sold',
+            data,
+            backgroundColor:
+              chartType === 'bar' ? colors[0] : colors.slice(0, limit),
+            borderColor:
+              chartType === 'bar' ? 'rgba(245, 158, 11, 1)' : '#ffffff',
+            borderWidth: chartType === 'bar' ? 0 : 2,
+            borderRadius: chartType === 'bar' ? 6 : 0,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: chartType !== 'bar',
+            position: 'right',
+            labels: {
+              font: { family: "'Inter', sans-serif", size: 12 },
+              usePointStyle: true,
+              padding: 20,
+            },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          },
+        },
+        scales:
+          chartType === 'bar'
+            ? {
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(0, 0, 0, 0.04)' },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                  },
+                },
+                x: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    font: { family: "'Inter', sans-serif", size: 11 },
+                    color: '#6B7280',
+                    maxRotation: 45,
+                    minRotation: 45,
+                  },
+                },
+              }
+            : undefined,
+      },
+    };
+  }
+
+  async generateSalesTargetChart(
+    tenantId: string,
+    branchId: string,
+  ): Promise<ChartConfig> {
+    const rawTargetData: unknown = await this.dataService.getSalesTargetData(
+      tenantId,
+      branchId,
+    );
+    const targets = this.getSalesTargets(rawTargetData);
+
+    const labels = targets.map((t) => t.name);
+
+    return {
+      type: 'bar',
+      title: 'Sales Targets: Actual vs Goal (This Month)',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Actual',
+            data: targets.map((t) => t.actualThisMonth),
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderWidth: 0,
+            borderRadius: 6,
+            borderSkipped: false,
+          },
+          {
+            label: 'Target',
+            data: targets.map((t) => t.monthly),
+            backgroundColor: 'rgba(59, 130, 246, 0.4)',
+            borderWidth: 0,
+            borderRadius: 6,
+            borderSkipped: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              font: { family: "'Inter', sans-serif", size: 12 },
+              usePointStyle: true,
+              padding: 16,
+            },
+          },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.9)',
+            padding: 12,
+            cornerRadius: 8,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0, 0, 0, 0.04)' },
+            border: { display: false },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              color: '#6B7280',
+            },
+          },
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              font: { family: "'Inter', sans-serif", size: 11 },
+              color: '#6B7280',
+              maxRotation: 45,
+              minRotation: 45,
+            },
+          },
+        },
       },
     };
   }

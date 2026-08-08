@@ -160,6 +160,8 @@ async function bootstrap() {
         'If-Modified-Since',
         'Accept-Language',
         'Accept-Encoding',
+        'x-mfa-enroll-token',
+        'x-mfa-pending-token',
       ],
       exposedHeaders: [
         'Content-Length',
