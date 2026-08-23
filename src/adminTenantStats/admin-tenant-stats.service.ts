@@ -1,130 +1,106 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-
-interface TenantSpaceRow {
-  tenantId: string | null;
-  bytes_used: string;
-}
 
 @Injectable()
 export class AdminTenantStatsService {
+  private readonly logger = new Logger(AdminTenantStatsService.name);
+  private readonly estimatedBytesPerRecord = {
+    users: 1200,
+    products: 1800,
+    sales: 1600,
+    branches: 900,
+  } as const;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getTenantSpace(tenantId: string): Promise<number> {
-    const tables = [
-      {
-        name: 'User',
-        displayName: 'Users',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "User" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Product',
-        displayName: 'Products',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Product" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Inventory',
-        displayName: 'Inventory',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Inventory" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Sale',
-        displayName: 'Transactions',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Sale" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'MpesaTransaction',
-        displayName: 'M-Pesa Transactions',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "MpesaTransaction" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Invoice',
-        displayName: 'Invoices',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Invoice" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Payment',
-        displayName: 'Payments',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Payment" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'PaymentMethod',
-        displayName: 'Payment Methods',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "PaymentMethod" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Branch',
-        displayName: 'Branches',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Branch" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Notification',
-        displayName: 'Notifications',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Notification" t WHERE "tenantId" = $1`,
-      },
-    ];
+    const [userCount, productCount, salesCount, branchCount] =
+      await Promise.all([
+        this.prisma.user.count({ where: { tenantId } }),
+        this.prisma.product.count({ where: { tenantId, deletedAt: null } }),
+        this.prisma.sale.count({ where: { tenantId } }),
+        this.prisma.branch.count({ where: { tenantId } }),
+      ]);
 
-    let totalBytes = 0;
-    for (const table of tables) {
-      try {
-        const rows = await this.prisma.$queryRawUnsafe<TenantSpaceRow[]>(
-          table.query,
-          tenantId,
-        );
-        const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
-        totalBytes += bytes;
-      } catch (error: unknown) {
-        // Skip tables that don't exist or query fails
-        console.warn(
-          `Failed to query table ${table.name} for tenant ${tenantId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-      }
-    }
-    return totalBytes;
+    return (
+      userCount * this.estimatedBytesPerRecord.users +
+      productCount * this.estimatedBytesPerRecord.products +
+      salesCount * this.estimatedBytesPerRecord.sales +
+      branchCount * this.estimatedBytesPerRecord.branches
+    );
   }
 
   async getAllTenantStats() {
-    // Fetch all tenant metadata
-    const tenants = await this.prisma.tenant.findMany();
+    try {
+      // Fetch all tenant metadata
+      const tenants = await this.prisma.tenant.findMany();
 
-    // Calculate space for each tenant using the same method as getTenantById
-    const tenantStats = await Promise.all(
-      tenants.map(async (tenant) => {
-        const [bytes, activeVariationCount, nonVariationProductCount] =
-          await Promise.all([
-            this.getTenantSpace(tenant.id),
-            this.prisma.productVariation.count({
-              where: {
-                tenantId: tenant.id,
-                isActive: true,
-                deletedAt: null,
-              },
-            }),
-            this.prisma.product.count({
-              where: {
-                tenantId: tenant.id,
-                deletedAt: null,
-                variations: {
-                  none: {
-                    isActive: true,
-                    deletedAt: null,
+      // Calculate space for each tenant using the same method as getTenantById
+      const tenantStats = await Promise.all(
+        tenants.map(async (tenant) => {
+          const [bytes, activeVariationCount, nonVariationProductCount] =
+            await Promise.all([
+              this.getTenantSpace(tenant.id),
+              this.prisma.productVariation.count({
+                where: {
+                  tenantId: tenant.id,
+                  isActive: true,
+                  deletedAt: null,
+                },
+              }),
+              this.prisma.product.count({
+                where: {
+                  tenantId: tenant.id,
+                  deletedAt: null,
+                  variations: {
+                    none: {
+                      isActive: true,
+                      deletedAt: null,
+                    },
                   },
                 },
-              },
-            }),
-          ]);
+              }),
+            ]);
 
-        const productCount = activeVariationCount + nonVariationProductCount;
+          const productCount = activeVariationCount + nonVariationProductCount;
 
-        return {
-          ...tenant,
-          tenantId: tenant.id,
-          spaceUsedMB: (bytes / (1024 * 1024)).toFixed(2),
-          productCount,
-        };
-      }),
-    );
+          return {
+            ...tenant,
+            tenantId: tenant.id,
+            spaceUsedMB: (bytes / (1024 * 1024)).toFixed(2),
+            productCount,
+          };
+        }),
+      );
 
-    return tenantStats;
+      return tenantStats;
+    } catch (error) {
+      if (this.isTransientPrismaConnectionError(error)) {
+        this.logger.warn(
+          'Database is temporarily unreachable while computing tenant stats. Returning an empty stats list.',
+        );
+        return [];
+      }
+
+      throw error;
+    }
   }
+
+  private isTransientPrismaConnectionError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === 'P1001' || prismaError.code === 'P2024') {
+      return true;
+    }
+
+    const msg = (prismaError.message || '').toLowerCase();
+    return (
+      msg.includes("can't reach database server") ||
+      msg.includes('timed out fetching a new connection from the connection pool')
+    );
+  }
+
 }

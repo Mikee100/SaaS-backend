@@ -663,6 +663,73 @@ export class AdminController {
     return this.adminService.getTenantBranches(tenantId);
   }
 
+  @Get('tenants/:id/users')
+  async getTenantUsers(@Param('id') tenantId: string) {
+    this.logger.log(
+      `AdminController: getTenantUsers called with tenantId: ${tenantId}`,
+    );
+    return this.adminService.getTenantUsersForAdmin(tenantId);
+  }
+
+  @Post('tenants/:tenantId/users/:userId/reset-temporary-password')
+  async resetTenantUserTemporaryPassword(
+    @Param('tenantId') tenantId: string,
+    @Param('userId') userId: string,
+    @Req() req: ExpressRequest,
+  ) {
+    this.logger.log(
+      `AdminController: resetTenantUserTemporaryPassword called with tenantId: ${tenantId}, userId: ${userId}`,
+    );
+
+    const result = await this.adminService.resetTenantUserTemporaryPassword(
+      tenantId,
+      userId,
+    );
+
+    await this.auditLogService.log(
+      this.getActorUserId(req),
+      'superadmin_tenant_user_temp_password_reset',
+      {
+        tenantId,
+        targetUserId: result.userId,
+        targetUserEmail: result.email,
+      },
+      this.getRequestIp(req),
+    );
+
+    return result;
+  }
+
+  @Post('tenants/:tenantId/reset-contact-temporary-password')
+  async resetTenantContactTemporaryPassword(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { email?: string },
+    @Req() req: ExpressRequest,
+  ) {
+    const email = String(body?.email || '').trim();
+    if (!email) {
+      throw new BadRequestException('email is required');
+    }
+
+    const result = await this.adminService.resetTenantContactTemporaryPassword(
+      tenantId,
+      email,
+    );
+
+    await this.auditLogService.log(
+      this.getActorUserId(req),
+      'superadmin_tenant_contact_temp_password_reset',
+      {
+        tenantId,
+        targetUserId: result.userId,
+        targetUserEmail: result.email,
+      },
+      this.getRequestIp(req),
+    );
+
+    return result;
+  }
+
   @Get('classifications')
   async getClassifications(@Query('includeInactive') includeInactive?: string) {
     return this.classificationService.findAllClassifications(

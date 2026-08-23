@@ -195,21 +195,21 @@ export class UserService {
       `Assigned role to user: userRoleId=${userRole.id}, userId=${user.id}, roleId=${role.id}, tenantId=${data.tenantId}`,
     );
 
-    // Automatically assign all permissions to owner role
-    if (role.name === 'owner') {
-      const permissions = await prisma.permission.findMany();
-      for (const perm of permissions) {
-        const exists = await prisma.rolePermission.findFirst({
-          where: { roleId: role.id, permissionId: perm.id },
+    // Automatically assign all permissions to owner role using one bulk write.
+    // This avoids many round-trips during tenant signup and is safer on hosted DBs.
+    if (role.name?.toLowerCase() === 'owner') {
+      const permissions = await prisma.permission.findMany({
+        select: { id: true },
+      });
+
+      if (permissions.length > 0) {
+        await prisma.rolePermission.createMany({
+          data: permissions.map((perm) => ({
+            roleId: role.id,
+            permissionId: perm.id,
+          })),
+          skipDuplicates: true,
         });
-        if (!exists) {
-          await prisma.rolePermission.create({
-            data: {
-              roleId: role.id,
-              permissionId: perm.id,
-            },
-          });
-        }
       }
     }
 

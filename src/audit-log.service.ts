@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 @Injectable()
 export class AuditLogService {
   private auditTableUnavailable = false;
+  private auditDbUnavailableUntil = 0;
 
   constructor(private prisma: PrismaService) {}
 
@@ -20,20 +21,24 @@ export class AuditLogService {
       return null;
     }
 
-    const prisma = prismaClient || this.prisma;
-
-    // Validate userId exists if provided
-    if (userId) {
-      const userExists = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true },
-      });
-      if (!userExists) {
-        userId = null; // Set to null if user doesn't exist
-      }
+    if (Date.now() < this.auditDbUnavailableUntil) {
+      return null;
     }
 
+    const prisma = prismaClient || this.prisma;
+
     try {
+      // Validate userId exists if provided
+      if (userId) {
+        const userExists = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        });
+        if (!userExists) {
+          userId = null;
+        }
+      }
+
       return await prisma.auditLog.create({
         data: {
           id: uuidv4(),
@@ -53,7 +58,17 @@ export class AuditLogService {
         return null;
       }
 
-      throw error;
+      if (this.isTransientAuditDbError(error)) {
+        this.auditDbUnavailableUntil = Date.now() + 30_000;
+        console.warn(
+          '[AuditLogService] AuditLog write skipped due to transient DB connectivity issue. Will retry after cooldown.',
+        );
+        return null;
+      }
+
+      // Audit logging must never break business requests.
+      console.error('[AuditLogService] AuditLog write failed:', error);
+      return null;
     }
   }
 
@@ -98,6 +113,28 @@ export class AuditLogService {
     return (
       prismaError.meta?.modelName === 'AuditLog' ||
       prismaError.meta?.table === 'public.AuditLog'
+    );
+  }
+
+  private isTransientAuditDbError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const prismaError = error as {
+      code?: string;
+      message?: string;
+    };
+
+    if (prismaError.code === 'P1001' || prismaError.code === 'P2024') {
+      return true;
+    }
+
+    const message = prismaError.message?.toLowerCase() ?? '';
+    return (
+      message.includes('can\'t reach database server') ||
+      message.includes('timed out fetching a new connection from the connection pool') ||
+      message.includes('prepared statement')
     );
   }
 }

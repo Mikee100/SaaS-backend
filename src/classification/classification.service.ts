@@ -40,6 +40,11 @@ type DefaultClassificationTemplate = {
 
 @Injectable()
 export class ClassificationService {
+  private defaultsChecked = false;
+  private defaultsCheckInFlight: Promise<void> | null = null;
+  private lastDefaultsCheckAt = 0;
+  private readonly defaultsCheckCooldownMs = 5 * 60 * 1000;
+
   constructor(private prisma: PrismaService) {}
 
   private readonly defaultClassificationTemplates: DefaultClassificationTemplate[] =
@@ -396,6 +401,41 @@ export class ClassificationService {
 
   async bootstrapDefaultClassifications() {
     return this.ensureDefaultClassifications();
+  }
+
+  private async ensureDefaultClassificationsIfNeeded(): Promise<void> {
+    const now = Date.now();
+    if (
+      this.defaultsChecked &&
+      now - this.lastDefaultsCheckAt < this.defaultsCheckCooldownMs
+    ) {
+      return;
+    }
+
+    if (this.defaultsCheckInFlight) {
+      await this.defaultsCheckInFlight;
+      return;
+    }
+
+    this.defaultsCheckInFlight = (async () => {
+      try {
+        const existingSystemCount =
+          await this.prisma.businessClassification.count({
+            where: { isSystem: true },
+          });
+
+        if (existingSystemCount === 0) {
+          await this.ensureDefaultClassifications();
+        }
+
+        this.defaultsChecked = true;
+        this.lastDefaultsCheckAt = Date.now();
+      } finally {
+        this.defaultsCheckInFlight = null;
+      }
+    })();
+
+    await this.defaultsCheckInFlight;
   }
 
   private readonly fallbackVariantTemplates: AttributeTemplate[] = [
@@ -755,7 +795,7 @@ export class ClassificationService {
   // ─── Classifications ─────────────────────────────────────────
 
   async findAllClassifications(includeInactive = false) {
-    await this.ensureDefaultClassifications();
+    await this.ensureDefaultClassificationsIfNeeded();
 
     return this.prisma.businessClassification.findMany({
       where: includeInactive ? {} : { isActive: true },

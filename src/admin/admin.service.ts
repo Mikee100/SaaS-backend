@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { AdminRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { BillingService } from '../billing/billing.service';
 import { EmailService } from '../email/email.service';
@@ -17,6 +18,7 @@ import { TenantService } from '../tenant/tenant.service';
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+  private static readonly DEFAULT_TENANT_RESET_PASSWORD = 'password123@';
 
   constructor(
     private readonly billingService: BillingService,
@@ -57,69 +59,109 @@ export class AdminService {
   async getPlatformStats() {
     this.logger.log('AdminService: getPlatformStats called');
 
-    // Get all counts in parallel
-    const [
-      totalTenants,
-      totalUsers,
-      totalProducts,
-      totalSales,
-      activeSubscriptions,
-      tenantSpaceUsage,
-    ] = await Promise.all([
-      this.prisma.tenant.count(),
-      this.prisma.user.count(),
-      this.getPhysicalProductCount(),
-      this.prisma.sale.count(),
-      this.prisma.subscription.count({
+    try {
+      // Get all counts in parallel
+      const [
+        totalTenants,
+        totalUsers,
+        totalProducts,
+        totalSales,
+        activeSubscriptions,
+        tenantSpaceUsage,
+      ] = await Promise.all([
+        this.prisma.tenant.count(),
+        this.prisma.user.count(),
+        this.getPhysicalProductCount(),
+        this.prisma.sale.count(),
+        this.prisma.subscription.count({
+          where: { status: 'active' },
+        }),
+        this.adminTenantStatsService.getAllTenantStats(),
+      ]);
+
+      // Calculate total revenue from all sales
+      const salesData = await this.prisma.sale.findMany({
+        select: { total: true },
+      });
+      const totalRevenue = salesData.reduce((sum, sale) => sum + sale.total, 0);
+
+      // Calculate total MRR from active subscriptions
+      const activeSubsWithPlans = await this.prisma.subscription.findMany({
         where: { status: 'active' },
-      }),
-      this.adminTenantStatsService.getAllTenantStats(),
-    ]);
+        include: { Plan: true },
+      });
 
-    // Calculate total revenue from all sales
-    const salesData = await this.prisma.sale.findMany({
-      select: { total: true },
-    });
-    const totalRevenue = salesData.reduce((sum, sale) => sum + sale.total, 0);
+      const totalMRR = activeSubsWithPlans.reduce((total, sub) => {
+        if (sub.Plan) {
+          const monthlyPrice =
+            sub.Plan.interval === 'yearly'
+              ? sub.Plan.price / 12
+              : sub.Plan.price;
+          return total + monthlyPrice;
+        }
+        return total;
+      }, 0);
 
-    // Calculate total MRR from active subscriptions
-    const activeSubsWithPlans = await this.prisma.subscription.findMany({
-      where: { status: 'active' },
-      include: { Plan: true },
-    });
+      // Calculate total storage
+      const totalStorage = tenantSpaceUsage.reduce(
+        (sum, tenant) => sum + parseFloat(tenant.spaceUsedMB || '0'),
+        0,
+      );
 
-    const totalMRR = activeSubsWithPlans.reduce((total, sub) => {
-      if (sub.Plan) {
-        const monthlyPrice =
-          sub.Plan.interval === 'yearly' ? sub.Plan.price / 12 : sub.Plan.price;
-        return total + monthlyPrice;
+      // Count tenants near capacity (over 80% usage)
+      const nearCapacityTenants = tenantSpaceUsage.filter((tenant) => {
+        // This is a simplified check - you might want to check actual plan limits
+        return parseFloat(tenant.spaceUsedMB || '0') > 80;
+      }).length;
+
+      return {
+        totalTenants,
+        totalUsers,
+        totalProducts,
+        totalSales,
+        totalRevenue,
+        activeSubscriptions,
+        totalStorage: totalStorage * 1024 * 1024, // Convert MB to bytes
+        nearCapacityTenants,
+        totalMRR: Math.round(totalMRR * 100) / 100,
+      };
+    } catch (error) {
+      if (this.isTransientPrismaConnectionError(error)) {
+        this.logger.warn(
+          'Database is temporarily unreachable while loading platform stats. Returning safe fallback values.',
+        );
+        return {
+          totalTenants: 0,
+          totalUsers: 0,
+          totalProducts: 0,
+          totalSales: 0,
+          totalRevenue: 0,
+          activeSubscriptions: 0,
+          totalStorage: 0,
+          nearCapacityTenants: 0,
+          totalMRR: 0,
+        };
       }
-      return total;
-    }, 0);
 
-    // Calculate total storage
-    const totalStorage = tenantSpaceUsage.reduce(
-      (sum, tenant) => sum + parseFloat(tenant.spaceUsedMB || '0'),
-      0,
+      throw error;
+    }
+  }
+
+  private isTransientPrismaConnectionError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    const prismaError = error as { code?: string; message?: string };
+    if (prismaError.code === 'P1001' || prismaError.code === 'P2024') {
+      return true;
+    }
+
+    const msg = (prismaError.message || '').toLowerCase();
+    return (
+      msg.includes("can't reach database server") ||
+      msg.includes('timed out fetching a new connection from the connection pool')
     );
-
-    // Count tenants near capacity (over 80% usage)
-    const nearCapacityTenants = tenantSpaceUsage.filter((tenant) => {
-      // This is a simplified check - you might want to check actual plan limits
-      return parseFloat(tenant.spaceUsedMB || '0') > 80;
-    }).length;
-
-    return {
-      totalTenants,
-      totalUsers,
-      totalProducts,
-      totalSales,
-      totalRevenue,
-      activeSubscriptions,
-      totalStorage: totalStorage * 1024 * 1024, // Convert MB to bytes
-      nearCapacityTenants,
-      totalMRR: Math.round(totalMRR * 100) / 100,
-    };
   }
 
   async getRevenueHistory(months: number = 12) {
@@ -432,80 +474,25 @@ export class AdminService {
       `AdminService: Counts for tenant ${tenantId}: users=${userCount}, products=${productCount}, sales=${salesCount}, branches=${branchCount}`,
     );
 
-    // Calculate space used for this tenant
-    let totalBytes = 0;
-    const resourceSpaceUsage: Record<string, number> = {};
+    // Estimate DB space using schema-safe record counts to avoid raw SQL table-name drift.
+    const estimatedBytesPerRecord = {
+      users: 1200,
+      products: 1800,
+      sales: 1600,
+      branches: 900,
+    } as const;
 
-    // Query each table individually, with error handling for missing tables
-    const tables = [
-      {
-        name: 'User',
-        displayName: 'Users',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "User" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Product',
-        displayName: 'Products',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Product" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Inventory',
-        displayName: 'Inventory',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Inventory" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Sale',
-        displayName: 'Transactions',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Sale" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'MpesaTransaction',
-        displayName: 'M-Pesa Transactions',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "MpesaTransaction" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Invoice',
-        displayName: 'Invoices',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Invoice" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Payment',
-        displayName: 'Payments',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Payment" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'PaymentMethod',
-        displayName: 'Payment Methods',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "PaymentMethod" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Branch',
-        displayName: 'Branches',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Branch" t WHERE "tenantId" = $1`,
-      },
-      {
-        name: 'Notification',
-        displayName: 'Notifications',
-        query: `SELECT SUM(pg_column_size(t)) AS "bytes_used" FROM "Notification" t WHERE "tenantId" = $1`,
-      },
-    ];
+    const resourceSpaceUsage: Record<string, number> = {
+      Users: userCount * estimatedBytesPerRecord.users,
+      Products: productCount * estimatedBytesPerRecord.products,
+      Transactions: salesCount * estimatedBytesPerRecord.sales,
+      Branches: branchCount * estimatedBytesPerRecord.branches,
+    };
 
-    for (const table of tables) {
-      try {
-        const rows = await this.prisma.$queryRawUnsafe<
-          Array<{ bytes_used: string | null }>
-        >(table.query, tenantId);
-        const bytes = rows[0]?.bytes_used ? Number(rows[0].bytes_used) : 0;
-        totalBytes += bytes;
-        resourceSpaceUsage[table.displayName] = bytes;
-      } catch (error: unknown) {
-        this.logger.warn(
-          `Failed to query table ${table.name} for tenant ${tenantId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-        resourceSpaceUsage[table.displayName] = 0;
-        // Skip this table if it doesn't exist or query fails
-      }
-    }
+    const totalBytes = Object.values(resourceSpaceUsage).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
 
     const spaceUsedMB = (totalBytes / (1024 * 1024)).toFixed(2);
 
@@ -631,6 +618,160 @@ export class AdminService {
     );
 
     return branches;
+  }
+
+  async getTenantUsersForAdmin(tenantId: string) {
+    this.logger.log(
+      `AdminService: getTenantUsersForAdmin called with tenantId: ${tenantId}`,
+    );
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { tenantId },
+          {
+            userRoles: {
+              some: {
+                tenantId,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isDisabled: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users;
+  }
+
+  async resetTenantUserTemporaryPassword(tenantId: string, userId: string) {
+    this.logger.log(
+      `AdminService: resetTenantUserTemporaryPassword called with tenantId: ${tenantId}, userId: ${userId}`,
+    );
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        OR: [
+          { tenantId },
+          {
+            userRoles: {
+              some: {
+                tenantId,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isDisabled: true,
+        tenantId: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found for this tenant');
+    }
+
+    const tempPassword = AdminService.DEFAULT_TENANT_RESET_PASSWORD;
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        tenantId,
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return {
+      userId: user.id,
+      userName: user.name,
+      email: user.email,
+      temporaryPassword: tempPassword,
+    };
+  }
+
+  async resetTenantContactTemporaryPassword(tenantId: string, email: string) {
+    this.logger.log(
+      `AdminService: resetTenantContactTemporaryPassword called with tenantId: ${tenantId}, email: ${email}`,
+    );
+
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new BadRequestException('Email is required');
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, contactEmail: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        tenantId: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No user found with that email');
+    }
+
+    let targetUserId = user.id;
+
+    if (user.tenantId !== tenantId) {
+      const tenantUserCount = await this.prisma.user.count({
+        where: { tenantId },
+      });
+
+      const canAutoRelink =
+        tenantUserCount === 0 &&
+        (tenant.contactEmail || '').trim().toLowerCase() === normalizedEmail;
+
+      if (!canAutoRelink) {
+        throw new BadRequestException(
+          'User is not linked to this tenant. Use the tenant user selector reset instead.',
+        );
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { tenantId, updatedAt: new Date() },
+      });
+      targetUserId = user.id;
+    }
+
+    return this.resetTenantUserTemporaryPassword(tenantId, targetUserId);
   }
 
   async switchToTenant(tenantId: string) {
